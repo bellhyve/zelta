@@ -1,0 +1,83 @@
+#!/usr/bin/awk -f
+
+function snapcmd(arg) {
+    if (!split(arg, snap, ":")) exit
+    if (snap[2]) {
+        cmdpre = "ssh " snap[1] " "
+        snapvol = snap[2];
+    } else {
+        cmdpre = ""
+        snapvol = snap[1]
+    }
+    vollength = length(snapvol) + 1
+    return cmdpre "zfs list -Hroname,guid -Htsnap -Screation '" snapvol "'"
+}
+
+BEGIN {
+    FS="\t"
+    if ("ZMATCH_VERBOSE" in ENVIRON) { VERBOSE = ENVIRON["ZMATCH_VERBOSE"] }
+    else if (!system("tty -s")) { VERBOSE++ }
+
+    # Get snapshots for source
+    while  (snapcmd(ARGV[1]) | getline) {
+	thisSnap = substr($1, vollength)
+        sendguids[thisSnap] = $2
+	split(thisSnap, volSplit, "@")
+	thisSubVol = volSplit[1]
+	if (!(sendVolCount[thisSubVol]++)) {
+	    sendLatest[thisSubVol] = thisSnap
+	    sendOrder[++sendNum] = thisSubVol
+	}
+	sendsnaps[thisSubVol volCount[thisSubVol]] = thisSnap
+
+    }
+    close(snapcmd(ARGV[1]))
+
+    # Get snapshots for destination
+    while  (snapcmd(ARGV[2]) | getline) {
+	thisSnap = substr($1, vollength)
+        recvguids[thisSnap] = $2
+	split(thisSnap, volSplit, "@")
+	thisSubVol = volSplit[1]
+	if (matches[thisSubVol]) { continue }
+	recvVolCount[thisSubVol]++
+        if (sendguids[thisSnap]) {
+            if (sendguids[thisSnap] == recvguids[thisSnap]) {
+                matches[thisSubVol]++
+                if (thisSnap == sendLatest[thisSubVol]) {
+		    if (VERBOSE) { print "target has latest source snapshot: " thisSnap }
+                } else if (guidError[thisSubVol]) {
+		    print "latest common snapshot: " thisSnap | "cat 1>&2"
+	        } else if (recvVolCount[thisSubVol] == 1) {
+		    if (VERBOSE) { printf "match: " }
+		    printf thisSnap "\t"
+		    if (VERBOSE) { printf "\tlatest source snapshot: " }
+		    print sendLatest[thisSubVol]
+		}
+		continue
+            } else {
+	        print "guid mismatch on: " thisSnap | "cat 1>&2"
+		guidError[thisSubVol]++
+            }
+        } else {
+	    if (!(matchError[thisSubVol]++)) {
+		if (sendVolCount[thisSubVol]) {
+	            print "target snapshot not on source: " thisSnap | "cat 1>&2"
+	        } else {
+		    if (VERBOSE) { print "child volume not on source: " thisSnap | "cat 1>&2" }
+		}
+	    }
+        }
+    }
+    close(snapcmd(ARGV[2]))
+
+    # List latest source snapshots for volumes not on the target
+    for (i = 1; i <= sendNum; i++) {
+        subvol = sendOrder[i]
+        if (!(subvol in recvVolCount)) {
+            if (VERBOSE) { printf "source only snapshot: " }
+	    print sendLatest[subvol]
+        }
+    }
+
+}
