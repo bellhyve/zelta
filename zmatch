@@ -17,15 +17,16 @@
 #   - Matching snapshot names with different GUIDs
 #   - Newer target snapshots not on the source
 #
-# When not called via a tty or environemnt variable ZELTA_SCRIPT is 1, less output is
-# provided, and full source snapshot names are provided (for streaming to replication
-# tools like zpull):
+# ENVIRONMENT VARIABLES
+#
+# ZELTA_PIPE: When set to 1, we provide full snapshot names and simplify the output as
+# follows:
 #   - No output is provided for an up-to-date match.
 #   - A single snapshot indicates the volume is missing on the target.
-#   - A tab separated pair of snapshots indicates the out-of-date match and the latest
+#   - A tab separated pair of snapshots indicates the out-of-date match and the latest.
 #
-# This output is used used by zpull, which will appropriately use "zfs send -I" (or -i)
-# to "sync" a source and target.
+# ZELTA_DEPTH: Adds "-d $ZELTA_DEPTH" to zfs list commands. Useful for limiting
+# replication depth in zpull.
 
 function snapcmd(arg) {
 	# Create an appropriate ssh and zfs list command
@@ -39,14 +40,14 @@ function snapcmd(arg) {
 	}
 	vollength = length(snapvol) + 1 # Get parent length for trimming 
 	parent[arg] = snapvol
-	return cmdpre "zfs list -Hroname,guid -Htsnap -Screation '" snapvol "' 2>&1"
+	return cmdpre "zfs list -Hroname,guid -Htsnap -Screation " FLAGS " '" snapvol "' 2>&1"
 }
 
 BEGIN {
 	FS="\t"
 	exit_code = 0
-	if ("ZELTA_SCRIPT" in ENVIRON) { ZELTA_SCRIPT = ENVIRON["ZELTA_SCRIPT"] }
-	else if (system("tty -s")) { ZELTA_SCRIPT++ }
+	if ("ZELTA_PIPE" in ENVIRON) { ZELTA_PIPE = ENVIRON["ZELTA_PIPE"] }
+	if ("ZELTA_DEPTH" in ENVIRON) { FLAGS = "-d " ENVIRON["ZELTA_DEPTH"] " " }
 
 	# Get snapshots for source
 	while  (snapcmd(ARGV[1]) | getline) {
@@ -86,16 +87,16 @@ BEGIN {
 			if (sendguids[thisSnap] == recvguids[thisSnap]) {
 				matches[thisSubVol]++
 				if (thisSnap == sendLatest[thisSubVol]) {
-					if (!ZELTA_SCRIPT) { print "target has latest source snapshot: " thisSnap }
+					if (!ZELTA_PIPE) { print "target has latest source snapshot: " thisSnap }
 				} else if (guidError[thisSubVol]) {
 					print "latest common snapshot: " thisSnap | "cat 1>&2"
 				} else if (recvVolCount[thisSubVol] == 1) {
-					if (!ZELTA_SCRIPT) { printf "match: " }
+					if (!ZELTA_PIPE) { printf "match: " }
 					printf "@" thisSnapshot "\t"
-					if (ZELTA_SCRIPT) { printf parent[ARGV[1]] }
+					if (ZELTA_PIPE) { printf parent[ARGV[1]] }
 					else { printf "\tsource latest: " }
 					printf sendLatest[thisSubVol]
-					if (ZELTA_SCRIPT) { printf "\t" parent[ARGV[2]] thisSubVol }
+					if (ZELTA_PIPE) { printf "\t" parent[ARGV[2]] thisSubVol }
 					print ""
 				}
 				continue
@@ -109,7 +110,7 @@ BEGIN {
 					print "target snapshot not on source: " thisSnap | "cat 1>&2"
 				} else {
 					# Old backups might have old child volumes, we'll suppress those in script mode
-					if (!ZELTA_SCRIPT) { print "child volume not on source: " thisSnap | "cat 1>&2" }
+					if (!ZELTA_PIPE) { print "child volume not on source: " thisSnap | "cat 1>&2" }
 				}
 			}
 		}
@@ -120,10 +121,10 @@ BEGIN {
 	for (i = 1; i <= sendNum; i++) {
 		subvol = sendOrder[i]
 		if (!(subvol in recvVolCount)) {
-			if (ZELTA_SCRIPT) { printf parent[ARGV[1]] }
+			if (ZELTA_PIPE) { printf parent[ARGV[1]] }
 			else { printf "source only snapshot: " }
 		printf sendLatest[subvol]
-		if (ZELTA_SCRIPT) { printf "\t" parent[ARGV[2]] subvol }
+		if (ZELTA_PIPE) { printf "\t" parent[ARGV[2]] subvol }
 		print ""
 		}
 	}
