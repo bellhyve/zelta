@@ -49,6 +49,7 @@ BEGIN {
 	send_flags = "send -P" env("ZPULL_SEND_FLAGS", "Lcp") " "
 	recv_flags = "receive -v" env("ZPULL_RECV_FLAGS", "uv") " "
 	intr_flags = "-" env("ZPULL_I_FLAGS", "I") " "
+	error_code = 0
 	zmatch = "ZELTA_SCRIPT=1 zmatch "
 	recurse = (send_flags ~ /R/) ? 1 :0
 	source = ARGV[1]
@@ -57,7 +58,11 @@ BEGIN {
 	zfs_command(source, send_flags)
 	zfs_command(target, recv_flags)
 	time_start = systime()
-	while (zmatch "'"source"' '"target"'" |getline) {
+	while (zmatch "'"source"' '"target"' 2>&1" |getline) {
+		if (/error/) {
+			error_code = 1
+			continue
+		}
 		num_streams++
 		if ($3) {
 			rpl_cmd[++rpl_num] = zfs[source] intr_flags q($1) " " q($2) " | " zfs[target] q($3)
@@ -69,9 +74,9 @@ BEGIN {
 
 	if (!num_streams) { 
 		time = systime() - time_start
-		if (ZELTA_SCRIPT) { print "0 0 "time" 0 " }
+		if (ZELTA_SCRIPT) { print "0 0 "time " " error_code }
 		else { print "nothing to replicate" }
-		exit 0
+		exit error_code
 	}
 
 	FS = "[ \t]+";
@@ -81,14 +86,23 @@ BEGIN {
 			if ($1 == "incremental" || $1 == "full") { sent_streams++ }
 			else if ($1 == "received") { received_streams++ }
 			else if ($1 == "size") { total_bytes += $2 }
+			else if (! /stream/) {
+				print "error: " $0 | "cat 1>&2"
+				error_code = 2
+			}
+
 		}
 	}
 	time = systime() - time_start
+
+	# Negative errors show the number of missed streams, otherwise show error code
 	error = received_streams - sent_streams
+	if (! error) { error = error_code }
 	if (ZELTA_SCRIPT) {
 		print received_streams, total_bytes, time, error
 	} else {
 		print received_streams " streams received, " total_bytes " bytes copied in " time " seconds"
 		if (error != 0) { print "error: " sent_streams " total" }
 	}
+	exit error_code
 }
