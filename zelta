@@ -6,7 +6,7 @@
 #
 # requires: zpull, zmatch
 #
-# zelta loops through its YAML-style configuration file of The minimal
+# zelta loops through its YAML-style configuration file. The minimal
 # conifguration is:
 #
 # 	BACKUP_ROOT: backup/parent
