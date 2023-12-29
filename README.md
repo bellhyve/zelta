@@ -28,7 +28,7 @@ Example Configuration (```zelta.conf```):yaml
 ```yaml
 BACKUP_ROOT: outerspace/Backups
 ARCH_ROOT: outerspace/Archives
-DEPTH: 0
+PREFIX: 0
 
 DAL1:
   fw1.dal1:
@@ -38,7 +38,7 @@ DAL1:
   ...
 ```
 
-In ```zelta.conf```, you can define different sites, each with specific hosts and datasets. The ```DEPTH``` parameter in the configuration file specifies how many parent levels of the source dataset should be included in the target dataset name.
+In ```zelta.conf```, you can define different sites, each with specific hosts and datasets. The ```PREFIX``` parameter in the configuration file specifies how many parent levels of the source dataset should be included in the target dataset name.
 
 Usage:sh
 ```sh
