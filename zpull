@@ -1,0 +1,94 @@
+#!/usr/bin/awk -f
+#
+# zpull - replicates a snapshot and its descendants
+#
+# usage: zpull [user@][host:]source/dataset [user@][host:]target/dataset
+#
+# requires: zmatch
+#
+# After using zmatch to identify out-of-date snapshots on the target, zpull creates
+# individual replication streams for a snapshot and its children. zpull is useful for
+# migrations in that it will recursively replicate the latest parent snapshot and its
+# children, unlike the "zfs send -R" option.
+#
+# If called with the environmental variable ZELTA_SCRIPT=1, zpull reports an abbreviated
+# output for reporting:
+#
+# 	received_streams, total_bytes, time, error
+#
+# Additional flags can be set with the environmental variables ZPULL_SEND_FLAGS,
+# ZPULL_RECV_FLAGS, and ZPULL_I_FLAGS (for incremental streams only).
+#
+# Note that as zpull is used as a backup and migration tool, the default behavior for new
+# replicas is to only copy the latest snapshots from the source heirarchy, while the
+# behavior for updating existing replicas is to copy intermediate snapshots. You can use
+# "ZPULL_SEND_FLAGS=R" to bootstrap a new backup repository to keep backup history. Use
+# "ZPULL_I_FLAGS=i" to only copy the latest snapshot.
+
+function env(env_name, var_default) {
+	return ( (env_name in ENVIRON) ? ENVIRON[env_name] : var_default )
+}
+
+function q(s) { return "\'"s"\'" }
+
+function zfs_command(vol_str, flags) {
+    if (split(vol_str, vol_arr, ":") == 2) {
+        cmdpre = "ssh " vol_arr[1] " "
+        volume = vol_arr[2];
+    } else {
+        cmdpre = ""
+        volume = vol_arr[1]
+    }
+    zfs[vol_str] = cmdpre "zfs " flags
+    vol[vol_str] = volume
+}
+
+BEGIN {
+	FS="\t"
+	ZELTA_SCRIPT = env("ZELTA_SCRIPT", 0)
+	send_flags = "send -P" env("ZPULL_SEND_FLAGS", "Lcp") " "
+	recv_flags = "receive -v" env("ZPULL_RECV_FLAGS", "uv") " "
+	intr_flags = "-" env("ZPULL_I_FLAGS", "I") " "
+	zmatch = "ZELTA_SCRIPT=1 zmatch "
+	recurse = (send_flags ~ /R/) ? 1 :0
+	source = ARGV[1]
+	target = ARGV[2]
+
+	zfs_command(source, send_flags)
+	zfs_command(target, recv_flags)
+	time_start = systime()
+	while (zmatch "'"source"' '"target"'" |getline) {
+		num_streams++
+		if ($3) {
+			rpl_cmd[++rpl_num] = zfs[source] intr_flags q($1) " " q($2) " | " zfs[target] q($3)
+		} else {
+			rpl_cmd[++rpl_num] = zfs[source] q($1) " | " zfs[target] q($2)
+		}
+		if (recurse) break
+	}
+
+	if (!num_streams) { 
+		time = systime() - time_start
+		if (ZELTA_SCRIPT) { print "0 0 "time" 0 " }
+		else { print "nothing to replicate" }
+		exit 0
+	}
+
+	FS = "[ \t]+";
+	for (i = 1; i <= rpl_num; i++) {
+		full_cmd = "sh -c '" rpl_cmd[i] "' 2>&1"
+		while (full_cmd | getline) {
+			if ($1 == "incremental" || $1 == "full") { sent_streams++ }
+			else if ($1 == "received") { received_streams++ }
+			else if ($1 == "size") { total_bytes += $2 }
+		}
+	}
+	time = systime() - time_start
+	error = received_streams - sent_streams
+	if (ZELTA_SCRIPT) {
+		print received_streams, total_bytes, time, error
+	} else {
+		print received_streams " streams received, " total_bytes " bytes copied in " time " seconds"
+		if (error != 0) { print "error: " sent_streams " total" }
+	}
+}
