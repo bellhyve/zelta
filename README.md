@@ -6,7 +6,6 @@ This suite of tools provides a streamlined approach for managing ZFS snapshot re
 
 ```zmatch``` is a tool used for comparing ZFS datasets. It identifies the most recent matching snapshot between two given volumes. This tool is particularly useful for determining if datasets are in sync and identifying the latest common snapshot.
 
-Usage:sh
 ```sh
 zmatch [source_volume] [target_volume]
 ```
@@ -15,9 +14,9 @@ zmatch [source_volume] [target_volume]
 
 ```zpull``` handles the actual replication of ZFS snapshots between a source and a target volume. It uses the output of ```zmatch``` to determine which snapshots need to be sent and then performs the replication efficiently.
 
-Usage:sh
 ```sh
 zpull [source_volume] [target_volume]
+```
 
 ## zelta
 
