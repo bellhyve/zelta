@@ -2,6 +2,8 @@
 
 This suite of tools provides a streamlined approach for managing ZFS snapshot replication across various systems. It consists of three main components: ```zmatch```, ```zpull```, and ```zelta```, each designed to handle specific aspects of snapshot management and replication.
 
+The goal of this proeject will be to keep the tools as simple as possible with intutive defaults and few options. No snapshot utility is currently provided; zelta is used in production alongside the excellent [zfsnap](https://github.com/zfsnap/zfsnap).
+
 ## zmatch
 
 ```zmatch``` is a tool used for comparing ZFS datasets. It identifies the most recent matching snapshot between two given volumes. This tool is particularly useful for determining if datasets are in sync and identifying the latest common snapshot.
@@ -27,7 +29,6 @@ The configuration file ```zelta.conf``` allows you to specify various parameters
 Example Configuration (```zelta.conf```):yaml
 ```yaml
 BACKUP_ROOT: outerspace/Backups
-ARCH_ROOT: outerspace/Archives
 PREFIX: 0
 
 DAL1:
@@ -53,6 +54,10 @@ Installation and Requirements
 - Install the scripts (zmatch, zpull, zelta) /usr/local/bin/ or any directory in PATH
 - For zpull, make sure ssh auth and "zfs allow" is correctly configured for target systems.
 - For zelta, edit /usr/local/etc/zelta/zelta.conf to match your environment and replication needs.
+
+## Future
+
+The previous version of the zelta sutie used internally includes a zeport reporting tool and a zmove configuration editing tool, and need to be refactored before being added to this repository.
 
 ## Contributing
 
