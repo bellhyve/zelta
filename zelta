@@ -19,7 +19,7 @@
 # BACKUP_ROOT:	The backup parent name. In the above, zelta will replicate the
 # 		source host:dataset to backup/parent/set.
 #
-# DEPTH:	Add parent names to the target; for example "DEPTH: 1" will
+# PREFIX:	Add parent names to the target; for example "PREFIX: 1" will
 # 		replicate to backup/parent/data/set.
 #
 #
@@ -54,7 +54,7 @@ function resolve_target(source, target) {
 	if (target) { return target}
 	target = c["BACKUP_ROOT"]
 	n = split(source, segments, "/")
-	for (i = n - c["DEPTH"]; i <= n; i++) {
+	for (i = n - c["PREFIX"]; i <= n; i++) {
 		target = target "/" segments[i]
 	}
 	return target
@@ -110,7 +110,7 @@ function q(s) { return "\'"s"\'" }
 function zpull(host, source, target) {
 	cmd_src = q((host in LOCALHOST) ? source : (host":"source))
 	cmd_tgt = q(target)
-	zpull_cmd = "ZELTA_SCRIPT=1 zpull " cmd_src " " cmd_tgt
+	zpull_cmd = "ZELTA_PIPE=1 zpull " cmd_src " " cmd_tgt
 	while (zpull_cmd|getline) {
 		printf source ": "
 		if ($4) { printf "✗ " }
