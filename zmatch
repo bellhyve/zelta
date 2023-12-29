@@ -1,83 +1,118 @@
 #!/usr/bin/awk -f
+#
+# zmatch - compares a source and target datasets for dataset simiddlarity
+#
+# usage: zmatch [user@][host:]source/dataset target/dataset
+#
+# Reports the most recent matching snapshot and the latest snapshot of a volume ant
+# its children, which can be useful in various "zfs send" and "zfs rollback" commands.
+#
+# Child snapshot names are provided relative to the parent. For example, when zmatch
+# is called with tank/parent, tank/parent/child's snapshots will be reported as
+# "/child@snapshot-name"
+#
+# Specifically:
+#   - The latest matching snapshot and child snapshots
+#   - Missing child volumes on the destination
+#   - Matching snapshot names with different GUIDs
+#   - Newer target snapshots not on the source
+#
+# When not called via a tty or environemnt variable ZELTA_SCRIPT is 1, less output is
+# provided, and full source snapshot names are provided (for streaming to replication
+# tools like zpull):
+#   - No output is provided for an up-to-date match.
+#   - A single snapshot indicates the volume is missing on the target.
+#   - A tab separated pair of snapshots indicates the out-of-date match and the latest
+#
+# This output is used used by zpull, which will appropriately use "zfs send -I" (or -i)
+# to "sync" a source and target.
 
 function snapcmd(arg) {
-    if (!split(arg, snap, ":")) exit
-    if (snap[2]) {
-        cmdpre = "ssh " snap[1] " "
-        snapvol = snap[2];
-    } else {
-        cmdpre = ""
-        snapvol = snap[1]
-    }
-    vollength = length(snapvol) + 1
-    return cmdpre "zfs list -Hroname,guid -Htsnap -Screation '" snapvol "'"
+	# Create an appropriate ssh and zfs list command
+	if (!split(arg, snap, ":")) exit
+	if (snap[2]) {
+		cmdpre = "ssh " snap[1] " "
+		snapvol = snap[2];
+	} else {
+		cmdpre = ""
+		snapvol = snap[1]
+	}
+	vollength = length(snapvol) + 1 # Get parent length for trimming 
+	parent[arg] = snapvol
+	return cmdpre "zfs list -Hroname,guid -Htsnap -Screation '" snapvol "'"
 }
 
 BEGIN {
-    FS="\t"
-    if ("ZMATCH_VERBOSE" in ENVIRON) { VERBOSE = ENVIRON["ZMATCH_VERBOSE"] }
-    else if (!system("tty -s")) { VERBOSE++ }
+	FS="\t"
+	if ("ZELTA_SCRIPT" in ENVIRON) { ZELTA_SCRIPT = ENVIRON["ZELTA_SCRIPT"] }
+	else if (system("tty -s")) { ZELTA_SCRIPT++ }
 
-    # Get snapshots for source
-    while  (snapcmd(ARGV[1]) | getline) {
-	thisSnap = substr($1, vollength)
-        sendguids[thisSnap] = $2
-	split(thisSnap, volSplit, "@")
-	thisSubVol = volSplit[1]
-	if (!(sendVolCount[thisSubVol]++)) {
-	    sendLatest[thisSubVol] = thisSnap
-	    sendOrder[++sendNum] = thisSubVol
+	# Get snapshots for source
+	while  (snapcmd(ARGV[1]) | getline) {
+		thisSnap = substr($1, vollength)
+		sendguids[thisSnap] = $2
+		split(thisSnap, volSplit, "@")
+		thisSubVol = volSplit[1]
+		if (!(sendVolCount[thisSubVol]++)) {
+			sendLatest[thisSubVol] = thisSnap
+			sendOrder[++sendNum] = thisSubVol
+		}
+		sendsnaps[thisSubVol volCount[thisSubVol]] = thisSnap
 	}
-	sendsnaps[thisSubVol volCount[thisSubVol]] = thisSnap
+	close(snapcmd(ARGV[1]))
 
-    }
-    close(snapcmd(ARGV[1]))
-
-    # Get snapshots for destination
-    while  (snapcmd(ARGV[2]) | getline) {
-	thisSnap = substr($1, vollength)
-        recvguids[thisSnap] = $2
-	split(thisSnap, volSplit, "@")
-	thisSubVol = volSplit[1]
-	if (matches[thisSubVol]) { continue }
-	recvVolCount[thisSubVol]++
-        if (sendguids[thisSnap]) {
-            if (sendguids[thisSnap] == recvguids[thisSnap]) {
-                matches[thisSubVol]++
-                if (thisSnap == sendLatest[thisSubVol]) {
-		    if (VERBOSE) { print "target has latest source snapshot: " thisSnap }
-                } else if (guidError[thisSubVol]) {
-		    print "latest common snapshot: " thisSnap | "cat 1>&2"
-	        } else if (recvVolCount[thisSubVol] == 1) {
-		    if (VERBOSE) { printf "match: " }
-		    printf thisSnap "\t"
-		    if (VERBOSE) { printf "\tlatest source snapshot: " }
-		    print sendLatest[thisSubVol]
+	# Get snapshots for destination
+	while  (snapcmd(ARGV[2]) | getline) {
+		thisSnap = substr($1, vollength)
+		recvguids[thisSnap] = $2
+		split(thisSnap, volSplit, "@")
+		thisSubVol = volSplit[1]
+		thisSnapshot = volSplit[2]
+		if (matches[thisSubVol]) { continue }
+		recvVolCount[thisSubVol]++
+		if (sendguids[thisSnap]) {
+			if (sendguids[thisSnap] == recvguids[thisSnap]) {
+				matches[thisSubVol]++
+				if (thisSnap == sendLatest[thisSubVol]) {
+					if (!ZELTA_SCRIPT) { print "target has latest source snapshot: " thisSnap }
+				} else if (guidError[thisSubVol]) {
+					print "latest common snapshot: " thisSnap | "cat 1>&2"
+				} else if (recvVolCount[thisSubVol] == 1) {
+					if (!ZELTA_SCRIPT) { printf "match: " }
+					printf "@" thisSnapshot "\t"
+					if (ZELTA_SCRIPT) { printf parent[ARGV[1]] }
+					else { printf "\tsource latest: " }
+					printf sendLatest[thisSubVol]
+					if (ZELTA_SCRIPT) { printf "\t" parent[ARGV[2]] thisSubVol }
+					print ""
+				}
+				continue
+			} else {
+				print "guid mismatch on: " thisSnap | "cat 1>&2"
+				guidError[thisSubVol]++
+			}
+		} else {
+			if (!(matchError[thisSubVol]++)) {
+				if (sendVolCount[thisSubVol]) {
+					print "target snapshot not on source: " thisSnap | "cat 1>&2"
+				} else {
+					# Old backups might have old child volumes, we'll suppress those in script mode
+					if (!ZELTA_SCRIPT) { print "child volume not on source: " thisSnap | "cat 1>&2" }
+				}
+			}
 		}
-		continue
-            } else {
-	        print "guid mismatch on: " thisSnap | "cat 1>&2"
-		guidError[thisSubVol]++
-            }
-        } else {
-	    if (!(matchError[thisSubVol]++)) {
-		if (sendVolCount[thisSubVol]) {
-	            print "target snapshot not on source: " thisSnap | "cat 1>&2"
-	        } else {
-		    if (VERBOSE) { print "child volume not on source: " thisSnap | "cat 1>&2" }
+	}
+	close(snapcmd(ARGV[2]))
+
+	# List latest source snapshots for volumes not on the target
+	for (i = 1; i <= sendNum; i++) {
+		subvol = sendOrder[i]
+		if (!(subvol in recvVolCount)) {
+			if (ZELTA_SCRIPT) { printf parent[ARGV[1]] }
+			else { printf "source only snapshot: " }
+		printf sendLatest[subvol]
+		if (ZELTA_SCRIPT) { printf "\t" parent[ARGV[2]] subvol }
+		print ""
 		}
-	    }
-        }
-    }
-    close(snapcmd(ARGV[2]))
-
-    # List latest source snapshots for volumes not on the target
-    for (i = 1; i <= sendNum; i++) {
-        subvol = sendOrder[i]
-        if (!(subvol in recvVolCount)) {
-            if (VERBOSE) { printf "source only snapshot: " }
-	    print sendLatest[subvol]
-        }
-    }
-
+	}
 }

@@ -1,0 +1,81 @@
+#!/usr/bin/awk -f
+#
+# zelta - replicates snapshots
+#
+# usage: zelta [site, host, or unique dataset name]
+#
+# requires: zpull, zmatch
+
+function env(env_name, var_default) {
+	return ( (env_name in ENVIRON) ? ENVIRON[env_name] : var_default )
+}
+
+function resolve_target(source, target) {
+	if (target) { return target}
+	target = c["BACKUP_ROOT"]
+	n = split(source, segments, "/")
+	for (i = n - c["DEPTH"]; i <= n; i++) {
+		target = target "/" segments[i]
+	}
+	return target
+}
+
+function load_config() {
+	FS = "[: \t]+";
+	OFS=","
+	while (getline < ZELTA_CONFIG ) {
+		if (split($0, arr, "#")) {
+			$0 = arr[1]
+		}
+		gsub(/[ \t]+$/, "", $0)
+		if (! $0) { continue }
+		if (/^[^ ]+: +[^ ]/) {
+			c[$1] = $2
+		} else if (/^[^ ]+:$/) {
+			current_site = $1
+			sites[current_site]++
+		} else if (/^  [^ ]+:$/) {
+			current_host = $2
+			hosts[current_host] = 1
+			hosts_by_site[current_site,current_host] = 1
+		} else if (/^  - [^ ]/) {
+			source_dataset = $3
+			target_dataset = $4
+			datasets[current_host, source_dataset] = resolve_target(source_dataset, target_dataset)
+			dataset_count[source_dataset]++
+		} else {
+			print "can't parse: " $0
+			continue
+		}
+	}
+}
+
+function q(s) { return "\'"s"\'" }
+
+BEGIN {
+	ZELTA_CONFIG = env("ZELTA_CONFIG", "/usr/local/etc/zelta/zelta.conf")
+	load_config()
+	for (site in sites) {
+		print site
+		for (host in hosts) {
+			if (hosts_by_site[site, host]) {
+				print "  " host
+				for (source_dataset in dataset_count) {
+					if (datasets[host,source_dataset]) {
+						target_dataset = datasets[host,source_dataset]
+						zpull = "ZELTA_SCRIPT=1 zpull " host ":" source_dataset " " target_dataset
+						while (zpull|getline) {
+							printf "    "source_dataset ": "
+							if ($4) { printf "✗ " }
+							if ($1 && !$4) { printf "✔ " }
+							if ($1) { printf $1 " streams in " $2 "s" }
+							if (!$1 && !$4) { printf "⊜" }
+							print ""
+						}
+					}
+				}
+
+			}
+		}
+	}
+}

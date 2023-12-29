@@ -1,0 +1,47 @@
+#!/bin/sh
+
+## Default Values
+ZELTA_CONFIG="/usr/local/etc/zelta/zelta.conf"
+
+err(){
+  echo "$1"
+  exit 1
+}
+
+report_slack(){
+	if ! SLACK_HOOK=$(sysrc -n -f ${ZELTA_CONFIG} SLACK_HOOK) ; then
+		err "\$SLACK_HOOK is not defined in ${ZELTA_CONFIG}"
+		exit 1
+	fi
+ 	if [ -z $OUTDATED ] ; then
+		echo curl -X POST \
+			-H 'Content-type: application/json; charset=utf-8' \
+			--data "{ \"username\": \"zeport\", \"icon_emoji\": \":camera_with_flash:\", \"text\": \"`hostname` is up-to-date\" }" \
+		$SLACK_HOOK
+		exit 0
+	fi
+
+	OUTDATED_FMT="$(printf "%s\n" `echo $OUTDATED | tr ':' '\n'`)"
+	echo curl -X POST \
+	    -H 'Content-type: application/json; charset=utf-8' \
+	    --data "{ \"username\": \"zeport\", \"icon_emoji\": \":camera_with_flash:\", \"text\": \"$hostname: Outdated backups→\n$OUTDATED_FMT\" }" \
+	    $SLACK_HOOK
+}
+
+[ -e "$ZELTA_CONFIG" ]  || err "${ZELTA_CONFIG} does not exist"
+
+# Get BACKUP_VOL
+if ! BACKUP_VOL=$(sysrc -n -f ${ZELTA_CONFIG} BACKUP_VOL) ; then
+  err "\$BACKUP_VOL is not defined in ${ZELTA_CONFIG}"
+fi
+
+# Start searching!
+export OUTDATED=""
+for backup in $(zfs list -Hrd1 -oname $BACKUP_VOL) ; do
+  _latest=$(zfs list -Hrtsnap -S creation -oname ${backup} | head -1)
+  if ! ( echo "$_latest" | grep -q `date -j +%Y-%m-%d_` ) ; then
+    OUTDATED="$_latest:$OUTDATED"
+  fi
+done
+
+report_slack
