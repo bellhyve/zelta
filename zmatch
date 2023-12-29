@@ -39,16 +39,22 @@ function snapcmd(arg) {
 	}
 	vollength = length(snapvol) + 1 # Get parent length for trimming 
 	parent[arg] = snapvol
-	return cmdpre "zfs list -Hroname,guid -Htsnap -Screation '" snapvol "'"
+	return cmdpre "zfs list -Hroname,guid -Htsnap -Screation '" snapvol "' 2>&1"
 }
 
 BEGIN {
 	FS="\t"
+	exit_code = 0
 	if ("ZELTA_SCRIPT" in ENVIRON) { ZELTA_SCRIPT = ENVIRON["ZELTA_SCRIPT"] }
 	else if (system("tty -s")) { ZELTA_SCRIPT++ }
 
 	# Get snapshots for source
 	while  (snapcmd(ARGV[1]) | getline) {
+		if (! /@/) {
+			print "error: " $0 | "cat 1>&2"
+			exit_code = 1
+			continue
+		}
 		thisSnap = substr($1, vollength)
 		sendguids[thisSnap] = $2
 		split(thisSnap, volSplit, "@")
@@ -63,6 +69,12 @@ BEGIN {
 
 	# Get snapshots for destination
 	while  (snapcmd(ARGV[2]) | getline) {
+		if (/dataset does not exist/) { continue }
+		else if (! /@/) {
+			print "error: " $0 | "cat 1>&2"
+			exit_code = 1
+			continue
+		}
 		thisSnap = substr($1, vollength)
 		recvguids[thisSnap] = $2
 		split(thisSnap, volSplit, "@")
@@ -115,4 +127,5 @@ BEGIN {
 		print ""
 		}
 	}
+	exit exit_code
 }
