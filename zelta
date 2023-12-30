@@ -57,7 +57,7 @@ function resolve_target(source, target) {
 	for (i = n - c["PREFIX"]; i <= n; i++) {
 		target = target "/" segments[i]
 	}
-	return target
+	return (c["PUSH_TO"] ? c["PUSH_TO"] ":" : "") target
 }
 
 function load_config() {
