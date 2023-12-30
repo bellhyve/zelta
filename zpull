@@ -42,7 +42,7 @@ function load_config() {
 		if (/^[^ ]+: +[^ ]/) {
 			c[$1] = $2
 		}
-	{
+	}
 	source = ARGV[1]
 	target = ARGV[2]
 	ZELTA_PIPE = env("ZELTA_PIPE", 0)
