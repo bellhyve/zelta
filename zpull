@@ -31,29 +31,49 @@ function env(env_name, var_default) {
 
 function q(s) { return "\'"s"\'" }
 
+function load_config() {
+	ZELTA_CONFIG = env("ZELTA_CONFIG", "/usr/local/etc/zelta/zelta.conf")
+	FS = "[: \t]+";
+	while (getline < ZELTA_CONFIG ) {
+		if (split($0, arr, "#")) {
+			$0 = arr[1]
+		}
+		gsub(/[ \t]+$/, "", $0)
+		if (/^[^ ]+: +[^ ]/) {
+			c[$1] = $2
+		}
+	{
+	source = ARGV[1]
+	target = ARGV[2]
+	ZELTA_PIPE = env("ZELTA_PIPE", 0)
+	send_flags = c["REPLICATE_NEW"] ? "LcpR" : "Lcp"
+	send_flags = "send -P" env("ZPULL_SEND_FLAGS", default_send_flags) " "
+	recv_flags = "receive -v" env("ZPULL_RECV_FLAGS", "upv") " "
+	intr_flags = c["INTERMEDIATE"] ? "I" : "i"
+	intr_flags = "-" env("ZPULL_I_FLAGS", intr_flags) " "
+	recurse = (send_flags ~ /R/) ? 1 :0
+	zmatch = "ZELTA_PIPE=1 zmatch "
+	if (c["DEPTH"] && !recurse) {
+		zmatch = "ZELTA_DEPTH=" c["DEPTH"] " " zmatch
+	}
+}
+
 function zfs_command(vol_str, flags) {
-    if (split(vol_str, vol_arr, ":") == 2) {
-        cmdpre = "ssh " vol_arr[1] " "
-        volume = vol_arr[2];
-    } else {
-        cmdpre = ""
-        volume = vol_arr[1]
-    }
+	if (split(vol_str, vol_arr, ":") == 2) {
+		cmdpre = "ssh " vol_arr[1] " "
+		volume = vol_arr[2];
+	} else {
+		cmdpre = ""
+		volume = vol_arr[1]
+	}
     zfs[vol_str] = cmdpre "zfs " flags
     vol[vol_str] = volume
 }
 
 BEGIN {
 	FS="\t"
-	ZELTA_PIPE = env("ZELTA_PIPE", 0)
-	send_flags = "send -P" env("ZPULL_SEND_FLAGS", "Lcp") " "
-	recv_flags = "receive -v" env("ZPULL_RECV_FLAGS", "uv") " "
-	intr_flags = "-" env("ZPULL_I_FLAGS", "I") " "
+	load_config()
 	error_code = 0
-	zmatch = "ZELTA_PIPE=1 zmatch "
-	recurse = (send_flags ~ /R/) ? 1 :0
-	source = ARGV[1]
-	target = ARGV[2]
 
 	zfs_command(source, send_flags)
 	zfs_command(target, recv_flags)
@@ -69,7 +89,6 @@ BEGIN {
 		} else {
 			rpl_cmd[++rpl_num] = zfs[source] q($1) " | " zfs[target] q($2)
 		}
-		if (recurse) break
 	}
 
 	if (!num_streams) { 
@@ -92,6 +111,7 @@ BEGIN {
 			}
 
 		}
+		if (recurse) { break } # If -R is given, skip manual descendants
 	}
 	time = systime() - time_start
 
