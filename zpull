@@ -48,7 +48,8 @@ function load_config() {
 	ZELTA_PIPE = env("ZELTA_PIPE", 0)
 	send_flags = c["REPLICATE_NEW"] ? "LcpR" : "Lcp"
 	send_flags = "send -P" env("ZPULL_SEND_FLAGS", default_send_flags) " "
-	recv_flags = "receive -v" env("ZPULL_RECV_FLAGS", "upv") " "
+	recv_flags = c["RECEIVE_FLAGS"] ? c["RECEIVE_FLAGS"] : "u"
+	recv_flags = "receive -v" env("ZPULL_RECV_FLAGS", recv_flags) " "
 	intr_flags = c["INTERMEDIATE"] ? "I" : "i"
 	intr_flags = "-" env("ZPULL_I_FLAGS", intr_flags) " "
 	recurse = (send_flags ~ /R/) ? 1 :0
@@ -58,7 +59,7 @@ function load_config() {
 	}
 }
 
-function zfs_command(vol_str, flags) {
+function zfs_command(vol_str) {
 	if (split(vol_str, vol_arr, ":") == 2) {
 		cmdpre = "ssh " vol_arr[1] " "
 		volume = vol_arr[2];
@@ -66,8 +67,9 @@ function zfs_command(vol_str, flags) {
 		cmdpre = ""
 		volume = vol_arr[1]
 	}
-    zfs[vol_str] = cmdpre "zfs " flags
+    zfs[vol_str] = cmdpre "zfs "
     vol[vol_str] = volume
+    return zfs[vol_str]
 }
 
 BEGIN {
@@ -75,19 +77,31 @@ BEGIN {
 	load_config()
 	error_code = 0
 
-	zfs_command(source, send_flags)
-	zfs_command(target, recv_flags)
+	zfs_send_command = zfs_command(source) send_flags
+	zfs_receive_command = zfs_command(target) recv_flags
 	time_start = systime()
 	while (zmatch "'"source"' '"target"' 2>&1" |getline) {
 		if (/error/) {
 			error_code = 1
 			continue
+		} else if (! /@/) {
+			if (! $0 == $1) {
+				print "unhandled error: " $0 | "cat 1>&2"
+				if (ZELTA_PIPE) { print "0 0 0 3" }
+				exit 1
+			}
+			zfs_create_command = zfs_command(target) "create -up " q($1) " >/dev/null 2>&1"
+			if (system(zfs_create_command)) {
+				if (ZELTA_PIPE) { print "0 0 0 4" }
+				exit 1
+			} else if (! ZELTA PIPE) { print "created parent dataset(s)" }
+			continue
 		}
 		num_streams++
 		if ($3) {
-			rpl_cmd[++rpl_num] = zfs[source] intr_flags q($1) " " q($2) " | " zfs[target] q($3)
+			rpl_cmd[++rpl_num] = zfs_send_command intr_flags q($1) " " q($2) " | " zfs_receive_command q($3)
 		} else {
-			rpl_cmd[++rpl_num] = zfs[source] q($1) " | " zfs[target] q($2)
+			rpl_cmd[++rpl_num] = zfs_send_command q($1) " | " zfs_receive_command q($2)
 		}
 	}
 
