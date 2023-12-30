@@ -7,8 +7,8 @@
 # Reports the most recent matching snapshot and the latest snapshot of a volume ant
 # its children, which can be useful in various "zfs send" and "zfs rollback" commands.
 #
-# Child snapshot names are provided relative to the parent. For example, when zmatch
-# is called with tank/parent, tank/parent/child's snapshots will be reported as
+# Child snapshot names are provided relative to the target dataset. For example, when 
+# zmatch is called with tank/dataset, tank/dataset/child's snapshots will be reported as
 # "/child@snapshot-name"
 #
 # Specifically:
@@ -28,8 +28,7 @@
 # ZELTA_DEPTH: Adds "-d $ZELTA_DEPTH" to zfs list commands. Useful for limiting
 # replication depth in zpull.
 
-function snapcmd(arg) {
-	# Create an appropriate ssh and zfs list command
+function zfs_list_command(arg, flags) {
 	if (!split(arg, snap, ":")) exit
 	if (snap[2]) {
 		cmdpre = "ssh " snap[1] " "
@@ -38,19 +37,22 @@ function snapcmd(arg) {
 		cmdpre = ""
 		snapvol = snap[1]
 	}
-	vollength = length(snapvol) + 1 # Get parent length for trimming 
-	parent[arg] = snapvol
-	return cmdpre "zfs list -Hroname,guid -Htsnap -Screation " FLAGS " '" snapvol "' 2>&1"
+	vollength = length(snapvol) + 1 # Get dataset length for trimming 
+	dataset[arg] = snapvol
+	return cmdpre "zfs list " flags " '" snapvol "' 2>&1"
 }
 
 BEGIN {
 	FS="\t"
 	exit_code = 0
+	source = ARGV[1]
+	target = ARGV[2]
 	if ("ZELTA_PIPE" in ENVIRON) { ZELTA_PIPE = ENVIRON["ZELTA_PIPE"] }
-	if ("ZELTA_DEPTH" in ENVIRON) { FLAGS = "-d " ENVIRON["ZELTA_DEPTH"] " " }
+	if ("ZELTA_DEPTH" in ENVIRON) { list_snapshot_flags = "-d " ENVIRON["ZELTA_DEPTH"] " " }
+	list_snapshot_flags = "-Hroname,guid -Htsnap -Screation " list_snapshot_flags
 
 	# Get snapshots for source
-	while  (snapcmd(ARGV[1]) | getline) {
+	while  (zfs_list_command(source, list_snapshot_flags) | getline) {
 		if (! /@/) {
 			print "error: " $0 | "cat 1>&2"
 			exit_code = 1
@@ -66,10 +68,11 @@ BEGIN {
 		}
 		sendsnaps[thisSubVol volCount[thisSubVol]] = thisSnap
 	}
-	close(snapcmd(ARGV[1]))
+	close(zfs_list_command(source))
 
 	# Get snapshots for destination
-	while  (snapcmd(ARGV[2]) | getline) {
+	thisSnap =""
+	while  (zfs_list_command(target, list_snapshot_flags) | getline) {
 		if (/dataset does not exist/) { continue }
 		else if (! /@/) {
 			print "error: " $0 | "cat 1>&2"
@@ -93,10 +96,10 @@ BEGIN {
 				} else if (recvVolCount[thisSubVol] == 1) {
 					if (!ZELTA_PIPE) { printf "match: " }
 					printf "@" thisSnapshot "\t"
-					if (ZELTA_PIPE) { printf parent[ARGV[1]] }
+					if (ZELTA_PIPE) { printf dataset[source] }
 					else { printf "\tsource latest: " }
 					printf sendLatest[thisSubVol]
-					if (ZELTA_PIPE) { printf "\t" parent[ARGV[2]] thisSubVol }
+					if (ZELTA_PIPE) { printf "\t" dataset[target] thisSubVol }
 					print ""
 				}
 				continue
@@ -115,16 +118,27 @@ BEGIN {
 			}
 		}
 	}
-	close(snapcmd(ARGV[2]))
+	close(zfs_list_command(target))
+
+	if (! thisSnap) {
+		parent = dataset[target]
+		gsub(/\/[^\/]+$/, "", parent)
+		zfs_list_command(parent, "-o name") | getline
+		no_parent = /dataset does not exist/;
+		if (! ZELTA_PIPE) { print "target does not exist" }
+		if (no_parent) {
+			print ZELTA_PIPE ? parent : "target's parent does not exist"
+		}
+	}
 
 	# List latest source snapshots for volumes not on the target
 	for (i = 1; i <= sendNum; i++) {
 		subvol = sendOrder[i]
 		if (!(subvol in recvVolCount)) {
-			if (ZELTA_PIPE) { printf parent[ARGV[1]] }
+			if (ZELTA_PIPE) { printf dataset[source] }
 			else { printf "source only snapshot: " }
 		printf sendLatest[subvol]
-		if (ZELTA_PIPE) { printf "\t" parent[ARGV[2]] subvol }
+		if (ZELTA_PIPE) { printf "\t" dataset[target] subvol }
 		print ""
 		}
 	}
