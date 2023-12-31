@@ -147,7 +147,7 @@ BEGIN {
 	if (ZELTA_PIPE) {
 		print received_streams, total_bytes, time, error
 	} else {
-		print received_streams " streams received, " h_num(total_bytes) " bytes copied in " time " seconds"
+		print received_streams " streams received, " h_num(total_bytes) " copied in " time " seconds"
 		if (error != 0) { print "error: " sent_streams " total" }
 	}
 	exit error_code
