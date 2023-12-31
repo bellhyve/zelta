@@ -34,7 +34,7 @@ function q(s) { return "\'"s"\'" }
 function load_config() {
 	ZELTA_CONFIG = env("ZELTA_CONFIG", "/usr/local/etc/zelta/zelta.conf")
 	FS = "[: \t]+";
-	while (getline < ZELTA_CONFIG ) {
+	while ((getline < ZELTA_CONFIG)>0) {
 		if (split($0, arr, "#")) {
 			$0 = arr[1]
 		}
@@ -70,6 +70,16 @@ function zfs_command(vol_str) {
     zfs[vol_str] = cmdpre "zfs "
     vol[vol_str] = volume
     return zfs[vol_str]
+}
+
+function h_num(num) {
+	suffix = "B"
+	divisors = "KMGTPE"
+	for (i = 1; i <= length(divisors) && num >= 1024; i++) {
+		num /= 1024
+		suffix = substr(divisors, i, 1)
+	}
+	return int(num) suffix
 }
 
 BEGIN {
@@ -137,7 +147,7 @@ BEGIN {
 	if (ZELTA_PIPE) {
 		print received_streams, total_bytes, time, error
 	} else {
-		print received_streams " streams received, " total_bytes " bytes copied in " time " seconds"
+		print received_streams " streams received, " h_num(total_bytes) " bytes copied in " time " seconds"
 		if (error != 0) { print "error: " sent_streams " total" }
 	}
 	exit error_code

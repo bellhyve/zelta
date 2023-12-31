@@ -63,7 +63,7 @@ function resolve_target(source, target) {
 function load_config() {
 	FS = "[: \t]+";
 	OFS=","
-	while (getline < ZELTA_CONFIG ) {
+	while ((getline < ZELTA_CONFIG)>0) {
 		if (split($0, arr, "#")) {
 			$0 = arr[1]
 		}
@@ -80,13 +80,20 @@ function load_config() {
 			hosts_by_site[current_site,current_host] = 1
 		} else if (/^  - [^ ]/) {
 			source_dataset = $3
-			target_dataset = $4
+			target_dataset = resolve_target(source_dataset, target_dataset)
+			if (!target_dataset) {
+				print "warning: no target defined for " source_dataset
+			}
 			datasets[current_host, source_dataset] = resolve_target(source_dataset, target_dataset)
 			dataset_count[source_dataset]++
 		} else {
 			print "can't parse: " $0
 			continue
 		}
+	}
+	if (length(datasets)==0) {
+		print "no datasets defined in " ZELTA_CONFIG
+		exit 1
 	}
 }
 

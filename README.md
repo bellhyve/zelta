@@ -1,8 +1,24 @@
 # Zelta Replication Suite
 
-This suite of tools provides a streamlined approach for managing ZFS snapshot replication across various systems. It consists of three main components: ```zmatch```, ```zpull```, and ```zelta```, each designed to handle specific aspects of snapshot management and replication.
+This suite of tools provides a streamlined approach for managing ZFS snapshot replication across various systems. It consists of three main components: ```zmatch```, ```zpull```, and ```zelta```, each designed to handle specific aspects of the snapshot replication process.
 
-The goal of this proeject will be to keep the tools as simple as possible with intutive defaults and few options. No snapshot utility is currently provided; zelta is used in production alongside the excellent [zfsnap](https://github.com/zfsnap/zfsnap).
+The goal of this proeject will be to keep the tools as simple as possible with intutive defaults and few options. zelta works best as a cron job in conjuction with a snapshot creating and pruning utility like the excellent [zfsnap](https://github.com/zfsnap/zfsnap).
+
+### Quick Start: Setup
+
+`pkg install -y git; git clone https://github.com/bellhyve/zelta.git ; cd zelta; cp zmatch zelta zpull /usr/local/bin/`
+
+## Quick Start Example: Back up your computer
+
+After adding a drive and creating a pool called "opt", e.g., `zpool create opt ada0`:
+
+```sh
+zfs snapshot -r zroot@`date -j +%Y-%m-%d_%H.%M.%S`
+zpull zroot opt/Backups/myboot
+```
+
+zpull will respond with something like: `14 streams received, 4317983224 bytes copied in 14 seconds`
+
 
 ## zmatch
 
