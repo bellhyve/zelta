@@ -1,6 +1,6 @@
 # Zelta Replication Suite
 
-This suite of tools provides a streamlined approach for managing ZFS snapshot replication across various systems. It consists of three main components: ```zmatch```, ```zpull```, and ```zelta```, each designed to handle specific aspects of the snapshot replication process.
+This suite of tools provides a streamlined approach for managing ZFS snapshot replication across various systems. It consists of three main components: ```zmatch```, ```zpull```, and ```zelta```, each designed to handle specific aspects of the snapshot replication process. ```zelta``` is intended to be run with *no* requirements on backup sources and *without elevated privilages.*
 
 The goal of this proeject will be to keep the tools as simple as possible with intutive defaults and few options. zelta works best as a cron job in conjuction with a snapshot creating and pruning utility like the excellent [zfsnap](https://github.com/zfsnap/zfsnap).
 
@@ -8,7 +8,7 @@ The goal of this proeject will be to keep the tools as simple as possible with i
 
 `pkg install -y git; git clone https://github.com/bellhyve/zelta.git ; cd zelta; cp zmatch zelta zpull /usr/local/bin/`
 
-## Quick Start Example: Back up your computer
+### Quick Start Example: Back up your computer
 
 After adding a drive and creating a pool called "opt", e.g., `zpool create opt ada0`:
 
@@ -17,7 +17,55 @@ zfs snapshot -r zroot@`date -j +%Y-%m-%d_%H.%M.%S`
 zpull zroot opt/Backups/myboot
 ```
 
-zpull will respond with something like: `14 streams received, 4317983224 bytes copied in 14 seconds`
+zpull will respond with something like: `14 streams received, 4G copied in 14 seconds`
+
+Simply repeat the process to update. zpull does not mount after replicated by default. Consider inheriting mountpoints for easier maintenenace, e.g., `zfs inherit -r mountpoint opt/Backups`
+
+### Quick Start: Back up the universe
+
+On your backup servers, create a backup user (```pw useradd backup -m```) and give it access to replicate to your backup target (```zfs allow -u backup receive,mount,create opt/Backups```). Note that the backup user will not be able to receive any property it doesn't have permissions to. To back up a default FreeBSD 14 system, that would require: `receive,mount,create,canmount,mountpoint,setuid,exec,atime,compression`. Add a key (or create one using ```ssh-keygen```) for the backup user, and note that you will be using its public key file (usually ```/home/backup/.ssh/id_rsa.pub```).
+
+On your source servers also create a backup user, and grant it access to send snapshots from your source volumes, e.g., ```zfs allow -u backup send,snapshot,hold tank/vm```. Add the contents of the backup servers' public keys to ```~backup/.ssh/authorized_keys``` (and set permissions if necessary).
+
+Test ssh access from the backup servers to the source servers.
+
+Set up and edit **zelta.conf** on your backup servers.
+
+```sh
+mkdir /usr/local/etc/zelta
+vi /usr/local/etc/zelta/zelta.conf
+``
+
+First, let's make a configuration to test local backups. Note the two spaces before host and dataset names:
+
+```yaml
+MySites:
+  localhost:
+  - zroot: opt/Backups/myboot
+```
+Next, add some options and more datsets:
+
+```yaml
+BACKUP_ROOT: opt/Backups
+
+MySites:
+  localhost:
+  - zroot
+  host1:
+  - tank/vm/one
+  - tank/vm/two
+  host1:
+  - tank/jail/three
+  - tank/jail/four
+```
+
+And so on. To run the replication process, run:
+
+```sh
+zelta
+```
+
+See the [https://github.com/bellhyve/zelta/blob/main/zelta.conf](configuration example) for more details.
 
 
 ## zmatch
