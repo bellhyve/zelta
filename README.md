@@ -66,7 +66,7 @@ And so on. To run the replication process, run:
 zelta
 ```
 
-See the [https://github.com/bellhyve/zelta/blob/main/zelta.conf](configuration example) for more details.
+See the [configuration example](https://github.com/bellhyve/zelta/blob/main/zelta.conf) for more details.
 
 
 ## zmatch
@@ -104,7 +104,7 @@ DAL1:
   ...
 ```
 
-In ```zelta.conf```, you can define different sites, each with specific hosts and datasets. The ```PREFIX``` parameter in the configuration file specifies how many parent levels of the source dataset should be included in the target dataset name.
+In ```zelta.conf```, you can define different sites, each with specific hosts and datasets. The ```PREFIX``` parameter in the configuration file specifies how many parent levels of the source dataset should be included in the target dataset name. See the [configuration example](https://github.com/bellhyve/zelta/blob/main/zelta.conf).
 
 Usage:sh
 ```sh
