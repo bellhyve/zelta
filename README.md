@@ -34,7 +34,7 @@ Set up and edit **zelta.conf** on your backup servers.
 ```sh
 mkdir /usr/local/etc/zelta
 vi /usr/local/etc/zelta/zelta.conf
-``
+```
 
 First, let's make a configuration to test local backups. Note the two spaces before host and dataset names:
 
@@ -43,6 +43,7 @@ MySites:
   localhost:
   - zroot: opt/Backups/myboot
 ```
+
 Next, add some options and more datsets:
 
 ```yaml
