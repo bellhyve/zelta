@@ -53,6 +53,9 @@ function env(env_name, var_default) {
 function resolve_target(source, target) {
 	if (target) { return target}
 	target = c["BACKUP_ROOT"]
+	if (c["HOST_PREFIX"] && current_host) {
+		target = target "/" current_host
+	}
 	n = split(source, segments, "/")
 	for (i = n - c["PREFIX"]; i <= n; i++) {
 		target = target "/" segments[i]
