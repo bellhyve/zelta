@@ -107,19 +107,42 @@ function should_replicate() {
 
 function q(s) { return "\'"s"\'" }
 
+function is_num (string) {
+	return (string ~ /^-?[0-9]+$/)
+}
+
+function h_num(num) {
+	suffix = "B"
+	divisors = "KMGTPE"
+	for (i = 1; i <= length(divisors) && num >= 1024; i++) {
+		num /= 1024
+		suffix = substr(divisors, i, 1)
+	}
+	return int(num) suffix
+}
+
 function zpull(host, source, target) {
 	cmd_src = q((host in LOCALHOST) ? source : (host":"source))
 	cmd_tgt = q(target)
 	zpull_cmd = "ZELTA_PIPE=1 zpull " cmd_src " " cmd_tgt
+	zpull_status = 1
+	printf source ": "
 	while (zpull_cmd|getline) {
-		printf source ": "
-		if ($4) { printf "✗ " }
+		if (/error/ || $5 || !(is_num($1) && is_num($2) && is_num(3) && is_num($4))) {
+			print
+			continue
+		}
+		if ($4) {
+			printf "✗ "
+			zpull_status = 0
+		}
 		if ($1 && !$4) { printf "✔ " }
-		if ($1) { printf $1 " streams in " $3 "s" }
+		if ($1) { printf h_num($2) " transferred, " $1 " streams in " $3 "s" }
 		if (!$1 && !$4) { printf "⊜" }
 		print ""
 	}
-	if ((zpull_cmd|getline) == -1) print "ERROR"
+	close zpull_cmd
+	return zpull_status
 }
 
 BEGIN {
@@ -139,7 +162,18 @@ BEGIN {
 				if (AUTO) { printf "    " }
 				else if (should_replicate() ) { printf host":" }
 				else { continue }
-				zpull(host, source, target)
+				if (! zpull(host, source, target)) {
+					failed_list[host"\t"source"\t"target]++
+				}
+			}
+		}
+	}
+	while (AUTO && (c["RETRY"]-- > 0)) {
+		for (failed_zpull in failed_list) {
+			$0 = failed_zpull
+			printf "retrying: " $1 ":"
+			if (zpull($1, $2, $3)) {
+				delete failed_list[failed_zpull]
 			}
 		}
 	}
