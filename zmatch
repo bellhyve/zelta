@@ -70,6 +70,11 @@ BEGIN {
 	}
 	close(zfs_list_command(source))
 
+	if (length(sendguids) == 0) {
+		print "error: no source snapshots" | "cat 1>&2"
+		exit_code = 1
+	}
+
 	# Get snapshots for destination
 	thisSnap =""
 	while  (zfs_list_command(target, list_snapshot_flags) | getline) {
