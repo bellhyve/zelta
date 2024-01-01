@@ -79,7 +79,7 @@ zmatch [source_volume] [target_volume]
 
 ## zpull
 
-```zpull``` handles the actual replication of ZFS snapshots between a source and a target volume. It uses the output of ```zmatch``` to determine which snapshots need to be sent and then performs the replication efficiently.
+```zpull``` handles the actual replication of ZFS snapshots between a source and a target volume. It uses the output of ```zmatch``` to determine which snapshots need to be sent and then performs the replication.
 
 ```sh
 zpull [source_volume] [target_volume]
@@ -104,7 +104,7 @@ DAL1:
   ...
 ```
 
-In ```zelta.conf```, you can define different sites, each with specific hosts and datasets. The ```PREFIX``` parameter in the configuration file specifies how many parent levels of the source dataset should be included in the target dataset name. See the [configuration example](https://github.com/bellhyve/zelta/blob/main/zelta.conf).
+In ```zelta.conf```, you can define different sites, each with specific hosts and datasets. Several targeting options are provided for any backup naming heirachy. See the [configuration example](https://github.com/bellhyve/zelta/blob/main/zelta.conf).
 
 Usage:sh
 ```sh
@@ -114,8 +114,8 @@ zelta [optional_site_host_or_dataset]
 If one or more arguments are provided, ```zelta``` will limit the replication process to the specified sites, hosts, or datasets. If no argument is provided, it will process according to the settings in the configuration file.
 
 Installation and Requirements
-- The scripts are compatible with awk using the NetBSD extensions
-- Awk is hardcoded to /usr/bin/awk.
+- The scripts are compatible with awk using the NetBSD systime() extension (in FreeBSD base as of 2019).
+- Awk is currently hardcoded to /usr/bin/awk.
 - Install the scripts (zmatch, zpull, zelta) /usr/local/bin/ or any directory in PATH
 - For zpull, make sure ssh auth and "zfs allow" is correctly configured for target systems.
 - For zelta, edit /usr/local/etc/zelta/zelta.conf to match your environment and replication needs.
@@ -126,4 +126,4 @@ The previous version of the zelta sutie used internally includes a zeport report
 
 ## Contributing
 
-Contributions to enhance these tools are welcome. Please feel free to submit pull requests or open issues for any bugs or feature requests.
+Testing and contributions to enhance these tools are welcome. Please feel free to submit pull requests or open issues for any bugs or feature requests.
