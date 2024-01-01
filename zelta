@@ -58,7 +58,9 @@ function resolve_target(source, target) {
 	}
 	n = split(source, segments, "/")
 	for (i = n - c["PREFIX"]; i <= n; i++) {
-		target = target "/" segments[i]
+		if (segments[i]) {
+			target = target "/" segments[i]
+		}
 	}
 	return (c["PUSH_TO"] ? c["PUSH_TO"] ":" : "") target
 }
@@ -98,6 +100,7 @@ function load_config() {
 		print "no datasets defined in " ZELTA_CONFIG
 		exit 1
 	}
+	FS = "[ \t]+";
 }
 
 function sub_keys(key_pair, key1, key2_list, key2_subset) {
