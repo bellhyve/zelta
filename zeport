@@ -1,47 +1,43 @@
-#!/bin/sh
+#!/usr/bin/awk -f
 
-## Default Values
-ZELTA_CONFIG="/usr/local/etc/zelta/zelta.conf"
-
-err(){
-  echo "$1"
-  exit 1
+function env(env_name, var_default) {
+	return ( (env_name in ENVIRON) ? ENVIRON[env_name] : var_default )
 }
 
-report_slack(){
-	if ! SLACK_HOOK=$(sysrc -n -f ${ZELTA_CONFIG} SLACK_HOOK) ; then
-		err "\$SLACK_HOOK is not defined in ${ZELTA_CONFIG}"
-		exit 1
-	fi
- 	if [ -z $OUTDATED ] ; then
-		echo curl -X POST \
-			-H 'Content-type: application/json; charset=utf-8' \
-			--data "{ \"username\": \"zeport\", \"icon_emoji\": \":camera_with_flash:\", \"text\": \"`hostname` is up-to-date\" }" \
-		$SLACK_HOOK
-		exit 0
-	fi
-
-	OUTDATED_FMT="$(printf "%s\n" `echo $OUTDATED | tr ':' '\n'`)"
-	echo curl -X POST \
-	    -H 'Content-type: application/json; charset=utf-8' \
-	    --data "{ \"username\": \"zeport\", \"icon_emoji\": \":camera_with_flash:\", \"text\": \"$hostname: Outdated backups→\n$OUTDATED_FMT\" }" \
-	    $SLACK_HOOK
+function err(msg) {
+	print msg
+	exit 1
 }
 
-[ -e "$ZELTA_CONFIG" ]  || err "${ZELTA_CONFIG} does not exist"
+BEGIN {
+	ZELTA_CONFIG = env("ZELTA_CONFIG", "/usr/local/etc/zelta/zelta.conf")
+	"awk '/^BACKUP_ROOT: /{print $2}' " ZELTA_CONFIG | getline BACKUP_ROOT
+	HOOK_FILE = env("SLACK_HOOK", ENVIRON["HOME"] "/.zeport-hook")
+	getline SLACK_HOOK < HOOK_FILE
+	if (! SLACK_HOOK || ! BACKUP_ROOT) err "please correctly set BACKUP_ROOT and SLACK_HOOK"
+	"hostname" | getline HOSTNAME
+	too_old = systime() - 86400
+	trim = length(BACKUP_ROOT) + 1
+	FS = "[@\t]+"
+	# This seems to be faster than trying to limit the list in any way:
+	while ("zfs list -Hprt snap -oname,creation -S creation "BACKUP_ROOT | getline) {
+		if (snaplist[$1]) continue
+		snaplist[$1]++
+		sub(BACKUP_ROOT"/", "")
+		if ($3 < too_old) {
+			old_list[$1]++
+		}
+	}
 
-# Get BACKUP_VOL
-if ! BACKUP_VOL=$(sysrc -n -f ${ZELTA_CONFIG} BACKUP_VOL) ; then
-  err "\$BACKUP_VOL is not defined in ${ZELTA_CONFIG}"
-fi
+	SLACK_MESSAGE = HOSTNAME ":" BACKUP_ROOT " "
+	if (length(old_list) > 0) {
+		SLACK_MESSAGE = "\*" SLACK_MESSAGE "backups are out of date:\* "
+		for (s in old_list) { SLACK_MESSAGE = SLACK_MESSAGE s" " }
+	} else { SLACK_MESSAGE = " backups are up to date." }
 
-# Start searching!
-export OUTDATED=""
-for backup in $(zfs list -Hrd1 -oname $BACKUP_VOL) ; do
-  _latest=$(zfs list -Hrtsnap -S creation -oname ${backup} | head -1)
-  if ! ( echo "$_latest" | grep -q `date -j +%Y-%m-%d_` ) ; then
-    OUTDATED="$_latest:$OUTDATED"
-  fi
-done
+	curl = 	"curl -s -X POST -H 'Content-type: application/json; charset=utf-8' " \
+	     	"--data '{ \"username\": \"zeport\", \"icon_emoji\": \":camera_with_flash:\", \"text\": \"" \
+		SLACK_MESSAGE "\" }' " SLACK_HOOK
 
-report_slack
+	curl | getline
+}
