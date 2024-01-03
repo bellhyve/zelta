@@ -1,8 +1,8 @@
 # Zelta Replication Suite
 
-This suite of tools provides a streamlined approach for managing ZFS snapshot replication across various systems. It consists of three main components: ```zmatch```, ```zpull```, and ```zelta```, each designed to handle specific aspects of the snapshot replication process. ```zelta``` is intended to be run with *no* requirements on backup sources and *without elevated privilages.*
+This suite of tools provides a streamlined approach for managing ZFS snapshot replication across various systems. It consists of three main components: ```zmatch```, ```zpull```, and ```zelta```, each designed to handle specific aspects of the snapshot replication process. ```zelta``` is intended to be run with *no* requirements on backup sources and *without elevated privileges.*
 
-The goal of this proeject will be to keep the tools as simple as possible with intutive defaults and few options. zelta works best as a cron job in conjuction with a snapshot creating and pruning utility like the excellent [zfsnap](https://github.com/zfsnap/zfsnap).
+The goal of this project will be to keep the tools as simple as possible with intuitive defaults and few options. zelta works best as a cron job in conjunction with a snapshot creating and pruning utility like the excellent [zfsnap](https://github.com/zfsnap/zfsnap).
 
 ### Quick Start: Setup
 
@@ -19,7 +19,7 @@ zpull zroot opt/Backups/myboot
 
 zpull will respond with something like: `14 streams received, 4G copied in 14 seconds`
 
-Simply repeat the process to update. zpull does not mount after replicated by default. Consider inheriting mountpoints for easier maintenenace, e.g., `zfs inherit -r mountpoint opt/Backups`
+Simply repeat the process to update. zpull does not mount after replicated by default. Consider inheriting mountpoints for easier maintenance, e.g., `zfs inherit -r mountpoint opt/Backups`
 
 ### Quick Start: Back up the universe
 
@@ -98,13 +98,13 @@ PREFIX: 0
 
 DAL1:
   fw1.dal1:
-  - fw1-dal1-boot/jail/webproxy_bts
+  - fw1-boot/jail/webproxy_bti
   host00.bts:
-  - ssd00/jail/app.adagesource.com
+  - ssd00/jail/app1.asi
   ...
 ```
 
-In ```zelta.conf```, you can define different sites, each with specific hosts and datasets. Several targeting options are provided for any backup naming heirachy. See the [configuration example](https://github.com/bellhyve/zelta/blob/main/zelta.conf).
+In ```zelta.conf```, you can define different sites, each with specific hosts and datasets. Several targeting options are provided for any backup naming hierarchy. See the [configuration example](https://github.com/bellhyve/zelta/blob/main/zelta.conf).
 
 Usage:sh
 ```sh
@@ -122,7 +122,7 @@ Installation and Requirements
 
 ## Future
 
-The previous version of the zelta sutie used internally includes a zeport reporting tool and a zmove configuration editing tool, and need to be refactored before being added to this repository.
+The previous version of the zelta suite used internally includes a zeport reporting tool and a zmove configuration editing tool, and need to be refactored before being added to this repository.
 
 ## Contributing
 
