@@ -31,9 +31,9 @@ BEGIN {
 
 	SLACK_MESSAGE = HOSTNAME ":" BACKUP_ROOT " "
 	if (length(old_list) > 0) {
-		SLACK_MESSAGE = "\*" SLACK_MESSAGE "backups are out of date:\* "
+		SLACK_MESSAGE = "\*" SLACK_MESSAGE "snapshots are out of date:\* "
 		for (s in old_list) { SLACK_MESSAGE = SLACK_MESSAGE s" " }
-	} else { SLACK_MESSAGE = "\*" SLACK_MESSAGE " backups are up to date.\*" }
+	} else { SLACK_MESSAGE = "\*" SLACK_MESSAGE "snapshots are up to date.\*" }
 
 	curl = 	"curl -s -X POST -H 'Content-type: application/json; charset=utf-8' " \
 	     	"--data '{ \"username\": \"zeport\", \"icon_emoji\": \":camera_with_flash:\", \"text\": \"" \
