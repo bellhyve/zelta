@@ -1,0 +1,21 @@
+#!/bin/sh
+: ${ZELTA_SHARE:="/usr/local/share/zelta"}
+: ${AWK:="`which awk`"}
+AWKPRE="$AWK -f $ZELTA_SHARE"
+
+# Run script directly if called with that name
+zelta_command=`echo $0 | sed 's-.*/--'`
+case $1 in
+	backup) shift ;;
+	match) shift; zelta_command=zmatch ;;
+	pull) shift; zelta_command=zpull ;;
+	report) shift; zelta_command=zeport ;;
+esac
+
+case $zelta_command in
+	zmatch) $AWKPRE/zelta-match.awk -- "$@" ;;
+	zpull) $AWKPRE/zelta-replicate.awk -- "$@" ;;
+	zeport) $AWKPRE/zelta-report.awk -- "$@" ;;
+	*) [ "$1" = 'backup' ] && shift
+		$AWKPRE/zelta-backup.awk -- "$@" ;;
+esac

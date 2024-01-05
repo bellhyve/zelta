@@ -141,18 +141,20 @@ function zpull(host, source, target) {
 	zpull_status = 1
 	printf source ": "
 	while (zpull_cmd|getline) {
-		if (/error/ || $5 || !(is_num($1) && is_num($2) && is_num(3) && is_num($4))) {
-			print
-			continue
-		}
-		if ($4) {
-			printf "✗ "
-			zpull_status = 0
-		}
-		if ($1 && !$4) { printf "✔ " }
-		if ($1) { printf h_num($2) " transferred, " $1 " streams in " $3 "s" }
-		if (!$1 && !$4) { printf "⊜" }
-		print ""
+		if (/[0-9]+ [0-9]+ [0-9]+\.*[0-9]* -?[0-9]+/) {
+			if ($2) printf h_num($2) ": "
+			if ($4) {
+				printf "✗ " 
+				zpull_status = 0
+				if ($4 == 1) print "error matching snapshots"
+				else if ($4 == 2) print "replication error"
+				else if ($4 == 3) print "error matching snapshots"
+				else if ($4 == 4) print "error creating parent volume"
+				else if ($4 ~ /^-[0-9]/) print $4 " missing streams"
+				else print "error: " $0
+			} else if ($1) { print "✔ transferred in " $3 "s" }
+			else print "⊜"
+		} else print
 	}
 	close zpull_cmd
 	return zpull_status
