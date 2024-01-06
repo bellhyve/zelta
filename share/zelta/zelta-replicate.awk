@@ -1,10 +1,8 @@
 #!/usr/bin/awk -f
 #
-# zpull - replicates a snapshot and its descendants
+# zelta replicate (zpull) - replicates a snapshot and its descendants
 #
 # usage: zpull [user@][host:]source/dataset [user@][host:]target/dataset
-#
-# requires: zmatch
 #
 # After using zmatch to identify out-of-date snapshots on the target, zpull creates
 # individual replication streams for a snapshot and its children. zpull is useful for
@@ -42,13 +40,6 @@ function env(env_name, var_default) {
 
 function q(s) { return "\'"s"\'" }
 
-function get_dataset(dataset_string, dataset_array) {
-	i = split(dataset_string, arr, /[@:]/)
-	dataset_array["dataset"] = arr[i--]
-	if (i) dataset_array["host"] = arr[i--]
-	if (i) dataset_array["user"] = arr[i]
-}
-
 function opt_var() {
 	var = ($0 ? $0 : ARGV[++i])
 	$0 = ""
@@ -70,8 +61,7 @@ function get_options() {
 		else source = $0
 	}
 	if (! target) usage()
-	get_dataset(source, source_info)
-	get_dataset(target, target_info)
+	c["VERBOSE"] = (!c["JSON"] && !ZELTA_PIPE)
 }
 	       
 function load_config() {
@@ -87,7 +77,6 @@ function load_config() {
 		}
 	}
 	ZELTA_PIPE = env("ZELTA_PIPE", 0)
-	c["VERBOSE"] = !ZELTA_PIPE
 	get_options()
 	send_flags = "Lcp"
 	send_flags = send_flags (c["DRY_RUN"]?"n":"") (c["REPLICATE_NEW"]?"R":"")
@@ -97,51 +86,111 @@ function load_config() {
 	recv_flags = "receive -v" env("ZPULL_RECV_FLAGS", recv_flags) " "
 	intr_flags = c["INTERMEDIATE"] ? "I" : "i"
 	intr_flags = "-" env("ZPULL_I_FLAGS", intr_flags) " "
-	zmatch = "ZELTA_PIPE=1 /usr/bin/time zmatch " q(source) " " q(target)
+	zmatch = "ZELTA_PIPE=1 /usr/bin/time zmatch " q(source) " " q(target) " 2>&1"
 	if (c["DEPTH"] && !c["REPLICATE_NEW"]) {
 		zmatch = "ZELTA_DEPTH=" c["DEPTH"] " " zmatch
 	}
 }
 
-function zfs_command(vol_str) {
-	if (split(vol_str, vol_arr, ":") == 2) {
-		cmdpre = "ssh " vol_arr[1] " "
-		volume = vol_arr[2];
-	} else {
-		cmdpre = ""
-		volume = vol_arr[1]
-	}
-    zfs[vol_str] = cmdpre "zfs "
-    vol[vol_str] = volume
-    return zfs[vol_str]
+function get_endpoint_info(endpoint) {
+	if (split(endpoint, vol_arr, ":") == 2) {
+		ssh_command[endpoint] = "ssh " vol_arr[1] " "
+		volume[endpoint] = vol_arr[2];
+		if (split(vol_arr[1], user_host, "@") == 2) {
+			ssh_user[endpoint] = user_host[1]
+			ssh_host[endpoint] = user_host[2]
+		} else ssh_host[arg] = vol_arr[1]
+
+	} else volume[endpoint] = vol_arr[1]
+	zfs[endpoint] = ssh_command[endpoint] "zfs "
+	return zfs[enndpoint]
 }
 
 function h_num(num) {
 	suffix = "B"
 	divisors = "KMGTPE"
-	for (i = 1; i <= length(divisors) && num >= 1024; i++) {
+	for (h = 1; h <= length(divisors) && num >= 1024; h++) {
 		num /= 1024
-		suffix = substr(divisors, i, 1)
+		suffix = substr(divisors, h, 1)
 	}
 	return int(num) suffix
 }
 
 function dry_run(command) {
 	if (c["DRY_RUN"]) {
-		if (command) print command
+		if (command) print "+ "command
 		return 1
 	} else { return 0 }
+}
+
+function json_output() {
+	print "{"
+#  "sourceHost": "source-host-name",
+#  "sourceDataset": "source-dataset-name",
+#  "targetHost": "target-host-name",
+#  "targetDataset": "target-dataset-name",
+#  "dataAttemptedBytes": 123456789,
+#  "sentStreams": [
+#    "stream1@snapshot1",
+#    "stream2@snapshot2"
+#  ],
+#  "receivedStreams": [
+#    "stream1@snapshot1",
+#    "stream2@snapshot2"
+#  ],
+#  "errorCode": 0,
+#  "errorMessages": [
+#    "Error message 1",
+#    "Error message 2"
+#  ],
+#  "datestamp": "Unix-timestamp-ms",
+#  "transferTimeMs": 12345
+#}
+#
+	print "]"
+}
+
+function pipe_output() {
+	if (ZELTA_PIPE) print received_streams, total_bytes, total_time, error_code 
+	return error_code
+}
+
+function fail(error_code, message) {
+	error(message)
+	pipe_output()
+	exit error_code
+}
+
+function replicate(command) {
+	while (command | getline) {
+		if ($1 == "incremental" || $1 == "full") { sent_streams++ }
+		else if ($1 == "received") { received_streams++ }
+		else if (($1 == "size") && $2) {
+			verbose("sending " h_num($2) ": " source_stream[i])
+			total_bytes += $2
+		} else if ($3 == "real") { total_time += $2 }
+		else if (/cannot/ || !/stream/) {
+			print "error: " $0 | "cat 1>&2"
+			error_code = 2
+		}
+	}
+	close(command)
 }
 
 BEGIN {
 	FS="\t"
 	load_config()
+	received_streams = 0
+	total_bytes = 0
+	total_time = 0
 	error_code = 0
 
-	zfs_send_command = zfs_command(source) send_flags
-	zfs_receive_command = zfs_command(target) recv_flags
+	get_endpoint_info(source)
+	get_endpoint_info(target)
+	zfs_send_command = zfs[source] send_flags
+	zfs_receive_command = zfs[target] recv_flags
 	time_start = systime()
-	while (zmatch " 2>&1" |getline) {
+	while (zmatch |getline) {
 		if (/error/) {
 			error_code = 1
 			continue
@@ -149,17 +198,12 @@ BEGIN {
 			total_time = $2
 			continue
 		} else if (! /@/) {
-			if (! $0 == $1) {
-				print "error: " $0 | "cat 1>&2"
-				if (ZELTA_PIPE) { print "0 0 0 3" }
-				exit 1
-			}
-			zfs_create_command = zfs_command(target) "create -up " q($1) " >/dev/null 2>&1"
+			# If no snapshot is given, create an empty volume
+			if (! $0 == $1) fail(3, $0)
+			zfs_create_command = zfs[target] "create -up " q($1) " >/dev/null 2>&1"
 			if (dry_run(zfs_create_command)) continue
-			if (system(zfs_create_command)) {
-				if (ZELTA_PIPE) { print "0 0 0 4" }
-				exit 1
-			} else verbose("created parent dataset(s)")
+			if (system(zfs_create_command)) fail(4, "failed to create dataset: " q($1))
+			else verbose("created parent dataset(s)")
 			continue
 		}
 		num_streams++
@@ -171,39 +215,30 @@ BEGIN {
 			source_stream[rpl_num] = q($1)
 		}
 	}
+	close(zmatch)
 
 	if (!num_streams) { 
-		if (ZELTA_PIPE) { print "0 0 " total_time " " error_code }
-		else { print "nothing to replicate" }
+		if (!pipe_output()) verbose("nothing to replicate")
 		exit error_code
 	}
 
 	FS = "[ \t]+";
 	received_streams = 0
 	total_bytes = 0
-	for (i = 1; i <= rpl_num; i++) {
-		if (dry_run(rpl_cmd[i])) sub(/ \| .*/, ">/dev/null", rpl_cmd[i])
-		full_cmd = "/usr/bin/time sh -c '" rpl_cmd[i] "' 2>&1"
-		while (full_cmd | getline) {
-			if ($1 == "incremental" || $1 == "full") { sent_streams++ }
-			else if ($1 == "received") { received_streams++ }
-			else if (($1 == "size") && $2) {
-				verbose("sending " h_num($2) ": " source_stream[i])
-			       	total_bytes += $2
-			} else if ($3 == "real") { total_time += $2 }
-			else if (/cannot/ || !/stream/) {
-				print "error: " $0 | "cat 1>&2"
-				error_code = 2
-			}
-
+	for (r = 1; r <= rpl_num; r++) {
+		if (dry_run(rpl_cmd[r])) {
+			sub(/ \| .*/, ">/dev/null", rpl_cmd[r])
 		}
+		if (full_cmd) close(full_cmd)
+		full_cmd = "/usr/bin/time sh -c '" rpl_cmd[r] "' 2>&1"
+		replicate(full_cmd)
 		if (c["REPLICATE_NEW"]) { break } # If -R is given, skip manual descendants
 	}
 
 	# Negative errors show the number of missed streams, otherwise show error code
 	stream_diff = received_streams - sent_streams
 	error_code = (error_code ? error_code : stream_diff)
-	if (ZELTA_PIPE) print received_streams, total_bytes, total_time, error_code
 	verbose(h_num(total_bytes) " sent, " received_streams "/" sent_streams " streams received in " total_time " seconds")
+	pipe_output()
 	exit error_code
 }
