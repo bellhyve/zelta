@@ -44,12 +44,19 @@ function get_dataset(dataset_string, dataset_array) {
 	if (i) dataset_array["user"] = arr[i]
 }
 
+function opt_var() {
+	var = ($0 ? $0 : ARGV[++i])
+	$0 = ""
+	return var
+}
 
-function getopts() {
+function get_options() {
 	for (i=1;i<ARGC;i++) {
 		$0 = ARGV[i]
 		if (gsub(/^-/,"")) {
 			if (gsub(/j/,"")) JSON++
+			if (gsub(/R/,"")) c["REPLICATE_NEW"] = 1
+			if (gsub(/d/,"")) c["DEPTH"] = opt_var()
 			if (/./) {
 				usage("unkown options: " $0)
 			}
@@ -65,7 +72,6 @@ function getopts() {
 	       
 function load_config() {
 	ZELTA_CONFIG = env("ZELTA_CONFIG", "/usr/local/etc/zelta/zelta.conf")
-	getopts()
 	FS = "[: \t]+";
 	while ((getline < ZELTA_CONFIG)>0) {
 		if (split($0, arr, "#")) {
@@ -77,6 +83,7 @@ function load_config() {
 		}
 	}
 	ZELTA_PIPE = env("ZELTA_PIPE", 0)
+	get_options()
 	send_flags = c["REPLICATE_NEW"] ? "LcpR" : "Lcp"
 	send_flags = "send -P" env("ZPULL_SEND_FLAGS", send_flags) " "
 	recv_flags = c["RECEIVE_FLAGS"] ? c["RECEIVE_FLAGS"] : "u"
