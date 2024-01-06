@@ -71,7 +71,6 @@ function get_endpoint_info(arg) {
 		cmdpre = "sh -c \"ssh -n " snap[1] " "
 		cmdpre = "ssh -n " snap[1] " "
 		snapvol = snap[2];
-		#cmdpost = "\""
 	} else {
 		cmdpre = ""
 		cmdpost = ""
@@ -80,6 +79,7 @@ function get_endpoint_info(arg) {
 	vol_name_length[arg] = length(snapvol) + 1	# Get dataset length for trimming so we can compare stub names
 	dataset[arg] = snapvol 				# Translate endpoint name to volume name
 	zfs_list_command[arg] = cmdpre "zfs list " ZFS_LIST_FLAGS " '" snapvol "' " cmdpost " 2>&1"
+	return snapvol
 }
 
 function h_num(num) {
@@ -129,6 +129,21 @@ function load_target_snapshots(dataset_info) {
 
 function verbose(message) { if (VERBOSE) print message }
 
+
+function check_parent(parent) {
+	ZFS_LIST_FLAGS = "-Hponame"
+	if (!gsub(/\/[^\/]+$/, "", parent)) {
+		error("invalid target pool: " dataset[target])
+		exit 1
+	}
+	get_endpoint_info(parent)
+	zfs_list_command[parent] | getline parent_check
+	if (parent_check ~ /dataset does not exist/) {
+		create_parent=dataset[parent]
+		verbose("parent volume does not exist: " create_parent)
+	}
+}
+
 function reconcile_snapshots() {
 	while (getline) {
 		if (!get_snapshot_data(vol_name_length[source])) { continue }
@@ -140,8 +155,9 @@ function reconcile_snapshots() {
 		}
 		if (dataset_stub in matches) { continue}
 		else if (!target_latest[dataset_stub] && !(dataset_stub in missing_target_volume)) {
-			verbose("snapshots for volume only on source: " dataset_name)
+			if (!dataset_stub) check_parent(target)
 			missing_target_volume[dataset_stub] = dataset_name
+			verbose("snapshots for volume only on source: " dataset_name)
 		} else if (target_guid[snapshot_stub]) {
 			if (target_guid[snapshot_stub] == source_guid[snapshot_stub]) {
 				matches[dataset_stub]++
@@ -176,6 +192,7 @@ function output_summary() {
 
 function pipe_output() {
 	OFS="\t"
+	if (create_parent) print create_parent
 	for (dataset_stub in missing_target_volume) {
 		# For missing target volumes, show latest snapshot and proposed target volume
 		print missing_target_volume[dataset_stub],dataset[target] dataset_stub
