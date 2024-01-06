@@ -150,7 +150,7 @@ function zpull(host, source, target) {
 				else if ($4 == 2) print "replication error"
 				else if ($4 == 3) print "error matching snapshots"
 				else if ($4 == 4) print "error creating parent volume"
-				else if ($4 ~ /^-[0-9]/) print $4 " missing streams"
+				else if ($4 < 0) print (0-$4) " missing streams"
 				else print "error: " $0
 			} else if ($1) { print "✔ transferred in " $3 "s" }
 			else print "⊜"
