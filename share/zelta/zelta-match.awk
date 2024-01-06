@@ -156,6 +156,10 @@ function reconcile_snapshots() {
 		if (dataset_stub in matches) { continue}
 		else if (!target_latest[dataset_stub] && !(dataset_stub in missing_target_volume)) {
 			if (!dataset_stub) check_parent(target)
+			# We need to keep the volume creation order:
+			new_volume_count++
+			new_volume_source[new_volume_count] = dataset_name
+		        new_volume_target[new_volume_count] = dataset[target] dataset_stub
 			missing_target_volume[dataset_stub] = dataset_name
 			verbose("snapshots for volume only on source: " dataset_name)
 		} else if (target_guid[snapshot_stub]) {
@@ -193,10 +197,7 @@ function output_summary() {
 function pipe_output() {
 	OFS="\t"
 	if (create_parent) print create_parent
-	for (dataset_stub in missing_target_volume) {
-		# For missing target volumes, show latest snapshot and proposed target volume
-		print missing_target_volume[dataset_stub],dataset[target] dataset_stub
-	}
+	for (n=1;n<=new_volume_count;n++) print new_volume_source[n], new_volume_target[n]
 	for (d=1;d<=delta_count;d++) print delta_match[d], delta_source[d], delta_target[d]
 }
 
