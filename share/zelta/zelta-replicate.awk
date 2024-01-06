@@ -123,12 +123,34 @@ function dry_run(command) {
 	} else { return 0 }
 }
 
+function j(e) {
+	if (length(e) == 0) return "null"
+	else if (e ~ /^-?[0-9\.]+$/) return e
+	else return "\""e"\""
+}
+
+function jpair(l, r) {
+	printf "  "j(l)": "j(r)
+	return ","
+}
+
 function json_output() {
+	if (!c["JSON"]) return 0
 	print "{"
-#  "sourceHost": "source-host-name",
-#  "sourceDataset": "source-dataset-name",
-#  "targetHost": "target-host-name",
-#  "targetDataset": "target-dataset-name",
+	print jpair("startTime",time_start)
+	print jpair("sourceUser",ssh_user[source])
+	print jpair("sourceHost",ssh_host[source])
+	print jpair("sourceVolume",volume[source])
+	print jpair("targetUser",ssh_user[target])
+	print jpair("targetHost",ssh_host[target])
+	print jpair("targetVolume",volume[target])
+	print jpair("replicationSize",total_bytes)
+	print jpair("replicationTime",total_time)
+	print jpair("replicationStreamsSent",sent_streams)
+	print jpair("replicationStreamsReceived",received_streams)
+	jpair("replicationErrorCode",error_code)
+	print ""
+
 #  "dataAttemptedBytes": 123456789,
 #  "sentStreams": [
 #    "stream1@snapshot1",
@@ -147,7 +169,7 @@ function json_output() {
 #  "transferTimeMs": 12345
 #}
 #
-	print "]"
+	print "}"
 }
 
 function pipe_output() {
@@ -155,9 +177,11 @@ function pipe_output() {
 	return error_code
 }
 
-function fail(error_code, message) {
-	error(message)
-	pipe_output()
+
+function stop(error_code, message) {
+	if (message) error(message)
+	if (ZELTA_PIPE) pipe_output()
+	if (c["JSON"]) json_output()
 	exit error_code
 }
 
@@ -199,10 +223,10 @@ BEGIN {
 			continue
 		} else if (! /@/) {
 			# If no snapshot is given, create an empty volume
-			if (! $0 == $1) fail(3, $0)
+			if (! $0 == $1) stop(3, $0)
 			zfs_create_command = zfs[target] "create -up " q($1) " >/dev/null 2>&1"
 			if (dry_run(zfs_create_command)) continue
-			if (system(zfs_create_command)) fail(4, "failed to create dataset: " q($1))
+			if (system(zfs_create_command)) stop(4, "failed to create dataset: " q($1))
 			else verbose("created parent dataset(s)")
 			continue
 		}
@@ -217,9 +241,9 @@ BEGIN {
 	}
 	close(zmatch)
 
-	if (!num_streams) { 
-		if (!pipe_output()) verbose("nothing to replicate")
-		exit error_code
+	if (!num_streams) {
+		verbose("nothing to replicate")
+		stop(0, "")
 	}
 
 	FS = "[ \t]+";
@@ -239,6 +263,5 @@ BEGIN {
 	stream_diff = received_streams - sent_streams
 	error_code = (error_code ? error_code : stream_diff)
 	verbose(h_num(total_bytes) " sent, " received_streams "/" sent_streams " streams received in " total_time " seconds")
-	pipe_output()
-	exit error_code
+	stop(error_code, "")
 }
