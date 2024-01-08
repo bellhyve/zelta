@@ -175,7 +175,10 @@ function zelta_sync(host, source, target) {
 				else report(LOG_DELAY, "error: " $0)
 			} else if ($1) { report(LOG_DELAY, "✔ transferred in " $3 "s") }
 			else report(LOG_DELAY, "⊜")
-		} else report(LOG_DELAY, $0)
+		} else {
+			report(LOG_DELAY, $0)
+			if (/replicationErrorCode/ && !/0,/) sync_status = 0
+		}
 		report(LOG_DELAY, "\n")
 	}
 	report(LOG_DELAY, "")

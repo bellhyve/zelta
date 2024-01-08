@@ -182,6 +182,7 @@ function reconcile_snapshots() {
 			}
 		} else { total_transfer_size += snapshot_written }
 	}
+	if (length(source_latest) == 0) error("no source snapshots")
 }
 
 function output_summary() {
