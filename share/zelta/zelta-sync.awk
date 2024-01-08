@@ -124,6 +124,11 @@ function get_endpoint_info(endpoint) {
 	return zfs[enndpoint]
 }
 
+function sys_time() {
+	srand();
+	return srand();
+}
+
 function h_num(num) {
 	suffix = "B"
 	divisors = "KMGTPE"
@@ -170,6 +175,7 @@ function output_json() {
 	if (LOG_MODE != LOG_JSON) return 0
 	print "{"
 	print jpair("startTime",time_start)
+	print jpair("endTime",time_end)
 	print jpair("sourceUser",ssh_user[source])
 	print jpair("sourceHost",ssh_host[source])
 	print jpair("sourceVolume",volume[source])
@@ -193,6 +199,7 @@ function output_pipe() {
 
 
 function stop(error_code, message) {
+	time_end = sys_time();
 	report(LOG_ERROR, message)
 	if (c["JSON"]) output_json()
 	else if (ZELTA_PIPE) output_pipe()
@@ -233,7 +240,7 @@ BEGIN {
 	get_endpoint_info(target)
 	zfs_send_command = zfs[source] send_flags
 	zfs_receive_command = zfs[target] recv_flags
-	time_start = systime()
+	time_start = sys_time()
 	while (zmatch |getline) {
 		if (/error/) {
 			error_code = 1
