@@ -4,9 +4,10 @@
 #
 # usage: zelta [site, host, dataset, or source host:dataset] ...
 #
-# requires: zpull, zmatch
+# requires: zelta-sync.awk, zelta-match.awk
+# optional: JSON.awk (for JSON-style config)
 #
-# zelta loops through its YAML-style configuration file. The minimal
+# zelta reads a YAML or JSON-style configuration file. The minimal
 # conifguration is:
 #
 # 	BACKUP_ROOT: backup/parent
@@ -45,6 +46,23 @@
 # configuration file to the argument list. For example, entering a site name will
 # replicate all datasets from all hosts of a site. Keep this in mind when reusing
 # host or dataset names.
+
+function report(mode, message) {
+	if (LOG_WARNING == mode) { print "error: " message | STDOUT }
+	else if (LOG_ACTIVE == LOG_MODE) { printf message }
+	else if ((LOG_DELAY == mode) && ((LOG_MODE == LOG_DELAY))) {
+		if (message == "") {
+			printf buffer_delay
+			buffer_delay = ""
+		} else { buffer_delay = buffer_delay message }
+	}
+}
+
+function usage(message) {
+	report(LOG_WARNING, message)
+	report(LOG_WARNING, "usage: zelta [site|host|dataset] [...]")
+	exit 1
+}
 
 function env(env_name, var_default) {
 	return ( (env_name in ENVIRON) ? ENVIRON[env_name] : var_default )
@@ -87,7 +105,7 @@ function load_config() {
 			source_dataset = $3
 			target_dataset = resolve_target(source_dataset, $4)
 			if (!target_dataset) {
-				print "warning: no target defined for " source_dataset
+				error("warning: no target defined for " source_dataset)
 			}
 			datasets[current_host, source_dataset] = resolve_target(source_dataset, target_dataset)
 			dataset_count[source_dataset]++
@@ -101,6 +119,11 @@ function load_config() {
 		exit 1
 	}
 	FS = "[ \t]+";
+	for (i = 1; i < ARGC; i++) { ARGS[ARGV[i]]++ }
+	if (ARGC == 1) { AUTO++ }
+	LOG_ACTIVE = 1; LOG_DELAY = 2; LOG_WARNING = 3
+	LOG_MODE = 1
+	if (!AUTO || c["JSON"]) { LOG_MODE = 2 }
 }
 
 function sub_keys(key_pair, key1, key2_list, key2_subset) {
@@ -120,10 +143,6 @@ function should_replicate() {
 
 function q(s) { return "\'"s"\'" }
 
-function is_num (string) {
-	return (string ~ /^-?[0-9]+$/)
-}
-
 function h_num(num) {
 	suffix = "B"
 	divisors = "KMGTPE"
@@ -134,61 +153,71 @@ function h_num(num) {
 	return int(num) suffix
 }
 
-function zpull(host, source, target) {
+function zelta_sync(host, source, target) {
 	cmd_src = q((host in LOCALHOST) ? source : (host":"source))
 	cmd_tgt = q(target)
-	zpull_cmd = "ZELTA_PIPE=1 zpull " cmd_src " " cmd_tgt
-	zpull_status = 1
-	printf source ": "
-	while (zpull_cmd|getline) {
+	sync_cmd = "ZELTA_PIPE=1 zelta sync " cmd_src " " cmd_tgt
+	sync_status = 1
+	# Only print host:source explicitly in non-interactive interactive
+	if ((LOG_MODE == LOG_DELAY) && !c["JSON"]) report(LOG_DELAY, host":"source": ")
+	report(LOG_ACTIVE, source": ")
+	while (sync_cmd|getline) {
 		if (/[0-9]+ [0-9]+ [0-9]+\.*[0-9]* -?[0-9]+/) {
-			if ($2) printf h_num($2) ": "
+			if ($2) report(LOG_DELAY, h_num($2) ": ")
 			if ($4) {
-				printf "✗ " 
-				zpull_status = 0
-				if ($4 == 1) print "error matching snapshots"
-				else if ($4 == 2) print "replication error"
-				else if ($4 == 3) print "error matching snapshots"
-				else if ($4 == 4) print "error creating parent volume"
-				else if ($4 < 0) print (0-$4) " missing streams"
-				else print "error: " $0
-			} else if ($1) { print "✔ transferred in " $3 "s" }
-			else print "⊜"
-		} else print
+				report(LOG_DELAY, "✗ ")
+				sync_status = 0
+				if ($4 == 1) report(LOG_DELAY, "error matching snapshots")
+				else if ($4 == 2) report(LOG_DELAY, "replication error")
+				else if ($4 == 3) report(LOG_DELAY, "error matching snapshots")
+				else if ($4 == 4) report(LOG_DELAY, "error creating parent volume")
+				else if ($4 < 0) report(LOG_DELAY, (0-$4) " missing streams")
+				else report(LOG_DELAY, "error: " $0)
+			} else if ($1) { report(LOG_DELAY, "✔ transferred in " $3 "s") }
+			else report(LOG_DELAY, "⊜")
+		} else report(LOG_DELAY, $0)
+		report(LOG_DELAY, "\n")
 	}
-	close zpull_cmd
-	return zpull_status
+	report(LOG_DELAY, "")
+	close sync_cmd
+	return sync_status
+}
+
+function xargs() {
+	for (site in sites) site_list = site_list " "site
+	xargs_command = "echo" site_list " | xargs -n1 -P" c["THREADS"] " zelta"
+	while (xargs_command | getline) { print }
+	exit 0
 }
 
 BEGIN {
 	ZELTA_CONFIG = env("ZELTA_CONFIG", "/usr/local/etc/zelta/zelta.conf")
 	LOCALHOST["localhost"]++  # Consider addding other local hostnames
-	for (i = 1; i < ARGC; i++) { ARGS[ARGV[i]]++ }
-	if (ARGC == 1) { AUTO++ } # If no arguments are given, indent site and host output
+	STDOUT = "cat 1>&2"
 	load_config()
+	if (AUTO && (c["THREADS"] > 1)) xargs()
 	for (site in sites) {
-		if (AUTO) print site
+		report(LOG_ACTIVE, site "\n")
 		sub_keys(hosts_by_site, site, hosts, site_hosts)
 		for (host in site_hosts) {
-			if (AUTO) print "  " host
+			report(LOG_ACTIVE, "  " host "\n")
 			sub_keys(datasets, host, dataset_count, host_datasets)
 			for (source in host_datasets) {
 				target = datasets[host,source]
-				if (AUTO) { printf "    " }
-				else if (should_replicate() ) { printf host":" }
-				else { continue }
-				if (! zpull(host, source, target)) {
+				if (!AUTO && !should_replicate()) continue
+				report(LOG_ACTIVE,"    ")
+				if (! zelta_sync(host, source, target)) {
 					failed_list[host"\t"source"\t"target]++
 				}
 			}
 		}
 	}
-	while (AUTO && (c["RETRY"]-- > 0)) {
-		for (failed_zpull in failed_list) {
-			$0 = failed_zpull
-			printf "retrying: " $1 ":"
-			if (zpull($1, $2, $3)) {
-				delete failed_list[failed_zpull]
+	while (c["RETRY"]-- > 0) {
+		for (failed_sync in failed_list) {
+			$0 = failed_sync
+			if (!c["JSON"]) report(LOG_DELAY, "retrying: " $1 ":")
+			if (zelta_sync($1, $2, $3)) {
+				delete failed_list[failed_sync]
 			}
 		}
 	}

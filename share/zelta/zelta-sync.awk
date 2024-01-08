@@ -24,13 +24,22 @@
 # "ZPULL_I_FLAGS=i" to only copy the latest snapshot.
 
 
-function error(string) { print "error: "string | "cat 1>&2" }
-
-function verbose(message) { if (c["VERBOSE"]) print message }
+function report(mode, message) {
+	if (!message) return 0
+	if (LOG_WARNING == mode) {
+		if (c["JSON"]) error_list[++err_num] = message
+		else print "error: " message | STDOUT 
+	} else if ((LOG_BASIC == mode) && ((LOG_MODE == LOG_BASIC) || LOG_MODE == LOG_VERBOSE)) { print message }
+	else if (LOG_VERBOSE == mode) { buffer_verbose = buffer_verbose message"\n" }
+	else if (LOG_SIGINFO == mode) {
+		print buffer_verbose message | STDOUT
+		buffer_verbose = ""
+	}
+}	
 
 function usage(message) {
 	if (message) error(message)
-	verbose("usage: zelta pull [-j] [user@][host:]source/dataset [user@][host:]target/dataset")
+	report(LOG_BASIC, "usage: zelta pull [-j] [user@][host:]source/dataset [user@][host:]target/dataset")
 	exit 1
 }
 
@@ -54,14 +63,14 @@ function get_options() {
 			if (gsub(/n/,"")) c["DRY_RUN"]++
 			if (gsub(/j/,"")) c["JSON"]++
 			if (gsub(/R/,"")) c["REPLICATE_NEW"]++
+			if (gsub(/z/,"")) ZELTA_PIPE++
+			if (gsub(/v/,"")) VERBOSE++
 			if (/./) usage("unkown options: " $0)
 		} else if (target) {
 			usage("too many options: " $0)
 		} else if (source) target = $0
 		else source = $0
 	}
-	if (! target) usage()
-	c["VERBOSE"] = (!c["JSON"] && !ZELTA_PIPE)
 }
 	       
 function load_config() {
@@ -76,7 +85,7 @@ function load_config() {
 			c[$1] = $2
 		}
 	}
-	ZELTA_PIPE = env("ZELTA_PIPE", 0)
+	ZELTA_PIPE = ZELTA_PIPE ? ZELTA_PIPE : env("ZELTA_PIPE", 0)
 	get_options()
 	send_flags = "Lcp"
 	send_flags = send_flags (c["DRY_RUN"]?"n":"") (c["REPLICATE_NEW"]?"R":"")
@@ -90,6 +99,13 @@ function load_config() {
 	if (c["DEPTH"] && !c["REPLICATE_NEW"]) {
 		zmatch = "ZELTA_DEPTH=" c["DEPTH"] " " zmatch
 	}
+	if (! target) usage()
+	LOG_PIPE = 0; LOG_BASIC = 1; LOG_VERBOSE = 2;
+	LOG_JSON = 3; LOG_SIGINFO = 4
+	if (c["JSON"]) LOG_MODE = 3
+	else if (ZELTA_PIPE) LOG_MODE = 0
+	else if (VERBOSE) LOG_MODE = 2
+	else LOG_MODE = 1
 }
 
 function get_endpoint_info(endpoint) {
@@ -134,8 +150,22 @@ function jpair(l, r) {
 	return ","
 }
 
-function json_output() {
-	if (!c["JSON"]) return 0
+function jlist(name, arr) {
+	printf "  \""name"\": ["
+	list_len = 0
+	for (n=1;n<=length(arr);n++) {
+		if (list_len++) print ","
+		else print ""
+		printf "    \""arr[n]"\""
+	}
+	if (list_len > 0) printf "\n  "
+	printf "]"
+	return ",\n"
+}
+
+
+function output_json() {
+	if (LOG_MODE != LOG_JSON) return 0
 	print "{"
 	print jpair("startTime",time_start)
 	print jpair("sourceUser",ssh_user[source])
@@ -145,58 +175,45 @@ function json_output() {
 	print jpair("targetHost",ssh_host[target])
 	print jpair("targetVolume",volume[target])
 	print jpair("replicationSize",total_bytes)
-	print jpair("replicationTime",total_time)
 	print jpair("replicationStreamsSent",sent_streams)
 	print jpair("replicationStreamsReceived",received_streams)
-	jpair("replicationErrorCode",error_code)
-	print ""
-
-#  "dataAttemptedBytes": 123456789,
-#  "sentStreams": [
-#    "stream1@snapshot1",
-#    "stream2@snapshot2"
-#  ],
-#  "receivedStreams": [
-#    "stream1@snapshot1",
-#    "stream2@snapshot2"
-#  ],
-#  "errorCode": 0,
-#  "errorMessages": [
-#    "Error message 1",
-#    "Error message 2"
-#  ],
-#  "datestamp": "Unix-timestamp-ms",
-#  "transferTimeMs": 12345
-#}
-#
-	print "}"
+	print jpair("replicationErrorCode",error_code)
+	print jpair("zfsCommandTime",total_time)
+	printf jlist("sentStreams", source_stream)
+	jlist("errorMessages", error_list)
+	print "\n}"
 }
 
-function pipe_output() {
-	if (ZELTA_PIPE) print received_streams, total_bytes, total_time, error_code 
+function output_pipe() {
+	if (LOG_MODE == LOG_PIPE) print received_streams, total_bytes, total_time, error_code 
 	return error_code
 }
 
 
 function stop(error_code, message) {
-	if (message) error(message)
-	if (ZELTA_PIPE) pipe_output()
-	if (c["JSON"]) json_output()
+	report(LOG_ERROR, message)
+	if (c["JSON"]) output_json()
+	else if (ZELTA_PIPE) output_pipe()
 	exit error_code
 }
 
 function replicate(command) {
 	while (command | getline) {
 		if ($1 == "incremental" || $1 == "full") { sent_streams++ }
-		else if ($1 == "received") { received_streams++ }
-		else if (($1 == "size") && $2) {
-			verbose("sending " h_num($2) ": " source_stream[i])
+		else if ($1 == "received") {
+			report(LOG_VERBOSE, source_stream[r]": "$0)
+			received_streams++
+		} else if (($1 == "size") && $2) {
+			report(LOG_VERBOSE, source_stream[r]": sending " h_num($2))
 			total_bytes += $2
 		} else if ($3 == "real") { total_time += $2 }
-		else if (/cannot/ || !/stream/) {
+		else if ($1 ~ /:/ && $2 ~ /^[0-9]+$/) report(LOG_SIGINFO, source_stream[r]": "h_num($2) " received")
+		else if (/receiving/ && /stream/) { }
+		else {
 			print "error: " $0 | "cat 1>&2"
 			error_code = 2
 		}
+
 	}
 	close(command)
 }
@@ -227,22 +244,22 @@ BEGIN {
 			zfs_create_command = zfs[target] "create -up " q($1) " >/dev/null 2>&1"
 			if (dry_run(zfs_create_command)) continue
 			if (system(zfs_create_command)) stop(4, "failed to create dataset: " q($1))
-			else verbose("created parent dataset(s)")
+			else report(LOG_BASIC, "created parent dataset(s)")
 			continue
 		}
 		num_streams++
 		if ($3) {
 			rpl_cmd[++rpl_num] = zfs_send_command intr_flags q($1) " " q($2) " | " zfs_receive_command q($3)
-			source_stream[rpl_num] = q($1) " to " q($2)
+			source_stream[rpl_num] = $1 "::" $2
 		} else {
 			rpl_cmd[++rpl_num] = zfs_send_command q($1) " | " zfs_receive_command q($2)
-			source_stream[rpl_num] = q($1)
+			source_stream[rpl_num] = $1
 		}
 	}
 	close(zmatch)
 
 	if (!num_streams) {
-		verbose("nothing to replicate")
+		report(LOG_BASIC, "nothing to replicate")
 		stop(0, "")
 	}
 
@@ -262,6 +279,6 @@ BEGIN {
 	# Negative errors show the number of missed streams, otherwise show error code
 	stream_diff = received_streams - sent_streams
 	error_code = (error_code ? error_code : stream_diff)
-	verbose(h_num(total_bytes) " sent, " received_streams "/" sent_streams " streams received in " total_time " seconds")
+	report(LOG_BASIC, h_num(total_bytes) " sent, " received_streams "/" sent_streams " streams received in " total_time " seconds")
 	stop(error_code, "")
 }
