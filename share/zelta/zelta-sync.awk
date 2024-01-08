@@ -76,6 +76,12 @@ function get_options() {
 	       
 function load_config() {
 	ZELTA_CONFIG = env("ZELTA_CONFIG", "/usr/local/etc/zelta/zelta.conf")
+	LOCAL_USER = env("USER", "")
+	LOCAL_HOST = ENVIRON["HOST"] ? ENVIRON["HOST"] : ENVIRON["HOSTNAME"]
+	if (!LOCAL_HOST)  {
+		"hostname" | getline LOCAL_HOST
+		close "hostname"
+	} else LOCAL_HOST = "localhost"
 	FS = "[: \t]+";
 	while ((getline < ZELTA_CONFIG)>0) {
 		if (split($0, arr, "#")) {
@@ -111,13 +117,15 @@ function load_config() {
 }
 
 function get_endpoint_info(endpoint) {
+	ssh_user[endpoint] = LOCAL_USER
+	ssh_host[endpoint] = LOCAL_HOST
 	if (split(endpoint, vol_arr, ":") == 2) {
 		ssh_command[endpoint] = "ssh " vol_arr[1] " "
 		volume[endpoint] = vol_arr[2];
 		if (split(vol_arr[1], user_host, "@") == 2) {
 			ssh_user[endpoint] = user_host[1]
 			ssh_host[endpoint] = user_host[2]
-		} else ssh_host[arg] = vol_arr[1]
+		} else ssh_host[endpoint] = vol_arr[1]
 
 	} else volume[endpoint] = vol_arr[1]
 	zfs[endpoint] = ssh_command[endpoint] "zfs "
@@ -156,6 +164,9 @@ function jlist(name, arr) {
 	printf "  \""name"\": ["
 	list_len = 0
 	for (n=1;n<=length(arr);n++) {
+		gsub(/^[ \t\r\n]+|[ \t\r\n]+$/, "", arr[n])
+		gsub(/\n/, "; ", arr[n])
+		gsub(/"/, "'", arr[n])
 		if (list_len++) print ","
 		else print ""
 		printf "    \""arr[n]"\""
@@ -191,8 +202,8 @@ function output_pipe() {
 	return error_code
 }
 
-
-function stop(error_code, message) {
+function stop(err, message) {
+	error_code = err
 	report(LOG_ERROR, message)
 	if (c["JSON"]) output_json()
 	else if (ZELTA_PIPE) output_pipe()
@@ -212,7 +223,7 @@ function replicate(command) {
 		else if ($1 ~ /:/ && $2 ~ /^[0-9]+$/) report(LOG_SIGINFO, source_stream[r]": "h_num($2) " received")
 		else if (/receiving/ && /stream/) { }
 		else {
-			print "error: " $0 | "cat 1>&2"
+			report(LOG_WARNING, $0)
 			error_code = 2
 		}
 
@@ -237,6 +248,7 @@ BEGIN {
 	while (zmatch |getline) {
 		if (/error/) {
 			error_code = 1
+			report(LOG_WARNING, $0)
 			continue
 		} else if ($3 == "real") {
 			total_time = $2
@@ -263,7 +275,7 @@ BEGIN {
 
 	if (!num_streams) {
 		report(LOG_BASIC, "nothing to replicate")
-		stop(0, "")
+		stop(error_code, "")
 	}
 	
 	FS = "[ \t]+";
