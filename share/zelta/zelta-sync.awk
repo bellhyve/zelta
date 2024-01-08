@@ -30,6 +30,7 @@ function report(mode, message) {
 		if (c["JSON"]) error_list[++err_num] = message
 		else print "error: " message | STDOUT 
 	} else if ((LOG_BASIC == mode) && ((LOG_MODE == LOG_BASIC) || LOG_MODE == LOG_VERBOSE)) { print message }
+	else if ((LOG_VERBOSE == mode) && (LOG_MODE == LOG_VERBOSE)) { print message }
 	else if (LOG_VERBOSE == mode) { buffer_verbose = buffer_verbose message"\n" }
 	else if (LOG_SIGINFO == mode) {
 		print buffer_verbose message | STDOUT
@@ -64,7 +65,7 @@ function get_options() {
 			if (gsub(/j/,"")) c["JSON"]++
 			if (gsub(/R/,"")) c["REPLICATE_NEW"]++
 			if (gsub(/z/,"")) ZELTA_PIPE++
-			if (gsub(/v/,"")) VERBOSE++
+			if (gsub(/v/,"")) { VERBOSE++; c["JSON"] = 0 }
 			if (/./) usage("unkown options: " $0)
 		} else if (target) {
 			usage("too many options: " $0)
@@ -86,6 +87,7 @@ function load_config() {
 		}
 	}
 	ZELTA_PIPE = ZELTA_PIPE ? ZELTA_PIPE : env("ZELTA_PIPE", 0)
+	if (!ZELTA_PIPE) c["JSON"] = 0
 	get_options()
 	send_flags = "Lcp"
 	send_flags = send_flags (c["DRY_RUN"]?"n":"") (c["REPLICATE_NEW"]?"R":"")
@@ -219,6 +221,7 @@ function replicate(command) {
 }
 
 BEGIN {
+	STDOUT = "cat 1>&2"
 	FS="\t"
 	load_config()
 	received_streams = 0
@@ -262,7 +265,7 @@ BEGIN {
 		report(LOG_BASIC, "nothing to replicate")
 		stop(0, "")
 	}
-
+	
 	FS = "[ \t]+";
 	received_streams = 0
 	total_bytes = 0
