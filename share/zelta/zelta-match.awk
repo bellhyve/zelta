@@ -68,17 +68,15 @@ function get_options() {
 function get_endpoint_info(arg) {
 	if (!split(arg, snap, ":")) exit
 	if (snap[2]) {
-		cmdpre = "sh -c \"ssh -n " snap[1] " "
 		cmdpre = "ssh -n " snap[1] " "
 		snapvol = snap[2];
 	} else {
 		cmdpre = ""
-		cmdpost = ""
 		snapvol = snap[1]
 	}
 	vol_name_length[arg] = length(snapvol) + 1	# Get dataset length for trimming so we can compare stub names
 	dataset[arg] = snapvol 				# Translate endpoint name to volume name
-	zfs_list_command[arg] = cmdpre "zfs list " ZFS_LIST_FLAGS " '" snapvol "' " cmdpost " 2>&1"
+	zfs_list_command[arg] = cmdpre TIME_COMMAND " zfs list " ZFS_LIST_FLAGS " '" snapvol "' " cmdpost " 2>&1"
 	return snapvol
 }
 
@@ -98,7 +96,11 @@ function error(string) {
 
 function get_snapshot_data(trim) {
 		if (/dataset does not exist/) return 0
-		else if (! /@/) {
+		else if (/ real /) {
+			split($0, time_arr, /[ \t]+/)
+			zfs_list_time = time_arr[2]
+			return 0
+		} else if (! /@/) {
 			error($0)
 			exit_code = 1
 			return 0
@@ -145,6 +147,8 @@ function check_parent(parent) {
 }
 
 function reconcile_snapshots() {
+	target_zfs_list_time = zfs_list_time ? zfs_list_time : zfs_list_time
+	zfs_list_time = 0
 	while (getline) {
 		if (!get_snapshot_data(vol_name_length[source])) { continue }
 		source_guid[snapshot_stub] = snapshot_guid
@@ -182,7 +186,8 @@ function reconcile_snapshots() {
 			}
 		} else { total_transfer_size += snapshot_written }
 	}
-	if (length(source_latest) == 0) error("no source snapshots")
+	if (length(source_latest) == 0) error("no source snapshots found")
+	source_zfs_list_time = zfs_list_time
 }
 
 function output_summary() {
@@ -195,8 +200,10 @@ function output_summary() {
 	if (total_transfer_size) verbose("new snapshot transfer size: " h_num(total_transfer_size))
 }
 
-function pipe_output() {
+function output_pipe() {
+	# Line 1 = time & status, 1 param = create, 2 param = new, 3 param = incremental
 	OFS="\t"
+	print source_zfs_list_time,":",target_zfs_list_time
 	if (create_parent) print create_parent
 	for (n=1;n<=new_volume_count;n++) print new_volume_source[n], new_volume_target[n]
 	for (d=1;d<=delta_count;d++) print delta_match[d], delta_source[d], delta_target[d]
@@ -208,6 +215,7 @@ BEGIN {
 	ZELTA_PIPE = env("ZELTA_PIPE", 0)
 	ZELTA_DEPTH = env("ZELTA_DEPTH", 0)
 	ZMATCH_STREAM = env("ZMATCH_STREAM", 0)
+	TIME_COMMAND = env("TIME_COMMAND", "/usr/bin/time")
 	
 	get_options()
 	ZMATCH_PREFIX = "ZMATCH_STREAM=1 "
@@ -234,7 +242,7 @@ BEGIN {
 		load_target_snapshots(target)
 		reconcile_snapshots()
 		if (VERBOSE) output_summary()
-		if (ZELTA_PIPE) pipe_output()
+		if (ZELTA_PIPE) output_pipe()
 	} else {
 		usage()
 	}
