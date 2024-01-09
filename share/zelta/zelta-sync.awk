@@ -187,7 +187,7 @@ function output_json() {
 	if (LOG_MODE != LOG_JSON) return 0
 	print "{"
 	print jpair("startTime",time_start)
-	print jpair("startEnd",time_end)
+	print jpair("endTime",time_end)
 	print jpair("sourceUser",ssh_user[source])
 	print jpair("sourceHost",ssh_host[source])
 	print jpair("sourceVolume",volume[source])
