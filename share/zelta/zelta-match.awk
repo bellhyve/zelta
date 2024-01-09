@@ -224,6 +224,7 @@ BEGIN {
 	ZMATCH_COMMAND = ZMATCH_PREFIX "zelta match"
 	ZELTA_DEPTH = ZELTA_DEPTH ? " -d"ZELTA_DEPTH : ""
 
+	#ZFS_LIST_FLAGS = "-Hproname,guid,written -Htsnap -Screation" ZELTA_DEPTH
 	ZFS_LIST_FLAGS = "-Hproname,guid,written -Htsnap -Screation" ZELTA_DEPTH
 
 	if (!ZELTA_PIPE) { VERBOSE = 1 }
