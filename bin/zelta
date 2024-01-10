@@ -8,6 +8,7 @@ zelta_command=`echo $0 | sed 's-.*/--'`
 case $1 in
 	backup) shift ;;
 	match) shift; zelta_command=zmatch ;;
+	reconcile) shift; zelta_command=zrecon ;;
 	sync) shift; zelta_command=zsync ;;
 	push) shift; zelta_command=zsync ;;
 	pull) shift; zelta_command=zsync ;;
@@ -16,6 +17,7 @@ esac
 
 case $zelta_command in
 	zmatch) $AWKPRE/zelta-match.awk -- "$@" ;;
+	zrecon) $AWKPRE/zelta-reconcile.awk -- "$@" ;;
 	zsync) $AWKPRE/zelta-sync.awk -- "$@" ;;
 	zpull) $AWKPRE/zelta-sync.awk -- "$@" ;;
 	zeport) $AWKPRE/zelta-report.awk -- "$@" ;;
