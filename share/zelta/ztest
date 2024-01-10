@@ -1,0 +1,12 @@
+#!/usr/bin/awk -f
+
+
+BEGIN {
+"zfs list -Hroname -tsnap outerspace/Backups" | getline one
+
+"zfs list -Hroname -tsnap -s createtxg outerspace/Backups" | getline two
+
+print one
+print two
+
+}

@@ -76,6 +76,12 @@ function get_options() {
 	       
 function load_config() {
 	ZELTA_CONFIG = env("ZELTA_CONFIG", "/usr/local/etc/zelta/zelta.conf")
+	LOCAL_USER = env("USER", "")
+	LOCAL_HOST = ENVIRON["HOST"] ? ENVIRON["HOST"] : ENVIRON["HOSTNAME"]
+	if (!LOCAL_HOST)  {
+		"hostname" | getline LOCAL_HOST
+		close "hostname"
+	} else LOCAL_HOST = "localhost"
 	FS = "[: \t]+";
 	while ((getline < ZELTA_CONFIG)>0) {
 		if (split($0, arr, "#")) {
@@ -97,7 +103,7 @@ function load_config() {
 	recv_flags = "receive -v" env("ZPULL_RECV_FLAGS", recv_flags) " "
 	intr_flags = c["INTERMEDIATE"] ? "I" : "i"
 	intr_flags = "-" env("ZPULL_I_FLAGS", intr_flags) " "
-	zmatch = "ZELTA_PIPE=1 /usr/bin/time zmatch " q(source) " " q(target) " 2>&1"
+	zmatch = "ZELTA_PIPE=1 zmatch " q(source) " " q(target) " 2>&1"
 	if (c["DEPTH"] && !c["REPLICATE_NEW"]) {
 		zmatch = "ZELTA_DEPTH=" c["DEPTH"] " " zmatch
 	}
@@ -108,20 +114,28 @@ function load_config() {
 	else if (ZELTA_PIPE) LOG_MODE = 0
 	else if (VERBOSE) LOG_MODE = 2
 	else LOG_MODE = 1
+	FS = "[\t]+"
 }
 
 function get_endpoint_info(endpoint) {
+	ssh_user[endpoint] = LOCAL_USER
+	ssh_host[endpoint] = LOCAL_HOST
 	if (split(endpoint, vol_arr, ":") == 2) {
 		ssh_command[endpoint] = "ssh " vol_arr[1] " "
 		volume[endpoint] = vol_arr[2];
 		if (split(vol_arr[1], user_host, "@") == 2) {
 			ssh_user[endpoint] = user_host[1]
 			ssh_host[endpoint] = user_host[2]
-		} else ssh_host[arg] = vol_arr[1]
+		} else ssh_host[endpoint] = vol_arr[1]
 
 	} else volume[endpoint] = vol_arr[1]
 	zfs[endpoint] = ssh_command[endpoint] "zfs "
 	return zfs[enndpoint]
+}
+
+function sys_time() {
+        srand();
+        return srand();
 }
 
 function h_num(num) {
@@ -156,6 +170,9 @@ function jlist(name, arr) {
 	printf "  \""name"\": ["
 	list_len = 0
 	for (n=1;n<=length(arr);n++) {
+		gsub(/^[ \t\r\n]+|[ \t\r\n]+$/, "", arr[n])
+		gsub(/\n/, "; ", arr[n])
+		gsub(/"/, "'", arr[n])
 		if (list_len++) print ","
 		else print ""
 		printf "    \""arr[n]"\""
@@ -170,17 +187,20 @@ function output_json() {
 	if (LOG_MODE != LOG_JSON) return 0
 	print "{"
 	print jpair("startTime",time_start)
+	print jpair("endTime",time_end)
 	print jpair("sourceUser",ssh_user[source])
 	print jpair("sourceHost",ssh_host[source])
 	print jpair("sourceVolume",volume[source])
+	print jpair("sourceListTime",source_zfs_list_time)
 	print jpair("targetUser",ssh_user[target])
 	print jpair("targetHost",ssh_host[target])
 	print jpair("targetVolume",volume[target])
+	print jpair("targetListTime",target_zfs_list_time)
 	print jpair("replicationSize",total_bytes)
 	print jpair("replicationStreamsSent",sent_streams)
 	print jpair("replicationStreamsReceived",received_streams)
 	print jpair("replicationErrorCode",error_code)
-	print jpair("zfsCommandTime",total_time)
+	print jpair("replicationTime",zfs_replication_time)
 	printf jlist("sentStreams", source_stream)
 	jlist("errorMessages", error_list)
 	print "\n}"
@@ -191,8 +211,10 @@ function output_pipe() {
 	return error_code
 }
 
-
-function stop(error_code, message) {
+function stop(err, message) {
+	time_end = sys_time()
+	total_time = zmatch_time + zfs_replication_time
+	error_code = err
 	report(LOG_ERROR, message)
 	if (c["JSON"]) output_json()
 	else if (ZELTA_PIPE) output_pipe()
@@ -208,11 +230,11 @@ function replicate(command) {
 		} else if (($1 == "size") && $2) {
 			report(LOG_VERBOSE, source_stream[r]": sending " h_num($2))
 			total_bytes += $2
-		} else if ($3 == "real") { total_time += $2 }
+		} else if ($3 == "real") { zfs_replication_time += $2 }
 		else if ($1 ~ /:/ && $2 ~ /^[0-9]+$/) report(LOG_SIGINFO, source_stream[r]": "h_num($2) " received")
 		else if (/receiving/ && /stream/) { }
 		else {
-			print "error: " $0 | "cat 1>&2"
+			report(LOG_WARNING, $0)
 			error_code = 2
 		}
 
@@ -222,7 +244,6 @@ function replicate(command) {
 
 BEGIN {
 	STDOUT = "cat 1>&2"
-	FS="\t"
 	load_config()
 	received_streams = 0
 	total_bytes = 0
@@ -233,13 +254,19 @@ BEGIN {
 	get_endpoint_info(target)
 	zfs_send_command = zfs[source] send_flags
 	zfs_receive_command = zfs[target] recv_flags
-	time_start = systime()
+	time_start = sys_time()
+	zmatch | getline
+	if ($2 == ":") {
+		source_zfs_list_time = $1 ? $1 : 0
+		target_zfs_list_time = $3 ? $3 : 0
+	}
 	while (zmatch |getline) {
 		if (/error/) {
 			error_code = 1
+			report(LOG_WARNING, $0)
 			continue
 		} else if ($3 == "real") {
-			total_time = $2
+			zmatch_time = $2
 			continue
 		} else if (! /@/) {
 			# If no snapshot is given, create an empty volume
@@ -263,7 +290,7 @@ BEGIN {
 
 	if (!num_streams) {
 		report(LOG_BASIC, "nothing to replicate")
-		stop(0, "")
+		stop(error_code, "")
 	}
 	
 	FS = "[ \t]+";
@@ -282,6 +309,6 @@ BEGIN {
 	# Negative errors show the number of missed streams, otherwise show error code
 	stream_diff = received_streams - sent_streams
 	error_code = (error_code ? error_code : stream_diff)
-	report(LOG_BASIC, h_num(total_bytes) " sent, " received_streams "/" sent_streams " streams received in " total_time " seconds")
+	report(LOG_BASIC, h_num(total_bytes) " sent, " received_streams "/" sent_streams " streams received in " zfs_replication_time " seconds")
 	stop(error_code, "")
 }
