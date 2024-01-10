@@ -30,7 +30,7 @@
 
 function usage(message) {
 	if (message) error(message)
-	if (! ZELTA_PIPE) print "usage: zelta pull [-jz] [-d#] [user@][host:]source/dataset [user@][host:]target/dataset"
+	if (! ZELTA_PIPE) print "usage: zelta match [-zv] [-d #] [user@][host:]source/dataset [user@][host:]target/dataset"
 	exit 1
 }
 
@@ -65,149 +65,41 @@ function get_options() {
         }
 }
 
-function get_endpoint_info(arg) {
-	if (!split(arg, snap, ":")) exit
-	if (snap[2]) {
-		cmdpre = "ssh -n " snap[1] " "
-		snapvol = snap[2];
-	} else {
-		cmdpre = ""
-		snapvol = snap[1]
-	}
-	vol_name_length[arg] = length(snapvol) + 1	# Get dataset length for trimming so we can compare stub names
-	dataset[arg] = snapvol 				# Translate endpoint name to volume name
-	zfs_list_command[arg] = cmdpre TIME_COMMAND " zfs list " ZFS_LIST_FLAGS " '" snapvol "' " cmdpost " 2>&1"
-	return snapvol
+function make_ord() { for(n=0;n<256;n++) ord[sprintf("%c",n)] = n }
+
+function hash(text) {
+	text = text ? text : $0
+	_prime = 104729;
+	_modulo = 1099511627775;
+	_ax = 0;
+	split(text, _chars, "");
+	for (_i=1; _i <= length(text); _i++) {
+		_ax = (_ax * _prime + ord[_chars[_i]]) % _modulo;
+	};
+	return sprintf("%010x", _ax)
 }
 
-function h_num(num) {
-	suffix = "B"
-	divisors = "KMGTPE"
-	for (i = 1; i <= length(divisors) && num >= 1024; i++) {
-		num /= 1024
-		suffix = substr(divisors, i, 1)
-	}
-	return int(num) suffix
+function get_endpoint_info(endpoint) {
+	ssh_user[endpoint] = LOCAL_USER
+	ssh_host[endpoint] = LOCAL_HOST
+	if (split(endpoint, vol_arr, ":") == 2) {
+		ssh_command[endpoint] = "ssh -n " vol_arr[1] " "
+		volume[endpoint] = vol_arr[2];
+		if (split(vol_arr[1], user_host, "@") == 2) {
+			ssh_user[endpoint] = user_host[1]
+			ssh_host[endpoint] = user_host[2]
+		} else ssh_host[endpoint] = vol_arr[1]
+
+	} else volume[endpoint] = vol_arr[1]
+	zfs[endpoint] = ssh_command[endpoint] "zfs "
+	return hash(endpoint)
 }
 
 function error(string) {
 	print "error: "string | "cat 1>&2"
 }
 
-function get_snapshot_data(trim) {
-		if (/dataset does not exist/) return 0
-		else if (/ real /) {
-			split($0, time_arr, /[ \t]+/)
-			zfs_list_time = time_arr[2]
-			return 0
-		} else if (! /@/) {
-			error($0)
-			exit_code = 1
-			return 0
-		}
-		dataset_name = $1			# full/volume@snapshot
-		snapshot_stub = substr($1, trim)	# [child]@snapshot
-		snapshot_guid = $2			# GUID property
-		snapshot_written = $3			# written property
-		split(snapshot_stub, split_stub, "@")
-		dataset_stub = split_stub[1]		# [child] (blank for top volume name)
-		snapshot_name = "@" split_stub[2]	# @snapshot
-		return 1
-}
-
-function load_target_snapshots(dataset_info) {
-	while  (zfs_list_command[target] | getline) {
-		if (!get_snapshot_data(vol_name_length[target])) { continue }
-		target_guid[snapshot_stub] = snapshot_guid
-		target_written[snapshot_stub] = snapshot_written
-		if (!(target_vol_count[dataset_stub]++)) {
-			target_latest[dataset_stub] = snapshot_stub
-			target_order[++target_num] = dataset_stub
-		}
-		target_list[dataset_stub target_vol_count[dataset_stub]] = snapshot_stub
-	}
-	close(zfs_list_command[target])
-}
-
 function verbose(message) { if (VERBOSE) print message }
-
-
-function check_parent(parent) {
-	ZFS_LIST_FLAGS = "-Hponame"
-	if (!gsub(/\/[^\/]+$/, "", parent)) {
-		error("invalid target pool: " dataset[target])
-		exit 1
-	}
-	get_endpoint_info(parent)
-	zfs_list_command[parent] | getline parent_check
-	if (parent_check ~ /dataset does not exist/) {
-		create_parent=dataset[parent]
-		verbose("parent volume does not exist: " create_parent)
-	}
-}
-
-function reconcile_snapshots() {
-	target_zfs_list_time = zfs_list_time ? zfs_list_time : zfs_list_time
-	zfs_list_time = 0
-	while (getline) {
-		if (!get_snapshot_data(vol_name_length[source])) { continue }
-		source_guid[snapshot_stub] = snapshot_guid
-		source_written[snapshot_stub] = snapshot_written
-		if (!(source_vol_count[dataset_stub]++)) {
-			source_latest[dataset_stub] = snapshot_stub
-			source_order[++source_num] = dataset_stub
-		}
-		if (dataset_stub in matches) { continue}
-		else if (!target_latest[dataset_stub] && !(dataset_stub in missing_target_volume)) {
-			if (!dataset_stub) check_parent(target)
-			# We need to keep the volume creation order:
-			new_volume_count++
-			new_volume_source[new_volume_count] = dataset_name
-		        new_volume_target[new_volume_count] = dataset[target] dataset_stub
-			missing_target_volume[dataset_stub] = dataset_name
-			verbose("snapshots for volume only on source: " dataset_name)
-		} else if (target_guid[snapshot_stub]) {
-			if (target_guid[snapshot_stub] == source_guid[snapshot_stub]) {
-				matches[dataset_stub]++
-				if (snapshot_stub == source_latest[dataset_stub]) {
-					verbose("target has latest source snapshot: " snapshot_stub)
-				} else if (guid_error[dataset_stub]) {
-					error("latest guid match on target snapshot: " dataset_name)
-				} else {
-					delta_count++
-					delta_match[delta_count] = snapshot_name
-					delta_source[delta_count] = dataset[source] source_latest[dataset_stub]
-					delta_target[delta_count] = dataset[target] dataset_stub
-					verbose("match: " snapshot_stub "\tlatest: " source_latest[dataset_stub])
-				}
-			} else {
-				error("guid mismatch on: " snapshot_stub)
-				guid_error[dataset_stub]++
-			}
-		} else { total_transfer_size += snapshot_written }
-	}
-	if (length(source_latest) == 0) error("no source snapshots found")
-	source_zfs_list_time = zfs_list_time
-}
-
-function output_summary() {
-	# Verbose output for humans
-	for (dataset_stub in target_latest) {
-		if (!source_latest[dataset_stub]) {
-			verbose("target volume not on source: " target_latest[dataset_stub])
-		}
-	}
-	if (total_transfer_size) verbose("new snapshot transfer size: " h_num(total_transfer_size))
-}
-
-function output_pipe() {
-	# Line 1 = time & status, 1 param = create, 2 param = new, 3 param = incremental
-	OFS="\t"
-	print source_zfs_list_time,":",target_zfs_list_time
-	if (create_parent) print create_parent
-	for (n=1;n<=new_volume_count;n++) print new_volume_source[n], new_volume_target[n]
-	for (d=1;d<=delta_count;d++) print delta_match[d], delta_source[d], delta_target[d]
-}
 
 BEGIN {
 	FS="\t"
@@ -215,36 +107,32 @@ BEGIN {
 	ZELTA_PIPE = env("ZELTA_PIPE", 0)
 	ZELTA_DEPTH = env("ZELTA_DEPTH", 0)
 	ZMATCH_STREAM = env("ZMATCH_STREAM", 0)
-	TIME_COMMAND = env("TIME_COMMAND", "/usr/bin/time")
+	TIME_COMMAND = env("TIME_COMMAND", "/usr/bin/time") " "
 	
 	get_options()
 	ZMATCH_PREFIX = "ZMATCH_STREAM=1 "
 	ZMATCH_PREFIX = ZMATCH_PREFIX (ZELTA_DEPTH ? "ZELTA_DEPTH="ZELTA_DEPTH" " : "")
 	ZMATCH_PREFIX = ZMATCH_PREFIX (ZELTA_PIPE ? "ZELTA_PIPE="ZELTA_PIPE" " : "")
-	ZMATCH_COMMAND = ZMATCH_PREFIX "zelta match"
+	ZMATCH_COMMAND = ZMATCH_PREFIX "zelta reconcile"
 	ZELTA_DEPTH = ZELTA_DEPTH ? " -d"ZELTA_DEPTH : ""
 
+
 	#ZFS_LIST_FLAGS = "-Hproname,guid,written -Htsnap -Screation" ZELTA_DEPTH
-	ZFS_LIST_FLAGS = "-Hproname,guid,written -Htsnap -Screation" ZELTA_DEPTH
+	ZFS_LIST_FLAGS = "list -Hproname,guid -tsnap -Screatetxg" ZELTA_DEPTH " "
+	STDOUT=" 2>&1"
+
 
 	if (!ZELTA_PIPE) { VERBOSE = 1 }
 
-	if (target) {
-		print source "\n" target | ZMATCH_COMMAND
-		get_endpoint_info(source)
-		while (zfs_list_command[source] | getline) {
-			print | ZMATCH_COMMAND
-		}
-	}
-	else if (ZMATCH_STREAM) {
-		getline source; getline target
-		get_endpoint_info(source)
-		get_endpoint_info(target)
-		load_target_snapshots(target)
-		reconcile_snapshots()
-		if (VERBOSE) output_summary()
-		if (ZELTA_PIPE) output_pipe()
-	} else {
-		usage()
-	}
+	OFS="\t"
+	make_ord()
+
+	hash_source = get_endpoint_info(source)
+	hash_target = get_endpoint_info(target)
+	zfs_list[source] = TIME_COMMAND zfs[source] ZFS_LIST_FLAGS "'"volume[source]"'"STDOUT
+	zfs_list[target] = TIME_COMMAND zfs[target] ZFS_LIST_FLAGS "'"volume[target]"'"STDOUT
+	print hash_source,volume[source] | ZMATCH_COMMAND
+	print hash_target,volume[target] | ZMATCH_COMMAND
+	print zfs_list[target] | ZMATCH_COMMAND
+	while (zfs_list[source] | getline) print | ZMATCH_COMMAND
 }
