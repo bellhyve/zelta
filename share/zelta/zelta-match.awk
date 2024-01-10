@@ -17,20 +17,30 @@
 #   - Matching snapshot names with different GUIDs
 #   - Newer target snapshots not on the source
 #
+# SWITCHES
+#
+# -d#	Set depth.
+# -n	Show the zfs list commands instead of running them.
+# -v	Verbose, implies -w.
+# -w	Calculates the size of missing target snapshots using the "written" property.
+# -z	Pipe mode, see ZELTA_PIPE below.
+#
 # ENVIRONMENT VARIABLES
 #
 # ZELTA_PIPE: When set to 1, we provide full snapshot names and simplify the output as
 # follows:
-#   - No output is provided for an up-to-date match.
-#   - A single snapshot indicates the volume is missing on the target.
-#   - A tab separated pair of snapshots indicates the out-of-date match and the latest.
+#   - Real time in seconds of the "zfs list" operations in the format: 1.01 : 3.51
+#   - No other output is provided if no updates are possible/available.
+#   - A single volume name indicates a parent volume is missing.
+#   - A "source_snapshot target_volume" indicates a source volume needs to be replicated
+#   - If two source snapshots are given, an incremental transfer is needed.
 #
 # ZELTA_DEPTH: Adds "-d $ZELTA_DEPTH" to zfs list commands. Useful for limiting
 # replication depth in zpull.
 
 function usage(message) {
 	if (message) error(message)
-	if (! ZELTA_PIPE) print "usage: zelta match [-zv] [-d #] [user@][host:]source/dataset [user@][host:]target/dataset"
+	if (! ZELTA_PIPE) print "usage: zelta match [-nvwz] [-d #] [user@][host:]source/dataset [user@][host:]target/dataset"
 	exit 1
 }
 
@@ -55,6 +65,9 @@ function get_options() {
                         #if (gsub(/j/,"")) JSON++
                         if (gsub(/d/,"")) ZELTA_DEPTH = sub_opt()
                         if (gsub(/n/,"")) DRY_RUN++
+                        if (gsub(/v/,"")) WRITTEN=",written"
+                        if (gsub(/w/,"")) WRITTEN=",written"
+                        if (gsub(/w/,"")) WRITTEN++
                         if (gsub(/z/,"")) ZELTA_PIPE++
                         if (/./) {
                                 usage("unkown options: " $0)
@@ -117,9 +130,7 @@ BEGIN {
 	ZMATCH_COMMAND = ZMATCH_PREFIX "zelta reconcile"
 	ZELTA_DEPTH = ZELTA_DEPTH ? " -d"ZELTA_DEPTH : ""
 
-
-	#ZFS_LIST_FLAGS = "-Hproname,guid,written -Htsnap -Screation" ZELTA_DEPTH
-	ZFS_LIST_FLAGS = "list -Hproname,guid -tsnap -Screatetxg" ZELTA_DEPTH " "
+	ZFS_LIST_FLAGS = "list -Hproname,guid"WRITTEN" -tsnap -Screatetxg" ZELTA_DEPTH " "
 	ALL_OUT =" 2>&1"
 
 
