@@ -67,7 +67,6 @@ function get_options() {
                         if (gsub(/n/,"")) DRY_RUN++
                         if (gsub(/v/,"")) WRITTEN=",written"
                         if (gsub(/w/,"")) WRITTEN=",written"
-                        if (gsub(/w/,"")) WRITTEN++
                         if (gsub(/z/,"")) ZELTA_PIPE++
                         if (/./) {
                                 usage("unkown options: " $0)
