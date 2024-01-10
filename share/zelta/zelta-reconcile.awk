@@ -34,9 +34,12 @@ function env(env_name, var_default) {
 }
 
 # CHANGE TO REPORT FUNCTION
-function verbose(message) { if (VERBOSE) print message }
-function error(string) {
-	print "error: "string | "cat 1>&2"
+function report(mode, message) {
+	if (!message) return 0
+	if (LOG_ERROR == mode) print "error: " message | STDOUT
+	else if ((LOG_PIPE == mode) && ZELTA_PIPE) print message
+	else if ((LOG_BASIC == mode) && ((LOG_MODE == LOG_BASIC) || LOG_MODE == LOG_VERBOSE)) { print message }
+	else if ((LOG_VERBOSE == mode) && (LOG_MODE == LOG_VERBOSE)) print message
 }
 
 function h_num(num) {
@@ -56,7 +59,7 @@ function get_snapshot_data(trim) {
 			zfs_list_time = time_arr[2]
 			return 0
 		} else if (! /@/) {
-			error($0)
+			report(LOG_ERROR,$0)
 			exit_code = 1
 			return 0
 		}
@@ -88,7 +91,7 @@ function check_parent() {
 	if (!(snapshot_list_command ~ /zfs list/)) return 0
 	parent = volume[target]
 	if (!gsub(/\/[^\/]+$/, "", parent)) {
-		error("invalid target pool: " parent)
+		report(LOG_ERROR,"invalid target pool name: " parent)
 		exit 1
 	}
 	parent_list_command = snapshot_list_command
@@ -96,7 +99,7 @@ function check_parent() {
 	parent_list_command | getline parent_check
 	if (parent_check ~ /dataset does not exist/) {
 		create_parent=parent
-		verbose("parent volume does not exist: " create_parent)
+		report(LOG_BASIC, "parent volume does not exist: " create_parent)
 	}
 }
 
@@ -112,36 +115,19 @@ function arr_sort(arr) {
 	}
 }
 
-function output_summary() {
-	# Verbose output for humans
-	for (dataset_stub in target_latest) {
-		if (!source_latest[dataset_stub]) {
-			verbose("target volume not on source: " target_latest[dataset_stub])
-		}
-	}
-	if (total_transfer_size) verbose("new snapshot transfer size: " h_num(total_transfer_size))
-}
 
-function output_pipe() {
-	# Line 1 = time & status, 1 param = create, 2 param = new, 3 param = incremental
-	print source_zfs_list_time,":",target_zfs_list_time
-	if (create_parent) print create_parent
-
-	for (i=1;i<=length(source_order);i++) {
-		stub = source_order[i]
-		if (new_volume[stub]) print new_volume[stub]
-		if (delta[stub]) print delta[stub]
-	}
-	#for (d=1;d<=delta_count;d++) print delta_match[d], delta_source[d], delta_target[d]
-}
 
 BEGIN {
 	FS="\t"
 	OFS="\t"
+	STDOUT = "cat 1>&2"
+	LOG_ERROR=-1
+	LOG_PIPE=0
+	LOG_BASIC=1
+	LOG_VERBOSE=2
 	exit_code = 0
 	ZELTA_PIPE = env("ZELTA_PIPE", 0)
-	ZELTA_JSON = env("ZELTA_PIPE", 0)
-	if (!ZELTA_PIPE) { VERBOSE = 1 }
+	if (!ZELTA_PIPE) { LOG_MODE = 1 }
 }
 
 function get_endpoint_info() {
@@ -175,31 +161,41 @@ NR > 3 {
 	else if (!target_latest[dataset_stub] && !(dataset_stub in new_volume)) {
 		if (!dataset_stub) check_parent()
 		new_volume[dataset_stub] = dataset_name OFS volume[target] dataset_stub
-		verbose("snapshots for volume only on source: " dataset_name)
+		basic_log[dataset_stub] = "snapshots only on source: " dataset_name
 	} else if (target_guid[snapshot_stub]) {
 		if (target_guid[snapshot_stub] == source_guid[snapshot_stub]) {
 			matches[dataset_stub]++
 			if (snapshot_stub == source_latest[dataset_stub]) {
-				verbose("target has latest source snapshot: " snapshot_stub)
+				basic_log[dataset_stub] = "target has latest source snapshot: " snapshot_stub
 			} else if (guid_error[dataset_stub]) {
-				error("latest guid match on target snapshot: " dataset_name)
+				report(LOG_ERROR,"latest guid match on target snapshot: " dataset_name)
 			} else {
 				delta_update = volume[source] source_latest[dataset_stub]
 				delta_target = volume[target] dataset_stub
 				delta[dataset_stub] = snapshot_name OFS delta_update OFS delta_target
-				verbose("match: " snapshot_stub "\tlatest: " source_latest[dataset_stub])
+				basic_log[dataset_stub] "match: " snapshot_stub OFS "latest: " source_latest[dataset_stub]
 			}
 		} else {
-			error("guid mismatch on: " snapshot_stub)
+			report(LOG_ERROR,"guid mismatch on: " snapshot_stub)
 			guid_error[dataset_stub]++
 		}
-	} else { total_transfer_size += snapshot_written }
+	} else { total_transfer_size += snapshot_written; print snapshot_written }
 }
 
 END {
-	if (length(source_latest) == 0) error("no source snapshots found")
-	arr_sort(source_order)
+	if (length(source_latest) == 0) report(LOG_ERROR,"no source snapshots found")
 	source_zfs_list_time = zfs_list_time
-        if (VERBOSE) output_summary()
-        if (ZELTA_PIPE) output_pipe()
+	report(LOG_PIPE, source_zfs_list_time OFS ":" OFS target_zfs_list_time)
+	report(LOG_PIPE, create_parent)
+	for (stub in target_latest) {
+		if (!source_latest[stub]) report(LOG_BASIC, "target volume not on source: " target_latest[dataset_stub])
+	}
+	arr_sort(source_order)
+	for (i=1;i<=length(source_order);i++) {
+		stub = source_order[i]
+		report(LOG_PIPE,new_volume[stub])
+		report(LOG_PIPE,delta[stub])
+		report(LOG_BASIC,basic_log[stub])
+	}
+	if (total_transfer_size) report(LOG_BASIC, "new snapshot transfer size: " h_num(total_transfer_size))
 }
