@@ -179,7 +179,7 @@ NR > 3 {
 			report(LOG_ERROR,"guid mismatch on: " snapshot_stub)
 			guid_error[dataset_stub]++
 		}
-	} else { total_transfer_size += snapshot_written; print snapshot_written }
+	} else { total_transfer_size += snapshot_written }
 }
 
 END {
