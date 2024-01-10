@@ -53,8 +53,9 @@ function get_options() {
                 $0 = ARGV[i]
                 if (gsub(/^-/,"")) {
                         #if (gsub(/j/,"")) JSON++
-                        if (gsub(/z/,"")) ZELTA_PIPE++
                         if (gsub(/d/,"")) ZELTA_DEPTH = sub_opt()
+                        if (gsub(/n/,"")) DRY_RUN++
+                        if (gsub(/z/,"")) ZELTA_PIPE++
                         if (/./) {
                                 usage("unkown options: " $0)
                         }
@@ -119,7 +120,7 @@ BEGIN {
 
 	#ZFS_LIST_FLAGS = "-Hproname,guid,written -Htsnap -Screation" ZELTA_DEPTH
 	ZFS_LIST_FLAGS = "list -Hproname,guid -tsnap -Screatetxg" ZELTA_DEPTH " "
-	STDOUT=" 2>&1"
+	ALL_OUT =" 2>&1"
 
 
 	if (!ZELTA_PIPE) { VERBOSE = 1 }
@@ -129,8 +130,14 @@ BEGIN {
 
 	hash_source = get_endpoint_info(source)
 	hash_target = get_endpoint_info(target)
-	zfs_list[source] = TIME_COMMAND zfs[source] ZFS_LIST_FLAGS "'"volume[source]"'"STDOUT
-	zfs_list[target] = TIME_COMMAND zfs[target] ZFS_LIST_FLAGS "'"volume[target]"'"STDOUT
+	zfs_list[source] = TIME_COMMAND zfs[source] ZFS_LIST_FLAGS "'"volume[source]"'"ALL_OUT
+	zfs_list[target] = TIME_COMMAND zfs[target] ZFS_LIST_FLAGS "'"volume[target]"'"ALL_OUT
+
+	if (DRY_RUN) {
+		print "+ "zfs_list[source]
+		print "+ "zfs_list[target]
+		exit
+	}
 	print hash_source,volume[source] | ZMATCH_COMMAND
 	print hash_target,volume[target] | ZMATCH_COMMAND
 	print zfs_list[target] | ZMATCH_COMMAND

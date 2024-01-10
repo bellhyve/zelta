@@ -100,6 +100,18 @@ function check_parent() {
 	}
 }
 
+function arr_sort(arr) {
+	for (x in arr) {
+		y = arr[x]
+		z = x - 1
+		while (z && arr[z] > y) {
+			arr[z + 1] = arr[z]
+			z--
+		}
+		arr[z + 1] = y
+	}
+}
+
 function output_summary() {
 	# Verbose output for humans
 	for (dataset_stub in target_latest) {
@@ -112,15 +124,20 @@ function output_summary() {
 
 function output_pipe() {
 	# Line 1 = time & status, 1 param = create, 2 param = new, 3 param = incremental
-	OFS="\t"
 	print source_zfs_list_time,":",target_zfs_list_time
 	if (create_parent) print create_parent
-	for (n=1;n<=new_volume_count;n++) print new_volume_source[n], new_volume_target[n]
-	for (d=1;d<=delta_count;d++) print delta_match[d], delta_source[d], delta_target[d]
+
+	for (i=1;i<=length(source_order);i++) {
+		stub = source_order[i]
+		if (new_volume[stub]) print new_volume[stub]
+		if (delta[stub]) print delta[stub]
+	}
+	#for (d=1;d<=delta_count;d++) print delta_match[d], delta_source[d], delta_target[d]
 }
 
 BEGIN {
 	FS="\t"
+	OFS="\t"
 	exit_code = 0
 	ZELTA_PIPE = env("ZELTA_PIPE", 0)
 	ZELTA_JSON = env("ZELTA_PIPE", 0)
@@ -155,13 +172,9 @@ NR > 3 {
 		source_order[++source_num] = dataset_stub
 	}
 	if (dataset_stub in matches) { next }
-	else if (!target_latest[dataset_stub] && !(dataset_stub in missing_target_volume)) {
+	else if (!target_latest[dataset_stub] && !(dataset_stub in new_volume)) {
 		if (!dataset_stub) check_parent()
-		# We need to keep the volume creation order:
-		new_volume_count++
-		new_volume_source[new_volume_count] = dataset_name
-		new_volume_target[new_volume_count] = volume[target] dataset_stub
-		missing_target_volume[dataset_stub] = dataset_name
+		new_volume[dataset_stub] = dataset_name OFS volume[target] dataset_stub
 		verbose("snapshots for volume only on source: " dataset_name)
 	} else if (target_guid[snapshot_stub]) {
 		if (target_guid[snapshot_stub] == source_guid[snapshot_stub]) {
@@ -171,10 +184,9 @@ NR > 3 {
 			} else if (guid_error[dataset_stub]) {
 				error("latest guid match on target snapshot: " dataset_name)
 			} else {
-				delta_count++
-				delta_match[delta_count] = snapshot_name
-				delta_source[delta_count] = volume[source] source_latest[dataset_stub]
-				delta_target[delta_count] = volume[target] dataset_stub
+				delta_update = volume[source] source_latest[dataset_stub]
+				delta_target = volume[target] dataset_stub
+				delta[dataset_stub] = snapshot_name OFS delta_update OFS delta_target
 				verbose("match: " snapshot_stub "\tlatest: " source_latest[dataset_stub])
 			}
 		} else {
@@ -186,6 +198,7 @@ NR > 3 {
 
 END {
 	if (length(source_latest) == 0) error("no source snapshots found")
+	arr_sort(source_order)
 	source_zfs_list_time = zfs_list_time
         if (VERBOSE) output_summary()
         if (ZELTA_PIPE) output_pipe()
