@@ -14,22 +14,32 @@
 #
 # 	received_streams, total_bytes, time, error
 #
-# Additional flags can be set with the environmental variables ZPULL_SEND_FLAGS,
-# ZPULL_RECV_FLAGS, and ZPULL_I_FLAGS (for incremental streams only).
+# Additional flags can be set with the environmental variables ZPULL_SEND_FLAGS and
+# ZPULL_RECV_FLAGS.
 #
-# Note that as zpull is used as a backup and migration tool, the default behavior for new
-# replicas is to only copy the latest snapshots from the source heirarchy, while the
+# Note that as zelta sync is used as both a backup and migration tool, the default behavior
+# for new replicas is to only copy the latest snapshots from the source heirarchy, while the
 # behavior for updating existing replicas is to copy intermediate snapshots. You can use
-# "ZPULL_SEND_FLAGS=R" to bootstrap a new backup repository to keep backup history. Use
-# "ZPULL_I_FLAGS=i" to only copy the latest snapshot.
+# "-R" to replicate the source's snapshot history. Use the -I flag to replicate incremental
+# snapshots.
 
+function track_errors(message) {
+	if (!message && !error_count) return 0
+	else if (message == last_error) {
+		++error_count
+		if (error_count >1) return 0
+	} else if (error_count > 2) {
+		message = "above error repeated "error_count" times"
+		error_count = 0
+	} else last_error = message
+	if (JSON) error_list[++err_num] = message
+	else print "error: " message | STDOUT 
+}
 
 function report(mode, message) {
 	if (!message) return 0
-	if (LOG_WARNING == mode) {
-		if (c["JSON"]) error_list[++err_num] = message
-		else print "error: " message | STDOUT 
-	} else if ((LOG_BASIC == mode) && ((LOG_MODE == LOG_BASIC) || LOG_MODE == LOG_VERBOSE)) { print message }
+	if (LOG_ERROR == mode) track_errors(message)
+	else if ((LOG_BASIC == mode) && ((LOG_MODE == LOG_BASIC) || LOG_MODE == LOG_VERBOSE)) { print message }
 	else if ((LOG_VERBOSE == mode) && (LOG_MODE == LOG_VERBOSE)) { print message }
 	else if (LOG_VERBOSE == mode) { buffer_verbose = buffer_verbose message"\n" }
 	else if (LOG_SIGINFO == mode) {
@@ -60,12 +70,14 @@ function get_options() {
 	for (i=1;i<ARGC;i++) {
 		$0 = ARGV[i]
 		if (gsub(/^-/,"")) {
-			if (gsub(/d/,"")) c["DEPTH"] = opt_var()
-			if (gsub(/n/,"")) c["DRY_RUN"]++
-			if (gsub(/j/,"")) c["JSON"]++
-			if (gsub(/R/,"")) c["REPLICATE_NEW"]++
+			if (gsub(/d/,"")) DEPTH = opt_var()
+			if (gsub(/i/,"")) INTERMEDIATE = 0
+			if (gsub(/I/,"")) INTERMEDIATE = 1
+			if (gsub(/n/,"")) DRY_RUN++
+			if (gsub(/j/,"")) JSON++
+			if (gsub(/R/,"")) REPLICATE++
 			if (gsub(/z/,"")) ZELTA_PIPE++
-			if (gsub(/v/,"")) { VERBOSE++; c["JSON"] = 0 }
+			if (gsub(/v/,"")) { VERBOSE++; JSON = 0 }
 			if (/./) usage("unkown options: " $0)
 		} else if (target) {
 			usage("too many options: " $0)
@@ -74,43 +86,35 @@ function get_options() {
 	}
 }
 	       
-function load_config() {
-	ZELTA_CONFIG = env("ZELTA_CONFIG", "/usr/local/etc/zelta/zelta.conf")
+function get_config() {
+	# Load environemnt variables and options and set up zfs send/receive flags
 	LOCAL_USER = env("USER", "")
 	LOCAL_HOST = ENVIRON["HOST"] ? ENVIRON["HOST"] : ENVIRON["HOSTNAME"]
-	if (!LOCAL_HOST)  {
+	if (!LOCAL_HOST) {
 		"hostname" | getline LOCAL_HOST
 		close "hostname"
 	} else LOCAL_HOST = "localhost"
-	FS = "[: \t]+";
-	while ((getline < ZELTA_CONFIG)>0) {
-		if (split($0, arr, "#")) {
-			$0 = arr[1]
-		}
-		gsub(/[ \t]+$/, "", $0)
-		if (/^[^ ]+: +[^ ]/) {
-			c[$1] = $2
-		}
-	}
-	ZELTA_PIPE = ZELTA_PIPE ? ZELTA_PIPE : env("ZELTA_PIPE", 0)
-	if (!ZELTA_PIPE) c["JSON"] = 0
+	ZELTA_PIPE = env("ZELTA_PIPE", 0)
+	SEND_FLAGS = env("ZELTA_SEND_FLAGS", "")
+	RECEIVE_FLAGS = env("ZELTA_RECEIVE_FLAGS", "")
 	get_options()
-	send_flags = "Lcp"
-	send_flags = send_flags (c["DRY_RUN"]?"n":"") (c["REPLICATE_NEW"]?"R":"")
-	send_flags = c["REPLICATE_NEW"] ? "LcpR" : "Lcp"
-	send_flags = "send -P" send_flags " " 
-	recv_flags = c["RECEIVE_FLAGS"] ? c["RECEIVE_FLAGS"] : "u"
-	recv_flags = "receive -v" env("ZPULL_RECV_FLAGS", recv_flags) " "
-	intr_flags = c["INTERMEDIATE"] ? "I" : "i"
-	intr_flags = "-" env("ZPULL_I_FLAGS", intr_flags) " "
-	zmatch = "ZELTA_PIPE=1 zmatch " q(source) " " q(target) " 2>&1"
-	if (c["DEPTH"] && !c["REPLICATE_NEW"]) {
-		zmatch = "ZELTA_DEPTH=" c["DEPTH"] " " zmatch
-	}
 	if (! target) usage()
-	LOG_PIPE = 0; LOG_BASIC = 1; LOG_VERBOSE = 2;
-	LOG_JSON = 3; LOG_SIGINFO = 4
-	if (c["JSON"]) LOG_MODE = 3
+	send_flags = SEND_FLAGS ? SEND_FLAGS : "Lcp"
+	send_flags = send_flags (DRY_RUN?"n":"") (REPLICATE?"R":"")
+	#if (!DEPTH && REPLICATE) DEPTH = 1
+	if (DEPTH) DEPTH = "-d"DEPTH" "
+	send_flags = "send -P" send_flags " " 
+	recv_flags = RECEIVE_FLAGS ? RECEIVE_FLAGS : "u"
+	recv_flags = "receive -v" recv_flags " "
+	intr_flags = "-" (INTERMEDIATE ? "I" : "i") " "
+	zmatch = "zelta match -z " DEPTH q(source) " " q(target) " 2>&1"
+	LOG_ERROR = -1
+	LOG_PIPE = 0
+	LOG_BASIC = 1
+	LOG_VERBOSE = 2
+	LOG_JSON = 3
+	LOG_SIGINFO = 4
+	if (JSON) LOG_MODE = 3
 	else if (ZELTA_PIPE) LOG_MODE = 0
 	else if (VERBOSE) LOG_MODE = 2
 	else LOG_MODE = 1
@@ -149,7 +153,7 @@ function h_num(num) {
 }
 
 function dry_run(command) {
-	if (c["DRY_RUN"]) {
+	if (DRY_RUN) {
 		if (command) print "+ "command
 		return 1
 	} else { return 0 }
@@ -216,7 +220,7 @@ function stop(err, message) {
 	total_time = zmatch_time + zfs_replication_time
 	error_code = err
 	report(LOG_ERROR, message)
-	if (c["JSON"]) output_json()
+	if (JSON) output_json()
 	else if (ZELTA_PIPE) output_pipe()
 	exit error_code
 }
@@ -231,10 +235,13 @@ function replicate(command) {
 			report(LOG_VERBOSE, source_stream[r]": sending " h_num($2))
 			total_bytes += $2
 		} else if ($3 == "real") { zfs_replication_time += $2 }
-		else if ($1 ~ /:/ && $2 ~ /^[0-9]+$/) report(LOG_SIGINFO, source_stream[r]": "h_num($2) " received")
+		else if ($1 ~ /:/ && $2 ~ /^[0-9]+$/) {
+			report(LOG_SIGINFO, source_stream[r]": "h_num($2) " received")
+			track_errors("")
+		}
 		else if (/receiving/ && /stream/) { }
 		else {
-			report(LOG_WARNING, $0)
+			report(LOG_ERROR, $0)
 			error_code = 2
 		}
 
@@ -244,7 +251,7 @@ function replicate(command) {
 
 BEGIN {
 	STDOUT = "cat 1>&2"
-	load_config()
+	get_config()
 	received_streams = 0
 	total_bytes = 0
 	total_time = 0
@@ -263,7 +270,7 @@ BEGIN {
 	while (zmatch |getline) {
 		if (/error/) {
 			error_code = 1
-			report(LOG_WARNING, $0)
+			report(LOG_ERROR, $0)
 			continue
 		} else if ($3 == "real") {
 			zmatch_time = $2
@@ -298,17 +305,19 @@ BEGIN {
 	total_bytes = 0
 	for (r = 1; r <= rpl_num; r++) {
 		if (dry_run(rpl_cmd[r])) {
-			sub(/ \| .*/, ">/dev/null", rpl_cmd[r])
+			#sub(/ \| .*/, ">/dev/null", rpl_cmd[r])
+			sub(/ \| .*/, "", rpl_cmd[r])
 		}
 		if (full_cmd) close(full_cmd)
 		full_cmd = "/usr/bin/time sh -c '" rpl_cmd[r] "' 2>&1"
 		replicate(full_cmd)
-		if (c["REPLICATE_NEW"]) { break } # If -R is given, skip manual descendants
+		if (REPLICATE) { break } # If -R is given, skip manual descendants
 	}
 
 	# Negative errors show the number of missed streams, otherwise show error code
 	stream_diff = received_streams - sent_streams
 	error_code = (error_code ? error_code : stream_diff)
+	track_errors("")
 	report(LOG_BASIC, h_num(total_bytes) " sent, " received_streams "/" sent_streams " streams received in " zfs_replication_time " seconds")
 	stop(error_code, "")
 }

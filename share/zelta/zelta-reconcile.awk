@@ -127,7 +127,7 @@ BEGIN {
 	LOG_VERBOSE=2
 	exit_code = 0
 	ZELTA_PIPE = env("ZELTA_PIPE", 0)
-	if (!ZELTA_PIPE) { LOG_MODE = 1 }
+	LOG_MODE = ZELTA_PIPE ? 0 : 1
 }
 
 function get_endpoint_info() {
@@ -173,7 +173,7 @@ NR > 3 {
 				delta_update = volume[source] source_latest[dataset_stub]
 				delta_target = volume[target] dataset_stub
 				delta[dataset_stub] = snapshot_name OFS delta_update OFS delta_target
-				basic_log[dataset_stub] "match: " snapshot_stub OFS "latest: " source_latest[dataset_stub]
+				basic_log[dataset_stub] = "match: " snapshot_stub OFS "latest: " source_latest[dataset_stub]
 			}
 		} else {
 			report(LOG_ERROR,"guid mismatch on: " snapshot_stub)
