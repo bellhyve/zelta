@@ -124,6 +124,13 @@ function load_config() {
 	LOG_ACTIVE = 1; LOG_DELAY = 2; LOG_WARNING = 3
 	LOG_MODE = 1
 	if (!AUTO || c["JSON"]) { LOG_MODE = 2 }
+	SYNC_LOG_MODE = c["JSON"] ? "j" : "z"
+	REPLICATE = c["REPLICATE"] ? "R" : ""
+	INTERMEDIATE = c["INTERMEDIATE"] ? "I" : ""
+	DRY_RUN = c["DRY_RUN"] ? "n" : ""
+	DEPTH = c["DEPTH"]? " -d"c["DEPTH"] : ""
+	SYNC_FLAGS = " -" SYNC_LOG_MODE REPLICATE INTERMEDIATE DRY_RUN DEPTH " "
+	ZELTA_SYNC = "zelta sync" SYNC_FLAGS
 }
 
 function sub_keys(key_pair, key1, key2_list, key2_subset) {
@@ -156,7 +163,7 @@ function h_num(num) {
 function zelta_sync(host, source, target) {
 	cmd_src = q((host in LOCALHOST) ? source : (host":"source))
 	cmd_tgt = q(target)
-	sync_cmd = "ZELTA_PIPE=1 zelta sync " cmd_src " " cmd_tgt
+	sync_cmd = ZELTA_SYNC cmd_src " " cmd_tgt
 	sync_status = 1
 	# Only print host:source explicitly in non-interactive interactive
 	if ((LOG_MODE == LOG_DELAY) && !c["JSON"]) report(LOG_DELAY, host":"source": ")

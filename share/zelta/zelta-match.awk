@@ -78,20 +78,6 @@ function get_options() {
         }
 }
 
-function make_ord() { for(n=0;n<256;n++) ord[sprintf("%c",n)] = n }
-
-function hash(text) {
-	text = text ? text : $0
-	_prime = 104729;
-	_modulo = 1099511627775;
-	_ax = 0;
-	split(text, _chars, "");
-	for (_i=1; _i <= length(text); _i++) {
-		_ax = (_ax * _prime + ord[_chars[_i]]) % _modulo;
-	};
-	return sprintf("%010x", _ax)
-}
-
 function get_endpoint_info(endpoint) {
 	ssh_user[endpoint] = LOCAL_USER
 	ssh_host[endpoint] = LOCAL_HOST
@@ -105,7 +91,9 @@ function get_endpoint_info(endpoint) {
 
 	} else volume[endpoint] = vol_arr[1]
 	zfs[endpoint] = ssh_command[endpoint] "zfs "
-	return hash(endpoint)
+	gsub(/_/, "-", endpoint)
+	gsub(/[^A-Za-z0-9.-]/,"_",endpoint)
+	return endpoint
 }
 
 function error(string) {
@@ -136,7 +124,6 @@ BEGIN {
 	if (!ZELTA_PIPE) { VERBOSE = 1 }
 
 	OFS="\t"
-	make_ord()
 
 	hash_source = get_endpoint_info(source)
 	hash_target = get_endpoint_info(target)
