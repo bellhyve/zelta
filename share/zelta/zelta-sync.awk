@@ -9,8 +9,7 @@
 # migrations in that it will recursively replicate the latest parent snapshot and its
 # children, unlike the "zfs send -R" option.
 #
-# If called with the environmental variable ZELTA_PIPE=1, zpull reports an abbreviated
-# output for reporting:
+# If called with the argument "-z" zelta sync reports an abbreviated output for reporting:
 #
 # 	received_streams, total_bytes, time, error
 #
@@ -32,7 +31,7 @@ function track_errors(message) {
 		message = "above error repeated "error_count" times"
 		error_count = 0
 	} else last_error = message
-	if (JSON) error_list[++err_num] = message
+	if (LOG_MODE == LOG_JSON) error_list[++err_num] = message
 	else print "error: " message | STDOUT 
 }
 
@@ -50,7 +49,7 @@ function report(mode, message) {
 
 function usage(message) {
 	if (message) error(message)
-	report(LOG_BASIC, "usage: zelta pull [-j] [user@][host:]source/dataset [user@][host:]target/dataset")
+	report(LOG_BASIC, "usage: zelta sync [-j] [user@][host:]source/dataset [user@][host:]target/dataset")
 	exit 1
 }
 
@@ -74,10 +73,11 @@ function get_options() {
 			if (gsub(/i/,"")) INTERMEDIATE = 0
 			if (gsub(/I/,"")) INTERMEDIATE = 1
 			if (gsub(/n/,"")) DRY_RUN++
-			if (gsub(/j/,"")) JSON++
+			if (gsub(/j/,"")) LOG_MODE = LOG_JSON
+			if (gsub(/q/,"")) LOG_MODE = LOG_QUIET
 			if (gsub(/R/,"")) REPLICATE++
-			if (gsub(/z/,"")) ZELTA_PIPE++
-			if (gsub(/v/,"")) { VERBOSE++; JSON = 0 }
+			if (gsub(/z/,"")) LOG_MODE = LOG_PIPE
+			if (gsub(/v/,"")) LOG_MODE = LOG_VERBOSE
 			if (/./) usage("unkown options: " $0)
 		} else if (target) {
 			usage("too many options: " $0)
@@ -94,30 +94,26 @@ function get_config() {
 		"hostname" | getline LOCAL_HOST
 		close "hostname"
 	} else LOCAL_HOST = "localhost"
-	ZELTA_PIPE = env("ZELTA_PIPE", 0)
 	SEND_FLAGS = env("ZELTA_SEND_FLAGS", "")
 	RECEIVE_FLAGS = env("ZELTA_RECEIVE_FLAGS", "")
-	get_options()
-	if (! target) usage()
-	send_flags = SEND_FLAGS ? SEND_FLAGS : "Lcp"
-	send_flags = send_flags (DRY_RUN?"n":"") (REPLICATE?"R":"")
-	#if (!DEPTH && REPLICATE) DEPTH = 1
-	if (DEPTH) DEPTH = "-d"DEPTH" "
-	send_flags = "send -P" send_flags " " 
-	recv_flags = RECEIVE_FLAGS ? RECEIVE_FLAGS : "u"
-	recv_flags = "receive -v" recv_flags " "
-	intr_flags = "-" (INTERMEDIATE ? "I" : "i") " "
-	zmatch = "zelta match -z " DEPTH q(source) " " q(target) " 2>&1"
+	LOG_QUIET = -2
 	LOG_ERROR = -1
 	LOG_PIPE = 0
 	LOG_BASIC = 1
 	LOG_VERBOSE = 2
 	LOG_JSON = 3
 	LOG_SIGINFO = 4
-	if (JSON) LOG_MODE = 3
-	else if (ZELTA_PIPE) LOG_MODE = 0
-	else if (VERBOSE) LOG_MODE = 2
-	else LOG_MODE = 1
+	LOG_MODE = LOG_BASIC
+	get_options()
+	if (! target) usage()
+	send_flags = SEND_FLAGS ? SEND_FLAGS : "Lcp"
+	send_flags = send_flags (DRY_RUN?"n":"") (REPLICATE?"R":"")
+	if (DEPTH) DEPTH = "-d"DEPTH" "
+	send_flags = "send -P" send_flags " " 
+	recv_flags = RECEIVE_FLAGS ? RECEIVE_FLAGS : "u"
+	recv_flags = "receive -v" recv_flags " "
+	intr_flags = "-" (INTERMEDIATE ? "I" : "i") " "
+	zmatch = "zelta match -z " DEPTH q(source) " " q(target) " 2>&1"
 	FS = "[\t]+"
 }
 
@@ -220,8 +216,8 @@ function stop(err, message) {
 	total_time = zmatch_time + zfs_replication_time
 	error_code = err
 	report(LOG_ERROR, message)
-	if (JSON) output_json()
-	else if (ZELTA_PIPE) output_pipe()
+	if (LOG_MODE == LOG_JSON) output_json()
+	else if (LOG_MODE == LOG_PIPE) output_pipe()
 	exit error_code
 }
 

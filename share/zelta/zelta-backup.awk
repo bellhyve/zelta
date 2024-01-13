@@ -119,12 +119,19 @@ function load_config() {
 		exit 1
 	}
 	FS = "[ \t]+";
-	for (i = 1; i < ARGC; i++) { ARGS[ARGV[i]]++ }
-	if (ARGC == 1) { AUTO++ }
+	# Fix: Handle LOG_JSON
 	LOG_ACTIVE = 1; LOG_DELAY = 2; LOG_WARNING = 3
-	LOG_MODE = 1
-	if (!AUTO || c["JSON"]) { LOG_MODE = 2 }
+	LOG_MODE = LOG_DELAY
 	SYNC_LOG_MODE = c["JSON"] ? "j" : "z"
+	for (i = 1; i < ARGC; i++) {
+		if (gsub(/^-/,"",ARGV[i])) SYNC_LOG_MODE = ARGV[i]
+		else ARGS[ARGV[i]]++
+	}
+	if (length(ARGS) == 0) {
+		AUTO++
+		if (SYNC_LOG_MODE == "z") LOG_MODE = LOG_ACTIVE
+	}
+	if (SYNC_LOG_MODE == "j") c["JSON"] = 1
 	REPLICATE = c["REPLICATE"] ? "R" : ""
 	INTERMEDIATE = c["INTERMEDIATE"] ? "I" : ""
 	DRY_RUN = c["DRY_RUN"] ? "n" : ""
