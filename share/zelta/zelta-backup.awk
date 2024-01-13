@@ -84,7 +84,7 @@ function resolve_target(source, target) {
 }
 
 function load_config() {
-	FS = "[: \t]+";
+	FS = "(:?[ \t]+)|(:$)"
 	OFS=","
 	while ((getline < ZELTA_CONFIG)>0) {
 		if (split($0, arr, "#")) {
