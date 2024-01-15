@@ -91,7 +91,7 @@ function check_parent() {
 	if (!(snapshot_list_command ~ /zfs list/)) return 0
 	parent = volume[target]
 	if (!gsub(/\/[^\/]+$/, "", parent)) {
-		report(LOG_ERROR,"invalid target pool name: " parent)
+		report(LOG_ERROR,"invalid target: " parent)
 		exit 1
 	}
 	parent_list_command = snapshot_list_command
