@@ -108,7 +108,7 @@ BEGIN {
 	ZELTA_PIPE = env("ZELTA_PIPE", 0)
 	ZELTA_DEPTH = env("ZELTA_DEPTH", 0)
 	ZMATCH_STREAM = env("ZMATCH_STREAM", 0)
-	TIME_COMMAND = env("TIME_COMMAND", "/usr/bin/time") " "
+	TIME_COMMAND = env("TIME_COMMAND", "/usr/bin/time -p") " "
 	
 	get_options()
 	ZMATCH_PREFIX = "ZMATCH_STREAM=1 "

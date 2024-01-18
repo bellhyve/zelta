@@ -54,9 +54,11 @@ function h_num(num) {
 
 function get_snapshot_data(trim) {
 		if (/dataset does not exist/) return 0
-		else if (/ real /) {
+		else if (/^real [0-9]/) {
 			split($0, time_arr, /[ \t]+/)
 			zfs_list_time = time_arr[2]
+			return 0
+		} else if (/(sys|user) [0-9]/) {
 			return 0
 		} else if (! /@/) {
 			report(LOG_ERROR,$0)

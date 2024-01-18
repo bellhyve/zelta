@@ -57,7 +57,7 @@ function env(env_name, var_default) {
 	return ( (env_name in ENVIRON) ? ENVIRON[env_name] : var_default )
 }
 
-function q(s) { return "\'"s"\'" }
+function q(s) { return "'" s "'" }
 
 function opt_var() {
 	var = ($0 ? $0 : ARGV[++i])
@@ -213,7 +213,7 @@ function output_pipe() {
 
 function stop(err, message) {
 	time_end = sys_time()
-	total_time = zmatch_time + zfs_replication_time
+	total_time = source_zfs_list_time + target_zfs_list_time + zfs_replication_time
 	error_code = err
 	report(LOG_ERROR, message)
 	if (LOG_MODE == LOG_JSON) output_json()
@@ -230,11 +230,11 @@ function replicate(command) {
 		} else if (($1 == "size") && $2) {
 			report(LOG_VERBOSE, source_stream[r]": sending " h_num($2))
 			total_bytes += $2
-		} else if ($3 == "real") { zfs_replication_time += $2 }
-		else if ($1 ~ /:/ && $2 ~ /^[0-9]+$/) {
+		} else if ($1 ~ /:/ && $2 ~ /^[0-9]+$/) {
 			report(LOG_SIGINFO, source_stream[r]": "h_num($2) " received")
 			track_errors("")
-		}
+		} else if ($1 == "real") zfs_replication_time += $2
+		else if (/^(sys|user) [0-9]/) { }
 		else if (/receiving/ && /stream/) { }
 		else {
 			report(LOG_ERROR, $0)
@@ -247,6 +247,7 @@ function replicate(command) {
 
 BEGIN {
 	STDOUT = "cat 1>&2"
+	TIME_COMMAND = env("TIME_COMMAND", "/usr/bin/time -p") " "
 	get_config()
 	received_streams = 0
 	total_bytes = 0
@@ -267,9 +268,6 @@ BEGIN {
 		if (/error/) {
 			error_code = 1
 			report(LOG_ERROR, $0)
-			continue
-		} else if ($3 == "real") {
-			zmatch_time = $2
 			continue
 		} else if (! /@/) {
 			# If no snapshot is given, create an empty volume
@@ -305,7 +303,7 @@ BEGIN {
 			sub(/ \| .*/, "", rpl_cmd[r])
 		}
 		if (full_cmd) close(full_cmd)
-		full_cmd = "/usr/bin/time sh -c '" rpl_cmd[r] "' 2>&1"
+		full_cmd = TIME_COMMAND "sh -c '" rpl_cmd[r] "' 2>&1"
 		replicate(full_cmd)
 		if (REPLICATE) { break } # If -R is given, skip manual descendants
 	}

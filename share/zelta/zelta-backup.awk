@@ -155,7 +155,7 @@ function should_replicate() {
 	} else { return 0 }
 }
 
-function q(s) { return "\'"s"\'" }
+function q(s) { return "'" s "'" }
 
 function h_num(num) {
 	suffix = "B"
@@ -196,7 +196,7 @@ function zelta_sync(host, source, target) {
 		report(LOG_DELAY, "\n")
 	}
 	report(LOG_DELAY, "")
-	close sync_cmd
+	close(sync_cmd)
 	return sync_status
 }
 
