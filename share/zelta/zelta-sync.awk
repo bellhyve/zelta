@@ -92,7 +92,7 @@ function get_config() {
 	LOCAL_HOST = ENVIRON["HOST"] ? ENVIRON["HOST"] : ENVIRON["HOSTNAME"]
 	if (!LOCAL_HOST) {
 		"hostname" | getline LOCAL_HOST
-		close "hostname"
+		close("hostname")
 	} else LOCAL_HOST = "localhost"
 	SEND_FLAGS = env("ZELTA_SEND_FLAGS", "")
 	RECEIVE_FLAGS = env("ZELTA_RECEIVE_FLAGS", "")
