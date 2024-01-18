@@ -48,9 +48,9 @@ function report(mode, message) {
 }	
 
 function usage(message) {
-	if (message) error(message)
+	if (message) report(LOG_ERROR, message)
 	report(LOG_BASIC, "usage: zelta sync [-iInjqRzv] [-d#] [user@][host:]source/dataset [user@][host:]target/dataset")
-	exit 1
+	stop(1,"")
 }
 
 function env(env_name, var_default) {
@@ -166,22 +166,24 @@ function jpair(l, r) {
 	return ","
 }
 
-function jlist(name, arr) {
+function jlist(name, msg_list) {
 	printf "  \""name"\": ["
 	list_len = 0
-	for (n=1;n<=length(arr);n++) {
-		gsub(/^[ \t\r\n]+|[ \t\r\n]+$/, "", arr[n])
-		gsub(/\n/, "; ", arr[n])
-		gsub(/"/, "'", arr[n])
-		if (list_len++) print ","
-		else print ""
-		printf "    \""arr[n]"\""
+	for (n in msg_list) list_len++
+	if (list_len) {
+		for (n=1;n<=list_len;n++) {
+			gsub(/^[ \t\r\n]+|[ \t\r\n]+$/, "", msg_list[n])
+			gsub(/\n/, "; ", msg_list[n])
+			gsub(/"/, "'", msg_list[n])
+			if (n<list_len) print ","
+			else print ""
+			printf "    \""msg_list[n]"\""
+		}
+		printf "\n  "
 	}
-	if (list_len > 0) printf "\n  "
 	printf "]"
 	return ",\n"
 }
-
 
 function output_json() {
 	if (LOG_MODE != LOG_JSON) return 0

@@ -105,7 +105,7 @@ function load_config() {
 			source_dataset = $3
 			target_dataset = resolve_target(source_dataset, $4)
 			if (!target_dataset) {
-				error("warning: no target defined for " source_dataset)
+				report(LOG_WARNING,"no target defined for " source_dataset)
 			}
 			datasets[current_host, source_dataset] = resolve_target(source_dataset, target_dataset)
 			dataset_count[source_dataset]++
