@@ -48,16 +48,16 @@ function report(mode, message) {
 }	
 
 function usage(message) {
-	if (message) error(message)
-	report(LOG_BASIC, "usage: zelta sync [-j] [user@][host:]source/dataset [user@][host:]target/dataset")
-	exit 1
+	if (message) report(LOG_ERROR, message)
+	report(LOG_BASIC, "usage: zelta sync [-iInjqRzv] [-d#] [user@][host:]source/dataset [user@][host:]target/dataset")
+	stop(1,"")
 }
 
 function env(env_name, var_default) {
 	return ( (env_name in ENVIRON) ? ENVIRON[env_name] : var_default )
 }
 
-function q(s) { return "\'"s"\'" }
+function q(s) { return "'" s "'" }
 
 function opt_var() {
 	var = ($0 ? $0 : ARGV[++i])
@@ -92,7 +92,7 @@ function get_config() {
 	LOCAL_HOST = ENVIRON["HOST"] ? ENVIRON["HOST"] : ENVIRON["HOSTNAME"]
 	if (!LOCAL_HOST) {
 		"hostname" | getline LOCAL_HOST
-		close "hostname"
+		close("hostname")
 	} else LOCAL_HOST = "localhost"
 	SEND_FLAGS = env("ZELTA_SEND_FLAGS", "")
 	RECEIVE_FLAGS = env("ZELTA_RECEIVE_FLAGS", "")
@@ -114,6 +114,7 @@ function get_config() {
 	recv_flags = "receive -v" recv_flags " "
 	intr_flags = "-" (INTERMEDIATE ? "I" : "i") " "
 	zmatch = "zelta match -z " DEPTH q(source) " " q(target) " 2>&1"
+	create_flags = "-up"(DRY_RUN?"n":"")" "
 	FS = "[\t]+"
 }
 
@@ -166,22 +167,24 @@ function jpair(l, r) {
 	return ","
 }
 
-function jlist(name, arr) {
+function jlist(name, msg_list) {
 	printf "  \""name"\": ["
 	list_len = 0
-	for (n=1;n<=length(arr);n++) {
-		gsub(/^[ \t\r\n]+|[ \t\r\n]+$/, "", arr[n])
-		gsub(/\n/, "; ", arr[n])
-		gsub(/"/, "'", arr[n])
-		if (list_len++) print ","
-		else print ""
-		printf "    \""arr[n]"\""
+	for (n in msg_list) list_len++
+	if (list_len) {
+		for (n=1;n<=list_len;n++) {
+			gsub(/^[ \t\r\n]+|[ \t\r\n]+$/, "", msg_list[n])
+			gsub(/\n/, "; ", msg_list[n])
+			gsub(/"/, "'", msg_list[n])
+			if (n<list_len) print ","
+			else print ""
+			printf "    \""msg_list[n]"\""
+		}
+		printf "\n  "
 	}
-	if (list_len > 0) printf "\n  "
 	printf "]"
 	return ",\n"
 }
-
 
 function output_json() {
 	if (LOG_MODE != LOG_JSON) return 0
@@ -213,7 +216,7 @@ function output_pipe() {
 
 function stop(err, message) {
 	time_end = sys_time()
-	total_time = zmatch_time + zfs_replication_time
+	total_time = source_zfs_list_time + target_zfs_list_time + zfs_replication_time
 	error_code = err
 	report(LOG_ERROR, message)
 	if (LOG_MODE == LOG_JSON) output_json()
@@ -230,11 +233,11 @@ function replicate(command) {
 		} else if (($1 == "size") && $2) {
 			report(LOG_VERBOSE, source_stream[r]": sending " h_num($2))
 			total_bytes += $2
-		} else if ($3 == "real") { zfs_replication_time += $2 }
-		else if ($1 ~ /:/ && $2 ~ /^[0-9]+$/) {
+		} else if ($1 ~ /:/ && $2 ~ /^[0-9]+$/) {
 			report(LOG_SIGINFO, source_stream[r]": "h_num($2) " received")
 			track_errors("")
-		}
+		} else if ($1 == "real") zfs_replication_time += $2
+		else if (/^(sys|user) [0-9]/) { }
 		else if (/receiving/ && /stream/) { }
 		else {
 			report(LOG_ERROR, $0)
@@ -247,6 +250,8 @@ function replicate(command) {
 
 BEGIN {
 	STDOUT = "cat 1>&2"
+	ALL_OUT =" 2>&1"
+	TIME_COMMAND = env("TIME_COMMAND", "/usr/bin/time -p") " "
 	get_config()
 	received_streams = 0
 	total_bytes = 0
@@ -268,16 +273,11 @@ BEGIN {
 			error_code = 1
 			report(LOG_ERROR, $0)
 			continue
-		} else if ($3 == "real") {
-			zmatch_time = $2
-			continue
 		} else if (! /@/) {
 			# If no snapshot is given, create an empty volume
 			if (! $0 == $1) stop(3, $0)
-			zfs_create_command = zfs[target] "create -up " q($1) " >/dev/null 2>&1"
-			if (dry_run(zfs_create_command)) continue
-			if (system(zfs_create_command)) stop(4, "failed to create dataset: " q($1))
-			else report(LOG_BASIC, "created parent dataset(s)")
+			rpl_cmd[++rpl_num] = zfs[target] "create " create_flags q($1)
+			create_volume[rpl_num] = $1
 			continue
 		}
 		num_streams++
@@ -301,11 +301,15 @@ BEGIN {
 	total_bytes = 0
 	for (r = 1; r <= rpl_num; r++) {
 		if (dry_run(rpl_cmd[r])) {
-			#sub(/ \| .*/, ">/dev/null", rpl_cmd[r])
 			sub(/ \| .*/, "", rpl_cmd[r])
+		} else if (rpl_cmd[r] ~ "zfs create") {
+			if (system(rpl_cmd[r])) {
+				stop(4, "failed to create parent volume: " create_volume[r])
+			}
+			continue
 		}
 		if (full_cmd) close(full_cmd)
-		full_cmd = "/usr/bin/time sh -c '" rpl_cmd[r] "' 2>&1"
+		full_cmd = TIME_COMMAND "sh -c '" rpl_cmd[r] "' 2>&1"
 		replicate(full_cmd)
 		if (REPLICATE) { break } # If -R is given, skip manual descendants
 	}

@@ -105,7 +105,7 @@ function load_config() {
 			source_dataset = $3
 			target_dataset = resolve_target(source_dataset, $4)
 			if (!target_dataset) {
-				error("warning: no target defined for " source_dataset)
+				report(LOG_WARNING,"no target defined for " source_dataset)
 			}
 			datasets[current_host, source_dataset] = resolve_target(source_dataset, target_dataset)
 			dataset_count[source_dataset]++
@@ -155,7 +155,7 @@ function should_replicate() {
 	} else { return 0 }
 }
 
-function q(s) { return "\'"s"\'" }
+function q(s) { return "'" s "'" }
 
 function h_num(num) {
 	suffix = "B"
@@ -196,7 +196,7 @@ function zelta_sync(host, source, target) {
 		report(LOG_DELAY, "\n")
 	}
 	report(LOG_DELAY, "")
-	close sync_cmd
+	close(sync_cmd)
 	return sync_status
 }
 
