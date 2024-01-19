@@ -1,8 +1,8 @@
 #!/usr/bin/awk -f
 #
-# zelta replicate (zpull) - replicates a snapshot and its descendants
+# zelta sync, zsync, zpull - replicates a snapshot and its descendants
 #
-# usage: zpull [user@][host:]source/dataset [user@][host:]target/dataset
+# usage: zelta sync [user@][host:]source/dataset [user@][host:]target/dataset
 #
 # After using zmatch to identify out-of-date snapshots on the target, zpull creates
 # individual replication streams for a snapshot and its children. zpull is useful for
@@ -13,8 +13,8 @@
 #
 # 	received_streams, total_bytes, time, error
 #
-# Additional flags can be set with the environmental variables ZPULL_SEND_FLAGS and
-# ZPULL_RECV_FLAGS.
+# Additional flags can be set with the environmental variables ZELTA_SEND_FLAGS and
+# ZELTA_RECV_FLAGS.
 #
 # Note that as zelta sync is used as both a backup and migration tool, the default behavior
 # for new replicas is to only copy the latest snapshots from the source heirarchy, while the
@@ -237,7 +237,7 @@ function replicate(command) {
 			report(LOG_SIGINFO, source_stream[r]": "h_num($2) " received")
 			track_errors("")
 		} else if ($1 == "real") zfs_replication_time += $2
-		else if (/^(sys|user) [0-9]/) { }
+		else if (/^(sys|user)[ \t]+[0-9]/) { }
 		else if (/receiving/ && /stream/) { }
 		else {
 			report(LOG_ERROR, $0)

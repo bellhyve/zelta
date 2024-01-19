@@ -1,6 +1,14 @@
-#!/bin/sh
+#!/bin/sh -a
+: ${ZELTA_ETC:="/usr/local/etc/zelta"}
+: ${ZELTA_ENV:="$ZELTA_ETC/zelta.env"}
+
+if [ -r $ZELTA_ENV ]; then
+       . $ZELTA_ENV
+fi
+
 : ${ZELTA_SHARE:="/usr/local/share/zelta"}
 : ${AWK:="`which awk`"}
+
 AWKPRE="$AWK -f $ZELTA_SHARE"
 
 # Run script directly if called with that name
@@ -13,6 +21,8 @@ case $1 in
 	pull) shift; zelta_command=zsync ;;
 	reconcile) shift; zelta_command=zrecon ;;
 	report) shift; zelta_command=zeport ;;
+	time) shift; zelta_command=time ;;
+
 esac
 
 case $zelta_command in
@@ -22,6 +32,7 @@ case $zelta_command in
 	zpush) $AWKPRE/zelta-sync.awk -- "$@" ;;
 	zrecon) $AWKPRE/zelta-reconcile.awk -- "$@" ;;
 	zeport) $AWKPRE/zelta-report.awk -- "$@" ;;
+	time) "$@" | bash -c "time -p cat" ;;
 	*) [ "$1" = 'backup' ] && shift
 		$AWKPRE/zelta-backup.awk -- "$@" ;;
 esac
