@@ -172,13 +172,13 @@ function jlist(name, msg_list) {
 	list_len = 0
 	for (n in msg_list) list_len++
 	if (list_len) {
+		print ""
 		for (n=1;n<=list_len;n++) {
 			gsub(/^[ \t\r\n]+|[ \t\r\n]+$/, "", msg_list[n])
 			gsub(/\n/, "; ", msg_list[n])
 			gsub(/"/, "'", msg_list[n])
-			if (n<list_len) print ","
-			else print ""
 			printf "    \""msg_list[n]"\""
+			if (n<list_len) print ","
 		}
 		printf "\n  "
 	}
