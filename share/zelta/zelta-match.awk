@@ -108,7 +108,7 @@ BEGIN {
 	ZELTA_PIPE = env("ZELTA_PIPE", 0)
 	ZELTA_DEPTH = env("ZELTA_DEPTH", 0)
 	ZMATCH_STREAM = env("ZMATCH_STREAM", 0)
-	TIME_COMMAND = env("TIME_COMMAND", "/usr/bin/time") " "
+	TIME_COMMAND = env("TIME_COMMAND", "/usr/bin/time -p") " "
 	
 	get_options()
 	ZMATCH_PREFIX = "ZMATCH_STREAM=1 "
@@ -117,7 +117,7 @@ BEGIN {
 	ZMATCH_COMMAND = ZMATCH_PREFIX "zelta reconcile"
 	ZELTA_DEPTH = ZELTA_DEPTH ? " -d"ZELTA_DEPTH : ""
 
-	ZFS_LIST_FLAGS = "list -Hproname,guid"WRITTEN" -tsnap -Screatetxg" ZELTA_DEPTH " "
+	ZFS_LIST_FLAGS = "list -Hproname,guid"WRITTEN" -tall -Screatetxg" ZELTA_DEPTH " "
 	ALL_OUT =" 2>&1"
 
 

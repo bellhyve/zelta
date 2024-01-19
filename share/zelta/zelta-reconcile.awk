@@ -54,9 +54,17 @@ function h_num(num) {
 
 function get_snapshot_data(trim) {
 		if (/dataset does not exist/) return 0
-		else if (/ real /) {
+		else if (/^real[ \t]+[0-9]/) {
 			split($0, time_arr, /[ \t]+/)
 			zfs_list_time = time_arr[2]
+			return 0
+		} else if (/(sys|user) [0-9]/) {
+			return 0
+		} else if (!($1 ~ /@/) && ($2 ~ /[0-9]/)) {
+			# Toggle remote/target list to see what's missing
+			stub = substr($1, trim)
+			if (volume_check[stub]) delete volume_check[stub]
+			else volume_check[stub] = $1
 			return 0
 		} else if (! /@/) {
 			report(LOG_ERROR,$0)
@@ -91,7 +99,7 @@ function check_parent() {
 	if (!(snapshot_list_command ~ /zfs list/)) return 0
 	parent = volume[target]
 	if (!gsub(/\/[^\/]+$/, "", parent)) {
-		report(LOG_ERROR,"invalid target pool name: " parent)
+		report(LOG_ERROR,"invalid target: " parent)
 		exit 1
 	}
 	parent_list_command = snapshot_list_command
@@ -182,10 +190,26 @@ NR > 3 {
 	} else { total_transfer_size += snapshot_written }
 }
 
+function new_volume_check() {
+	safe_to_create = 1
+	if (stub in new_volume) {
+		for (parent in missing_branch) {
+			if (index(stub, parent) == 1) {
+				report(LOG_ERROR,"need snapshot for source: " volume_check[parent])
+				safe_to_create = 0
+				# For future -F mode?
+				#report(LOG_PIPE, volume[target] parent)
+			}
+		}
+		if (safe_to_create) report(LOG_PIPE,new_volume[stub])
+	}
+}
+
 END {
 	if (length(source_latest) == 0) report(LOG_ERROR,"no source snapshots found")
 	source_zfs_list_time = zfs_list_time
 	report(LOG_PIPE, source_zfs_list_time OFS ":" OFS target_zfs_list_time)
+	for (stub in volume_check) if (!source_latest[stub]) missing_branch[stub]
 	report(LOG_PIPE, create_parent)
 	for (stub in target_latest) {
 		if (!source_latest[stub]) report(LOG_BASIC, "target volume not on source: " target_latest[dataset_stub])
@@ -193,7 +217,8 @@ END {
 	arr_sort(source_order)
 	for (i=1;i<=length(source_order);i++) {
 		stub = source_order[i]
-		report(LOG_PIPE,new_volume[stub])
+		#report(LOG_PIPE,new_volume[stub])
+		new_volume_check()
 		report(LOG_PIPE,delta[stub])
 		report(LOG_BASIC,basic_log[stub])
 	}

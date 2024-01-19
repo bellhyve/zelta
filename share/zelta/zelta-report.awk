@@ -14,7 +14,7 @@ BEGIN {
 	"awk '/^BACKUP_ROOT: /{print $2}' " ZELTA_CONFIG | getline BACKUP_ROOT
 	HOOK_FILE = env("SLACK_HOOK", ENVIRON["HOME"] "/.zeport-hook")
 	getline SLACK_HOOK < HOOK_FILE
-	if (! SLACK_HOOK || ! BACKUP_ROOT) err "please correctly set BACKUP_ROOT and SLACK_HOOK"
+	if (! SLACK_HOOK || ! BACKUP_ROOT) err("please correctly set BACKUP_ROOT and SLACK_HOOK")
 	"hostname" | getline HOSTNAME
 	too_old = systime() - 86400
 	trim = length(BACKUP_ROOT) + 1
