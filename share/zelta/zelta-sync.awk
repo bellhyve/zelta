@@ -114,6 +114,7 @@ function get_config() {
 	recv_flags = "receive -v" recv_flags " "
 	intr_flags = "-" (INTERMEDIATE ? "I" : "i") " "
 	zmatch = "zelta match -z " DEPTH q(source) " " q(target) " 2>&1"
+	create_flags = "-up"(DRY_RUN?"n":"")" "
 	FS = "[\t]+"
 }
 
@@ -249,6 +250,7 @@ function replicate(command) {
 
 BEGIN {
 	STDOUT = "cat 1>&2"
+	ALL_OUT =" 2>&1"
 	TIME_COMMAND = env("TIME_COMMAND", "/usr/bin/time -p") " "
 	get_config()
 	received_streams = 0
@@ -274,10 +276,8 @@ BEGIN {
 		} else if (! /@/) {
 			# If no snapshot is given, create an empty volume
 			if (! $0 == $1) stop(3, $0)
-			zfs_create_command = zfs[target] "create -up " q($1) " >/dev/null 2>&1"
-			if (dry_run(zfs_create_command)) continue
-			if (system(zfs_create_command)) stop(4, "failed to create dataset: " q($1))
-			else report(LOG_BASIC, "created parent dataset(s)")
+			rpl_cmd[++rpl_num] = zfs[target] "create " create_flags q($1)
+			create_volume[rpl_num] = $1
 			continue
 		}
 		num_streams++
@@ -301,8 +301,12 @@ BEGIN {
 	total_bytes = 0
 	for (r = 1; r <= rpl_num; r++) {
 		if (dry_run(rpl_cmd[r])) {
-			#sub(/ \| .*/, ">/dev/null", rpl_cmd[r])
 			sub(/ \| .*/, "", rpl_cmd[r])
+		} else if (rpl_cmd[r] ~ "zfs create") {
+			if (system(rpl_cmd[r])) {
+				stop(4, "failed to create parent volume: " create_volume[r])
+			}
+			continue
 		}
 		if (full_cmd) close(full_cmd)
 		full_cmd = TIME_COMMAND "sh -c '" rpl_cmd[r] "' 2>&1"

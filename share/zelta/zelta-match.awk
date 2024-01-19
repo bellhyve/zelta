@@ -117,7 +117,7 @@ BEGIN {
 	ZMATCH_COMMAND = ZMATCH_PREFIX "zelta reconcile"
 	ZELTA_DEPTH = ZELTA_DEPTH ? " -d"ZELTA_DEPTH : ""
 
-	ZFS_LIST_FLAGS = "list -Hproname,guid"WRITTEN" -tsnap -Screatetxg" ZELTA_DEPTH " "
+	ZFS_LIST_FLAGS = "list -Hproname,guid"WRITTEN" -tall -Screatetxg" ZELTA_DEPTH " "
 	ALL_OUT =" 2>&1"
 
 
