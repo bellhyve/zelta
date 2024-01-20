@@ -102,6 +102,7 @@ function get_config() {
 		"hostname" | getline LOCAL_HOST
 		close("hostname")
 	} else LOCAL_HOST = "localhost"
+	SHELL_WRAPPER = env("ZELTA_SHELL", "sh -c ")
 	SEND_FLAGS = env("ZELTA_SEND_FLAGS", "-Lcp")
 	RECEIVE_PREFIX = env("ZELTA_RECEIVE_PREFIX", "")
 	RECEIVE_FLAGS = env("ZELTA_RECEIVE_FLAGS", "-ux mountpoint")
@@ -266,7 +267,6 @@ BEGIN {
 	STDOUT = "cat 1>&2"
 	ALL_OUT = " 2>&1"
 	TIME_COMMAND = env("TIME_COMMAND", "/usr/bin/time -p") " "
-	SHELL_WRAPPER = "sh -c "
 	get_config()
 	received_streams = 0
 	total_bytes = 0
@@ -333,6 +333,7 @@ BEGIN {
 	stream_diff = received_streams - sent_streams
 	error_code = (error_code ? error_code : stream_diff)
 	track_errors("")
+	if (VV) exit error_code
 	report(LOG_BASIC, h_num(total_bytes) " sent, " received_streams "/" sent_streams " streams received in " zfs_replication_time " seconds")
 	stop(error_code, "")
 }
