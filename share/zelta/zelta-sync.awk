@@ -14,7 +14,7 @@
 # 	received_streams, total_bytes, time, error
 #
 # Additional flags can be set with the environmental variables ZELTA_SEND_FLAGS and
-# ZELTA_RECV_FLAGS.
+# ZELTA_RECEIVE_FLAGS.
 #
 # Note that as zelta sync is used as both a backup and migration tool, the default behavior
 # for new replicas is to only copy the latest snapshots from the source heirarchy, while the
@@ -100,6 +100,7 @@ function get_config() {
 		close("hostname")
 	} else LOCAL_HOST = "localhost"
 	SEND_FLAGS = env("ZELTA_SEND_FLAGS", "-Lcp")
+	RECEIVE_PREFIX = env("ZELTA_RECEIVE_PREFIX", "")
 	RECEIVE_FLAGS = env("ZELTA_RECEIVE_FLAGS", "-ux mountpoint")
 	INTR_FLAGS = env("ZELTA_INTR_FLAGS", "-i")
 	LOG_QUIET = -2
@@ -269,7 +270,7 @@ BEGIN {
 	get_endpoint_info(source)
 	get_endpoint_info(target)
 	zfs_send_command = zfs[source] send_flags
-	zfs_receive_command = zfs[target] recv_flags
+	zfs_receive_command = RECEIVE_PREFIX zfs[target] recv_flags
 	time_start = sys_time()
 	zmatch | getline
 	if ($2 == ":") {
