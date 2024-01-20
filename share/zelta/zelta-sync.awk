@@ -237,8 +237,7 @@ function stop(err, message) {
 
 function replicate(command) {
 	while (command | getline) {
-		if ($1 == "incremental" || $1 == "full") { sent_streams++ }
-		else if (/transferred/) report(LOG_BASIC, $0"\n")
+		if ($1 == "incremental" || $1 == "full") sent_streams++
 		else if ($1 == "received") {
 			report(LOG_VERBOSE, source_stream[r]": "$0)
 			received_streams++
@@ -254,6 +253,8 @@ function replicate(command) {
 			report(LOG_VERBOSE, $0)
 		} else if ($1 == "real") zfs_replication_time += $2
 		else if (/^(sys|user)[ \t]+[0-9]/) { }
+		else if (/ records (in|out)$/) { } # report(LOG_VERBOSE, $0)
+		else if (/bytes.*transferred/) { }
 		else if (/receiving/ && /stream/) { }
 		else {
 			report(LOG_ERROR, $0)
