@@ -49,7 +49,7 @@ function report(mode, message) {
 
 function usage(message) {
 	if (message) report(LOG_ERROR, message)
-	report(LOG_BASIC, "usage: zelta sync [-iInjqRzv] [-d#] [user@][host:]source/dataset [user@][host:]target/dataset")
+	report(LOG_BASIC, "usage: zelta sync [-iIjmnqRvz] [-d#] [user@][host:]source/dataset [user@][host:]target/dataset")
 	stop(1,"")
 }
 

@@ -1,12 +1,12 @@
 #!/bin/sh -a
 : ${ZELTA_ETC:="/usr/local/etc/zelta"}
 : ${ZELTA_ENV:="$ZELTA_ETC/zelta.env"}
-: ${ZELTA_CONFIG:="$ZELTA_ETC/zelta.conf"}
 
 if [ -r $ZELTA_ENV ]; then
        . $ZELTA_ENV
 fi
 
+: ${ZELTA_CONFIG:="$ZELTA_ETC/zelta.conf"}
 : ${ZELTA_SHARE:="/usr/local/share/zelta"}
 : ${AWK:="`which awk`"}
 
