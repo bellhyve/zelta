@@ -71,10 +71,11 @@ function get_options() {
 	for (i=1;i<ARGC;i++) {
 		$0 = ARGV[i]
 		if (gsub(/^-/,"")) {
-			if (gsub(/i/,"")) INTERMEDIATE = 0
-			if (gsub(/I/,"")) INTERMEDIATE = 1
+			if (gsub(/i/,"")) INTR_FLAGS = "-i"
+			if (gsub(/I/,"")) INTR_FLAGS = "-I"
 			if (gsub(/j/,"")) LOG_MODE = LOG_JSON
-			if (gsub(/m/,"")) RECEIVE_FLAGS = ""
+			if (gsub(/m/,"")) RECEIVE_FLAGS = "-x mountpoint"
+			if (gsub(/M/,"")) RECEIVE_FLAGS = ""
 			if (gsub(/n/,"")) DRY_RUN++
 			if (gsub(/q/,"")) LOG_MODE = LOG_QUIET
 			if (gsub(/R/,"")) REPLICATE++
@@ -100,6 +101,7 @@ function get_config() {
 	} else LOCAL_HOST = "localhost"
 	SEND_FLAGS = env("ZELTA_SEND_FLAGS", "-Lcp")
 	RECEIVE_FLAGS = env("ZELTA_RECEIVE_FLAGS", "-ux mountpoint")
+	INTR_FLAGS = env("ZELTA_INTR_FLAGS", "-i")
 	LOG_QUIET = -2
 	LOG_ERROR = -1
 	LOG_PIPE = 0
@@ -114,7 +116,7 @@ function get_config() {
 	if (DEPTH) DEPTH = "-d"DEPTH" "
 	send_flags = "send -P " SEND_FLAGS " " 
 	recv_flags = "receive -v " RECEIVE_FLAGS " "
-	intr_flags = "-" (INTERMEDIATE ? "I" : "i") " "
+	intr_flags = INTR_FLAGS " "
 	zmatch = "zelta match -z " DEPTH q(source) " " q(target) ALL_OUT
 	create_flags = "-up"(DRY_RUN?"n":"")" "
 	FS = "[\t]+"
