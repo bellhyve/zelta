@@ -69,15 +69,17 @@ function get_options() {
 	for (i=1;i<ARGC;i++) {
 		$0 = ARGV[i]
 		if (gsub(/^-/,"")) {
-			if (gsub(/d/,"")) DEPTH = opt_var()
 			if (gsub(/i/,"")) INTERMEDIATE = 0
 			if (gsub(/I/,"")) INTERMEDIATE = 1
-			if (gsub(/n/,"")) DRY_RUN++
 			if (gsub(/j/,"")) LOG_MODE = LOG_JSON
+			if (gsub(/m/,"")) RECEIVE_FLAGS = ""
+			if (gsub(/n/,"")) DRY_RUN++
 			if (gsub(/q/,"")) LOG_MODE = LOG_QUIET
 			if (gsub(/R/,"")) REPLICATE++
-			if (gsub(/z/,"")) LOG_MODE = LOG_PIPE
 			if (gsub(/v/,"")) LOG_MODE = LOG_VERBOSE
+			if (gsub(/z/,"")) LOG_MODE = LOG_PIPE
+			# Options with sub-options go last
+			if (gsub(/d/,"")) DEPTH = opt_var()
 			if (/./) usage("unkown options: " $0)
 		} else if (target) {
 			usage("too many options: " $0)
@@ -94,8 +96,8 @@ function get_config() {
 		"hostname" | getline LOCAL_HOST
 		close("hostname")
 	} else LOCAL_HOST = "localhost"
-	SEND_FLAGS = env("ZELTA_SEND_FLAGS", "")
-	RECEIVE_FLAGS = env("ZELTA_RECEIVE_FLAGS", "")
+	SEND_FLAGS = env("ZELTA_SEND_FLAGS", "-Lcp")
+	RECEIVE_FLAGS = env("ZELTA_RECEIVE_FLAGS", "-ux mountpoint")
 	LOG_QUIET = -2
 	LOG_ERROR = -1
 	LOG_PIPE = 0
@@ -106,14 +108,12 @@ function get_config() {
 	LOG_MODE = LOG_BASIC
 	get_options()
 	if (! target) usage()
-	send_flags = SEND_FLAGS ? SEND_FLAGS : "Lcp"
-	send_flags = send_flags (DRY_RUN?"n":"") (REPLICATE?"R":"")
+	SEND_FLAGS = SEND_FLAGS (DRY_RUN?"n":"") (REPLICATE?"R":"")
 	if (DEPTH) DEPTH = "-d"DEPTH" "
-	send_flags = "send -P" send_flags " " 
-	recv_flags = RECEIVE_FLAGS ? RECEIVE_FLAGS : "u"
-	recv_flags = "receive -v" recv_flags " "
+	send_flags = "send -P " SEND_FLAGS " " 
+	recv_flags = "receive -v " RECEIVE_FLAGS " "
 	intr_flags = "-" (INTERMEDIATE ? "I" : "i") " "
-	zmatch = "zelta match -z " DEPTH q(source) " " q(target) " 2>&1"
+	zmatch = "zelta match -z " DEPTH q(source) " " q(target) ALL_OUT
 	create_flags = "-up"(DRY_RUN?"n":"")" "
 	FS = "[\t]+"
 }
@@ -236,6 +236,10 @@ function replicate(command) {
 		} else if ($1 ~ /:/ && $2 ~ /^[0-9]+$/) {
 			report(LOG_SIGINFO, source_stream[r]": "h_num($2) " received")
 			track_errors("")
+		} else if (/cannot receive (mountpoint|canmount)/) {
+			report(LOG_VERBOSE, $0)
+		} else if (/Warning/ && /mountpoint/) {
+			report(LOG_VERBOSE, $0)
 		} else if ($1 == "real") zfs_replication_time += $2
 		else if (/^(sys|user)[ \t]+[0-9]/) { }
 		else if (/receiving/ && /stream/) { }
@@ -309,7 +313,7 @@ BEGIN {
 			continue
 		}
 		if (full_cmd) close(full_cmd)
-		full_cmd = TIME_COMMAND "sh -c '" rpl_cmd[r] "' 2>&1"
+		full_cmd = TIME_COMMAND "sh -c " q(rpl_cmd[r]) ALL_OUT
 		replicate(full_cmd)
 		if (REPLICATE) { break } # If -R is given, skip manual descendants
 	}
