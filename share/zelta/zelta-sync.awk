@@ -238,6 +238,7 @@ function stop(err, message) {
 function replicate(command) {
 	while (command | getline) {
 		if ($1 == "incremental" || $1 == "full") { sent_streams++ }
+		else if (/transferred/) report(LOG_BASIC, $0"\n")
 		else if ($1 == "received") {
 			report(LOG_VERBOSE, source_stream[r]": "$0)
 			received_streams++
