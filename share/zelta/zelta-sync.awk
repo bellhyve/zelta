@@ -79,8 +79,11 @@ function get_options() {
 			if (gsub(/n/,"")) DRY_RUN++
 			if (gsub(/q/,"")) LOG_MODE = LOG_QUIET
 			if (gsub(/R/,"")) REPLICATE++
-			if (gsub(/v/,"")) LOG_MODE = LOG_VERBOSE
-			if (gsub(/z/,"")) LOG_MODE = LOG_PIPE
+			if (sub(/v/,"")) {
+				if (LOG_MODE = LOG_VERBOSE) VV++
+				if (gsub(/v/,"")) VV++
+				LOG_MODE = LOG_VERBOSE
+			} if (gsub(/z/,"")) LOG_MODE = LOG_PIPE
 			# Options with sub-options go last
 			if (gsub(/d/,"")) DEPTH = opt_var()
 			if (/./) usage("unkown options: " $0)
@@ -120,6 +123,8 @@ function get_config() {
 	intr_flags = INTR_FLAGS " "
 	zmatch = "zelta match -z " DEPTH q(source) " " q(target) ALL_OUT
 	create_flags = "-up"(DRY_RUN?"n":"")" "
+	RPL_CMD_SUFFIX = (VV?"":ALL_OUT)
+	RPL_CMD_PREFIX = (VV?"":TIME_COMMAND) SHELL_WRAPPER
 	FS = "[\t]+"
 }
 
@@ -259,8 +264,9 @@ function replicate(command) {
 
 BEGIN {
 	STDOUT = "cat 1>&2"
-	ALL_OUT =" 2>&1"
+	ALL_OUT = " 2>&1"
 	TIME_COMMAND = env("TIME_COMMAND", "/usr/bin/time -p") " "
+	SHELL_WRAPPER = "sh -c "
 	get_config()
 	received_streams = 0
 	total_bytes = 0
@@ -318,7 +324,7 @@ BEGIN {
 			continue
 		}
 		if (full_cmd) close(full_cmd)
-		full_cmd = TIME_COMMAND "sh -c " dq(rpl_cmd[r]) ALL_OUT
+		full_cmd = RPL_CMD_PREFIX dq(rpl_cmd[r]) RPL_CMD_SUFFIX
 		replicate(full_cmd)
 		if (REPLICATE) { break } # If -R is given, skip manual descendants
 	}
