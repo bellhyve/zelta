@@ -59,6 +59,8 @@ function env(env_name, var_default) {
 
 function q(s) { return "'" s "'" }
 
+function dq(s) { return "\"" s "\"" }
+
 function opt_var() {
 	var = ($0 ? $0 : ARGV[++i])
 	$0 = ""
@@ -313,7 +315,7 @@ BEGIN {
 			continue
 		}
 		if (full_cmd) close(full_cmd)
-		full_cmd = TIME_COMMAND "sh -c " q(rpl_cmd[r]) ALL_OUT
+		full_cmd = TIME_COMMAND "sh -c " dq(rpl_cmd[r]) ALL_OUT
 		replicate(full_cmd)
 		if (REPLICATE) { break } # If -R is given, skip manual descendants
 	}
