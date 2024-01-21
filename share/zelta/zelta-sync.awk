@@ -1,8 +1,8 @@
 #!/usr/bin/awk -f
 #
-# zelta replicate (zpull) - replicates a snapshot and its descendants
+# zelta sync, zsync, zpull - replicates a snapshot and its descendants
 #
-# usage: zpull [user@][host:]source/dataset [user@][host:]target/dataset
+# usage: zelta sync [user@][host:]source/dataset [user@][host:]target/dataset
 #
 # After using zmatch to identify out-of-date snapshots on the target, zpull creates
 # individual replication streams for a snapshot and its children. zpull is useful for
@@ -13,8 +13,8 @@
 #
 # 	received_streams, total_bytes, time, error
 #
-# Additional flags can be set with the environmental variables ZPULL_SEND_FLAGS and
-# ZPULL_RECV_FLAGS.
+# Additional flags can be set with the environmental variables ZELTA_SEND_FLAGS and
+# ZELTA_RECEIVE_FLAGS.
 #
 # Note that as zelta sync is used as both a backup and migration tool, the default behavior
 # for new replicas is to only copy the latest snapshots from the source heirarchy, while the
@@ -49,7 +49,7 @@ function report(mode, message) {
 
 function usage(message) {
 	if (message) report(LOG_ERROR, message)
-	report(LOG_BASIC, "usage: zelta sync [-iInjqRzv] [-d#] [user@][host:]source/dataset [user@][host:]target/dataset")
+	report(LOG_BASIC, "usage: zelta sync [-iIjmnqRvz] [-d#] [user@][host:]source/dataset [user@][host:]target/dataset")
 	stop(1,"")
 }
 
@@ -58,6 +58,8 @@ function env(env_name, var_default) {
 }
 
 function q(s) { return "'" s "'" }
+
+function dq(s) { return "\"" s "\"" }
 
 function opt_var() {
 	var = ($0 ? $0 : ARGV[++i])
@@ -69,15 +71,21 @@ function get_options() {
 	for (i=1;i<ARGC;i++) {
 		$0 = ARGV[i]
 		if (gsub(/^-/,"")) {
-			if (gsub(/d/,"")) DEPTH = opt_var()
-			if (gsub(/i/,"")) INTERMEDIATE = 0
-			if (gsub(/I/,"")) INTERMEDIATE = 1
-			if (gsub(/n/,"")) DRY_RUN++
+			if (gsub(/i/,"")) INTR_FLAGS = "-i"
+			if (gsub(/I/,"")) INTR_FLAGS = "-I"
 			if (gsub(/j/,"")) LOG_MODE = LOG_JSON
+			if (gsub(/m/,"")) RECEIVE_FLAGS = "-x mountpoint"
+			if (gsub(/M/,"")) RECEIVE_FLAGS = ""
+			if (gsub(/n/,"")) DRY_RUN++
 			if (gsub(/q/,"")) LOG_MODE = LOG_QUIET
 			if (gsub(/R/,"")) REPLICATE++
-			if (gsub(/z/,"")) LOG_MODE = LOG_PIPE
-			if (gsub(/v/,"")) LOG_MODE = LOG_VERBOSE
+			if (sub(/v/,"")) {
+				if (LOG_MODE = LOG_VERBOSE) VV++
+				if (gsub(/v/,"")) VV++
+				LOG_MODE = LOG_VERBOSE
+			} if (gsub(/z/,"")) LOG_MODE = LOG_PIPE
+			# Options with sub-options go last
+			if (gsub(/d/,"")) DEPTH = opt_var()
 			if (/./) usage("unkown options: " $0)
 		} else if (target) {
 			usage("too many options: " $0)
@@ -94,8 +102,11 @@ function get_config() {
 		"hostname" | getline LOCAL_HOST
 		close("hostname")
 	} else LOCAL_HOST = "localhost"
-	SEND_FLAGS = env("ZELTA_SEND_FLAGS", "")
-	RECEIVE_FLAGS = env("ZELTA_RECEIVE_FLAGS", "")
+	SHELL_WRAPPER = env("ZELTA_SHELL", "sh -c ")
+	SEND_FLAGS = env("ZELTA_SEND_FLAGS", "-Lcp")
+	RECEIVE_PREFIX = env("ZELTA_RECEIVE_PREFIX", "")
+	RECEIVE_FLAGS = env("ZELTA_RECEIVE_FLAGS", "-ux mountpoint")
+	INTR_FLAGS = env("ZELTA_INTR_FLAGS", "-i")
 	LOG_QUIET = -2
 	LOG_ERROR = -1
 	LOG_PIPE = 0
@@ -106,15 +117,15 @@ function get_config() {
 	LOG_MODE = LOG_BASIC
 	get_options()
 	if (! target) usage()
-	send_flags = SEND_FLAGS ? SEND_FLAGS : "Lcp"
-	send_flags = send_flags (DRY_RUN?"n":"") (REPLICATE?"R":"")
+	SEND_FLAGS = SEND_FLAGS (DRY_RUN?"n":"") (REPLICATE?"R":"")
 	if (DEPTH) DEPTH = "-d"DEPTH" "
-	send_flags = "send -P" send_flags " " 
-	recv_flags = RECEIVE_FLAGS ? RECEIVE_FLAGS : "u"
-	recv_flags = "receive -v" recv_flags " "
-	intr_flags = "-" (INTERMEDIATE ? "I" : "i") " "
-	zmatch = "zelta match -z " DEPTH q(source) " " q(target) " 2>&1"
+	send_flags = "send -P " SEND_FLAGS " " 
+	recv_flags = "receive -v " RECEIVE_FLAGS " "
+	intr_flags = INTR_FLAGS " "
+	zmatch = "zelta match -z " DEPTH q(source) " " q(target) ALL_OUT
 	create_flags = "-up"(DRY_RUN?"n":"")" "
+	RPL_CMD_SUFFIX = (VV?"":ALL_OUT)
+	RPL_CMD_PREFIX = (VV?"":TIME_COMMAND) SHELL_WRAPPER
 	FS = "[\t]+"
 }
 
@@ -226,7 +237,7 @@ function stop(err, message) {
 
 function replicate(command) {
 	while (command | getline) {
-		if ($1 == "incremental" || $1 == "full") { sent_streams++ }
+		if ($1 == "incremental" || $1 == "full") sent_streams++
 		else if ($1 == "received") {
 			report(LOG_VERBOSE, source_stream[r]": "$0)
 			received_streams++
@@ -236,8 +247,14 @@ function replicate(command) {
 		} else if ($1 ~ /:/ && $2 ~ /^[0-9]+$/) {
 			report(LOG_SIGINFO, source_stream[r]": "h_num($2) " received")
 			track_errors("")
+		} else if (/cannot receive (mountpoint|canmount)/) {
+			report(LOG_VERBOSE, $0)
+		} else if (/Warning/ && /mountpoint/) {
+			report(LOG_VERBOSE, $0)
 		} else if ($1 == "real") zfs_replication_time += $2
-		else if (/^(sys|user) [0-9]/) { }
+		else if (/^(sys|user)[ \t]+[0-9]/) { }
+		else if (/ records (in|out)$/) { } # report(LOG_VERBOSE, $0)
+		else if (/bytes.*transferred/) { }
 		else if (/receiving/ && /stream/) { }
 		else {
 			report(LOG_ERROR, $0)
@@ -250,7 +267,7 @@ function replicate(command) {
 
 BEGIN {
 	STDOUT = "cat 1>&2"
-	ALL_OUT =" 2>&1"
+	ALL_OUT = " 2>&1"
 	TIME_COMMAND = env("TIME_COMMAND", "/usr/bin/time -p") " "
 	get_config()
 	received_streams = 0
@@ -261,7 +278,7 @@ BEGIN {
 	get_endpoint_info(source)
 	get_endpoint_info(target)
 	zfs_send_command = zfs[source] send_flags
-	zfs_receive_command = zfs[target] recv_flags
+	zfs_receive_command = RECEIVE_PREFIX zfs[target] recv_flags
 	time_start = sys_time()
 	zmatch | getline
 	if ($2 == ":") {
@@ -309,7 +326,7 @@ BEGIN {
 			continue
 		}
 		if (full_cmd) close(full_cmd)
-		full_cmd = TIME_COMMAND "sh -c '" rpl_cmd[r] "' 2>&1"
+		full_cmd = RPL_CMD_PREFIX dq(rpl_cmd[r]) RPL_CMD_SUFFIX
 		replicate(full_cmd)
 		if (REPLICATE) { break } # If -R is given, skip manual descendants
 	}
@@ -318,6 +335,7 @@ BEGIN {
 	stream_diff = received_streams - sent_streams
 	error_code = (error_code ? error_code : stream_diff)
 	track_errors("")
+	if (VV) exit error_code
 	report(LOG_BASIC, h_num(total_bytes) " sent, " received_streams "/" sent_streams " streams received in " zfs_replication_time " seconds")
 	stop(error_code, "")
 }

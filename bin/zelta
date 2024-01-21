@@ -1,6 +1,16 @@
-#!/bin/sh
+#!/bin/sh -a
+: ${ZELTA_ETC:="/usr/local/etc/zelta"}
+: ${ZELTA_ENV:="$ZELTA_ETC/zelta.env"}
+: ${ZELTA_SNAP_NAME:="date +%Y-%m-%d_%H.%M.%S"}
+
+if [ -r $ZELTA_ENV ]; then
+       . $ZELTA_ENV
+fi
+
+: ${ZELTA_CONFIG:="$ZELTA_ETC/zelta.conf"}
 : ${ZELTA_SHARE:="/usr/local/share/zelta"}
 : ${AWK:="`which awk`"}
+
 AWKPRE="$AWK -f $ZELTA_SHARE"
 
 # Run script directly if called with that name
@@ -11,8 +21,11 @@ case $1 in
 	sync) shift; zelta_command=zsync ;;
 	push) shift; zelta_command=zsync ;;
 	pull) shift; zelta_command=zsync ;;
-	reconcile) shift; zelta_command=zrecon ;;
+	reconcile) shift; zelta_command=reconcile ;;
 	report) shift; zelta_command=zeport ;;
+	snapshot) shift; zelta_command=snapshot ;;
+	time) shift; zelta_command=time ;;
+
 esac
 
 case $zelta_command in
@@ -20,8 +33,10 @@ case $zelta_command in
 	zsync) $AWKPRE/zelta-sync.awk -- "$@" ;;
 	zpull) $AWKPRE/zelta-sync.awk -- "$@" ;;
 	zpush) $AWKPRE/zelta-sync.awk -- "$@" ;;
-	zrecon) $AWKPRE/zelta-reconcile.awk -- "$@" ;;
+	reconcile) $AWKPRE/zelta-reconcile.awk -- "$@" ;;
 	zeport) $AWKPRE/zelta-report.awk -- "$@" ;;
+	snapshot) zfs snapshot -r "$@"@$($ZELTA_SNAP_NAME) ;;
+	time) "$@" | bash -c "time -p cat" ;;
 	*) [ "$1" = 'backup' ] && shift
 		$AWKPRE/zelta-backup.awk -- "$@" ;;
 esac
