@@ -1,6 +1,6 @@
 # Zelta Replication Suite
 
-**Zelta** is a suite of tools offering a streamlined approach to managing ZFS snapshot replication across various systems. It's built with the intention of simplifying complex ZFS functionalities into user-friendly commands. With no package requirements on backup sources and no need for elevated permissions, Zelta is accessible and easy to integrate into existing workflows.
+**Zelta** is a suite of tools offering a streamlined approach to managing ZFS snapshot replication across various systems. It's built with the intention of simplifying complex ZFS functions into user-friendly commands. With no package requirements on backup sources and no need for elevated permissions, Zelta is accessible and easy to integrate into existing workflows.
 
 The suite comprises three main components:
 
@@ -14,10 +14,10 @@ The suite comprises three main components:
 ZFS's versatility is unparalleled in the open source world, but users of all experience levels wrestle with its complex command structures with non-intuitive defaults. Zelta addresses this by providing streamlined commands and safer defaults for common backup and migration tasks.
 
 For example, the act of simply backing up a boot drive (`zfs send -R zroot@latest | zfs receive backup/zroot`) is difficult to construct and will likely result in errors and overlapping mounts. Zelta simplifies this process to:
-- `zelta sync zroot backup/zroot`: Backs up the latest `zroot` snaphots to `backup/zroot`
+- `zelta sync zroot backup/zroot`: Backs up the latest `zroot` snapshots to `backup/zroot`
 - `zelta match zroot backup/zroot`: Confirms that the latest snapshots on the backup are identical.
 
-It's both safer and easier to use for everone and simplifies complex backup and migration tasks for experts. We find it to be ideal for both routine maintenance and complex tasks like fleet backup management.
+It's both safer and easier to use for everyone and simplifies complex backup and migration tasks for experts. We find it to be ideal for both routine maintenance and complex tasks like fleet backup management.
 
 Zelta works with any snapshot management system (or none) and is used to back up thousands of volumes in conjunction with (zfsnap)[https://github.com/zfsnap/zfsnap].
 
@@ -32,7 +32,7 @@ cd zelta
 sudo sh ./install.sh
 ```
 
-In addition to the (FAQ)[https://github.com/bellhyve/zelta/wiki/Home-&-FAQ], man page drafts are also available on the (wiki)[https://github.com/bellhyve/zelta/wiki/Home-&-FAQ]. Point-of-use documentaition is also provided in the installed examples:
+In addition to the (FAQ)[https://github.com/bellhyve/zelta/wiki/Home-&-FAQ], man page drafts are also available on the (wiki)[https://github.com/bellhyve/zelta/wiki/Home-&-FAQ]. Point-of-use documentation is also provided in the installed examples:
 - zelta.conf[https://github.com/bellhyve/zelta/blob/main/zelta.conf] for policy-driven backups
 - zelta.env[https://github.com/bellhyve/zelta/blob/main/zelta.env] for location and behavior overrides
 
@@ -41,20 +41,20 @@ In addition to the (FAQ)[https://github.com/bellhyve/zelta/wiki/Home-&-FAQ], man
 
 In this example, we have an OS installed with a ZFS pool called `zroot`. After attaching a new blank drive to the system, we detect a new drive as `da2`. We can create a blank pool called `backups` with a command such as `zpool create backups da2`.
 
-Zelta does not (yet) have a snapshot function, so let's make one.
+Zelta does not (yet) have a snapshot function, so let's make a snapshot for our boot pool using `zfs snapshot`.
 
 ```sh
 zfs snapshot -r zroot@$(date +%Y-%m-%d_%H.%M.%S)
 ```
 
-Let's perform a quick "sanity check" to make sure `zelta` is working by comparing our snapshot to itself, and then a target volume on our new drive that doesn't exist yet.
+Let's perform a quick "sanity check" to make sure `zelta` is working by comparing our pool's latest snapshots to themselves, and then repeat the command targetting our new drive.
 
 ```sh
 zelta match zroot zroot
 zelta match zroot backups/my_zroot_backup
 ```
 
-You should see a list of `target has latest source snapshot` for all volumes under zroot. If we "match" against an empty target, we should see a similar list with `snapshots only on source`, which is exactly what we expect. To back up, use `zelta sync`.
+For the first command, you should see a list of `target has latest source snapshot` for all volumes under zroot. In the second command, we "match" against an empty target, and will see a similar list with `snapshots only on source`. To back up, use `zelta sync` instead of `match`.
 
 ```sh
 zelta sync zroot backups/my_zroot_backup
@@ -66,15 +66,15 @@ Simply repeat the snapshot and final `zelta sync` process to update your backup.
 
 ## Quick Start: Back up the universe using a policy
 
-`zelta match` and `zelta sync` are useful for migrations and backup scripts that deal with a small number of replication jobs interactively. To deal with dozens, you can use `zelta backup` perform many backups and receive a human-readable backup report or JSON detail.
+`zelta match` and `zelta sync` are useful for migrations and backup scripts that deal with a small number of replication jobs interactively. To deal with large numbers of backup volumes, you can use `zelta backup` perform many backups and receive a human-readable backup report or JSON detail.
 
-In the below, we'll start by doing the same as the first example, backing up a local `zroot` source to `backups/my_zroot_backup` using a policy. Set up and edit **zelta.conf**.
+Next, we'll use a policy configuration file to perform the same task as we did in the first example: backing up a local `zroot` source to `backups/my_zroot_backup`. Set up and edit **zelta.conf**.
 
 ```sh
 vi /usr/local/etc/zelta/zelta.conf
 ```
 
-First, let's make a configuration to test local backups. The first line below is a unique Site name of choice, representing a locaiton or backup set. Note the two spaces before host and dataset names:
+First, let's make a configuration to test local backups. The first line below is a unique Site name of choice, representing a location or backup set. Note the two spaces before host and dataset names:
 
 ```yaml
 MyLocalBackups:
@@ -84,7 +84,7 @@ MyLocalBackups:
 
 Run `zelta`. It will perform the backup operation and report some details if it succeeds, or an "⊜" symbol if it finds nothing to replication. Now we extend our policy with options and more volumes.
 
-On your backup servers, create a backup user and give it access to replicate to your backup target (`zfs allow -u backup receive,mount,create backups`). Note that the backup user will not be able to receive any property it doesn't have permission to. Missing some permissions doesn't prevent successful backups, but if you'd like to back up a default FreeBSD 14 system with all properties, you'd need these additional permissions: `canmount,mountpoint,setuid,exec,atime,compression`.
+On your backup servers, create a backup user and give it access to replicate to your backup target (`zfs allow -u backup receive,mount,create backups`). Note that the backup user will not be able to receive any property it doesn't have permission to. Missing some permissions doesn't prevent a successful backup of data, but if you'd like to back up a default FreeBSD system with all properties, set these additional permissions: `canmount,mountpoint,setuid,exec,atime,compression`.
 
 On your source servers (the servers with volumes you would like to back up) also create a backup user, and grant it access to send snapshots from your source volumes (or a parent volume above your backup source volume), e.g., `zfs allow -u backup send,snapshot,hold pool/stuff`.
 
@@ -107,12 +107,17 @@ MySites:
 
 And so on. Save again, and as before, run the replication process:
 
-
 ```sh
 zelta
 ```
 
-If all went well, a `zfs list` command will show that you have a backup of the five volumes listed in the configuration: `backups/my_zroot_backup`, `backups/host1/one`, `backups/host1/two`, `backups/host2/three`, and `backups/host2/four`.
+If we want to back up a subset of the policy, name a site, hostname, and/or volume you'd like to back up. For example, the following will back up all hosts under "MySites", all volumes in host1, and only tank/jail/four for host2:
+
+```sh
+zelta MySites host1 tank/jail/four
+```
+
+ If all went well, a `zfs list` command will show that you have a backup of the five volumes listed in the configuration: `backups/my_zroot_backup`, `backups/host1/one`, `backups/host1/two`, `backups/host2/three`, and `backups/host2/four`.
 
 See the [configuration example](https://github.com/bellhyve/zelta/blob/main/zelta.conf) for more details and useful options.
 
@@ -122,15 +127,15 @@ See the [configuration example](https://github.com/bellhyve/zelta/blob/main/zelt
 `zelta match` (or `zmatch`) is a tool used for comparing ZFS datasets. It identifies the most recent matching snapshot between two given volumes. This tool is particularly useful for determining if datasets are in sync and identifying the latest common snapshot.
 
 ```sh
-zelta match [source_volume] [target_volume]
+zelta match [options] source_volume target_volume
 ```
 
 ## zelta sync
 
-`zelta sync` (or `zpull`) handles the actual replication of ZFS snapshots between a source and a target volume. It uses the output of `zelta match` to determine which snapshots need to be sent and then performs the replication.
+`zelta sync` (previously `zpull`) handles the actual replication of ZFS snapshots between a source and a target volume. It uses the output of `zelta match` to determine which snapshots need to be sent and then performs the replication.
 
 ```sh
-zelta sync [source_volume] [target_volume]
+zelta sync [options] source_volume target_volume
 ```
 
 ## zelta backup
@@ -152,23 +157,30 @@ In `zelta.conf`, you can organize your hosts into different Sites which can be u
 
 Usage:sh
 ```sh
-zelta [optional_site_host_or_dataset]
+zelta [optional_site_host_or_dataset] [...]
 ```
 
 If one or more arguments are provided, ```zelta``` will limit the replication process to the specified sites, hosts, or datasets. If no argument is provided, it will process according to the settings in the configuration file.
 
 
-## Installation and Requirements
+## Installation Notes
 
-- The scripts are compatible with most version of awk.
+- The scripts were written on FreeBSD's built-in (Kernighan) awk.
+- All updates to the main branch are additionally tested on MacOS and Debian GNU/Linux with the packages nawk, mawk, and gawk.
+- PLEASE open an issue if Zelta is not working as expected on your system; see the FAQ for know problems and workarounds.
 - Make sure ssh auth and "zfs allow" is correctly configured for all involved systems.
 
 
 ## Future
 
-The previous version of the zelta suite used internally includes a zeport reporting tool and a zmove configuration editing tool, and need to be refactored before being added to this repository.
+See Zelta's issues for active development notes. An older version of Zelta contained a configuration editor and socat/netcat support, but in practice they weren't as useful as expected. Configuration via JSON pipe (using JSON.awk) and/or database will likely be added for very large fleets.
 
 
 ## Contributing
 
 Testing and contributions to enhance these tools are welcome. Please feel free to submit pull requests or open issues for any bugs or feature requests.
+
+
+## History
+
+The original version of Zelta, `zdelta`, was deployed internally at Bell Tower Integration on May 2020. The first production of Zelta was deployed in September 1, 2021.
