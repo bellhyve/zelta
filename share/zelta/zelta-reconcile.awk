@@ -212,7 +212,7 @@ END {
 	for (stub in volume_check) if (!source_latest[stub]) missing_branch[stub]
 	report(LOG_PIPE, create_parent)
 	for (stub in target_latest) {
-		if (!source_latest[stub]) report(LOG_BASIC, "target volume not on source: " target_latest[dataset_stub])
+		if (!source_latest[stub]) report(LOG_BASIC, "target volume not on source: " target_latest[stub])
 	}
 	arr_sort(source_order)
 	for (i=1;i<=length(source_order);i++) {

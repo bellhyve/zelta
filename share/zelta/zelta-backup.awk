@@ -122,10 +122,13 @@ function load_config() {
 	# Fix: Handle LOG_JSON
 	LOG_ACTIVE = 1; LOG_DELAY = 2; LOG_WARNING = 3
 	LOG_MODE = LOG_DELAY
+	ZELTA_COMMAND = "zelta"
 	SYNC_LOG_MODE = c["JSON"] ? "j" : "z"
 	for (i = 1; i < ARGC; i++) {
-		if (gsub(/^-/,"",ARGV[i])) SYNC_LOG_MODE = ARGV[i]
-		else ARGS[ARGV[i]]++
+		if (gsub(/^-/,"",ARGV[i])) {
+			SYNC_LOG_MODE = ARGV[i]
+			ZELTA_COMMAND = ZELTA_COMMAND " -"SYNC_LOG_MODE
+		} else ARGS[ARGV[i]]++
 	}
 	if (length(ARGS) == 0) {
 		AUTO++
@@ -202,7 +205,7 @@ function zelta_sync(host, source, target) {
 
 function xargs() {
 	for (site in sites) site_list = site_list " "site
-	xargs_command = "echo" site_list " | xargs -n1 -P" c["THREADS"] " zelta"
+	xargs_command = "echo" site_list " | xargs -n1 -P" c["THREADS"] " " ZELTA_COMMAND
 	while (xargs_command | getline) { print }
 	exit 0
 }
