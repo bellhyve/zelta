@@ -28,7 +28,7 @@ $2 {
 		user = user_host[1]
 		host = user_host[2]
 	} else host = $1
-	prefix = "ssh -n " (user?user"@":"") host
+	prefix = $1
 	$1 = $2
 }
 

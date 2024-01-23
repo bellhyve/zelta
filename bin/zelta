@@ -31,7 +31,7 @@ case $1 in
 esac
 
 case $zelta_command in
-	backup) $AWKPRE/zelta-sync.awk -- -SIRd1 "$@" ;;
+	backup) $AWKPRE/zelta-sync.awk -- -SIv "$@" ;;
 	zmatch) $AWKPRE/zelta-match.awk -- "$@" ;;
 	zsync) $AWKPRE/zelta-sync.awk -- "$@" ;;
 	zpull) $AWKPRE/zelta-sync.awk -- "$@" ;;

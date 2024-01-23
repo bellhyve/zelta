@@ -19,15 +19,17 @@ BEGIN {
 }
 
 {
-	"zelta endpoint "$0 | getline
+	get_endpoint_info = "zelta endpoint " $0
+	get_endpoint_info | getline
 	endpoint_id = $1
-	command_prefix = $2
+	zfs = ($2?"ssh -n "$2" ":"") "zfs "
 	user = $3
 	host = $4
 	volume = $5
 	snapshot = make_snapshot_name($6)
+	close(get_endpoint_info)
 
-	command = (command_prefix?command_prefix" ":"") "zfs snapshot -r " "'"volume"@"snapshot"'"
+	command = zfs "snapshot -r " "'"volume"@"snapshot"'"
 	last_exit_code = system(command)
 	if (!last_exit_code) print "snapshot created: "volume"@"snapshot > "/dev/stderr"
 	exit_code = last_exit_code?last_exit_code:exit_code

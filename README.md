@@ -6,7 +6,7 @@ The suite comprises three main components:
 
 - `zelta match`: Compares two ZFS volume trees, reporting matching snapshots or discrepancies. It's a helpful tool for replication assistance, rollback assistance, and source-backup validation.
 - `zelta sync`: A robust ZFS volume tree replication tool with safe defaults.
-- `zelta backup`: A policy-driven backup tool for managing extensive replication jobs.
+- `zelta policy`: A policy-driven backup tool for managing extensive replication jobs.
 
 
 ## Goals and Methodology
@@ -17,7 +17,7 @@ For example, the act of simply backing up a boot drive (`zfs send -R zroot@lates
 - `zelta sync zroot backup/zroot`: Backs up the latest `zroot` snapshots to `backup/zroot`
 - `zelta match zroot backup/zroot`: Confirms that the latest snapshots on the backup are identical.
 
-It's both safer and easier to use for everyone and simplifies complex backup and migration tasks for experts. We find it to be ideal for both routine maintenance and complex tasks like fleet backup management.
+It's both safer and easier to use, and simplifies complex backup and migration tasks for experts. We find it to be ideal for both routine maintenance and complex tasks like fleet backup management and asynchronous clustering.
 
 Zelta works with any snapshot management system (or none) and is used to back up thousands of volumes in conjunction with (zfsnap)[https://github.com/zfsnap/zfsnap].
 
@@ -47,7 +47,7 @@ Zelta does not (yet) have a snapshot function, so let's make a snapshot for our 
 zfs snapshot -r zroot@$(date +%Y-%m-%d_%H.%M.%S)
 ```
 
-Let's perform a quick "sanity check" to make sure `zelta` is working by comparing our pool's latest snapshots to themselves, and then repeat the command targetting our new drive.
+Let's perform a quick "sanity check" to make sure `zelta` is working by comparing our pool's latest snapshots to themselves, and then repeat the command targeting our new drive.
 
 ```sh
 zelta match zroot zroot
@@ -66,7 +66,7 @@ Simply repeat the snapshot and final `zelta sync` process to update your backup.
 
 ## Quick Start: Back up the universe using a policy
 
-`zelta match` and `zelta sync` are useful for migrations and backup scripts that deal with a small number of replication jobs interactively. To deal with large numbers of backup volumes, you can use `zelta backup` perform many backups and receive a human-readable backup report or JSON detail.
+`zelta match` and `zelta sync` are useful for migrations and backup scripts that deal with a small number of replication jobs interactively. To deal with large numbers of backup volumes, you can use `zelta policy` perform many backups and receive a human-readable backup report or JSON detail.
 
 Next, we'll use a policy configuration file to perform the same task as we did in the first example: backing up a local `zroot` source to `backups/my_zroot_backup`. Set up and edit **zelta.conf**.
 
@@ -132,15 +132,25 @@ zelta match [options] source_volume target_volume
 
 ## zelta sync
 
-`zelta sync` (previously `zpull`) handles the actual replication of ZFS snapshots between a source and a target volume. It uses the output of `zelta match` to determine which snapshots need to be sent and then performs the replication.
+`zelta sync` (previously `zpull`) handles the actual replication of ZFS snapshots between a source and a target volume. It uses the output of `zelta match` to determine which snapshots need to be sent and then performs the replication. Without options, `zelta sync` will only replicate the latest snapshots of the indicated volume and its descendants.
 
 ```sh
 zelta sync [options] source_volume target_volume
 ```
 
+
 ## zelta backup
 
-`zelta backup` (or just `zelta`) orchestrates the replication process. The configuration file `zelta.conf` allows you to specify various parameters, including backup roots, sites, hosts, and datasets.
+For a more complete backup including snapshot history, you can use `zelta backup`, which will first snapshot the source and replicate as much as possible to the target. If the target doesn't exist, it will function like an improved `zfs send -R` in that will replicate snapshot histories for children even if they differ from their parent.
+
+```sh
+zelta backup source_volume target_volume
+```
+
+
+## zelta policy
+
+`zelta policy` (or just `zelta`) orchestrates the replication process. The configuration file `zelta.conf` allows you to specify various parameters, including backup roots, sites, hosts, and datasets.
 
 ```yaml
 BACKUP_ROOT: pool/Backups

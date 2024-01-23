@@ -145,7 +145,6 @@ function get_endpoint_info() {
 	return endpoint
 }
 
-
 NR == 1 { source = get_endpoint_info() }
 
 NR == 2 { target = get_endpoint_info() }

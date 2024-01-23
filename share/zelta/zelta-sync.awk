@@ -61,6 +61,25 @@ function q(s) { return "'" s "'" }
 
 function dq(s) { return "\"" s "\"" }
 
+function new_volume_command(send_dataset, receive_volume) {
+	if (zfs_send_command ~ /ssh/) {
+		sub(/ssh/, "ssh -n", send_dataset)
+		gsub(/ /, "\\ ", send_dataset)
+	}
+	if (zfs_receive_command ~ /ssh/) gsub(/ /, "\\ ", receive_volume)
+	return zfs_send_command q(send_dataset) " | " zfs_receive_command q(receive_volume)
+}
+
+function incremental_command(match_snapshot, send_dataset, receive_volume) {
+	if (zfs_send_command ~ /ssh/) {
+		sub(/ssh/, "ssh -n", send_dataset)
+		gsub(/ /, "\\ ", match_snapshot)
+		gsub(/ /, "\\ ", send_dataset)
+	}
+	if (zfs_receive_command ~ /ssh/) gsub(/ /, "\\ ", receive_volume)
+	return zfs_send_command intr_flags q(match_snapshot) " " q(send_dataset) " | " zfs_receive_command q(receive_volume)
+}
+
 function opt_var() {
 	var = ($0 ? $0 : ARGV[++i])
 	$0 = ""
@@ -131,8 +150,9 @@ function get_config() {
 
 function get_endpoint_info(endpoint) {
 	FS = "\t"
-	"zelta endpoint " endpoint | getline
-	zfs[endpoint] = $2 " zfs "
+	endpoint_command = "zelta endpoint " endpoint
+	endpoint_command | getline
+	zfs[endpoint] = ($2?"ssh "$2" ":"") "zfs "
 	user[endpoint] = $3
 	host[endpoint] = $4
 	volume[endpoint] = $5
@@ -302,21 +322,21 @@ BEGIN {
 		
 		if ($5) {
 			if (intr_flags ~ "I") {
-				rpl_cmd[++rpl_num] = zfs_send_command q($1) " | " zfs_receive_command q($2)
+				rpl_cmd[++rpl_num] = new_volume_command($1, $2)
 				source_stream[rpl_num] = $1
 				num_streams++
-				rpl_cmd[++rpl_num] = zfs_send_command intr_flags q($3) " " q($4) " | " zfs_receive_command q($5)
+				rpl_cmd[++rpl_num] = incremental_command($3, $4, $5)
 				source_stream[rpl_num] = $3 "::" $4
 			} else {
-				rpl_cmd[++rpl_num] = zfs_send_command q($4) " | " zfs_receive_command q($5)
+				rpl_cmd[++rpl_num] = new_volume_command($4, $5)
 				source_stream[rpl_num] = $4
 				report(LOG_VERBOSE, "skipping snapshot history for new volume: "$5)
 			}
 		} else if ($3) {
-			rpl_cmd[++rpl_num] = zfs_send_command intr_flags q($1) " " q($2) " | " zfs_receive_command q($3)
+			rpl_cmd[++rpl_num] = incremental_command($1, $2, $3)
 			source_stream[rpl_num] = $1 "::" $2
 		} else if ($2) {
-			rpl_cmd[++rpl_num] = zfs_send_command q($1) " | " zfs_receive_command q($2)
+			rpl_cmd[++rpl_num] = new_volume_command($1, $2)
 			source_stream[rpl_num] = $1
 		} else {
 			print "hmm"
