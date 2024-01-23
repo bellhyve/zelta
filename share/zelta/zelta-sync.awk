@@ -74,13 +74,16 @@ function get_options() {
 			if (gsub(/i/,"")) INTR_FLAGS = "-i"
 			if (gsub(/I/,"")) INTR_FLAGS = "-I"
 			if (gsub(/j/,"")) LOG_MODE = LOG_JSON
+			if (gsub(/F/,"")) FORCE++
 			if (gsub(/m/,"")) RECEIVE_FLAGS = "-x mountpoint"
 			if (gsub(/M/,"")) RECEIVE_FLAGS = ""
 			if (gsub(/n/,"")) DRY_RUN++
 			if (gsub(/q/,"")) LOG_MODE = LOG_QUIET
 			if (gsub(/R/,"")) REPLICATE++
+			if (gsub(/s/,"")) SNAPSHOT_BLANK++
+			if (gsub(/S/,"")) SNAPSHOT_ALL++
 			if (sub(/v/,"")) {
-				if (LOG_MODE = LOG_VERBOSE) VV++
+				if (LOG_MODE == LOG_VERBOSE) VV++
 				if (gsub(/v/,"")) VV++
 				LOG_MODE = LOG_VERBOSE
 			} if (gsub(/z/,"")) LOG_MODE = LOG_PIPE
@@ -96,12 +99,6 @@ function get_options() {
 	       
 function get_config() {
 	# Load environemnt variables and options and set up zfs send/receive flags
-	LOCAL_USER = env("USER", "")
-	LOCAL_HOST = ENVIRON["HOST"] ? ENVIRON["HOST"] : ENVIRON["HOSTNAME"]
-	if (!LOCAL_HOST) {
-		"hostname" | getline LOCAL_HOST
-		close("hostname")
-	} else LOCAL_HOST = "localhost"
 	SHELL_WRAPPER = env("ZELTA_SHELL", "sh -c ")
 	SEND_FLAGS = env("ZELTA_SEND_FLAGS", "-Lcp")
 	RECEIVE_PREFIX = env("ZELTA_RECEIVE_PREFIX", "")
@@ -116,6 +113,10 @@ function get_config() {
 	LOG_SIGINFO = 4
 	LOG_MODE = LOG_BASIC
 	get_options()
+	if (FORCE) {
+		report(LOG_ERROR,"using 'zfs receive -F'")
+		RECEIVE_FLAGS = RECEIVE_FLAGS" -F"
+	}
 	if (! target) usage()
 	SEND_FLAGS = SEND_FLAGS (DRY_RUN?"n":"") (REPLICATE?"R":"")
 	if (DEPTH) DEPTH = "-d"DEPTH" "
@@ -124,25 +125,19 @@ function get_config() {
 	intr_flags = INTR_FLAGS " "
 	zmatch = "zelta match -z " DEPTH q(source) " " q(target) ALL_OUT
 	create_flags = "-up"(DRY_RUN?"n":"")" "
-	RPL_CMD_SUFFIX = (VV?"":ALL_OUT)
 	RPL_CMD_PREFIX = (VV?"":TIME_COMMAND) SHELL_WRAPPER
-	FS = "[\t]+"
+	RPL_CMD_SUFFIX = (VV?"":ALL_OUT)
 }
 
 function get_endpoint_info(endpoint) {
-	ssh_user[endpoint] = LOCAL_USER
-	ssh_host[endpoint] = LOCAL_HOST
-	if (split(endpoint, vol_arr, ":") == 2) {
-		ssh_command[endpoint] = "ssh " vol_arr[1] " "
-		volume[endpoint] = vol_arr[2];
-		if (split(vol_arr[1], user_host, "@") == 2) {
-			ssh_user[endpoint] = user_host[1]
-			ssh_host[endpoint] = user_host[2]
-		} else ssh_host[endpoint] = vol_arr[1]
-
-	} else volume[endpoint] = vol_arr[1]
-	zfs[endpoint] = ssh_command[endpoint] "zfs "
-	return zfs[enndpoint]
+	FS = "\t"
+	"zelta endpoint " endpoint | getline
+	zfs[endpoint] = $2 " zfs "
+	user[endpoint] = $3
+	host[endpoint] = $4
+	volume[endpoint] = $5
+	snapshot[endpoint] = $6
+	close("zelta endpoint " endpoint)
 }
 
 function sys_time() {
@@ -202,12 +197,12 @@ function output_json() {
 	print "{"
 	print jpair("startTime",time_start)
 	print jpair("endTime",time_end)
-	print jpair("sourceUser",ssh_user[source])
-	print jpair("sourceHost",ssh_host[source])
+	print jpair("sourceUser",user[source])
+	print jpair("sourceHost",host[source])
 	print jpair("sourceVolume",volume[source])
 	print jpair("sourceListTime",source_zfs_list_time)
-	print jpair("targetUser",ssh_user[target])
-	print jpair("targetHost",ssh_host[target])
+	print jpair("targetUser",user[target])
+	print jpair("targetHost",host[target])
 	print jpair("targetVolume",volume[target])
 	print jpair("targetListTime",target_zfs_list_time)
 	print jpair("replicationSize",total_bytes)
@@ -256,6 +251,7 @@ function replicate(command) {
 		else if (/ records (in|out)$/) { } # report(LOG_VERBOSE, $0)
 		else if (/bytes.*transferred/) { }
 		else if (/receiving/ && /stream/) { }
+		else if (/ignoring$/) { }
 		else {
 			report(LOG_ERROR, $0)
 			error_code = 2
@@ -280,6 +276,11 @@ BEGIN {
 	zfs_send_command = zfs[source] send_flags
 	zfs_receive_command = RECEIVE_PREFIX zfs[target] recv_flags
 	time_start = sys_time()
+	if (SNAPSHOT_ALL) {
+		if (system("zelta snapshot "source)) {
+			report(LOG_ERROR, "can't snapshot " source)
+		}
+	}
 	zmatch | getline
 	if ($2 == ":") {
 		source_zfs_list_time = $1 ? $1 : 0
@@ -298,12 +299,27 @@ BEGIN {
 			continue
 		}
 		num_streams++
-		if ($3) {
+		
+		if ($5) {
+			if (intr_flags ~ "I") {
+				rpl_cmd[++rpl_num] = zfs_send_command q($1) " | " zfs_receive_command q($2)
+				source_stream[rpl_num] = $1
+				num_streams++
+				rpl_cmd[++rpl_num] = zfs_send_command intr_flags q($3) " " q($4) " | " zfs_receive_command q($5)
+				source_stream[rpl_num] = $3 "::" $4
+			} else {
+				rpl_cmd[++rpl_num] = zfs_send_command q($4) " | " zfs_receive_command q($5)
+				source_stream[rpl_num] = $4
+				report(LOG_VERBOSE, "skipping snapshot history for new volume: "$5)
+			}
+		} else if ($3) {
 			rpl_cmd[++rpl_num] = zfs_send_command intr_flags q($1) " " q($2) " | " zfs_receive_command q($3)
 			source_stream[rpl_num] = $1 "::" $2
-		} else {
+		} else if ($2) {
 			rpl_cmd[++rpl_num] = zfs_send_command q($1) " | " zfs_receive_command q($2)
 			source_stream[rpl_num] = $1
+		} else {
+			print "hmm"
 		}
 	}
 	close(zmatch)
@@ -328,7 +344,7 @@ BEGIN {
 		if (full_cmd) close(full_cmd)
 		full_cmd = RPL_CMD_PREFIX dq(rpl_cmd[r]) RPL_CMD_SUFFIX
 		replicate(full_cmd)
-		if (REPLICATE) { break } # If -R is given, skip manual descendants
+		#if (REPLICATE) { break }
 	}
 
 	# Negative errors show the number of missed streams, otherwise show error code

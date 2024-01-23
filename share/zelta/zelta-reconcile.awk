@@ -36,7 +36,7 @@ function env(env_name, var_default) {
 # CHANGE TO REPORT FUNCTION
 function report(mode, message) {
 	if (!message) return 0
-	if (LOG_ERROR == mode) print "error: " message | STDOUT
+	if (LOG_ERROR == mode) print message | STDOUT
 	else if ((LOG_PIPE == mode) && ZELTA_PIPE) print message
 	else if ((LOG_BASIC == mode) && ((LOG_MODE == LOG_BASIC) || LOG_MODE == LOG_VERBOSE)) { print message }
 	else if ((LOG_VERBOSE == mode) && (LOG_MODE == LOG_VERBOSE)) print message
@@ -165,10 +165,13 @@ NR > 3 {
 		source_latest[dataset_stub] = snapshot_stub
 		source_order[++source_num] = dataset_stub
 	}
+	# Catch oldest snapshot name to ensure -R completeness
+	source_oldest[dataset_stub] = snapshot_name
 	if (dataset_stub in matches) { next }
 	else if (!target_latest[dataset_stub] && !(dataset_stub in new_volume)) {
 		if (!dataset_stub) check_parent()
-		new_volume[dataset_stub] = dataset_name OFS volume[target] dataset_stub
+		#new_volume[dataset_stub] = dataset_name OFS volume[target] dataset_stub
+		new_volume[dataset_stub] = snapshot_name
 		basic_log[dataset_stub] = "snapshots only on source: " dataset_name
 	} else if (target_guid[snapshot_stub]) {
 		if (target_guid[snapshot_stub] == source_guid[snapshot_stub]) {
@@ -201,7 +204,17 @@ function new_volume_check() {
 				#report(LOG_PIPE, volume[target] parent)
 			}
 		}
-		if (safe_to_create) report(LOG_PIPE,new_volume[stub])
+		if (!safe_to_create) return 0
+		old_snapshot = source_oldest[stub]
+		new_snapshot = new_volume[stub]
+		old_source = volume[source] stub source_oldest[stub]
+		new_target = volume[target] stub
+		new_vol_range = old_source OFS new_target
+		if (!(source_oldest[stub] == new_volume[stub])) {
+			new_source = volume[source] stub new_volume[stub]
+			new_vol_range = new_vol_range OFS old_snapshot OFS new_source OFS new_target
+		}
+		report(LOG_PIPE,new_vol_range)
 	}
 }
 
