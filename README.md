@@ -9,17 +9,30 @@ The suite comprises three main components:
 - `zelta policy`: A policy-driven backup tool for managing extensive replication jobs.
 
 
+# Alpha Software Notice, and a Commitment to Safety and Community Collaboration
+
+Zelta, although a recent addition to GitHub, has been rigorously used in production for over five years. It has successfully managed the replication of millions of datasets, with a primary emphasis on safety. We're currently refining features, finalizing command names, and enhancing documentation.
+
+We invite individuals of all technical backgrounds who want to protect both personal and organizational mission-critical data to collaborate with us. Your input is crucial in making Zelta, and ZFS at large, more accessible and user-friendly. By engaging with us, you'll not only contribute to the development of Zelta but also gain the opportunity to receive direct support and insights from our team at (Bell Tower)[https://belltower.it/].
+
+
 ## Goals and Methodology
 
-ZFS's versatility is unparalleled in the open source world, but users of all experience levels wrestle with its complex command structures with non-intuitive defaults. Zelta addresses this by providing streamlined commands and safer defaults for common backup and migration tasks.
+ZFS's versatility is unparalleled in the open source world, but users of all experience levels wrestle with its complex command structures with non-intuitive and often destructive defaults. Zelta addresses this by providing streamlined commands and safer defaults for common backup and migration tasks.
 
-For example, the act of simply backing up a boot drive (`zfs send -R zroot@latest | zfs receive backup/zroot`) is difficult to construct and will likely result in errors and overlapping mounts. Zelta simplifies this process to:
+
+The act of simply backing up a boot drive (`zfs send -R zroot@latest | zfs receive backup/zroot`) is difficult to construct and will likely result in errors and overlapping mounts. Zelta simplifies this process to:
 - `zelta sync zroot backup/zroot`: Backs up the latest `zroot` snapshots to `backup/zroot`
 - `zelta match zroot backup/zroot`: Confirms that the latest snapshots on the backup are identical.
 
-It's both safer and easier to use, and simplifies complex backup and migration tasks for experts. We find it to be ideal for both routine maintenance and complex tasks like fleet backup management and asynchronous clustering.
+Zelta is both safer and easier to use, and simplifies complex backup and migration tasks for experts. We find it to be ideal for both routine maintenance and complex tasks like fleet backup management and asynchronous clustering. Zelta **never** destroys target data, but provides tools to help delicately untangle mismatched replicas.
 
 Zelta works with any snapshot management system (or none) and is used to back up thousands of volumes in conjunction with (zfsnap)[https://github.com/zfsnap/zfsnap].
+
+
+### Latest Examples
+
+The most complete documentation and examples can be found on our (GitHub wiki)[https://github.com/bellhyve/zelta/wiki/Home-&-FAQ]. We are actively adding use case examples and updating the manpage drafts to reflect Zelta's active feature development.
 
 
 ## Quick Start: Setup
