@@ -266,6 +266,8 @@ function replicate(command) {
 			report(LOG_VERBOSE, $0)
 		} else if (/Warning/ && /mountpoint/) {
 			report(LOG_VERBOSE, $0)
+		} else if (/^Warning/) {
+			report(LOG_BASIC, $0)
 		} else if ($1 == "real") zfs_replication_time += $2
 		else if (/^(sys|user)[ \t]+[0-9]/) { }
 		else if (/ records (in|out)$/) { } # report(LOG_VERBOSE, $0)
