@@ -2,6 +2,7 @@
 
 **Zelta** is a suite of tools offering a streamlined approach to managing ZFS snapshot replication across various systems. It's built with the intention of simplifying complex ZFS functions into safe and user-friendly commands while also being the foundation for large and complex backup and failover environments. It's easy and accessible while working with most UNIX and UNIX-like base systems without additional packages, is optimized for environments with strict permission separation, and integrates well into many types of existing ZFS workflows.
 
+Zelta can be used to safely perform workstation backups with a single command, but it has also been used to replicate millions of snapshots across hundreds of systems, feeding alerting and analytics systems.
 The suite comprises three main components:
 
 - `zelta match`: Compares two ZFS volume trees, reporting matching snapshots or discrepancies. It's a helpful tool for replication assistance, rollback assistance, and source-backup validation.

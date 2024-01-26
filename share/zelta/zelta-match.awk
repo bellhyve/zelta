@@ -113,8 +113,9 @@ BEGIN {
 	ZMATCH_PREFIX = ZMATCH_PREFIX (ZELTA_PIPE ? "ZELTA_PIPE="ZELTA_PIPE" " : "")
 	ZMATCH_COMMAND = ZMATCH_PREFIX "zelta reconcile"
 	ZELTA_DEPTH = ZELTA_DEPTH ? " -d"ZELTA_DEPTH : ""
-
-	ZFS_LIST_FLAGS = "list -Hproname,guid"WRITTEN" -tall -Screatetxg" ZELTA_DEPTH " "
+	if (target) {
+		ZFS_LIST_FLAGS = "list -Hproname,guid"WRITTEN" -tall -Screatetxg" ZELTA_DEPTH " "
+	} else ZFS_LIST_FLAGS = "list -Hproname,guid,written -tfilesystem,volume" ZELTA_DEPTH " "
 	ALL_OUT =" 2>&1"
 
 
@@ -122,8 +123,10 @@ BEGIN {
 
 	OFS="\t"
 
+
 	hash_source = get_endpoint_info(source)
-	hash_target = get_endpoint_info(target)
+	if (target) hash_target = get_endpoint_info(target)
+
 	zfs_list[source] = TIME_COMMAND zfs[source] ZFS_LIST_FLAGS "'"volume[source]"'"ALL_OUT
 	zfs_list[target] = TIME_COMMAND zfs[target] ZFS_LIST_FLAGS "'"volume[target]"'"ALL_OUT
 
@@ -134,7 +137,8 @@ BEGIN {
 	}
 	print hash_source,volume[source] | ZMATCH_COMMAND
 	print hash_target,volume[target] | ZMATCH_COMMAND
-	print zfs_list[target] | ZMATCH_COMMAND
+	if (target) print zfs_list[target] | ZMATCH_COMMAND
+	else print "" | ZMATCH_COMMAND
 	while (zfs_list[source] | getline) print | ZMATCH_COMMAND
 	close(zfs_list[source])
 }

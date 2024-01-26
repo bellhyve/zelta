@@ -52,7 +52,8 @@ function h_num(num) {
 	return int(num) suffix
 }
 
-function get_snapshot_data(trim) {
+function get_snapshot_data(volume_name) {
+		trim = vol_name_length[volume_name]
 		if (/dataset does not exist/) return 0
 		else if (/^real[ \t]+[0-9]/) {
 			split($0, time_arr, /[ \t]+/)
@@ -61,6 +62,7 @@ function get_snapshot_data(trim) {
 		} else if (/(sys|user) [0-9]/) {
 			return 0
 		} else if (!($1 ~ /@/) && ($2 ~ /[0-9]/)) {
+			volume_written[volume_name] += $3
 			# Toggle remote/target list to see what's missing
 			stub = substr($1, trim)
 			if (volume_check[stub]) delete volume_check[stub]
@@ -83,7 +85,7 @@ function get_snapshot_data(trim) {
 
 function load_target_snapshots() {
 	while  (snapshot_list_command | getline) {
-		if (!get_snapshot_data(vol_name_length[target])) { continue }
+		if (!get_snapshot_data(target)) { continue }
 		target_guid[snapshot_stub] = snapshot_guid
 		target_written[snapshot_stub] = snapshot_written
 		if (!(target_vol_count[dataset_stub]++)) {
@@ -136,6 +138,7 @@ BEGIN {
 	exit_code = 0
 	ZELTA_PIPE = env("ZELTA_PIPE", 0)
 	LOG_MODE = ZELTA_PIPE ? 0 : 1
+	target_zfs_list_time = 0
 }
 
 function get_endpoint_info() {
@@ -150,14 +153,17 @@ NR == 1 { source = get_endpoint_info() }
 NR == 2 { target = get_endpoint_info() }
 
 NR == 3 {
+	volume_written[source] = 0
+	volume_written[target] = 0
+	if (!target) next
 	snapshot_list_command = $0;
 	load_target_snapshots()
-	target_zfs_list_time = zfs_list_time
 	zfs_list_time = 0
+	target_zfs_list_time = zfs_list_time
 }
 
 NR > 3 {
-	if (!get_snapshot_data(vol_name_length[source])) { next }
+	if (!get_snapshot_data(source)) { next }
 	source_guid[snapshot_stub] = snapshot_guid
 	source_written[snapshot_stub] = snapshot_written
 	if (!(source_vol_count[dataset_stub]++)) {
@@ -218,9 +224,14 @@ function new_volume_check() {
 }
 
 END {
-	if (length(source_latest) == 0) report(LOG_ERROR,"no source snapshots found")
+	if (length(source_latest) == 0) report(LOG_BASIC,"no source snapshots found")
 	source_zfs_list_time = zfs_list_time
 	report(LOG_PIPE, source_zfs_list_time OFS ":" OFS target_zfs_list_time)
+	if (volume_written[source]) {
+		report(LOG_BASIC, "source volume has changed: " h_num(volume_written[source]))
+		report(LOG_PIPE, volume_written[source])
+	}
+	if (volume_written[target]) report(LOG_BASIC, "target volume has changed: " h_num(volume_written[target]))
 	for (stub in volume_check) if (!source_latest[stub]) missing_branch[stub]
 	report(LOG_PIPE, create_parent)
 	for (stub in target_latest) {
