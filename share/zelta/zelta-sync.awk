@@ -266,7 +266,7 @@ function replicate(command) {
 			report(LOG_VERBOSE, $0)
 		} else if (/Warning/ && /mountpoint/) {
 			report(LOG_VERBOSE, $0)
-		} else if (/^Warning/) {
+		} else if (/Warning/) {
 			report(LOG_BASIC, $0)
 		} else if ($1 == "real") zfs_replication_time += $2
 		else if (/^(sys|user)[ \t]+[0-9]/) { }
@@ -303,13 +303,16 @@ BEGIN {
 			report(LOG_ERROR, "can't snapshot " source)
 		}
 	}
-	zmatch | getline
-	if ($2 == ":") {
-		source_zfs_list_time = $1 ? $1 : 0
-		target_zfs_list_time = $3 ? $3 : 0
-	}
 	while (zmatch |getline) {
-		if (/error/) {
+		if (!source_zfs_list_time) {
+			if ($2 == ":") {
+				source_zfs_list_time = $1 ? $1 : 0
+				target_zfs_list_time = $3 ? $3 : 0
+			} else {
+				report(LOG_BASIC, $0)
+			}
+			continue
+		} else if (/error|Warning/) {
 			error_code = 1
 			report(LOG_ERROR, $0)
 			continue
