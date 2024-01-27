@@ -31,7 +31,7 @@ BEGIN {
 
 	command = zfs "snapshot -r " "'"volume"@"snapshot"'"
 	last_exit_code = system(command)
-	if (!last_exit_code) print "snapshot created: "volume"@"snapshot > "/dev/stderr"
+	if (!last_exit_code) print "snapshot created: "volume"@"snapshot
 	exit_code = last_exit_code?last_exit_code:exit_code
 }
 
