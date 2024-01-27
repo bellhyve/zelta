@@ -1,28 +1,27 @@
 #!/bin/sh
 
-if [ 0 = $UID ]; then
-: ${ZELTA_BIN:="/usr/local/bin"}
-: ${ZELTA_SHARE:="/usr/local/share/zelta"}
-: ${ZELTA_ETC:="/usr/local/etc/zelta"}
+if [ root = "$USER" ]; then
+	: ${ZELTA_BIN:="/usr/local/bin"}
+	: ${ZELTA_SHARE:="/usr/local/share/zelta"}
+	: ${ZELTA_ETC:="/usr/local/etc/zelta"}
 else
-: ${ZELTA_BIN:="$HOME/bin"}
-: ${ZELTA_SHARE:="$HOME/.local/share/zelta"}
-: ${ZELTA_ETC:="$HOME/.local/.conf/zelta"}
-echo Installing Zelta as an unprivilaged user. To ensure the per-user setup of
-echo Zelta is being used, please export the following environment variables in
-echo your shell\'s startup scripts:
-echo
-echo ZELTA_BIN=\"$ZELTA_BIN\"
-echo ZELTA_SHARE=\"$ZELTA_SHARE\"
-echo ZELTA_ETC=\"$ZELTA_ETC\"
-echo 
-echo You may also set these variables as desired and rerun this command.
-echo -n Press Control-C to break or Return to install; read whatever
+	: ${ZELTA_BIN:="$HOME/bin"}
+	: ${ZELTA_SHARE:="$HOME/.local/share/zelta"}
+	: ${ZELTA_ETC:="$HOME/.local/.conf/zelta"}
+	echo Installing Zelta as an unprivilaged user. To ensure the per-user setup of
+	echo Zelta is being used, please export the following environment variables in
+	echo your shell\'s startup scripts:
+	echo
+	echo export ZELTA_BIN=\"$ZELTA_BIN\"
+	echo export ZELTA_SHARE=\"$ZELTA_SHARE\"
+	echo export ZELTA_ETC=\"$ZELTA_ETC\"
+	echo 
+	echo You may also set these variables as desired and rerun this command.
+	echo -n Press Control-C to break or Return to install; read whatever
 fi
 
 : ${ZELTA_CONF:="$ZELTA_ETC/zelta.conf"}
 : ${ZELTA_ENV:="$ZELTA_ETC/zelta.env"}
-
 
 mkdir -vp "$ZELTA_BIN" "$ZELTA_SHARE" "$ZELTA_ETC"
 install -vCm 755 bin/zelta "$ZELTA_BIN"
@@ -36,7 +35,7 @@ install -vCm 755 share/zelta/*.awk "$ZELTA_SHARE"
 # Environment and default overrides
 if [ ! -s $ZELTA_ENV ]; then
 	install -vm 644 zelta.env "$ZELTA_ENV"
-	[ -x /usr/bin/time ] || echo 'TIME_COMMAND="zelta time"' tee -a "$ZELTA_ENV"
+	[ -x /usr/bin/time ] || echo 'TIME_COMMAND="zelta time"' >> "$ZELTA_ENV"
 fi
 
 # Example zelta policy
