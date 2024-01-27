@@ -79,21 +79,18 @@ function get_options() {
 }
 
 function get_endpoint_info(endpoint) {
-	ssh_user[endpoint] = LOCAL_USER
-	ssh_host[endpoint] = LOCAL_HOST
-	if (split(endpoint, vol_arr, ":") == 2) {
-		ssh_command[endpoint] = "ssh -n " vol_arr[1] " "
-		volume[endpoint] = vol_arr[2];
-		if (split(vol_arr[1], user_host, "@") == 2) {
-			ssh_user[endpoint] = user_host[1]
-			ssh_host[endpoint] = user_host[2]
-		} else ssh_host[endpoint] = vol_arr[1]
-
-	} else volume[endpoint] = vol_arr[1]
-	zfs[endpoint] = ssh_command[endpoint] "zfs "
-	gsub(/_/, "-", endpoint)
-	gsub(/[^A-Za-z0-9.-]/,"_",endpoint)
-	return endpoint
+	FS = "\t"
+	endpoint_command = "zelta endpoint " endpoint
+	endpoint_command | getline
+	#endpoint_id[endpoint] = $1
+	zfs[endpoint] = ($2?"ssh -n "$2" ":"") "zfs "
+	gsub(/^ssh/,"ssh -n", zfs[endpoint])
+	#user[endpoint] = $3
+	#host[endpoint] = $4
+	volume[endpoint] = $5
+	#snapshot[endpoint] = $6
+	close("zelta endpoint " endpoint)
+	return $1
 }
 
 function error(string) {
@@ -116,8 +113,9 @@ BEGIN {
 	ZMATCH_PREFIX = ZMATCH_PREFIX (ZELTA_PIPE ? "ZELTA_PIPE="ZELTA_PIPE" " : "")
 	ZMATCH_COMMAND = ZMATCH_PREFIX "zelta reconcile"
 	ZELTA_DEPTH = ZELTA_DEPTH ? " -d"ZELTA_DEPTH : ""
-
-	ZFS_LIST_FLAGS = "list -Hproname,guid"WRITTEN" -tall -Screatetxg" ZELTA_DEPTH " "
+	if (target) {
+		ZFS_LIST_FLAGS = "list -Hproname,guid"WRITTEN" -tall -Screatetxg" ZELTA_DEPTH " "
+	} else ZFS_LIST_FLAGS = "list -Hproname,guid,written -tfilesystem,volume" ZELTA_DEPTH " "
 	ALL_OUT =" 2>&1"
 
 
@@ -125,8 +123,10 @@ BEGIN {
 
 	OFS="\t"
 
+
 	hash_source = get_endpoint_info(source)
-	hash_target = get_endpoint_info(target)
+	if (target) hash_target = get_endpoint_info(target)
+
 	zfs_list[source] = TIME_COMMAND zfs[source] ZFS_LIST_FLAGS "'"volume[source]"'"ALL_OUT
 	zfs_list[target] = TIME_COMMAND zfs[target] ZFS_LIST_FLAGS "'"volume[target]"'"ALL_OUT
 
@@ -137,6 +137,8 @@ BEGIN {
 	}
 	print hash_source,volume[source] | ZMATCH_COMMAND
 	print hash_target,volume[target] | ZMATCH_COMMAND
-	print zfs_list[target] | ZMATCH_COMMAND
+	if (target) print zfs_list[target] | ZMATCH_COMMAND
+	else print "" | ZMATCH_COMMAND
 	while (zfs_list[source] | getline) print | ZMATCH_COMMAND
+	close(zfs_list[source])
 }
