@@ -206,7 +206,7 @@ function zelta_sync(host, source, target) {
 function xargs() {
 	for (site in sites) site_list = site_list " "site
 	xargs_command = "echo" site_list " | xargs -n1 -P" c["THREADS"] " " ZELTA_COMMAND
-	while (xargs_command | getline) { print }
+	while (xargs_command | getline) { print; }
 	exit 0
 }
 

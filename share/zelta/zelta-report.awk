@@ -11,7 +11,8 @@ function err(msg) {
 
 BEGIN {
 	ZELTA_CONFIG = env("ZELTA_CONFIG", "/usr/local/etc/zelta/zelta.conf")
-	"awk '/^BACKUP_ROOT: /{print $2}' " ZELTA_CONFIG | getline BACKUP_ROOT
+	get_backup_root_command = "awk '/^BACKUP_ROOT: /{print $2}' " ZELTA_CONFIG
+	get_backup_root_command | getline BACKUP_ROOT
 	HOOK_FILE = env("SLACK_HOOK", ENVIRON["HOME"] "/.zeport-hook")
 	getline SLACK_HOOK < HOOK_FILE
 	if (! SLACK_HOOK || ! BACKUP_ROOT) err("please correctly set BACKUP_ROOT and SLACK_HOOK")
@@ -20,7 +21,8 @@ BEGIN {
 	trim = length(BACKUP_ROOT) + 1
 	FS = "[@\t]+"
 	# This seems to be faster than trying to limit the list in any way:
-	while ("zfs list -Hprt snap -oname,creation -S creation "BACKUP_ROOT | getline) {
+	zfs_list = "zfs list -Hprt snap -oname,creation -S creation "BACKUP_ROOT
+	while (zfs_list | getline) {
 		if (snaplist[$1]) continue
 		snaplist[$1]++
 		sub(BACKUP_ROOT"/", "")
