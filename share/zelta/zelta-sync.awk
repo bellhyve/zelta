@@ -32,7 +32,7 @@ function track_errors(message) {
 		error_count = 0
 	} else last_error = message
 	if (LOG_MODE == LOG_JSON) error_list[++err_num] = message
-	else print "error: " message | STDOUT 
+	else print message | STDOUT 
 }
 
 function report(mode, message) {
@@ -61,7 +61,13 @@ function q(s) { return "'" s "'" }
 
 function dq(s) { return "\"" s "\"" }
 
+function latest_dataset(vol) {
+	if (source_latest) sub(/@.*/, source_latest, vol)
+	return vol
+}
+
 function new_volume_command(send_dataset, receive_volume) {
+	send_dataset = latest_dataset(send_dataset)
 	if (zfs_send_command ~ /ssh/) {
 		sub(/ssh/, "ssh -n", send_dataset)
 		gsub(/ /, "\\ ", send_dataset)
@@ -71,6 +77,7 @@ function new_volume_command(send_dataset, receive_volume) {
 }
 
 function incremental_command(match_snapshot, send_dataset, receive_volume) {
+	send_dataset = latest_dataset(send_dataset)
 	if (zfs_send_command ~ /ssh/) {
 		sub(/ssh/, "ssh -n", send_dataset)
 		gsub(/ /, "\\ ", match_snapshot)
@@ -78,6 +85,11 @@ function incremental_command(match_snapshot, send_dataset, receive_volume) {
 	}
 	if (zfs_receive_command ~ /ssh/) gsub(/ /, "\\ ", receive_volume)
 	return zfs_send_command intr_flags q(match_snapshot) " " q(send_dataset) " | " zfs_receive_command q(receive_volume)
+}
+
+function clone_command(send_dataset, receive_volume) {
+	send_dataset = latest_dataset(send_dataset)
+	return zfs_send_command q(send_dataset) " " q(receive_volume)
 }
 
 function opt_var() {
@@ -90,16 +102,18 @@ function get_options() {
 	for (i=1;i<ARGC;i++) {
 		$0 = ARGV[i]
 		if (gsub(/^-/,"")) {
+			if (gsub(/c/,"")) CLONE_MODE++
 			if (gsub(/i/,"")) INTR_FLAGS = "-i"
 			if (gsub(/I/,"")) INTR_FLAGS = "-I"
 			if (gsub(/j/,"")) LOG_MODE = LOG_JSON
-			if (gsub(/F/,"")) FORCE++
+			if (gsub(/F/,"")) FRIENDLY_FORCE++
 			if (gsub(/m/,"")) RECEIVE_FLAGS = "-x mountpoint"
 			if (gsub(/M/,"")) RECEIVE_FLAGS = ""
 			if (gsub(/n/,"")) DRY_RUN++
 			if (gsub(/q/,"")) LOG_MODE = LOG_QUIET
 			if (gsub(/R/,"")) REPLICATE++
-			if (gsub(/s/,"")) SNAPSHOT_BLANK++
+			if (sub(/s/,"")) SNAPSHOT_WRITTEN++
+			if (gsub(/s/,"")) SNAPSHOT_WRITTEN++
 			if (gsub(/S/,"")) SNAPSHOT_ALL++
 			if (sub(/v/,"")) {
 				if (LOG_MODE == LOG_VERBOSE) VV++
@@ -132,6 +146,14 @@ function get_config() {
 	LOG_SIGINFO = 4
 	LOG_MODE = LOG_BASIC
 	get_options()
+	RPL_CMD_PREFIX = (VV?"":TIME_COMMAND) SHELL_WRAPPER
+	RPL_CMD_SUFFIX = (VV?"":ALL_OUT)
+	match_flags = "-z "
+	zmatch = "zelta match " match_flags DEPTH q(source) " " q(target) ALL_OUT
+	if (CLONE_MODE) {
+		send_flags = "clone -o readonly=off "
+		return 1
+	}
 	if (FORCE) {
 		report(LOG_ERROR,"using 'zfs receive -F'")
 		RECEIVE_FLAGS = RECEIVE_FLAGS" -F"
@@ -142,10 +164,8 @@ function get_config() {
 	send_flags = "send -P " SEND_FLAGS " " 
 	recv_flags = "receive -v " RECEIVE_FLAGS " "
 	intr_flags = INTR_FLAGS " "
-	zmatch = "zelta match -z " DEPTH q(source) " " q(target) ALL_OUT
+	#match_flags = ((SNAPSHOT_WRITTEN || VERBOSE)?"-zw":"-z") " "
 	create_flags = "-up"(DRY_RUN?"n":"")" "
-	RPL_CMD_PREFIX = (VV?"":TIME_COMMAND) SHELL_WRAPPER
-	RPL_CMD_SUFFIX = (VV?"":ALL_OUT)
 }
 
 function get_endpoint_info(endpoint) {
@@ -250,6 +270,19 @@ function stop(err, message) {
 	exit error_code
 }
 
+function run_snapshot() {
+	snapshot_command = "zelta snapshot " q(source)
+	if (dry_run(snapshot_command)) return
+	while (snapshot_command | getline snapline) {
+		if (sub(/^snapshot created:[^@]*/,"",snapline)) {
+			source_latest = snapline
+			report(LOG_BASIC, "source snapshot created: "snapline)
+		}
+	}
+	if (!source_latest) report(LOG_ERROR, "snapshot failed")
+	return source_latest
+}
+
 function replicate(command) {
 	while (command | getline) {
 		if ($1 == "incremental" || $1 == "full") sent_streams++
@@ -298,53 +331,68 @@ BEGIN {
 	zfs_send_command = zfs[source] send_flags
 	zfs_receive_command = RECEIVE_PREFIX zfs[target] recv_flags
 	time_start = sys_time()
-	if (SNAPSHOT_ALL) {
-		if (system("zelta snapshot "source)) {
-			report(LOG_ERROR, "can't snapshot " source)
+	if (SNAPSHOT_ALL) run_snapshot()
+	if (SNAPSHOT_WRITTEN) {
+		check_written_command = "zelta match -zw " q(source) ALL_OUT
+		while (check_written_command | getline) {
+			if ($2 == ":") {
+				source_zfs_list_time = $1 ? $1 : 0
+			} else if (/^[0-9]+$/) {
+				report(LOG_VERBOSE, source " has written data")
+				run_snapshot()
+			}
+		}
+		close(check_written_command)
+		if ((SNAPSHOT_WRITTEN>1) && !source_latest) {
+			report(LOG_BASIC, "source not written")
+			stop(0)
 		}
 	}
 	while (zmatch |getline) {
-		if (!source_zfs_list_time) {
-			if ($2 == ":") {
-				source_zfs_list_time = $1 ? $1 : 0
-				target_zfs_list_time = $3 ? $3 : 0
-			} else {
-				report(LOG_BASIC, $0)
-			}
-			continue
+		if ($2 == ":") {
+			source_zfs_list_time += $1 ? $1 : 0
+			target_zfs_list_time = $3 ? $3 : 0
 		} else if (/error|Warning/) {
 			error_code = 1
 			report(LOG_ERROR, $0)
-			continue
+		} else if (/^[0-9]+$/) {
+			report(LOG_VERBOSE, source " has written data")
 		} else if (! /@/) {
 			# If no snapshot is given, create an empty volume
 			if (! $0 == $1) stop(3, $0)
 			rpl_cmd[++rpl_num] = zfs[target] "create " create_flags q($1)
 			create_volume[rpl_num] = $1
-			continue
-		}
-		num_streams++
-		
-		if ($5) {
+		} else if ($5) {
+			num_streams++
 			if (intr_flags ~ "I") {
 				rpl_cmd[++rpl_num] = new_volume_command($1, $2)
 				source_stream[rpl_num] = $1
 				num_streams++
 				rpl_cmd[++rpl_num] = incremental_command($3, $4, $5)
 				source_stream[rpl_num] = $3 "::" $4
+			} else if (CLONE_MODE) {
+				rpl_cmd[++rpl_num] = clone_command($4, $5)
+				source_stream[rpl_num] = $1
 			} else {
 				rpl_cmd[++rpl_num] = new_volume_command($4, $5)
 				source_stream[rpl_num] = $4
 				report(LOG_VERBOSE, "skipping snapshot history for new volume: "$5)
 			}
 		} else if ($3) {
+			num_streams++
 			rpl_cmd[++rpl_num] = incremental_command($1, $2, $3)
 			source_stream[rpl_num] = $1 "::" $2
+		} else if (CLONE_MODE && $2) {
+			num_streams++
+			rpl_cmd[++rpl_num] = clone_command($1, $2)
+			source_stream[rpl_num] = $1
 		} else if ($2) {
+			num_streams++
 			rpl_cmd[++rpl_num] = new_volume_command($1, $2)
 			source_stream[rpl_num] = $1
 		} else {
-			print "hmm"
+			error_code = 1
+			report(LOG_ERROR, "unhandled match output")
 		}
 	}
 	close(zmatch)
@@ -359,6 +407,7 @@ BEGIN {
 	total_bytes = 0
 	for (r = 1; r <= rpl_num; r++) {
 		if (dry_run(rpl_cmd[r])) {
+			if (CLONE_MODE) continue
 			sub(/ \| .*/, "", rpl_cmd[r])
 		} else if (rpl_cmd[r] ~ "zfs create") {
 			if (system(rpl_cmd[r])) {
@@ -376,7 +425,7 @@ BEGIN {
 	stream_diff = received_streams - sent_streams
 	error_code = (error_code ? error_code : stream_diff)
 	track_errors("")
-	if (VV) exit error_code
+	if (VV || CLONE_MODE) exit error_code
 	report(LOG_BASIC, h_num(total_bytes) " sent, " received_streams "/" sent_streams " streams received in " zfs_replication_time " seconds")
 	stop(error_code, "")
 }
