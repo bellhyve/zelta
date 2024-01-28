@@ -110,6 +110,7 @@ function get_options() {
 			if (gsub(/m/,"")) RECEIVE_FLAGS = "-x mountpoint"
 			if (gsub(/M/,"")) RECEIVE_FLAGS = ""
 			if (gsub(/n/,"")) DRY_RUN++
+			if (gsub(/p/,"")) PROGRESS++
 			if (gsub(/q/,"")) LOG_MODE = LOG_QUIET
 			if (gsub(/R/,"")) REPLICATE++
 			if (sub(/s/,"")) SNAPSHOT_WRITTEN++
@@ -121,7 +122,8 @@ function get_options() {
 				LOG_MODE = LOG_VERBOSE
 			} if (gsub(/z/,"")) LOG_MODE = LOG_PIPE
 			# Options with sub-options go last
-			if (gsub(/d/,"")) DEPTH = opt_var()
+			if (sub(/d/,"")) DEPTH = opt_var()
+			if (sub(/L/,"")) LIMIT_BANDWIDTH = opt_var()
 			if (/./) usage("unkown options: " $0)
 		} else if (target) {
 			usage("too many options: " $0)
@@ -146,6 +148,14 @@ function get_config() {
 	LOG_SIGINFO = 4
 	LOG_MODE = LOG_BASIC
 	get_options()
+	if (PROGRESS) {
+		#VERBOSE++
+		VV++
+		if (!system("which pv")) RECEIVE_PREFIX="pv -ptr |"
+		else RECEIVE_PREFIX="dd status=progress |"
+		report(LOG_VERBOSE,"using progress pipe: " RECEIVE_PREFIX)
+	}
+
 	RPL_CMD_PREFIX = (VV?"":TIME_COMMAND) SHELL_WRAPPER
 	RPL_CMD_SUFFIX = (VV?"":ALL_OUT)
 	match_flags = "-z "
