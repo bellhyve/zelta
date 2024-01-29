@@ -1,4 +1,4 @@
-#!/bin/sh -a
+#!/bin/sh
 : ${ZELTA_ETC:="/usr/local/etc/zelta"}
 : ${ZELTA_ENV:="$ZELTA_ETC/zelta.env"}
 : ${ZELTA_SNAP_NAME:="date +%Y-%m-%d_%H.%M.%S"}
@@ -10,6 +10,10 @@ fi
 : ${ZELTA_CONFIG:="$ZELTA_ETC/zelta.conf"}
 : ${ZELTA_SHARE:="/usr/local/share/zelta"}
 : ${AWK:="`which awk`"}
+
+export ZELTA_ETC ZELTA_SHARE ZELTA_ENV ZELTA_CONFIG AWK
+export ZELTA_SEND_FLAGS ZELTA_RECEIVE_FLAGS ZELTA_INTR_FLAGS ZELTA_DEPTH
+export TIME_COMMAND ZELTA_SNAP_NAME ZELTA_RECEIVE_PREFIX 
 
 AWKPRE="$AWK -f $ZELTA_SHARE"
 
@@ -30,7 +34,7 @@ case $1 in
 esac
 
 case $zelta_command in
-	backup) $AWKPRE/zelta-sync.awk -- -SIv "$@" ;;
+	backup) $AWKPRE/zelta-sync.awk -- -SI "$@" ;;
 	clone) $AWKPRE/zelta-sync.awk -- -c "$@" ;;
 	zmatch) $AWKPRE/zelta-match.awk -- "$@" ;;
 	zsync) $AWKPRE/zelta-sync.awk -- "$@" ;;

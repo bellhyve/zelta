@@ -61,35 +61,27 @@ function q(s) { return "'" s "'" }
 
 function dq(s) { return "\"" s "\"" }
 
-function latest_dataset(vol) {
-	if (source_latest) sub(/@.*/, source_latest, vol)
-	return vol
-}
-
-function new_volume_command(send_dataset, receive_volume) {
-	send_dataset = latest_dataset(send_dataset)
+function command_queue(send_dataset, receive_volume, match_snapshot) {
+	num_streams++
 	if (zfs_send_command ~ /ssh/) {
 		sub(/ssh/, "ssh -n", send_dataset)
 		gsub(/ /, "\\ ", send_dataset)
-	}
-	if (zfs_receive_command ~ /ssh/) gsub(/ /, "\\ ", receive_volume)
-	return zfs_send_command q(send_dataset) " | " zfs_receive_command q(receive_volume)
-}
-
-function incremental_command(match_snapshot, send_dataset, receive_volume) {
-	send_dataset = latest_dataset(send_dataset)
-	if (zfs_send_command ~ /ssh/) {
-		sub(/ssh/, "ssh -n", send_dataset)
 		gsub(/ /, "\\ ", match_snapshot)
-		gsub(/ /, "\\ ", send_dataset)
 	}
 	if (zfs_receive_command ~ /ssh/) gsub(/ /, "\\ ", receive_volume)
-	return zfs_send_command intr_flags q(match_snapshot) " " q(send_dataset) " | " zfs_receive_command q(receive_volume)
-}
-
-function clone_command(send_dataset, receive_volume) {
-	send_dataset = latest_dataset(send_dataset)
-	return zfs_send_command q(send_dataset) " " q(receive_volume)
+	if (receive_volume) receive_part = " | " zfs_receive_command q(receive_volume)
+	if (CLONE_MODE) {
+		rpl_cmd[++rpl_num] = zfs_send_command q(send_dataset) " " q(receive_volume)
+		source_stream[rpl_num] = send_dataset
+	} else if (match_snapshot) {
+		send_part = zfs_send_command intr_flags q(match_snapshot) " " q(send_dataset)
+		rpl_cmd[++rpl_num] = send_part receive_part
+		source_stream[rpl_num] = match_snapshot "::" send_dataset
+	} else {
+		send_part = zfs_send_command q(send_dataset)
+		rpl_cmd[++rpl_num] = send_part receive_part
+		source_stream[rpl_num] = send_dataset
+	}
 }
 
 function opt_var() {
@@ -113,8 +105,7 @@ function get_options() {
 			if (gsub(/p/,"")) PROGRESS++
 			if (gsub(/q/,"")) LOG_MODE = LOG_QUIET
 			if (gsub(/R/,"")) REPLICATE++
-			if (sub(/s/,"")) SNAPSHOT_WRITTEN++
-			if (gsub(/s/,"")) SNAPSHOT_WRITTEN++
+			SNAPSHOT_WRITTEN += gsub(/s/,"")
 			if (gsub(/S/,"")) SNAPSHOT_ALL++
 			if (sub(/v/,"")) {
 				if (LOG_MODE == LOG_VERBOSE) VV++
@@ -373,34 +364,13 @@ BEGIN {
 			rpl_cmd[++rpl_num] = zfs[target] "create " create_flags q($1)
 			create_volume[rpl_num] = $1
 		} else if ($5) {
-			num_streams++
 			if (intr_flags ~ "I") {
-				rpl_cmd[++rpl_num] = new_volume_command($1, $2)
-				source_stream[rpl_num] = $1
-				num_streams++
-				rpl_cmd[++rpl_num] = incremental_command($3, $4, $5)
-				source_stream[rpl_num] = $3 "::" $4
-			} else if (CLONE_MODE) {
-				rpl_cmd[++rpl_num] = clone_command($4, $5)
-				source_stream[rpl_num] = $1
-			} else {
-				rpl_cmd[++rpl_num] = new_volume_command($4, $5)
-				source_stream[rpl_num] = $4
-				report(LOG_VERBOSE, "skipping snapshot history for new volume: "$5)
-			}
-		} else if ($3) {
-			num_streams++
-			rpl_cmd[++rpl_num] = incremental_command($1, $2, $3)
-			source_stream[rpl_num] = $1 "::" $2
-		} else if (CLONE_MODE && $2) {
-			num_streams++
-			rpl_cmd[++rpl_num] = clone_command($1, $2)
-			source_stream[rpl_num] = $1
-		} else if ($2) {
-			num_streams++
-			rpl_cmd[++rpl_num] = new_volume_command($1, $2)
-			source_stream[rpl_num] = $1
-		} else {
+				command_queue($1, $2)
+				command_queue($4, $5, $3)
+			} else command_queue($4, $5)
+		} else if ($3) command_queue($2, $3, $1)
+		else if ($2) command_queue($1, $2)
+		else {
 			error_code = 1
 			report(LOG_ERROR, "unhandled match output")
 		}
@@ -428,7 +398,6 @@ BEGIN {
 		if (full_cmd) close(full_cmd)
 		full_cmd = RPL_CMD_PREFIX dq(rpl_cmd[r]) RPL_CMD_SUFFIX
 		replicate(full_cmd)
-		#if (REPLICATE) { break }
 	}
 
 	# Negative errors show the number of missed streams, otherwise show error code

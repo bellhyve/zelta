@@ -4,10 +4,10 @@ if [ root = "$USER" ]; then
 	: ${ZELTA_BIN:="/usr/local/bin"}
 	: ${ZELTA_SHARE:="/usr/local/share/zelta"}
 	: ${ZELTA_ETC:="/usr/local/etc/zelta"}
-else
+elif [ -z "$ZELTA_BIN$ZELTA_SHARE$ZELTA_ETC" ]; then
 	: ${ZELTA_BIN:="$HOME/bin"}
 	: ${ZELTA_SHARE:="$HOME/.local/share/zelta"}
-	: ${ZELTA_ETC:="$HOME/.local/.config/zelta"}
+	: ${ZELTA_ETC:="$HOME/.config/zelta"}
 	echo Installing Zelta as an unprivilaged user. To ensure the per-user setup of
 	echo Zelta is being used, please export the following environment variables in
 	echo your shell\'s startup scripts:
