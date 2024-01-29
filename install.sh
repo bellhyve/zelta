@@ -17,28 +17,39 @@ elif [ -z "$ZELTA_BIN$ZELTA_SHARE$ZELTA_ETC" ]; then
 	echo export ZELTA_ETC=\"$ZELTA_ETC\"
 	echo 
 	echo You may also set these variables as desired and rerun this command.
-	echo -n Press Control-C to break or Return to install; read whatever
+	echo Press Control-C to break or Return to install; read whatever
 fi
 
 : ${ZELTA_CONF:="$ZELTA_ETC/zelta.conf"}
 : ${ZELTA_ENV:="$ZELTA_ETC/zelta.env"}
 
-mkdir -vp "$ZELTA_BIN" "$ZELTA_SHARE" "$ZELTA_ETC"
-install -vCm 755 bin/zelta "$ZELTA_BIN"
-install -vCm 755 share/zelta/*.awk "$ZELTA_SHARE"
+copy_file() {
+	if [ -z "$3" ]; then
+		ZELTA_MODE="755"
+	else
+		ZELTA_MODE="$3"
+	fi
+	if [ ! -f "$2" ] || [ "$1" -nt "$2" ]; then
+		echo "installing: $1 -> $2"
+		cp "$1" "$2"
+		chmod "$ZELTA_MODE" "$2"
+	fi
+}
 
-# Optional synonyms for "zelta match" and "zelta sync"
-[ -e "$ZELTA_BIN/zmatch" ] || cp -vP bin/zmatch "$ZELTA_BIN"
-[ -e "$ZELTA_BIN/zpull" ] || cp -vP bin/zpull "$ZELTA_BIN"
-[ -e "$ZELTA_BIN/zsync" ] || cp -vP bin/zsync "$ZELTA_BIN"
+
+mkdir -p "$ZELTA_BIN" "$ZELTA_SHARE" "$ZELTA_ETC"
+copy_file bin/zelta "$ZELTA_BIN/zelta"
+find share/zelta -name '*.awk' | while read -r file; do
+    copy_file "$file" "${ZELTA_SHARE}/$(basename "$file")"
+done
 
 # Environment and default overrides
 if [ ! -s $ZELTA_ENV ]; then
-	install -vm 644 zelta.env "$ZELTA_ENV"
+	copy_file zelta.env "$ZELTA_ENV"
 	[ -x /usr/bin/time ] || echo 'TIME_COMMAND="zelta time"' >> "$ZELTA_ENV"
 fi
 
 # Example zelta policy
 if [ ! -s $ZELTA_CONF ]; then
-	install -vm 644 zelta.conf "$ZELTA_CONF"
+	copy_file zelta.conf "$ZELTA_CONF" "644"
 fi
