@@ -106,12 +106,9 @@ function get_options() {
 			if (gsub(/q/,"")) LOG_MODE = LOG_QUIET
 			if (gsub(/R/,"")) REPLICATE++
 			SNAPSHOT_WRITTEN += gsub(/s/,"")
-			if (gsub(/S/,"")) SNAPSHOT_ALL++
-			if (sub(/v/,"")) {
-				if (LOG_MODE == LOG_VERBOSE) VV++
-				if (gsub(/v/,"")) VV++
-				LOG_MODE = LOG_VERBOSE
-			} if (gsub(/z/,"")) LOG_MODE = LOG_PIPE
+			SNAPSHOT_ALL = sub(/S/,"")
+			VERBOSE += gsub(/v/,"")
+			if (gsub(/z/,"")) LOG_MODE = LOG_PIPE
 			# Options with sub-options go last
 			if (sub(/d/,"")) DEPTH = opt_var()
 			if (sub(/L/,"")) LIMIT_BANDWIDTH = opt_var()
@@ -139,6 +136,7 @@ function get_config() {
 	LOG_SIGINFO = 4
 	LOG_MODE = LOG_BASIC
 	get_options()
+	if (VERBOSE>1) VV++
 	if (PROGRESS) {
 		#VERBOSE++
 		VV++

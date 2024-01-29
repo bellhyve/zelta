@@ -2,10 +2,6 @@
 #
 # zelta-endpoint.awk - resolve and validate a local or remote volume string
 
-function invalid() {
-	print "invalid endpoint: "$0 > "/dev/stderr"
-	error_code = 1
-}
 
 function clear_vars() {
 	endpoint_id = ""
@@ -13,47 +9,55 @@ function clear_vars() {
 	user = ""
 	host = ""
 	volume = ""
-	delete vol_snap
-	delete user_host
 }
 
-BEGIN { FS = "[:]" }
-
-(NR > 1) { clear_vars() }
-
-($3 || !$1) { invalid(); next }
-
-$2 {
-	if (split($1, user_host, "@")==2) {
-		user = user_host[1]
-		host = user_host[2]
-	} else host = $1
-	prefix = $1
-	$1 = $2
-}
-
-{
-	if (split($1, vol_snap, "@")) {
+function print_endpoint(endpoint) {
+	if (!(endpoint ~ /^[a-zA-Z0-9_.@:\/ -]+$/)) {
+		print "invalid endpoint: '"$0"'" > "/dev/stderr"
+		error_code = 1
+		return 0
+	}
+	if (endpoint ~ /^[^ :\/]+:/) {
+		split(endpoint, connect_string, ":")
+		prefix = connect_string[1]
+		if (match(prefix, /@[^@]*$/)) {
+			user = substr(prefix, 1, RSTART - 1)
+			host = substr(prefix, RSTART + 1)
+		} else host = prefix
+		if (split(prefix, user_host, "@")==2) {
+			user = user_host[1]
+			host = user_host[2]
+		} else host = user_host[1]
+		if (host == "localhost") prefix = ""
+		sub(/^[^:]+:/,"",endpoint)
+	}
+	if (split(endpoint, vol_snap, "@")) {
 		volume = vol_snap[1]
 		snapshot = vol_snap[2]
 	} else volume = vol_snap[1]
-}
-
-!user { user = ENVIRON["USER"] }
-
-!host {
-	host = ENVIRON["HOST"] ? ENVIRON["HOST"] : ENVIRON["HOSTNAME"]
+	if (!user) user = ENVIRON["USER"]
 	if (!host) {
-		"hostname" | getline host
-		close("hostname")
-        } else host = "localhost"
+		host = ENVIRON["HOST"] ? ENVIRON["HOST"] : ENVIRON["HOSTNAME"]
+		if (!host) {
+			"hostname" | getline host; close("hostname")
+		}
+		if (!host) host = "localhost"
+	}
+	endpoint_id = user"_"host"_"volume
+	gsub(/[^A-Za-z0-9_]/,"-", endpoint_id)
+	print endpoint_id,prefix,user,host,volume,snapshot
 }
 
-{ 
-	endpoint_id = user"_"host"_"volume"_"snapshot
-	gsub(/[^A-Za-z0-9_]/,"-", endpoint_id)
+BEGIN {
+	FS = "[\t]"
 	OFS = "\t"
-	print endpoint_id,prefix,user,host,volume,snapshot
+}
+
+{
+	for(i=1;i<=NF;i++) {
+		print_endpoint($i)
+		clear_vars()
+	}
 }
 
 END { exit error_code }
