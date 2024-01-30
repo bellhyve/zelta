@@ -64,7 +64,6 @@ function dq(s) { return "\"" s "\"" }
 function command_queue(send_dataset, receive_volume, match_snapshot) {
 	num_streams++
 	if (zfs_send_command ~ /ssh/) {
-		sub(/ssh/, "ssh -n", send_dataset)
 		gsub(/ /, "\\ ", send_dataset)
 		gsub(/ /, "\\ ", match_snapshot)
 	}
@@ -94,35 +93,54 @@ function get_options() {
 	for (i=1;i<ARGC;i++) {
 		$0 = ARGV[i]
 		if (gsub(/^-/,"")) {
-			if (gsub(/c/,"")) CLONE_MODE++
+			# Long options
+			if (sub(/^-initiator=?/,"")) INITIATOR = opt_var()
+
+			# Log modes
+			if (gsub(/j/,"")) LOG_MODE = LOG_JSON
+			if (gsub(/q/,"")) LOG_MODE = LOG_QUIET
+			if (gsub(/z/,"")) LOG_MODE = LOG_PIPE
+			VERBOSE += gsub(/v/,"")
+
+			# Command modifiers
+			CLONE_MODE += gsub(/c/,"")
+			FRIENDLY_FORCE += gsub(/F/,"")
+			DRY_RUN += gsub(/n/,"")
+			PROGRESS += gsub(/p/,"")
+			REPLICATE += gsub(/R/,"")
+			SNAPSHOT_WRITTEN += gsub(/s/,"")
+			SNAPSHOT_ALL += gsub(/S/,"")
+			TRANSFER_FROM_SOURCE += gsub(/T/,"")
+			TRANSFER_FROM_TARGET += gsub(/t/,"")
+
+
+			# Flags
 			if (gsub(/i/,"")) INTR_FLAGS = "-i"
 			if (gsub(/I/,"")) INTR_FLAGS = "-I"
-			if (gsub(/j/,"")) LOG_MODE = LOG_JSON
-			if (gsub(/F/,"")) FRIENDLY_FORCE++
 			if (gsub(/m/,"")) RECEIVE_FLAGS = "-x mountpoint"
 			if (gsub(/M/,"")) RECEIVE_FLAGS = ""
-			if (gsub(/n/,"")) DRY_RUN++
-			if (gsub(/p/,"")) PROGRESS++
-			if (gsub(/q/,"")) LOG_MODE = LOG_QUIET
-			if (gsub(/R/,"")) REPLICATE++
-			SNAPSHOT_WRITTEN += gsub(/s/,"")
-			SNAPSHOT_ALL = sub(/S/,"")
-			VERBOSE += gsub(/v/,"")
-			if (gsub(/z/,"")) LOG_MODE = LOG_PIPE
-			# Options with sub-options go last
+
+			# Options
 			if (sub(/d/,"")) DEPTH = opt_var()
 			if (sub(/L/,"")) LIMIT_BANDWIDTH = opt_var()
-			if (/./) usage("unkown options: " $0)
-		} else if (target) {
+
+			if (/./) usage("unknown or extra options: " $0)
+		} else if (target && INITIATOR) {
 			usage("too many options: " $0)
+		} else if (target) {
+			# To-do: Clunky handling of optional initiator
+			INITIATOR = source
+			source = target
+			target = $0
 		} else if (source) target = $0
 		else source = $0
 	}
+
 }
 	       
 function get_config() {
 	# Load environemnt variables and options and set up zfs send/receive flags
-	SHELL_WRAPPER = env("ZELTA_SHELL", "sh -c ")
+	SHELL_WRAPPER = env("ZELTA_SHELL", "sh -c")
 	SEND_FLAGS = env("ZELTA_SEND_FLAGS", "-Lcp")
 	RECEIVE_PREFIX = env("ZELTA_RECEIVE_PREFIX", "")
 	RECEIVE_FLAGS = env("ZELTA_RECEIVE_FLAGS", "-ux mountpoint")
@@ -136,19 +154,24 @@ function get_config() {
 	LOG_SIGINFO = 4
 	LOG_MODE = LOG_BASIC
 	get_options()
+	get_endpoint_info(source)
+	get_endpoint_info(target)
+	if (TRANSFER_FROM_SOURCE) INITIATOR = prefix[source]
+	if (TRANSFER_FROM_TARGET) INITIATOR = prefix[target]
+	if (VERBOSE) LOG_MODE = LOG_VERBOSE
 	if (VERBOSE>1) VV++
+	if (VERBOSE && INITIATOR) report(LOG_VERBOSE, "transferring via: "INITIATOR)
 	if (PROGRESS) {
-		#VERBOSE++
 		VV++
 		if (!system("which pv")) RECEIVE_PREFIX="pv -ptr |"
 		else RECEIVE_PREFIX="dd status=progress |"
 		report(LOG_VERBOSE,"using progress pipe: " RECEIVE_PREFIX)
 	}
-
-	RPL_CMD_PREFIX = (VV?"":TIME_COMMAND) SHELL_WRAPPER
+	if (INITIATOR) SHELL_WRAPPER = "ssh -n "INITIATOR
+	RPL_CMD_PREFIX = (VV?"":TIME_COMMAND" ") SHELL_WRAPPER" "
 	RPL_CMD_SUFFIX = (VV?"":ALL_OUT)
 	match_flags = "-z "
-	zmatch = "zelta match " match_flags DEPTH q(source) " " q(target) ALL_OUT
+	zmatch = SHELL_WRAPPER" "dq("zelta match " match_flags DEPTH q(source) " " q(target)) ALL_OUT
 	if (CLONE_MODE) {
 		send_flags = "clone -o readonly=off "
 		return 1
@@ -171,7 +194,7 @@ function get_endpoint_info(endpoint) {
 	FS = "\t"
 	endpoint_command = "zelta endpoint " endpoint
 	endpoint_command | getline
-	zfs[endpoint] = ($2?"ssh "$2" ":"") "zfs "
+	prefix[endpoint] = $2
 	user[endpoint] = $3
 	host[endpoint] = $4
 	volume[endpoint] = $5
@@ -318,17 +341,24 @@ function replicate(command) {
 BEGIN {
 	STDOUT = "cat 1>&2"
 	ALL_OUT = " 2>&1"
-	TIME_COMMAND = env("TIME_COMMAND", "/usr/bin/time -p") " "
+	TIME_COMMAND = env("TIME_COMMAND", "/usr/bin/time -p")
 	get_config()
 	received_streams = 0
 	total_bytes = 0
 	total_time = 0
 	error_code = 0
+	
 
-	get_endpoint_info(source)
-	get_endpoint_info(target)
+	if (INITIATOR) {
+		if (INITIATOR == prefix[source]) prefix[source] = ""
+		if (INITIATOR == prefix[target]) prefix[target] = ""
+	}
+	zfs[source] = (prefix[source]?"ssh -n "prefix[source]" ":"") "zfs "
+	zfs[target] = (prefix[target]?"ssh "prefix[target]" ":"") "zfs "
+
 	zfs_send_command = zfs[source] send_flags
 	zfs_receive_command = RECEIVE_PREFIX zfs[target] recv_flags
+
 	time_start = sys_time()
 	if (SNAPSHOT_ALL) run_snapshot()
 	if (SNAPSHOT_WRITTEN) {
