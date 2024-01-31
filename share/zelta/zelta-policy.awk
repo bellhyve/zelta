@@ -59,8 +59,10 @@ function report(mode, message) {
 }
 
 function usage(message) {
+	usage_command = "zelta usage policy"
+	while (usage_command |getline) print
+	close(usage_command)
 	report(LOG_WARNING, message)
-	report(LOG_WARNING, "usage: zelta [site|host|dataset] [...]")
 	exit 1
 }
 
@@ -114,10 +116,7 @@ function load_config() {
 			continue
 		}
 	}
-	if (length(datasets)==0) {
-		print "no datasets defined in " ZELTA_CONFIG
-		exit 1
-	}
+	if (length(datasets)==0) usage("no datasets defined in " ZELTA_CONFIG)
 	FS = "[ \t]+";
 	# Fix: Handle LOG_JSON
 	LOG_ACTIVE = 1; LOG_DELAY = 2; LOG_WARNING = 3
@@ -137,7 +136,7 @@ function load_config() {
 	if (SYNC_LOG_MODE == "j") c["JSON"] = 1
 
 	SNAPSHOT = c["SNAPSHOT"]
-	if (!SNAPSHOT) SNAPSHOT = ""
+	if (!SNAPSHOT || (SNAPSHOT=="OFF")) SNAPSHOT = ""
 	else if (SNAPSHOT=="ALL") SNAPSHOT = "S"
 	else if (SNAPSHOT=="SKIP") SNAPSHOT = "ss"
 	else SNAPSHOT = "s"

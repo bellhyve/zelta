@@ -39,8 +39,10 @@
 # replication depth in zpull.
 
 function usage(message) {
+	usage_command = "zelta usage match"
+	while (usage_command |getline) print
+	close(usage_command)
 	if (message) error(message)
-	if (! ZELTA_PIPE) print "usage: zelta match [-nvwz] [-d #] [user@][host:]source/dataset [user@][host:]target/dataset"
 	exit 1
 }
 
@@ -68,14 +70,13 @@ function get_options() {
                         if (gsub(/v/,"")) WRITTEN=",written"
                         if (gsub(/w/,"")) WRITTEN=",written"
                         if (gsub(/z/,"")) ZELTA_PIPE++
-                        if (/./) {
-                                usage("unkown options: " $0)
-                        }
+                        if (/./) usage("unkown options: " $0)
                 } else if (target) {
                         usage("too many options: " $0)
                 } else if (source) target = $0
                 else source = $0
         }
+	if (!source) usage()
 }
 
 function get_endpoint_info(endpoint) {

@@ -48,9 +48,10 @@ function report(mode, message) {
 }	
 
 function usage(message) {
-	if (message) report(LOG_ERROR, message)
-	report(LOG_BASIC, "usage: zelta sync [-iIjmnqRvz] [-d#] [user@][host:]source/dataset [user@][host:]target/dataset")
-	stop(1,"")
+	usage_command = "zelta usage replicate"
+	while (usage_command |getline) print
+	close(usage_command)
+	stop(1,message)
 }
 
 function env(env_name, var_default) {
