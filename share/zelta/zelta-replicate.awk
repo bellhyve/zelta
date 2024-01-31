@@ -1,6 +1,6 @@
 #!/usr/bin/awk -f
 #
-# zelta sync, zsync, zpull - replicates a snapshot and its descendants
+# zelta-replicate.awk - replicates a zfs endpoint/volume
 #
 # usage: zelta sync [user@][host:]source/dataset [user@][host:]target/dataset
 #
@@ -48,9 +48,10 @@ function report(mode, message) {
 }	
 
 function usage(message) {
-	if (message) report(LOG_ERROR, message)
-	report(LOG_BASIC, "usage: zelta sync [-iIjmnqRvz] [-d#] [user@][host:]source/dataset [user@][host:]target/dataset")
-	stop(1,"")
+	usage_command = "zelta usage replicate"
+	while (usage_command |getline) print
+	close(usage_command)
+	stop(1,message)
 }
 
 function env(env_name, var_default) {
@@ -61,35 +62,26 @@ function q(s) { return "'" s "'" }
 
 function dq(s) { return "\"" s "\"" }
 
-function latest_dataset(vol) {
-	if (source_latest) sub(/@.*/, source_latest, vol)
-	return vol
-}
-
-function new_volume_command(send_dataset, receive_volume) {
-	send_dataset = latest_dataset(send_dataset)
+function command_queue(send_dataset, receive_volume, match_snapshot) {
+	num_streams++
 	if (zfs_send_command ~ /ssh/) {
-		sub(/ssh/, "ssh -n", send_dataset)
 		gsub(/ /, "\\ ", send_dataset)
-	}
-	if (zfs_receive_command ~ /ssh/) gsub(/ /, "\\ ", receive_volume)
-	return zfs_send_command q(send_dataset) " | " zfs_receive_command q(receive_volume)
-}
-
-function incremental_command(match_snapshot, send_dataset, receive_volume) {
-	send_dataset = latest_dataset(send_dataset)
-	if (zfs_send_command ~ /ssh/) {
-		sub(/ssh/, "ssh -n", send_dataset)
 		gsub(/ /, "\\ ", match_snapshot)
-		gsub(/ /, "\\ ", send_dataset)
 	}
 	if (zfs_receive_command ~ /ssh/) gsub(/ /, "\\ ", receive_volume)
-	return zfs_send_command intr_flags q(match_snapshot) " " q(send_dataset) " | " zfs_receive_command q(receive_volume)
-}
-
-function clone_command(send_dataset, receive_volume) {
-	send_dataset = latest_dataset(send_dataset)
-	return zfs_send_command q(send_dataset) " " q(receive_volume)
+	if (receive_volume) receive_part = " | " zfs_receive_command q(receive_volume)
+	if (CLONE_MODE) {
+		rpl_cmd[++rpl_num] = zfs_send_command q(send_dataset) " " q(receive_volume)
+		source_stream[rpl_num] = send_dataset
+	} else if (match_snapshot) {
+		send_part = zfs_send_command intr_flags q(match_snapshot) " " q(send_dataset)
+		rpl_cmd[++rpl_num] = send_part receive_part
+		source_stream[rpl_num] = match_snapshot "::" send_dataset
+	} else {
+		send_part = zfs_send_command q(send_dataset)
+		rpl_cmd[++rpl_num] = send_part receive_part
+		source_stream[rpl_num] = send_dataset
+	}
 }
 
 function opt_var() {
@@ -102,40 +94,56 @@ function get_options() {
 	for (i=1;i<ARGC;i++) {
 		$0 = ARGV[i]
 		if (gsub(/^-/,"")) {
-			if (gsub(/c/,"")) CLONE_MODE++
+			# Long options
+			if (sub(/^-initiator=?/,"")) INITIATOR = opt_var()
+
+			# Log modes
+			if (gsub(/j/,"")) LOG_MODE = LOG_JSON
+			if (gsub(/q/,"")) LOG_MODE = LOG_QUIET
+			if (gsub(/z/,"")) LOG_MODE = LOG_PIPE
+			VERBOSE += gsub(/v/,"")
+
+			# Command modifiers
+			CLONE_MODE += gsub(/c/,"")
+			#FRIENDLY_FORCE += gsub(/F/,"")
+			DRY_RUN += gsub(/n/,"")
+			PROGRESS += gsub(/p/,"")
+			REPLICATE += gsub(/R/,"")
+			SNAPSHOT_WRITTEN += gsub(/s/,"")
+			SNAPSHOT_ALL += gsub(/S/,"")
+			TRANSFER_FROM_SOURCE += gsub(/T/,"")
+			TRANSFER_FROM_TARGET += gsub(/t/,"")
+
+			# Flags
 			if (gsub(/i/,"")) INTR_FLAGS = "-i"
 			if (gsub(/I/,"")) INTR_FLAGS = "-I"
-			if (gsub(/j/,"")) LOG_MODE = LOG_JSON
-			if (gsub(/F/,"")) FRIENDLY_FORCE++
-			if (gsub(/m/,"")) RECEIVE_FLAGS = "-x mountpoint"
 			if (gsub(/M/,"")) RECEIVE_FLAGS = ""
-			if (gsub(/n/,"")) DRY_RUN++
-			if (gsub(/q/,"")) LOG_MODE = LOG_QUIET
-			if (gsub(/R/,"")) REPLICATE++
-			if (sub(/s/,"")) SNAPSHOT_WRITTEN++
-			if (gsub(/s/,"")) SNAPSHOT_WRITTEN++
-			if (gsub(/S/,"")) SNAPSHOT_ALL++
-			if (sub(/v/,"")) {
-				if (LOG_MODE == LOG_VERBOSE) VV++
-				if (gsub(/v/,"")) VV++
-				LOG_MODE = LOG_VERBOSE
-			} if (gsub(/z/,"")) LOG_MODE = LOG_PIPE
-			# Options with sub-options go last
-			if (gsub(/d/,"")) DEPTH = opt_var()
-			if (/./) usage("unkown options: " $0)
-		} else if (target) {
+			if (gsub(/u/,"")) RECEIVE_FLAGS = "-ux mountpoint -o readonly=on"
+
+			# Options
+			if (sub(/d/,"")) DEPTH = opt_var()
+			if (sub(/L/,"")) LIMIT_BANDWIDTH = opt_var()
+
+			if (/./) usage("unknown or extra options: " $0)
+		} else if (target && INITIATOR) {
 			usage("too many options: " $0)
+		} else if (target) {
+			# To-do: Clunky handling of optional initiator
+			INITIATOR = source
+			source = target
+			target = $0
 		} else if (source) target = $0
 		else source = $0
 	}
+
 }
 	       
 function get_config() {
 	# Load environemnt variables and options and set up zfs send/receive flags
-	SHELL_WRAPPER = env("ZELTA_SHELL", "sh -c ")
+	SHELL_WRAPPER = env("ZELTA_SHELL", "sh -c")
 	SEND_FLAGS = env("ZELTA_SEND_FLAGS", "-Lcp")
 	RECEIVE_PREFIX = env("ZELTA_RECEIVE_PREFIX", "")
-	RECEIVE_FLAGS = env("ZELTA_RECEIVE_FLAGS", "-ux mountpoint")
+	RECEIVE_FLAGS = env("ZELTA_RECEIVE_FLAGS", "-x mountpoint -o readonly=on")
 	INTR_FLAGS = env("ZELTA_INTR_FLAGS", "-i")
 	LOG_QUIET = -2
 	LOG_ERROR = -1
@@ -146,10 +154,24 @@ function get_config() {
 	LOG_SIGINFO = 4
 	LOG_MODE = LOG_BASIC
 	get_options()
-	RPL_CMD_PREFIX = (VV?"":TIME_COMMAND) SHELL_WRAPPER
+	get_endpoint_info(source)
+	get_endpoint_info(target)
+	if (TRANSFER_FROM_SOURCE) INITIATOR = prefix[source]
+	if (TRANSFER_FROM_TARGET) INITIATOR = prefix[target]
+	if (VERBOSE) LOG_MODE = LOG_VERBOSE
+	if (VERBOSE>1) VV++
+	if (VERBOSE && INITIATOR) report(LOG_VERBOSE, "transferring via: "INITIATOR)
+	if (PROGRESS) {
+		VV++
+		if (!system("which pv")) RECEIVE_PREFIX="pv -ptr |"
+		else RECEIVE_PREFIX="dd status=progress |"
+		report(LOG_VERBOSE,"using progress pipe: " RECEIVE_PREFIX)
+	}
+	if (INITIATOR) SHELL_WRAPPER = "ssh -n "INITIATOR
+	RPL_CMD_PREFIX = (VV?"":TIME_COMMAND" ") SHELL_WRAPPER" "
 	RPL_CMD_SUFFIX = (VV?"":ALL_OUT)
 	match_flags = "-z "
-	zmatch = "zelta match " match_flags DEPTH q(source) " " q(target) ALL_OUT
+	zmatch = SHELL_WRAPPER" "dq("zelta match " match_flags DEPTH q(source) " " q(target)) ALL_OUT
 	if (CLONE_MODE) {
 		send_flags = "clone -o readonly=off "
 		return 1
@@ -164,7 +186,6 @@ function get_config() {
 	send_flags = "send -P " SEND_FLAGS " " 
 	recv_flags = "receive -v " RECEIVE_FLAGS " "
 	intr_flags = INTR_FLAGS " "
-	#match_flags = ((SNAPSHOT_WRITTEN || VERBOSE)?"-zw":"-z") " "
 	create_flags = "-up"(DRY_RUN?"n":"")" "
 }
 
@@ -172,7 +193,7 @@ function get_endpoint_info(endpoint) {
 	FS = "\t"
 	endpoint_command = "zelta endpoint " endpoint
 	endpoint_command | getline
-	zfs[endpoint] = ($2?"ssh "$2" ":"") "zfs "
+	prefix[endpoint] = $2
 	user[endpoint] = $3
 	host[endpoint] = $4
 	volume[endpoint] = $5
@@ -319,17 +340,24 @@ function replicate(command) {
 BEGIN {
 	STDOUT = "cat 1>&2"
 	ALL_OUT = " 2>&1"
-	TIME_COMMAND = env("TIME_COMMAND", "/usr/bin/time -p") " "
+	TIME_COMMAND = env("TIME_COMMAND", "/usr/bin/time -p")
 	get_config()
 	received_streams = 0
 	total_bytes = 0
 	total_time = 0
 	error_code = 0
+	
 
-	get_endpoint_info(source)
-	get_endpoint_info(target)
+	if (INITIATOR) {
+		if (INITIATOR == prefix[source]) prefix[source] = ""
+		if (INITIATOR == prefix[target]) prefix[target] = ""
+	}
+	zfs[source] = (prefix[source]?"ssh -n "prefix[source]" ":"") "zfs "
+	zfs[target] = (prefix[target]?"ssh "prefix[target]" ":"") "zfs "
+
 	zfs_send_command = zfs[source] send_flags
 	zfs_receive_command = RECEIVE_PREFIX zfs[target] recv_flags
+
 	time_start = sys_time()
 	if (SNAPSHOT_ALL) run_snapshot()
 	if (SNAPSHOT_WRITTEN) {
@@ -363,34 +391,13 @@ BEGIN {
 			rpl_cmd[++rpl_num] = zfs[target] "create " create_flags q($1)
 			create_volume[rpl_num] = $1
 		} else if ($5) {
-			num_streams++
 			if (intr_flags ~ "I") {
-				rpl_cmd[++rpl_num] = new_volume_command($1, $2)
-				source_stream[rpl_num] = $1
-				num_streams++
-				rpl_cmd[++rpl_num] = incremental_command($3, $4, $5)
-				source_stream[rpl_num] = $3 "::" $4
-			} else if (CLONE_MODE) {
-				rpl_cmd[++rpl_num] = clone_command($4, $5)
-				source_stream[rpl_num] = $1
-			} else {
-				rpl_cmd[++rpl_num] = new_volume_command($4, $5)
-				source_stream[rpl_num] = $4
-				report(LOG_VERBOSE, "skipping snapshot history for new volume: "$5)
-			}
-		} else if ($3) {
-			num_streams++
-			rpl_cmd[++rpl_num] = incremental_command($1, $2, $3)
-			source_stream[rpl_num] = $1 "::" $2
-		} else if (CLONE_MODE && $2) {
-			num_streams++
-			rpl_cmd[++rpl_num] = clone_command($1, $2)
-			source_stream[rpl_num] = $1
-		} else if ($2) {
-			num_streams++
-			rpl_cmd[++rpl_num] = new_volume_command($1, $2)
-			source_stream[rpl_num] = $1
-		} else {
+				command_queue($1, $2)
+				command_queue($4, $5, $3)
+			} else command_queue($4, $5)
+		} else if ($3) command_queue($2, $3, $1)
+		else if ($2) command_queue($1, $2)
+		else {
 			error_code = 1
 			report(LOG_ERROR, "unhandled match output")
 		}
@@ -418,7 +425,6 @@ BEGIN {
 		if (full_cmd) close(full_cmd)
 		full_cmd = RPL_CMD_PREFIX dq(rpl_cmd[r]) RPL_CMD_SUFFIX
 		replicate(full_cmd)
-		#if (REPLICATE) { break }
 	}
 
 	# Negative errors show the number of missed streams, otherwise show error code

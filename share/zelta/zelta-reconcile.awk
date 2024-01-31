@@ -3,7 +3,7 @@
 # zelta reconcile - compares a snapshot list via pipe and command
 #
 # usage: internal to "zelta match", but could be leveraged for other comparison
-# operation
+# operations.
 #
 # Reports the most recent matching snapshot and the latest snapshot of a volume and
 # its children, which are useful for various zfs operations
@@ -18,6 +18,9 @@
 #   - Matching snapshot names with different GUIDs
 #   - Newer target snapshots not on the source
 #
+# If only one argument is given, report the amount of data written since the last
+# snapshot.
+#
 # ENVIRONMENT VARIABLES
 #
 # ZELTA_PIPE: When set to 1, we provide full snapshot names and simplify the output as
@@ -25,9 +28,6 @@
 #   - No output is provided for an up-to-date match.
 #   - A single snapshot indicates the volume is missing on the target.
 #   - A tab separated pair of snapshots indicates the out-of-date match and the latest.
-#
-# ZELTA_DEPTH: Adds "-d $ZELTA_DEPTH" to zfs list commands. Useful for limiting
-# replication depth in "zelta pull".
 
 function env(env_name, var_default) {
 	return ( (env_name in ENVIRON) ? ENVIRON[env_name] : var_default )

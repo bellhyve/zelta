@@ -1,4 +1,4 @@
-#!/bin/sh -a
+#!/bin/sh
 : ${ZELTA_ETC:="/usr/local/etc/zelta"}
 : ${ZELTA_ENV:="$ZELTA_ETC/zelta.env"}
 : ${ZELTA_SNAP_NAME:="date +%Y-%m-%d_%H.%M.%S"}
@@ -11,36 +11,41 @@ fi
 : ${ZELTA_SHARE:="/usr/local/share/zelta"}
 : ${AWK:="`which awk`"}
 
+export ZELTA_ETC ZELTA_SHARE ZELTA_ENV ZELTA_CONFIG AWK
+export ZELTA_SEND_FLAGS ZELTA_RECEIVE_FLAGS ZELTA_INTR_FLAGS ZELTA_DEPTH
+export TIME_COMMAND ZELTA_SNAP_NAME ZELTA_RECEIVE_PREFIX 
+
 AWKPRE="$AWK -f $ZELTA_SHARE"
 
-# Run script directly if called with that name
-zelta_command=`echo $0 | sed 's-.*/--'`
-case $1 in
-	policy) shift ;;
-	match) shift; zelta_command=zmatch ;;
-	sync) shift; zelta_command=zsync ;;
-	backup) shift; zelta_command=backup ;;
-	clone) shift; zelta_command=clone ;;
-	reconcile) shift; zelta_command=reconcile ;;
-	report) shift; zelta_command=zeport ;;
-	snapshot) shift; zelta_command=snapshot ;;
-	endpoint) shift; zelta_command=endpoint ;;
-	time) shift; zelta_command=time ;;
-
-esac
+# Try script name or symlink name as command, else use first argument
+script_name=`echo $0 | sed 's-.*/--'`
+if [ ! "zelta" = "$script_name" ]; then
+	zelta_command="$script_name"
+else
+	zelta_command="$1"; shift;
+fi
 
 case $zelta_command in
-	backup) $AWKPRE/zelta-sync.awk -- -SIv "$@" ;;
-	clone) $AWKPRE/zelta-sync.awk -- -c "$@" ;;
+	# Legacy command names
 	zmatch) $AWKPRE/zelta-match.awk -- "$@" ;;
-	zsync) $AWKPRE/zelta-sync.awk -- "$@" ;;
-	zpull) $AWKPRE/zelta-sync.awk -- "$@" ;;
-	zpush) $AWKPRE/zelta-sync.awk -- "$@" ;;
-	reconcile) $AWKPRE/zelta-reconcile.awk -- "$@" ;;
+	zpull) $AWKPRE/zelta-replicate.awk -- "$@" ;;
+	zpush) $AWKPRE/zelta-replicate.awk -- "$@" ;;
 	zeport) $AWKPRE/zelta-report.awk -- "$@" ;;
+	# "zelta replicate" variants
+	backup) $AWKPRE/zelta-replicate.awk -- -sI "$@" ;;
+	clone) $AWKPRE/zelta-replicate.awk -- -c "$@" ;;
+	sync) $AWKPRE/zelta-replicate.awk -- -i "$@" ;;
+	# Stream utilities
 	snapshot) echo "$@" | $AWKPRE/zelta-snapshot.awk ;;
 	endpoint) echo "$@" | $AWKPRE/zelta-endpoint.awk ;;
+	# Misc
 	time) "$@" | bash -c "time -p cat" ;;
-	*) [ "$1" = 'backup' ] && shift
-		$AWKPRE/zelta-policy.awk -- "$@" ;;
+	version) echo zelta-pre-release; exit ;;
+	usage|help) . $ZELTA_SHARE/zelta-usage.sh "$@" ;;
+	# Default command actions
+	*)	if [ -r "$ZELTA_SHARE/zelta-$zelta_command.awk" ]; then
+			$AWKPRE/zelta-$zelta_command.awk -- "$@"
+		else
+			. $ZELTA_SHARE/zelta-usage.sh "$@"
+		fi ;;
 esac
