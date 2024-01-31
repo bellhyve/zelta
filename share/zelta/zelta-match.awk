@@ -19,7 +19,7 @@
 #
 # SWITCHES
 #
-# -d#	Set depth.
+# -d#	Limi depth to #.
 # -n	Show the zfs list commands instead of running them.
 # -v	Verbose, implies -w.
 # -w	Calculates the size of missing target snapshots using the "written" property.

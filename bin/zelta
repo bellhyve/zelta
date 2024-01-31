@@ -20,31 +20,36 @@ AWKPRE="$AWK -f $ZELTA_SHARE"
 # Run script directly if called with that name
 zelta_command=`echo $0 | sed 's-.*/--'`
 case $1 in
-	policy) shift ;;
-	match) shift; zelta_command=zmatch ;;
-	sync) shift; zelta_command=zsync ;;
 	backup) shift; zelta_command=backup ;;
+	policy) shift; zelta_command=policy ;;
+	match) shift; zelta_command=match ;;
+	zmatch) shift; zelta_command=match ;;
+	sync) shift; zelta_command=sync ;;
+	replicate) shift; zelta_command=replicate ;;
 	clone) shift; zelta_command=clone ;;
 	reconcile) shift; zelta_command=reconcile ;;
 	report) shift; zelta_command=zeport ;;
 	snapshot) shift; zelta_command=snapshot ;;
 	endpoint) shift; zelta_command=endpoint ;;
 	time) shift; zelta_command=time ;;
-
+	usage) shift; zelta_command=usage ;;
+	version) echo zelta-pre-release; exit ;;
 esac
 
 case $zelta_command in
-	backup) $AWKPRE/zelta-sync.awk -- -SI "$@" ;;
-	clone) $AWKPRE/zelta-sync.awk -- -c "$@" ;;
-	zmatch) $AWKPRE/zelta-match.awk -- "$@" ;;
-	zsync) $AWKPRE/zelta-sync.awk -- "$@" ;;
-	zpull) $AWKPRE/zelta-sync.awk -- "$@" ;;
-	zpush) $AWKPRE/zelta-sync.awk -- "$@" ;;
+	match) $AWKPRE/zelta-match.awk -- "$@" ;;
 	reconcile) $AWKPRE/zelta-reconcile.awk -- "$@" ;;
+	replicate) $AWKPRE/zelta-replicate.awk -- "$@" ;;
+	zpull) $AWKPRE/zelta-replicate.awk -- "$@" ;;
+	zpush) $AWKPRE/zelta-replicate.awk -- "$@" ;;
+	backup) $AWKPRE/zelta-replicate.awk -- -sI "$@" ;;
+	clone) $AWKPRE/zelta-replicate.awk -- -c "$@" ;;
+	sync) $AWKPRE/zelta-replicate.awk -- -i "$@" ;;
+	policy) $AWKPRE/zelta-policy.awk -- "$@" ;;
 	zeport) $AWKPRE/zelta-report.awk -- "$@" ;;
 	snapshot) echo "$@" | $AWKPRE/zelta-snapshot.awk ;;
 	endpoint) echo "$@" | $AWKPRE/zelta-endpoint.awk ;;
 	time) "$@" | bash -c "time -p cat" ;;
-	*) [ "$1" = 'backup' ] && shift
-		$AWKPRE/zelta-policy.awk -- "$@" ;;
+	usage) . $ZELTA_SHARE/zelta-usage.sh "$@" ;;
+	*) . $ZELTA_SHARE/zelta-usage.sh "$@" ;;
 esac

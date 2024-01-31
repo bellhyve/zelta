@@ -39,7 +39,7 @@ copy_file() {
 
 mkdir -p "$ZELTA_BIN" "$ZELTA_SHARE" "$ZELTA_ETC"
 copy_file bin/zelta "$ZELTA_BIN/zelta"
-find share/zelta -name '*.awk' | while read -r file; do
+find share/zelta -type f | while read -r file; do
     copy_file "$file" "${ZELTA_SHARE}/$(basename "$file")"
 done
 

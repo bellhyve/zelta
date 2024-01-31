@@ -1,6 +1,6 @@
 #!/usr/bin/awk -f
 #
-# zelta sync, zsync, zpull - replicates a snapshot and its descendants
+# zelta-replicate.awk - replicates a zfs endpoint/volume
 #
 # usage: zelta sync [user@][host:]source/dataset [user@][host:]target/dataset
 #
@@ -104,7 +104,7 @@ function get_options() {
 
 			# Command modifiers
 			CLONE_MODE += gsub(/c/,"")
-			FRIENDLY_FORCE += gsub(/F/,"")
+			#FRIENDLY_FORCE += gsub(/F/,"")
 			DRY_RUN += gsub(/n/,"")
 			PROGRESS += gsub(/p/,"")
 			REPLICATE += gsub(/R/,"")
@@ -113,12 +113,11 @@ function get_options() {
 			TRANSFER_FROM_SOURCE += gsub(/T/,"")
 			TRANSFER_FROM_TARGET += gsub(/t/,"")
 
-
 			# Flags
 			if (gsub(/i/,"")) INTR_FLAGS = "-i"
 			if (gsub(/I/,"")) INTR_FLAGS = "-I"
-			if (gsub(/m/,"")) RECEIVE_FLAGS = "-x mountpoint"
 			if (gsub(/M/,"")) RECEIVE_FLAGS = ""
+			if (gsub(/u/,"")) RECEIVE_FLAGS = "-ux mountpoint -o readonly"
 
 			# Options
 			if (sub(/d/,"")) DEPTH = opt_var()
@@ -143,7 +142,7 @@ function get_config() {
 	SHELL_WRAPPER = env("ZELTA_SHELL", "sh -c")
 	SEND_FLAGS = env("ZELTA_SEND_FLAGS", "-Lcp")
 	RECEIVE_PREFIX = env("ZELTA_RECEIVE_PREFIX", "")
-	RECEIVE_FLAGS = env("ZELTA_RECEIVE_FLAGS", "-ux mountpoint")
+	RECEIVE_FLAGS = env("ZELTA_RECEIVE_FLAGS", "-x mountpoint -o readonly=on")
 	INTR_FLAGS = env("ZELTA_INTR_FLAGS", "-i")
 	LOG_QUIET = -2
 	LOG_ERROR = -1
@@ -186,7 +185,6 @@ function get_config() {
 	send_flags = "send -P " SEND_FLAGS " " 
 	recv_flags = "receive -v " RECEIVE_FLAGS " "
 	intr_flags = INTR_FLAGS " "
-	#match_flags = ((SNAPSHOT_WRITTEN || VERBOSE)?"-zw":"-z") " "
 	create_flags = "-up"(DRY_RUN?"n":"")" "
 }
 
