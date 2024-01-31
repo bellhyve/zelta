@@ -1,6 +1,6 @@
 #!/usr/bin/awk -f
 #
-# zelta - replicates snapshots
+# zelta policy - iterates through "zelta" commands
 #
 # usage: zelta [site, host, dataset, or source host:dataset] ...
 #
@@ -59,8 +59,10 @@ function report(mode, message) {
 }
 
 function usage(message) {
+	usage_command = "zelta usage policy"
+	while (usage_command |getline) print
+	close(usage_command)
 	report(LOG_WARNING, message)
-	report(LOG_WARNING, "usage: zelta [site|host|dataset] [...]")
 	exit 1
 }
 
@@ -114,15 +116,12 @@ function load_config() {
 			continue
 		}
 	}
-	if (length(datasets)==0) {
-		print "no datasets defined in " ZELTA_CONFIG
-		exit 1
-	}
+	if (length(datasets)==0) usage("no datasets defined in " ZELTA_CONFIG)
 	FS = "[ \t]+";
 	# Fix: Handle LOG_JSON
 	LOG_ACTIVE = 1; LOG_DELAY = 2; LOG_WARNING = 3
 	LOG_MODE = LOG_DELAY
-	ZELTA_COMMAND = "zelta"
+	ZELTA_COMMAND = "zelta policy"
 	SYNC_LOG_MODE = c["JSON"] ? "j" : "z"
 	for (i = 1; i < ARGC; i++) {
 		if (gsub(/^-/,"",ARGV[i])) {
@@ -135,12 +134,19 @@ function load_config() {
 		if (SYNC_LOG_MODE == "z") LOG_MODE = LOG_ACTIVE
 	}
 	if (SYNC_LOG_MODE == "j") c["JSON"] = 1
+
+	SNAPSHOT = c["SNAPSHOT"]
+	if (!SNAPSHOT || (SNAPSHOT=="OFF")) SNAPSHOT = ""
+	else if (SNAPSHOT=="ALL") SNAPSHOT = "S"
+	else if (SNAPSHOT=="SKIP") SNAPSHOT = "ss"
+	else SNAPSHOT = "s"
+
 	REPLICATE = c["REPLICATE"] ? "R" : ""
 	INTERMEDIATE = c["INTERMEDIATE"] ? "I" : ""
 	DRY_RUN = c["DRY_RUN"] ? "n" : ""
 	DEPTH = c["DEPTH"]? " -d"c["DEPTH"] : ""
-	SYNC_FLAGS = " -" SYNC_LOG_MODE REPLICATE INTERMEDIATE DRY_RUN DEPTH " "
-	ZELTA_SYNC = "zelta sync" SYNC_FLAGS
+	SYNC_FLAGS = " -" SYNC_LOG_MODE SNAPSHOT REPLICATE INTERMEDIATE DRY_RUN DEPTH " "
+	ZELTA_SYNC = "zelta replicate" SYNC_FLAGS
 }
 
 function sub_keys(key_pair, key1, key2_list, key2_subset) {
@@ -214,6 +220,8 @@ BEGIN {
 	ZELTA_CONFIG = env("ZELTA_CONFIG", "/usr/local/etc/zelta/zelta.conf")
 	LOCALHOST["localhost"]++  # Consider addding other local hostnames
 	STDOUT = "cat 1>&2"
+	c["INTERMEDIATE"] = 1
+	c["SNAPSHOT"] = 1
 	load_config()
 	if (AUTO && (c["THREADS"] > 1)) xargs()
 	for (site in sites) {
