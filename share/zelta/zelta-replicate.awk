@@ -118,7 +118,7 @@ function get_options() {
 			if (gsub(/i/,"")) INTR_FLAGS = "-i"
 			if (gsub(/I/,"")) INTR_FLAGS = "-I"
 			if (gsub(/M/,"")) RECEIVE_FLAGS = ""
-			if (gsub(/u/,"")) RECEIVE_FLAGS = "-ux mountpoint -o readonly"
+			if (gsub(/u/,"")) RECEIVE_FLAGS = "-ux mountpoint -o readonly=on"
 
 			# Options
 			if (sub(/d/,"")) DEPTH = opt_var()
