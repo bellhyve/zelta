@@ -4,7 +4,7 @@
 #
 # usage: zmatch [user@][host:]source/dataset [user@][host:]target/dataset
 #
-# Reports the most recent matching snapshot and the latest snapshot of a volume and
+# Reports the most recent matching snapshot and the latest snapshot of a dataset and
 # its children, which are useful for various zfs operations
 #
 # In interactive mode, child snapshot names are provided relative to the target
@@ -13,7 +13,7 @@
 #
 # Specifically:
 #   - The latest matching snapshot and child snapshots
-#   - Missing child volumes on the destination
+#   - Missing child dataset on the destination
 #   - Matching snapshot names with different GUIDs
 #   - Newer target snapshots not on the source
 #
@@ -31,8 +31,8 @@
 # follows:
 #   - Real time in seconds of the "zfs list" operations in the format: 1.01 : 3.51
 #   - No other output is provided if no updates are possible/available.
-#   - A single volume name indicates a parent volume is missing.
-#   - A "source_snapshot target_volume" indicates a source volume needs to be replicated
+#   - A single dataset name indicates a parent dataset is missing.
+#   - A "source_snapshot target_dataset" indicates a source dataset needs to be replicated
 #   - If two source snapshots are given, an incremental transfer is needed.
 #
 # ZELTA_DEPTH: Adds "-d $ZELTA_DEPTH" to zfs list commands. Useful for limiting
@@ -85,13 +85,12 @@ function get_endpoint_info(endpoint) {
 	endpoint_command = "zelta endpoint " endpoint
 	endpoint_command | getline
 	#endpoint_id[endpoint] = $1
-	zfs[endpoint] = ($2?"ssh -n "$2" ":"") "zfs "
-	gsub(/^ssh/,"ssh -n", zfs[endpoint])
+	zfs[endpoint] = $2
 	#user[endpoint] = $3
 	#host[endpoint] = $4
-	volume[endpoint] = $5
+	ds[endpoint] = $5
 	#snapshot[endpoint] = $6
-	close("zelta endpoint " endpoint)
+	close(endpoint_command)
 	return $1
 }
 
@@ -104,6 +103,7 @@ function verbose(message) { if (VERBOSE) print message }
 BEGIN {
 	FS="\t"
 	exit_code = 0
+	REMOTE_COMMAND_NOPIPE = env("REMOTE_COMMAND_NOPIPE", "ssh -n") " "
 	TIME_COMMAND = env("TIME_COMMAND", "/usr/bin/time -p") " "
 	ZELTA_MATCH_COMMAND = "zelta reconcile"
 	ZFS_LIST_PROPERTIES = env("ZFS_LIST_PROPERTIES", "name,guid")
@@ -137,10 +137,15 @@ BEGIN {
 	OFS="\t"
 
 	hash_source = get_endpoint_info(source)
-	if (target) hash_target = get_endpoint_info(target)
+	zfs[source] = ($2 ? REMOTE_COMMAND_NOPIPE $2 " " : "") "zfs "
+	if (target) {
+		hash_target = get_endpoint_info(target)
+		zfs[target] = ($2 ? REMOTE_COMMAND_NOPIPE $2 " " : "") "zfs "
+	}
+	
 
-	zfs_list[source] = zfs[source] ZFS_LIST_FLAGS "'"volume[source]"'"
-	zfs_list[target] = zfs[target] ZFS_LIST_FLAGS "'"volume[target]"'"
+	zfs_list[source] = zfs[source] ZFS_LIST_FLAGS "'"ds[source]"'"
+	zfs_list[target] = zfs[target] ZFS_LIST_FLAGS "'"ds[target]"'"
 
 	if (DRY_RUN) {
 		print "+ "zfs_list[source]
@@ -151,8 +156,13 @@ BEGIN {
 	zfs_list[source] = TIME_COMMAND zfs_list[source] ALL_OUT
 	zfs_list[target] = TIME_COMMAND zfs_list[target] ALL_OUT
 
-	print hash_source,volume[source] | MATCH_COMMAND
-	print hash_target,volume[target] | MATCH_COMMAND
+#print hash_source,ds[source],MATCH_COMMAND
+#print hash_target,ds[target],MATCH_COMMAND
+#print zfs_list[source]
+#print zfs_list[target]
+
+	print hash_source,ds[source] | MATCH_COMMAND
+	print hash_target,ds[target] | MATCH_COMMAND
 	print (target ? zfs_list[target] : "") | MATCH_COMMAND
 	while (zfs_list[source] | getline) print | MATCH_COMMAND
 	close(zfs_list[source])

@@ -77,6 +77,9 @@ function get_snapshot_data(volume_name) {
 		snapshot_written = $3			# written property
 		split(snapshot_stub, split_stub, "@")
 		dataset_stub = split_stub[1]		# [child] (blank for top volume name)
+		if (!stub_list[dataset_stub]++) {
+			stub_order[++stub_num] = dataset_stub
+		}
 		snapshot_name = "@" split_stub[2]	# @snapshot
 		return 1
 }
@@ -108,7 +111,7 @@ function check_parent() {
 	parent_list_command | getline parent_check
 	if (parent_check ~ /dataset does not exist/) {
 		create_parent=parent
-		report(LOG_DEFAULT, "parent volume does not exist: " create_parent)
+		report(LOG_DEFAULT, "parent dataset does not exist: " create_parent)
 	}
 }
 
@@ -240,8 +243,8 @@ function chart_header() {
 	c = 0
 	delete columns
 	if (NO_HEADER) return
-	if ((length(source_order) <= 1) && MODE=="CHART") delete COL["dataset"]
-	if ("dataset" in COL) make_header_column("DATASET", source_order)
+	if ((length(stub_order) <= 1) && MODE=="CHART") delete COL["dataset"]
+	if ("dataset" in COL) make_header_column("DATASET", stub_order)
 	if ("sdiff" in COL) make_header_column("SDIFF", size_diff)
 	if ("match" in COL) make_header_column("MATCH", matches)
 	if ("sfirst" in COL) make_header_column("SOURCE_FIRST", source_oldest)
@@ -268,12 +271,12 @@ function chart_row(stub) {
 
 
 END {
-	arr_sort(source_order)
-	num_datasets = length(source_order)
+	arr_sort(stub_order)
+	num_datasets = length(stub_order)
 	new_ds_count = length(new_volume)
 	match_count = length(matches)
-	for (i=1;i<=length(source_order);i++) {
-		stub = source_order[i]
+	for (i=1;i<=length(stub_order);i++) {
+		stub = stub_order[i]
 		chart_row(stub)
 		#report(LOG_PIPE,new_volume[stub])
 		#report(LOG_PIPE,delta[stub])
@@ -288,8 +291,11 @@ END {
 	if (volume_written[target]) report(LOG_DEFAULT, "target volume has changed: " h_num(volume_written[target]))
 	for (stub in volume_check) if (!source_latest[stub]) missing_branch[stub]
 	report(LOG_PIPE, create_parent)
-	for (stub in target_latest) {
-		if (!source_latest[stub]) report(LOG_DEFAULT, "target volume not on source: " target_latest[stub])
-	}
+	#for (stub in target_latest) {
+	#	if (!source_latest[stub]) {
+	#		chart_row(stub)
+	#		#report(LOG_DEFAULT, "target volume not on source: " target_latest[stub])
+	#	}
+	#}
 	if (total_transfer_size) report(LOG_DEFAULT, "new snapshot transfer size: " h_num(total_transfer_size))
 }
