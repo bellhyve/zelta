@@ -33,21 +33,19 @@ function env(env_name, var_default) {
 	return ( (env_name in ENVIRON) ? ENVIRON[env_name] : var_default )
 }
 
-# CHANGE TO REPORT FUNCTION
-function report(mode, message) {
+function report(level, message) {
 	if (!message) return 0
-	if (LOG_ERROR == mode) print message | STDOUT
-	else if ((LOG_PIPE == mode) && ZELTA_PIPE) print message
-	else if ((LOG_BASIC == mode) && ((LOG_MODE == LOG_BASIC) || LOG_MODE == LOG_VERBOSE)) { print message }
-	else if ((LOG_VERBOSE == mode) && (LOG_MODE == LOG_VERBOSE)) print message
+	if ((level <= LOG_LEVEL) && (level < 0)) print message > STDOUT
+	#if (MODE=="PARSE") return
+	if (level <= LOG_LEVEL) print message
 }
 
 function h_num(num) {
 	suffix = "B"
 	divisors = "KMGTPE"
-	for (i = 1; i <= length(divisors) && num >= 1024; i++) {
+	for (h = 1; h <= length(divisors) && num >= 1024; h++) {
 		num /= 1024
-		suffix = substr(divisors, i, 1)
+		suffix = substr(divisors, h, 1)
 	}
 	return int(num) suffix
 }
@@ -90,6 +88,7 @@ function load_target_snapshots() {
 		target_written[snapshot_stub] = snapshot_written
 		if (!(target_vol_count[dataset_stub]++)) {
 			target_latest[dataset_stub] = snapshot_stub
+			target_latest_snapshot[dataset_stub] = snapshot_name
 			target_order[++target_num] = dataset_stub
 		}
 		target_list[dataset_stub target_vol_count[dataset_stub]] = snapshot_stub
@@ -109,7 +108,7 @@ function check_parent() {
 	parent_list_command | getline parent_check
 	if (parent_check ~ /dataset does not exist/) {
 		create_parent=parent
-		report(LOG_BASIC, "parent volume does not exist: " create_parent)
+		report(LOG_DEFAULT, "parent volume does not exist: " create_parent)
 	}
 }
 
@@ -126,17 +125,30 @@ function arr_sort(arr) {
 }
 
 
-
 BEGIN {
 	FS="\t"
 	OFS="\t"
-	STDOUT = "cat 1>&2"
-	LOG_ERROR=-1
-	LOG_PIPE=0
-	LOG_BASIC=1
-	LOG_VERBOSE=2
+	STDOUT = ">/dev/null"
+	LOG_ERROR=-2
+	LOG_WARNING=-1
+	LOG_DEFAULT=0
+	LOG_VERBOSE=1
+	LOG_VV=2
+
+	PASS_FLAGS = env("ZELTA_MATCH_FLAGS", "")
+	LOG_LEVEL = env("ZELTA_LOG_LEVEL", 0)
+	PROPERTIES_DEFAULT = "dataset,status,match,slast"
+	split(env("ZELTA_MATCH_PROPERTIES",PROPERTIES_DEFAULT), PROPERTIES, ",")
+	for (i in PROPERTIES) COL[PROPERTIES[i]]++
+
+	MODE = "CHART"
+	if (PASS_FLAGS ~ /p/) MODE = "PARSE"
+	#MODE[env("ZELTA_LOG_MODE","CHART")]++
+	#MODE["PARSE"]
+	#MODE["CHART"]
+	if (PASS_FLAGS ~ /H/) NO_HEADER++
+
 	exit_code = 0
-	ZELTA_PIPE = env("ZELTA_PIPE", 0)
 	LOG_MODE = ZELTA_PIPE ? 0 : 1
 	target_zfs_list_time = 0
 }
@@ -156,6 +168,7 @@ NR == 3 {
 	volume_written[source] = 0
 	volume_written[target] = 0
 	if (!target) next
+	if (/written/) COL_WRITTEN++
 	snapshot_list_command = $0;
 	load_target_snapshots()
 	zfs_list_time = 0
@@ -168,9 +181,10 @@ NR > 3 {
 	source_written[snapshot_stub] = snapshot_written
 	if (!(source_vol_count[dataset_stub]++)) {
 		source_latest[dataset_stub] = snapshot_stub
+		source_latest_snapshot[dataset_stub] = snapshot_name
 		source_order[++source_num] = dataset_stub
 	}
-	# Catch oldest snapshot name to ensure -R completeness
+	# Catch oldest snapshot name to ensure replication completeness
 	source_oldest[dataset_stub] = snapshot_name
 	if (dataset_stub in matches) { next }
 	else if (!target_latest[dataset_stub] && !(dataset_stub in new_volume)) {
@@ -180,7 +194,7 @@ NR > 3 {
 		basic_log[dataset_stub] = "snapshots only on source: " dataset_name
 	} else if (target_guid[snapshot_stub]) {
 		if (target_guid[snapshot_stub] == source_guid[snapshot_stub]) {
-			matches[dataset_stub]++
+			matches[dataset_stub] = snapshot_name
 			if (snapshot_stub == source_latest[dataset_stub]) {
 				basic_log[dataset_stub] = "target has latest source snapshot: " snapshot_stub
 			} else if (guid_error[dataset_stub]) {
@@ -195,55 +209,87 @@ NR > 3 {
 			report(LOG_ERROR,"guid mismatch on: " snapshot_stub)
 			guid_error[dataset_stub]++
 		}
-	} else { total_transfer_size += snapshot_written }
-}
-
-function new_volume_check() {
-	safe_to_create = 1
-	if (stub in new_volume) {
-		for (parent in missing_branch) {
-			if (index(stub, parent) == 1) {
-				report(LOG_ERROR,"need snapshot for source: " volume_check[parent])
-				safe_to_create = 0
-				# For future -F mode?
-				#report(LOG_PIPE, volume[target] parent)
-			}
-		}
-		if (!safe_to_create) return 0
-		old_snapshot = source_oldest[stub]
-		new_snapshot = new_volume[stub]
-		old_source = volume[source] stub source_oldest[stub]
-		new_target = volume[target] stub
-		new_vol_range = old_source OFS new_target
-		if (!(source_oldest[stub] == new_volume[stub])) {
-			new_source = volume[source] stub new_volume[stub]
-			new_vol_range = new_vol_range OFS old_snapshot OFS new_source OFS new_target
-		}
-		report(LOG_PIPE,new_vol_range)
+	} else {
+		total_transfer_size += snapshot_written
+		size_diff[stub] += snapshot_written
 	}
 }
+
+# Add a check to see if it's safe to add a volume in zelta-replicate
+#function new_volume_check() {
+
+function print_row(col) {
+	for(c=1;c<=length(col);c++) {
+		if (MODE=="PARSE") printf ((c>1)?"\t":"") col[c]
+		if (MODE=="CHART") printf ((c>1)?"  ":"") pad[c], col[c]
+	}
+	printf "\n"
+}
+
+function make_header_column(title, arr) {
+	columns[++c] = title
+	if (MODE=="CHART") { 
+		width = length(title)
+		for (w in arr) if (length(arr[w])>width) width = length(arr[w])
+		pad[c] = "%-"width"s"
+	}
+}
+
+
+function chart_header() {
+	c = 0
+	delete columns
+	if (NO_HEADER) return
+	if ((length(source_order) <= 1) && MODE=="CHART") delete COL["dataset"]
+	if ("dataset" in COL) make_header_column("DATASET", source_order)
+	if ("sdiff" in COL) make_header_column("SDIFF", size_diff)
+	if ("match" in COL) make_header_column("MATCH", matches)
+	if ("sfirst" in COL) make_header_column("SOURCE_FIRST", source_oldest)
+	if ("slast" in COL) make_header_column("SOURCE_LAST", source_latest_snapshot)
+	if ("tlast" in COL) make_header_column("TARGET_LAST", target_latest_snapshot)
+	print_row(columns)
+}
+
+function chart_row(stub) {
+	if (!ROW++) chart_header()
+	c=0
+	delete columns
+	if ("dataset" in COL) columns[++c] = stub
+	if ("sdiff" in COL) {
+		size_diff_print = ((MODE=="CHART")?h_num(size_diff[stub]):size_diff[stub])
+		columns[++c] = size_diff_print
+	}
+	if ("match" in COL) columns[++c] = matches[stub]
+	if ("sfirst" in COL) columns[++c] = source_oldest[stub]
+	if ("slast" in COL) columns[++c] = source_latest_snapshot[stub]
+	if ("tlast" in COL) columns[++c] = target_latest_snapshot[stub]
+	print_row(columns)
+}
+
 
 END {
-	if (length(source_latest) == 0) report(LOG_BASIC,"no source snapshots found")
+	arr_sort(source_order)
+	num_datasets = length(source_order)
+	new_ds_count = length(new_volume)
+	match_count = length(matches)
+	for (i=1;i<=length(source_order);i++) {
+		stub = source_order[i]
+		chart_row(stub)
+		#report(LOG_PIPE,new_volume[stub])
+		#report(LOG_PIPE,delta[stub])
+	}
 	source_zfs_list_time = zfs_list_time
-	report(LOG_PIPE, source_zfs_list_time OFS ":" OFS target_zfs_list_time)
+	if (MODE=="PARSE") print "SOURCE_LIST_TIME:", source_zfs_list_time, ":","TARGET_LIST_TIME", target_zfs_list_time
+	if (length(source_latest) == 0) report(LOG_DEFAULT,"no source snapshots found")
 	if (volume_written[source]) {
-		report(LOG_BASIC, "source volume has changed: " h_num(volume_written[source]))
+		report(LOG_DEFAULT, "source volume has changed: " h_num(volume_written[source]))
 		report(LOG_PIPE, volume_written[source])
 	}
-	if (volume_written[target]) report(LOG_BASIC, "target volume has changed: " h_num(volume_written[target]))
+	if (volume_written[target]) report(LOG_DEFAULT, "target volume has changed: " h_num(volume_written[target]))
 	for (stub in volume_check) if (!source_latest[stub]) missing_branch[stub]
 	report(LOG_PIPE, create_parent)
 	for (stub in target_latest) {
-		if (!source_latest[stub]) report(LOG_BASIC, "target volume not on source: " target_latest[stub])
+		if (!source_latest[stub]) report(LOG_DEFAULT, "target volume not on source: " target_latest[stub])
 	}
-	arr_sort(source_order)
-	for (i=1;i<=length(source_order);i++) {
-		stub = source_order[i]
-		#report(LOG_PIPE,new_volume[stub])
-		new_volume_check()
-		report(LOG_PIPE,delta[stub])
-		report(LOG_BASIC,basic_log[stub])
-	}
-	if (total_transfer_size) report(LOG_BASIC, "new snapshot transfer size: " h_num(total_transfer_size))
+	if (total_transfer_size) report(LOG_DEFAULT, "new snapshot transfer size: " h_num(total_transfer_size))
 }

@@ -4,7 +4,7 @@
 #
 # usage: zelta sync [user@][host:]source/dataset [user@][host:]target/dataset
 #
-# After using zmatch to identify out-of-date snapshots on the target, zpull creates
+# After using match_command to identify out-of-date snapshots on the target, zpull creates
 # individual replication streams for a snapshot and its children. zpull is useful for
 # migrations in that it will recursively replicate the latest parent snapshot and its
 # children, unlike the "zfs send -R" option.
@@ -170,8 +170,8 @@ function get_config() {
 	if (INITIATOR) SHELL_WRAPPER = "ssh -n "INITIATOR
 	RPL_CMD_PREFIX = (VV?"":TIME_COMMAND" ") SHELL_WRAPPER" "
 	RPL_CMD_SUFFIX = (VV?"":ALL_OUT)
-	match_flags = "-z "
-	zmatch = SHELL_WRAPPER" "dq("zelta match " match_flags DEPTH q(source) " " q(target)) ALL_OUT
+	match_flags = "-Hpo dataset,match,sfirst,slast,tlast "
+	match_command = SHELL_WRAPPER" "dq("zelta match " match_flags DEPTH q(source) " " q(target)) ALL_OUT
 	if (CLONE_MODE) {
 		send_flags = "clone -o readonly=off "
 		return 1
@@ -196,7 +196,7 @@ function get_endpoint_info(endpoint) {
 	prefix[endpoint] = $2
 	user[endpoint] = $3
 	host[endpoint] = $4
-	volume[endpoint] = $5
+	ds[endpoint] = $5
 	snapshot[endpoint] = $6
 	close("zelta endpoint " endpoint)
 }
@@ -260,11 +260,11 @@ function output_json() {
 	print jpair("endTime",time_end)
 	print jpair("sourceUser",user[source])
 	print jpair("sourceHost",host[source])
-	print jpair("sourceVolume",volume[source])
+	print jpair("sourceDataset",ds[source])
 	print jpair("sourceListTime",source_zfs_list_time)
 	print jpair("targetUser",user[target])
 	print jpair("targetHost",host[target])
-	print jpair("targetVolume",volume[target])
+	print jpair("targetDataset",ds[target])
 	print jpair("targetListTime",target_zfs_list_time)
 	print jpair("replicationSize",total_bytes)
 	print jpair("replicationStreamsSent",sent_streams)
@@ -337,6 +337,19 @@ function replicate(command) {
 	close(command)
 }
 
+function name_row() {
+	dataset = $1
+	sourceds = ds[source] dataset 
+	targetds = ds[target] dataset 
+	match_snap = $2 
+	sfirst = $3
+	sfirst_full = sourceds sfirst
+	slast = $4
+	slast_full = sourceds slast
+	tlast = $5
+	tlast_full = tourceds tlast
+}
+
 BEGIN {
 	STDOUT = "cat 1>&2"
 	ALL_OUT = " 2>&1"
@@ -376,33 +389,37 @@ BEGIN {
 			stop(0)
 		}
 	}
-	while (zmatch |getline) {
-		if ($2 == ":") {
-			source_zfs_list_time += $1 ? $1 : 0
-			target_zfs_list_time = $3 ? $3 : 0
+
+	while (match_command |getline) {
+		name_row()
+		if ($3 == ":") {
+			source_zfs_list_time += $2
+			target_zfs_list_time = $5
 		} else if (/error|Warning/) {
 			error_code = 1
 			report(LOG_ERROR, $0)
 		} else if (/^[0-9]+$/) {
 			report(LOG_VERBOSE, source " has written data")
+		} else if (/^parent dataset does not exist:/) {
+			rpl_cmd[++rpl_num] = zfs[target] "create " create_flags q($6)
+			create_volume[rpl_num] = $6
 		} else if (! /@/) {
-			# If no snapshot is given, create an empty volume
 			if (! $0 == $1) stop(3, $0)
-			rpl_cmd[++rpl_num] = zfs[target] "create " create_flags q($1)
-			create_volume[rpl_num] = $1
-		} else if ($5) {
-			if (intr_flags ~ "I") {
-				command_queue($1, $2)
-				command_queue($4, $5, $3)
-			} else command_queue($4, $5)
-		} else if ($3) command_queue($2, $3, $1)
-		else if ($2) command_queue($1, $2)
-		else {
-			error_code = 1
-			report(LOG_ERROR, "unhandled match output")
-		}
+		} else if ( sfirst && slast) {
+			# Replicate new volume
+			if (!tlast && sfirst && (intr_flags ~ "I")) {
+				command_queue(sfirst_full, targetds)
+				match_snap = sfirst
+				tlast = sfirst
+			} else if (!tlast && slast) command_queue(slast_full, targetds)
+			# Incremental
+			if ((match_snap == tlast) && (match_snap != slast)) {
+				command_queue(slast_full, targetds, match_snap)
+			}
+		} # else nothing to assess
+
 	}
-	close(zmatch)
+	close(match_command)
 
 	if (!num_streams) {
 		report(LOG_BASIC, "nothing to replicate")
@@ -418,7 +435,7 @@ BEGIN {
 			sub(/ \| .*/, "", rpl_cmd[r])
 		} else if (rpl_cmd[r] ~ "zfs create") {
 			if (system(rpl_cmd[r])) {
-				stop(4, "failed to create parent volume: " create_volume[r])
+				stop(4, "failed to create parent dataset: " create_volume[r])
 			}
 			continue
 		}

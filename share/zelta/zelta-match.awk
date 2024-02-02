@@ -64,12 +64,13 @@ function get_options() {
         for (i=1;i<ARGC;i++) {
                 $0 = ARGV[i]
                 if (gsub(/^-/,"")) {
-                        #if (gsub(/j/,"")) JSON++
-                        if (gsub(/d/,"")) ZELTA_DEPTH = sub_opt()
                         if (gsub(/n/,"")) DRY_RUN++
-                        if (gsub(/v/,"")) WRITTEN=",written"
-                        if (gsub(/w/,"")) WRITTEN=",written"
-                        if (gsub(/z/,"")) ZELTA_PIPE++
+                        if (gsub(/H/,"")) PASS_FLAGS = PASS_FLAGS "H" 
+                        if (gsub(/p/,"")) PASS_FLAGS = PASS_FLAGS "p"
+                        if (gsub(/j/,"")) PASS_FLAGS = PASS_FLAGS "j"
+                        if (gsub(/w/,"")) WRITTEN++
+			if (gsub(/o/,"")) PROPERTIES = sub_opt()
+                        if (gsub(/d/,"")) ZELTA_DEPTH = sub_opt()
                         if (/./) usage("unkown options: " $0)
                 } else if (target) {
                         usage("too many options: " $0)
@@ -103,20 +104,31 @@ function verbose(message) { if (VERBOSE) print message }
 BEGIN {
 	FS="\t"
 	exit_code = 0
-	ZELTA_PIPE = env("ZELTA_PIPE", 0)
-	ZELTA_DEPTH = env("ZELTA_DEPTH", 0)
-	ZMATCH_STREAM = env("ZMATCH_STREAM", 0)
 	TIME_COMMAND = env("TIME_COMMAND", "/usr/bin/time -p") " "
+	ZELTA_MATCH_COMMAND = "zelta reconcile"
+	ZFS_LIST_PROPERTIES = env("ZFS_LIST_PROPERTIES", "name,guid")
+	ZELTA_DEPTH = env("ZELTA_DEPTH", 0)
+	ZFS_LIST_PREFIX = "list -Hprt all -Screatetxg -o "
+	ZFS_LIST_PREFIX_WRITECHECK = "list -Hprt filesystem,volume -o "
+
 	
 	get_options()
-	ZMATCH_PREFIX = "ZMATCH_STREAM=1 "
-	ZMATCH_PREFIX = ZMATCH_PREFIX (ZELTA_DEPTH ? "ZELTA_DEPTH="ZELTA_DEPTH" " : "")
-	ZMATCH_PREFIX = ZMATCH_PREFIX (ZELTA_PIPE ? "ZELTA_PIPE="ZELTA_PIPE" " : "")
-	ZMATCH_COMMAND = ZMATCH_PREFIX "zelta reconcile"
-	ZELTA_DEPTH = ZELTA_DEPTH ? " -d"ZELTA_DEPTH : ""
-	if (target) {
-		ZFS_LIST_FLAGS = "list -Hproname,guid"WRITTEN" -tall -Screatetxg" ZELTA_DEPTH " "
-	} else ZFS_LIST_FLAGS = "list -Hproname,guid,written -tfilesystem,volume" ZELTA_DEPTH " "
+	if (PASS_FLAGS) PASS_FLAGS = "ZELTA_MATCH_FLAGS='"PASS_FLAGS"' "
+	if (!target) WRITTEN++
+	PROPERTIES_DEFAULT = "dataset" (WRITTEN ? ",sdiff" : "") ",status,match,slast"
+	if (PROPERTIES ~ /sdiff/) WRITTEN++
+	ZFS_LIST_PROPERTIES_DEFAULT = "name,guid" (WRITTEN ? ",written" : "")
+	ZFS_LIST_PROPERTIES = env("ZFS_LIST_PROPERTIES", ZFS_LIST_PROPERTIES_DEFAULT)
+	if (!PROPERTIES) PROPERTIES = env("ZELTA_MATCH_PROPERTIES", PROPERTIES_DEFAULT)
+
+	MATCH_PREFIX = "ZELTA_MATCH_PROPERTIES='"PROPERTIES"' " PASS_FLAGS
+	MATCH_PREFIX = MATCH_PREFIX (ZELTA_DEPTH ? "ZELTA_DEPTH="ZELTA_DEPTH" " : "")
+	MATCH_COMMAND = MATCH_PREFIX "zelta reconcile"
+	ZFS_LIST_DEPTH = ZELTA_DEPTH ? " -d"ZELTA_DEPTH : ""
+
+	if (target) ZFS_LIST_FLAGS = ZFS_LIST_PREFIX ZFS_LIST_PROPERTIES ZFS_LIST_DEPTH " "
+	else ZFS_LIST_FLAGS = ZFS_LIST_PREFIX_WRITECHECK ZFS_LIST_PROPERTIES ZFS_LIST_DEPTH " "
+
 	ALL_OUT =" 2>&1"
 
 
@@ -124,22 +136,24 @@ BEGIN {
 
 	OFS="\t"
 
-
 	hash_source = get_endpoint_info(source)
 	if (target) hash_target = get_endpoint_info(target)
 
-	zfs_list[source] = TIME_COMMAND zfs[source] ZFS_LIST_FLAGS "'"volume[source]"'"ALL_OUT
-	zfs_list[target] = TIME_COMMAND zfs[target] ZFS_LIST_FLAGS "'"volume[target]"'"ALL_OUT
+	zfs_list[source] = zfs[source] ZFS_LIST_FLAGS "'"volume[source]"'"
+	zfs_list[target] = zfs[target] ZFS_LIST_FLAGS "'"volume[target]"'"
 
 	if (DRY_RUN) {
 		print "+ "zfs_list[source]
 		print "+ "zfs_list[target]
 		exit
 	}
-	print hash_source,volume[source] | ZMATCH_COMMAND
-	print hash_target,volume[target] | ZMATCH_COMMAND
-	if (target) print zfs_list[target] | ZMATCH_COMMAND
-	else print "" | ZMATCH_COMMAND
-	while (zfs_list[source] | getline) print | ZMATCH_COMMAND
+
+	zfs_list[source] = TIME_COMMAND zfs_list[source] ALL_OUT
+	zfs_list[target] = TIME_COMMAND zfs_list[target] ALL_OUT
+
+	print hash_source,volume[source] | MATCH_COMMAND
+	print hash_target,volume[target] | MATCH_COMMAND
+	print (target ? zfs_list[target] : "") | MATCH_COMMAND
+	while (zfs_list[source] | getline) print | MATCH_COMMAND
 	close(zfs_list[source])
 }
