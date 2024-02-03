@@ -1,7 +1,7 @@
 #!/bin/sh
 : ${ZELTA_ETC:="/usr/local/etc/zelta"}
 : ${ZELTA_ENV:="$ZELTA_ETC/zelta.env"}
-: ${ZELTA_SNAP_NAME:="date +%Y-%m-%d_%H.%M.%S"}
+: ${ZELTA_SNAP_NAME:="date -u +%Y-%m-%d_%H.%M.%S"}
 
 if [ -r $ZELTA_ENV ]; then
        . $ZELTA_ENV

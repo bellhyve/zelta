@@ -2,10 +2,8 @@
 #
 # zelta-replicate.awk - replicates a zfs endpoint/volume
 #
-# usage: zelta sync [user@][host:]source/dataset [user@][host:]target/dataset
-#
-# After using match_command to identify out-of-date snapshots on the target, zpull creates
-# individual replication streams for a snapshot and its children. zpull is useful for
+# After using match_command to identify out-of-date snapshots on the target, this script creates
+# individual replication streams for a snapshot and its children. This script is useful for
 # migrations in that it will recursively replicate the latest parent snapshot and its
 # children, unlike the "zfs send -R" option.
 #
@@ -118,7 +116,7 @@ function get_options() {
 			if (gsub(/i/,"")) INTR_FLAGS = "-i"
 			if (gsub(/I/,"")) INTR_FLAGS = "-I"
 			if (gsub(/M/,"")) RECEIVE_FLAGS = ""
-			if (gsub(/u/,"")) RECEIVE_FLAGS = "-ux mountpoint -o readonly=on"
+			if (gsub(/m/,"")) RECEIVE_FLAGS = "-x mountpoint -o readonly=on"
 
 			# Options
 			if (sub(/d/,"")) DEPTH = opt_var()
@@ -143,7 +141,7 @@ function get_config() {
 	SHELL_WRAPPER = env("ZELTA_SHELL", "sh -c")
 	SEND_FLAGS = env("ZELTA_SEND_FLAGS", "-Lcp")
 	RECEIVE_PREFIX = env("ZELTA_RECEIVE_PREFIX", "")
-	RECEIVE_FLAGS = env("ZELTA_RECEIVE_FLAGS", "-x mountpoint -o readonly=on")
+	RECEIVE_FLAGS = env("ZELTA_RECEIVE_FLAGS", "-ux mountpoint -o readonly=on")
 	INTR_FLAGS = env("ZELTA_INTR_FLAGS", "-i")
 	LOG_QUIET = -2
 	LOG_ERROR = -1
@@ -170,7 +168,7 @@ function get_config() {
 	if (INITIATOR) SHELL_WRAPPER = "ssh -n "INITIATOR
 	RPL_CMD_PREFIX = (VV?"":TIME_COMMAND" ") SHELL_WRAPPER" "
 	RPL_CMD_SUFFIX = (VV?"":ALL_OUT)
-	match_flags = "-Hpo dataset,match,sfirst,slast,tlast "
+	match_flags = "-Hpo stub,status,match,srcfirst,srclast,tgtlast "
 	match_command = SHELL_WRAPPER" "dq("zelta match " match_flags DEPTH q(source) " " q(target)) ALL_OUT
 	if (CLONE_MODE) {
 		send_flags = "clone -o readonly=off "
@@ -185,6 +183,7 @@ function get_config() {
 	if (DEPTH) DEPTH = "-d"DEPTH" "
 	send_flags = "send -P " SEND_FLAGS " " 
 	recv_flags = "receive -v " RECEIVE_FLAGS " "
+	if (INTR_FLAGS ~ "I") INTR++
 	intr_flags = INTR_FLAGS " "
 	create_flags = "-up"(DRY_RUN?"n":"")" "
 }
@@ -324,7 +323,7 @@ function replicate(command) {
 			report(LOG_BASIC, $0)
 		} else if ($1 == "real") zfs_replication_time += $2
 		else if (/^(sys|user)[ \t]+[0-9]/) { }
-		else if (/ records (in|out)$/) { } # report(LOG_VERBOSE, $0)
+		else if (/ records (in|out)$/) { }
 		else if (/bytes.*transferred/) { }
 		else if (/receiving/ && /stream/) { }
 		else if (/ignoring$/) { }
@@ -341,13 +340,16 @@ function name_row() {
 	dataset = $1
 	sourceds = ds[source] dataset 
 	targetds = ds[target] dataset 
-	match_snap = $2 
-	sfirst = $3
+	status = $2
+	match_snap = $3 
+	sfirst = $4
 	sfirst_full = sourceds sfirst
-	slast = $4
+	slast = $5
 	slast_full = sourceds slast
-	tlast = $5
-	tlast_full = tourceds tlast
+	tlast = $6
+	tlast_full = targetds tlast
+	target_match = targetds match_snap
+	source_match = sourceds match_snap
 }
 
 BEGIN {
@@ -374,11 +376,10 @@ BEGIN {
 	time_start = sys_time()
 	if (SNAPSHOT_ALL) run_snapshot()
 	if (SNAPSHOT_WRITTEN) {
-		check_written_command = "zelta match -zw " q(source) ALL_OUT
+		check_written_command = "zelta match -pqw " q(source)
 		while (check_written_command | getline) {
-			if ($2 == ":") {
-				source_zfs_list_time = $1 ? $1 : 0
-			} else if (/^[0-9]+$/) {
+			if ($1 == "SOURCE_LIST_TIME:") source_zfs_list_time = $2
+			else if (/^source volume has changed/) {
 				report(LOG_VERBOSE, source " has written data")
 				run_snapshot()
 			}
@@ -405,19 +406,22 @@ BEGIN {
 			create_volume[rpl_num] = $6
 		} else if (! /@/) {
 			if (! $0 == $1) stop(3, $0)
-		} else if ( sfirst && slast) {
-			# Replicate new volume
-			if (!tlast && sfirst && (intr_flags ~ "I")) {
+		} else if (status == "SRCONLY") {
+			if (INTR) {
 				command_queue(sfirst_full, targetds)
-				match_snap = sfirst
-				tlast = sfirst
-			} else if (!tlast && slast) command_queue(slast_full, targetds)
-			# Incremental
-			if ((match_snap == tlast) && (match_snap != slast)) {
-				command_queue(slast_full, targetds, match_snap)
-			}
-		} # else nothing to assess
-
+				command_queue(slast_full, targetds, sfirst)
+			} else command_queue(slast_full, targetds)
+		} else if (status == "BEHIND") command_queue(slast_full, targetds, match_snap)
+		else if (status == "TGTONLY") report(LOG_VERBOSE, "snapshot only exists on target: "targetds)
+		else if (status == "MIXED") {
+			report(LOG_BASIC, "latest target snapshot not on source: "tlast_full)
+			report(LOG_BASIC, "  consider target rollback: "target_match )
+			report(LOG_BASIC, "  or source rollback to: "source_match)
+		} else if (status == "AHEAD") {
+			report(LOG_BASIC, "target ahead of source: "tlast_full)
+			report(LOG_BASIC, "  reverse replication or rollback target to: "target_match)
+		} else if (status == "SYNCED") report(LOG_VERBOSE, "target is up to date: "tlast_full)
+		else report(LOG_ERROR, "match error: "$0)
 	}
 	close(match_command)
 

@@ -69,6 +69,7 @@ function get_options() {
                         if (gsub(/p/,"")) PASS_FLAGS = PASS_FLAGS "p"
                         if (gsub(/j/,"")) PASS_FLAGS = PASS_FLAGS "j"
                         if (gsub(/w/,"")) WRITTEN++
+                        if (gsub(/q/,"")) QUIET++
 			if (gsub(/o/,"")) PROPERTIES = sub_opt()
                         if (gsub(/d/,"")) ZELTA_DEPTH = sub_opt()
                         if (/./) usage("unkown options: " $0)
@@ -115,8 +116,8 @@ BEGIN {
 	get_options()
 	if (PASS_FLAGS) PASS_FLAGS = "ZELTA_MATCH_FLAGS='"PASS_FLAGS"' "
 	if (!target) WRITTEN++
-	PROPERTIES_DEFAULT = "dataset" (WRITTEN ? ",sdiff" : "") ",status,match,slast"
-	if (PROPERTIES ~ /sdiff/) WRITTEN++
+	PROPERTIES_DEFAULT = "stub" (WRITTEN ? ",sizediff" : "") ",status,match,srclast"
+	if (PROPERTIES ~ /sizediff/) WRITTEN++
 	ZFS_LIST_PROPERTIES_DEFAULT = "name,guid" (WRITTEN ? ",written" : "")
 	ZFS_LIST_PROPERTIES = env("ZFS_LIST_PROPERTIES", ZFS_LIST_PROPERTIES_DEFAULT)
 	if (!PROPERTIES) PROPERTIES = env("ZELTA_MATCH_PROPERTIES", PROPERTIES_DEFAULT)

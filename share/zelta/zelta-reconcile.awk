@@ -36,11 +36,11 @@ function env(env_name, var_default) {
 function report(level, message) {
 	if (!message) return 0
 	if ((level <= LOG_LEVEL) && (level < 0)) print message > STDOUT
-	#if (MODE=="PARSE") return
 	if (level <= LOG_LEVEL) print message
 }
 
 function h_num(num) {
+	if (MODE == "PARSE") return num
 	suffix = "B"
 	divisors = "KMGTPE"
 	for (h = 1; h <= length(divisors) && num >= 1024; h++) {
@@ -48,6 +48,13 @@ function h_num(num) {
 		suffix = substr(divisors, h, 1)
 	}
 	return int(num) suffix
+}
+
+# Needed to prevent mawk and gawk from turning length() checked arrays into scalers
+function arrlen(array) {
+	element_count = 0
+	for (key in array) element_count++
+	return element_count
 }
 
 function get_snapshot_data(volume_name) {
@@ -91,10 +98,13 @@ function load_target_snapshots() {
 		target_written[snapshot_stub] = snapshot_written
 		if (!(target_vol_count[dataset_stub]++)) {
 			target_latest[dataset_stub] = snapshot_stub
-			target_latest_snapshot[dataset_stub] = snapshot_name
+			tgtlast[dataset_stub] = snapshot_name
 			target_order[++target_num] = dataset_stub
+			status[dataset_stub] = "TGTONLY"
 		}
-		target_list[dataset_stub target_vol_count[dataset_stub]] = snapshot_stub
+		#target_list[dataset_stub target_vol_count[dataset_stub]] = snapshot_stub
+		tgtfirst[dataset_stub] = snapshot_name
+		tgtnum[dataset_stub]++
 	}
 	close(snapshot_list_command)
 }
@@ -110,23 +120,23 @@ function check_parent() {
 	sub(/zfs list.*'/, "zfs list '"parent"'", parent_list_command)
 	parent_list_command | getline parent_check
 	if (parent_check ~ /dataset does not exist/) {
-		create_parent=parent
-		report(LOG_DEFAULT, "parent dataset does not exist: " create_parent)
+		report(LOG_DEFAULT, "parent dataset does not exist: " parent)
 	}
 }
 
 function arr_sort(arr) {
-	for (x in arr) {
-		y = arr[x]
-		z = x - 1
-		while (z && arr[z] > y) {
-			arr[z + 1] = arr[z]
-			z--
-		}
-		arr[z + 1] = y
-	}
+    n = arrlen(arr);
+    for (i = 2; i <= n; i++) {
+        # Store the current value and its key
+        value = arr[i];
+        j = i - 1;
+        while (j >= 1 && arr[j] > value) {
+            arr[j + 1] = arr[j];
+            j--;
+        }
+        arr[j + 1] = value;
+    }
 }
-
 
 BEGIN {
 	FS="\t"
@@ -140,16 +150,13 @@ BEGIN {
 
 	PASS_FLAGS = env("ZELTA_MATCH_FLAGS", "")
 	LOG_LEVEL = env("ZELTA_LOG_LEVEL", 0)
-	PROPERTIES_DEFAULT = "dataset,status,match,slast"
+	PROPERTIES_DEFAULT = "stub,status,match,srclast"
 	split(env("ZELTA_MATCH_PROPERTIES",PROPERTIES_DEFAULT), PROPERTIES, ",")
 	for (i in PROPERTIES) COL[PROPERTIES[i]]++
-
+	
 	MODE = "CHART"
 	if (PASS_FLAGS ~ /p/) MODE = "PARSE"
-	#MODE[env("ZELTA_LOG_MODE","CHART")]++
-	#MODE["PARSE"]
-	#MODE["CHART"]
-	if (PASS_FLAGS ~ /H/) NO_HEADER++
+	if (PASS_FLAGS ~ /H/) NOHEADER++
 
 	exit_code = 0
 	LOG_MODE = ZELTA_PIPE ? 0 : 1
@@ -158,6 +165,7 @@ BEGIN {
 
 function get_endpoint_info() {
 	endpoint = $1
+	endpoint_hash[endpoint] = $1
 	volume[endpoint] = $2
 	vol_name_length[endpoint] = length(volume[endpoint]) + 1
 	return endpoint
@@ -168,41 +176,50 @@ NR == 1 { source = get_endpoint_info() }
 NR == 2 { target = get_endpoint_info() }
 
 NR == 3 {
+	zfs_list_time = 0
 	volume_written[source] = 0
 	volume_written[target] = 0
 	if (!target) next
-	if (/written/) COL_WRITTEN++
 	snapshot_list_command = $0;
-	load_target_snapshots()
-	zfs_list_time = 0
+	if ((source == target) || !snapshot_list_command) {
+		delete COL["status"]
+		delete COL["match"]
+		delete COL["tgtfirst"]
+		delete COL["tgtlast"]
+	} else load_target_snapshots()
 	target_zfs_list_time = zfs_list_time
 }
 
 NR > 3 {
 	if (!get_snapshot_data(source)) { next }
+	srcnum[dataset_stub]++
 	source_guid[snapshot_stub] = snapshot_guid
 	source_written[snapshot_stub] = snapshot_written
 	if (!(source_vol_count[dataset_stub]++)) {
 		source_latest[dataset_stub] = snapshot_stub
-		source_latest_snapshot[dataset_stub] = snapshot_name
+		srclast[dataset_stub] = snapshot_name
 		source_order[++source_num] = dataset_stub
 	}
 	# Catch oldest snapshot name to ensure replication completeness
 	source_oldest[dataset_stub] = snapshot_name
-	if (dataset_stub in matches) { next }
+
+	if (dataset_stub in matches) next
 	else if (!target_latest[dataset_stub] && !(dataset_stub in new_volume)) {
 		if (!dataset_stub) check_parent()
-		#new_volume[dataset_stub] = dataset_name OFS volume[target] dataset_stub
 		new_volume[dataset_stub] = snapshot_name
-		basic_log[dataset_stub] = "snapshots only on source: " dataset_name
+		status[dataset_stub] = "SRCONLY"
 	} else if (target_guid[snapshot_stub]) {
 		if (target_guid[snapshot_stub] == source_guid[snapshot_stub]) {
 			matches[dataset_stub] = snapshot_name
+			status[dataset_stub] = "AHEAD"
 			if (snapshot_stub == source_latest[dataset_stub]) {
 				basic_log[dataset_stub] = "target has latest source snapshot: " snapshot_stub
+				status[dataset_stub] = "SYNCED"
 			} else if (guid_error[dataset_stub]) {
 				report(LOG_ERROR,"latest guid match on target snapshot: " dataset_name)
+				status[dataset_stub] = "MIXED"
 			} else {
+				status[dataset_stub] = "BEHIND"
 				delta_update = volume[source] source_latest[dataset_stub]
 				delta_target = volume[target] dataset_stub
 				delta[dataset_stub] = snapshot_name OFS delta_update OFS delta_target
@@ -214,7 +231,8 @@ NR > 3 {
 		}
 	} else {
 		total_transfer_size += snapshot_written
-		size_diff[stub] += snapshot_written
+		size_diff[dataset_stub] += snapshot_written
+		num_diff[dataset_stub]++
 	}
 }
 
@@ -230,7 +248,7 @@ function print_row(col) {
 }
 
 function make_header_column(title, arr) {
-	columns[++c] = title
+	columns[++c] = NOHEADER?"  ":title
 	if (MODE=="CHART") { 
 		width = length(title)
 		for (w in arr) if (length(arr[w])>width) width = length(arr[w])
@@ -242,60 +260,55 @@ function make_header_column(title, arr) {
 function chart_header() {
 	c = 0
 	delete columns
-	if (NO_HEADER) return
-	if ((length(stub_order) <= 1) && MODE=="CHART") delete COL["dataset"]
-	if ("dataset" in COL) make_header_column("DATASET", stub_order)
-	if ("sdiff" in COL) make_header_column("SDIFF", size_diff)
+	if ((arrlen(stub_order) <= 1) && MODE=="CHART") delete COL["stub"]
+	if ("stub" in COL) make_header_column("STUB", stub_order)
+	if ("status" in COL) make_header_column("STATUS", status)
+	if ("sizediff" in COL) make_header_column("SIZEDIFF", size_diff)
+	if ("numdiff" in COL) make_header_column("NUMDIFF", num_diff)
 	if ("match" in COL) make_header_column("MATCH", matches)
-	if ("sfirst" in COL) make_header_column("SOURCE_FIRST", source_oldest)
-	if ("slast" in COL) make_header_column("SOURCE_LAST", source_latest_snapshot)
-	if ("tlast" in COL) make_header_column("TARGET_LAST", target_latest_snapshot)
-	print_row(columns)
+	if ("srcfirst" in COL) make_header_column("SRCFIRST", source_oldest)
+	if ("srclast" in COL) make_header_column("SRCLAST", srclast)
+	if ("tgtfirst" in COL) make_header_column("TGTFIRST", tgtfirst)
+	if ("tgtlast" in COL) make_header_column("TGTLAST", tgtlast)
+	if ("srcnum" in COL) make_header_column("SRCNUM", srcnum)
+	if ("tgtnum" in COL) make_header_column("TGTNUM", tgtnum)
+	if (!NOHEADER) print_row(columns)
 }
 
 function chart_row(stub) {
 	if (!ROW++) chart_header()
 	c=0
 	delete columns
-	if ("dataset" in COL) columns[++c] = stub
-	if ("sdiff" in COL) {
-		size_diff_print = ((MODE=="CHART")?h_num(size_diff[stub]):size_diff[stub])
-		columns[++c] = size_diff_print
-	}
+	if ("stub" in COL) columns[++c] = stub
+	if ("status" in COL) columns[++c] = status[stub]
+	if ("sizediff" in COL) columns[++c] = h_num(size_diff[stub])
+	if ("numdiff" in COL) columns[++c] = num_diff[stub]
 	if ("match" in COL) columns[++c] = matches[stub]
-	if ("sfirst" in COL) columns[++c] = source_oldest[stub]
-	if ("slast" in COL) columns[++c] = source_latest_snapshot[stub]
-	if ("tlast" in COL) columns[++c] = target_latest_snapshot[stub]
+	if ("srcfirst" in COL) columns[++c] = source_oldest[stub]
+	if ("srclast" in COL) columns[++c] = srclast[stub]
+	if ("tgtfirst" in COL) columns[++c] = tgtfirst[stub]
+	if ("tgtlast" in COL) columns[++c] = tgtlast[stub]
+	if ("srcnum" in COL) columns[++c] = srcnum[stub]
+	if ("tgtnum" in COL) columns[++c] = tgtnum[stub]
 	print_row(columns)
 }
 
-
 END {
 	arr_sort(stub_order)
-	num_datasets = length(stub_order)
-	new_ds_count = length(new_volume)
-	match_count = length(matches)
-	for (i=1;i<=length(stub_order);i++) {
+	for (i=1;i<=arrlen(stub_order);i++) {
 		stub = stub_order[i]
+		if ((matches[stub] != srclast[stub]) && (matches[stub] != tgtlast[stub])) {
+			status[stub] = "MIXED"
+		}
+		if (srclast[stub] == tgtlast[stub]) num_diff[stub] = 0
 		chart_row(stub)
-		#report(LOG_PIPE,new_volume[stub])
-		#report(LOG_PIPE,delta[stub])
 	}
 	source_zfs_list_time = zfs_list_time
 	if (MODE=="PARSE") print "SOURCE_LIST_TIME:", source_zfs_list_time, ":","TARGET_LIST_TIME", target_zfs_list_time
-	if (length(source_latest) == 0) report(LOG_DEFAULT,"no source snapshots found")
-	if (volume_written[source]) {
-		report(LOG_DEFAULT, "source volume has changed: " h_num(volume_written[source]))
-		report(LOG_PIPE, volume_written[source])
-	}
+	if (arrlen(source_latest) == 0) report(LOG_DEFAULT,"no source snapshots found")
+	if (volume_written[source]) report(LOG_DEFAULT, "source volume has changed: " h_num(volume_written[source]))
 	if (volume_written[target]) report(LOG_DEFAULT, "target volume has changed: " h_num(volume_written[target]))
 	for (stub in volume_check) if (!source_latest[stub]) missing_branch[stub]
 	report(LOG_PIPE, create_parent)
-	#for (stub in target_latest) {
-	#	if (!source_latest[stub]) {
-	#		chart_row(stub)
-	#		#report(LOG_DEFAULT, "target volume not on source: " target_latest[stub])
-	#	}
-	#}
 	if (total_transfer_size) report(LOG_DEFAULT, "new snapshot transfer size: " h_num(total_transfer_size))
 }

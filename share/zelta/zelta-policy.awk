@@ -136,7 +136,7 @@ function load_config() {
 	if (SYNC_LOG_MODE == "j") c["JSON"] = 1
 
 	SNAPSHOT = c["SNAPSHOT"]
-	if (!SNAPSHOT || (SNAPSHOT=="OFF")) SNAPSHOT = ""
+	if ((SNAPSHOT == "0") || (SNAPSHOT=="OFF")) SNAPSHOT = ""
 	else if (SNAPSHOT=="ALL") SNAPSHOT = "S"
 	else if (SNAPSHOT=="SKIP") SNAPSHOT = "ss"
 	else SNAPSHOT = "s"
