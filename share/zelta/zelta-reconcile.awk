@@ -35,7 +35,7 @@ function env(env_name, var_default) {
 
 function report(level, message) {
 	if (!message) return 0
-	if ((level <= LOG_LEVEL) && (level < 0)) print message > STDOUT
+	if ((level <= LOG_LEVEL) && (level < 0)) print message > STDERR
 	if (level <= LOG_LEVEL) print message
 }
 
@@ -64,7 +64,7 @@ function get_snapshot_data(volume_name) {
 			split($0, time_arr, /[ \t]+/)
 			zfs_list_time = time_arr[2]
 			return 0
-		} else if (/(sys|user) [0-9]/) {
+		} else if (/(sys|user)[ \t]+[0-9]/) {
 			return 0
 		} else if (!($1 ~ /@/) && ($2 ~ /[0-9]/)) {
 			volume_written[volume_name] += $3
@@ -141,7 +141,7 @@ function arr_sort(arr) {
 BEGIN {
 	FS="\t"
 	OFS="\t"
-	STDOUT = ">/dev/null"
+	STDERR = "/dev/stderr"
 	LOG_ERROR=-2
 	LOG_WARNING=-1
 	LOG_DEFAULT=0
@@ -150,9 +150,13 @@ BEGIN {
 
 	PASS_FLAGS = env("ZELTA_MATCH_FLAGS", "")
 	LOG_LEVEL = env("ZELTA_LOG_LEVEL", 0)
+	PROPERTIES_ALL = "stub,status,sizediff,numdiff,match,srcfirst,srclast,tgtfirst,tgtlast,srcnum,tgtnum"
 	PROPERTIES_DEFAULT = "stub,status,match,srclast"
-	split(env("ZELTA_MATCH_PROPERTIES",PROPERTIES_DEFAULT), PROPERTIES, ",")
-	for (i in PROPERTIES) COL[PROPERTIES[i]]++
+	PROPERTIES = env("ZELTA_MATCH_PROPERTIES", PROPERTIES_DEFAULT)
+	if (PROPERTIES == "all") PROPERTIES = PROPERTIES_ALL
+	print PROPERTIES
+	split(PROPERTIES, PROPLIST, ",")
+	for (i in PROPLIST) COL[PROPLIST[i]]++
 	
 	MODE = "CHART"
 	if (PASS_FLAGS ~ /p/) MODE = "PARSE"
@@ -255,11 +259,10 @@ function make_header_column(title, arr) {
 	}
 }
 
-
 function chart_header() {
 	c = 0
 	delete columns
-	if ((arrlen(stub_order) <= 1) && MODE=="CHART") delete COL["stub"]
+	#if ((arrlen(stub_order) <= 1) && MODE=="CHART") delete COL["stub"]
 	if ("stub" in COL) make_header_column("STUB", stub_order)
 	if ("status" in COL) make_header_column("STATUS", status)
 	if ("sizediff" in COL) make_header_column("SIZEDIFF", size_diff)
