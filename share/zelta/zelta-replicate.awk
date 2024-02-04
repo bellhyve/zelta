@@ -418,7 +418,7 @@ BEGIN {
 			report(LOG_BASIC, "  consider target rollback: "target_match )
 			report(LOG_BASIC, "  or source rollback to: "source_match)
 		} else if (status == "AHEAD") {
-			report(LOG_BASIC, "target ahead of source: "tlast_full)
+			report(LOG_BASIC, "target snapshot ahead of source: "tlast_full)
 			report(LOG_BASIC, "  reverse replication or rollback target to: "target_match)
 		} else if (status == "SYNCED") report(LOG_VERBOSE, "target is up to date: "tlast_full)
 		else report(LOG_ERROR, "match error: "$0)

@@ -211,10 +211,9 @@ NR > 3 {
 	} else if (target_guid[snapshot_stub]) {
 		if (target_guid[snapshot_stub] == source_guid[snapshot_stub]) {
 			matches[dataset_stub] = snapshot_name
-			status[dataset_stub] = "AHEAD"
 			if (snapshot_stub == source_latest[dataset_stub]) {
 				basic_log[dataset_stub] = "target has latest source snapshot: " snapshot_stub
-				status[dataset_stub] = "SYNCED"
+				status[dataset_stub] = (snapshot_stub==target_latest[dataset_stub]) ? "SYNCED" : "AHEAD"
 			} else if (guid_error[dataset_stub]) {
 				report(LOG_ERROR,"latest guid match on target snapshot: " dataset_name)
 				status[dataset_stub] = "MIXED"
