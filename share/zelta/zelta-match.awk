@@ -19,11 +19,13 @@
 #
 # SWITCHES
 #
-# -d#	Limi depth to #.
+# -o    "all" or a list of properties to show.
+# -H    Hide header
+# -p    Sing-ltab delimited output
 # -n	Show the zfs list commands instead of running them.
-# -v	Verbose, implies -w.
-# -w	Calculates the size of missing target snapshots using the "written" property.
-# -z	Pipe mode, see ZELTA_PIPE below.
+# -v	Verbose, tell the user if output is being suppressed.
+# -w	Adds sizediff column.
+# -d#	Limi depth to #.
 #
 # ENVIRONMENT VARIABLES
 #
@@ -67,7 +69,8 @@ function get_options() {
                         if (gsub(/n/,"")) DRY_RUN++
                         if (gsub(/H/,"")) PASS_FLAGS = PASS_FLAGS "H" 
                         if (gsub(/p/,"")) PASS_FLAGS = PASS_FLAGS "p"
-                        if (gsub(/j/,"")) PASS_FLAGS = PASS_FLAGS "j"
+                        if (gsub(/j/,"")) PASS_FLAGS = PASS_FLAGS "j" # Future
+                        if (gsub(/v/,"")) PASS_FLAGS = PASS_FLAGS "v" # Future
                         if (gsub(/w/,"")) WRITTEN++
                         if (gsub(/q/,"")) QUIET++
 			if (gsub(/o/,"")) PROPERTIES = sub_opt()

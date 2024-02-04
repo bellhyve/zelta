@@ -154,13 +154,13 @@ BEGIN {
 	PROPERTIES_DEFAULT = "stub,status,match,srclast"
 	PROPERTIES = env("ZELTA_MATCH_PROPERTIES", PROPERTIES_DEFAULT)
 	if (PROPERTIES == "all") PROPERTIES = PROPERTIES_ALL
-	print PROPERTIES
 	split(PROPERTIES, PROPLIST, ",")
 	for (i in PROPLIST) COL[PROPLIST[i]]++
 	
 	MODE = "CHART"
 	if (PASS_FLAGS ~ /p/) MODE = "PARSE"
 	if (PASS_FLAGS ~ /H/) NOHEADER++
+	if (PASS_FLAGS ~ /v/) LOG_LEVEL++
 
 	exit_code = 0
 	LOG_MODE = ZELTA_PIPE ? 0 : 1
@@ -186,10 +186,15 @@ NR == 3 {
 	if (!target) next
 	snapshot_list_command = $0;
 	if ((source == target) || !snapshot_list_command) {
-		delete COL["status"]
-		delete COL["match"]
-		delete COL["tgtfirst"]
-		delete COL["tgtlast"]
+		# Should I suppress unnecessary columns by default?
+		if (MODE == "CHART") {
+			report(LOG_VERBOSE, "same source and target, suppressing match output")
+			delete COL["status"]
+			delete COL["match"]
+			delete COL["tgtfirst"]
+			delete COL["tgtlast"]
+			delete COL["tgtnum"]
+		}
 	} else load_target_snapshots()
 	target_zfs_list_time = zfs_list_time
 }
@@ -262,7 +267,10 @@ function make_header_column(title, arr) {
 function chart_header() {
 	c = 0
 	delete columns
-	#if ((arrlen(stub_order) <= 1) && MODE=="CHART") delete COL["stub"]
+	if ((arrlen(stub_order) <= 1) && MODE=="CHART") {
+		report(LOG_VERBOSE, "single dataset; hiding stub column")
+		delete COL["stub"]
+	}
 	if ("stub" in COL) make_header_column("STUB", stub_order)
 	if ("status" in COL) make_header_column("STATUS", status)
 	if ("sizediff" in COL) make_header_column("SIZEDIFF", size_diff)
