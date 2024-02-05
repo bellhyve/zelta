@@ -70,18 +70,39 @@ EOF
 usage_match() {
 	cat << EOF
 DESCRIPTION
-    zelta match [-nw] [-d#] source-endpoint target-endpoint
+    zelta match [-Hpnw] [-d#] [-o fields] source-endpoint target-endpoint
       Report the latest matching snapshot between two datasets. If only one argument is
       given, report the amount of data unwritten since the last snapshot.
 
+    By default, the user will receive a table output including the fields:
+      [stub,]status,match,srclast
+    Where "stub" describes the snapshot name relative to both the source and target. Stub
+    will be suppressed if there are no child snapshots.
+
 ENDPOINT SYNTAX
-      source-endpoint  [user@][host:]pool/dataset
-      target-endpoint  [user@][host:]pool/dataset
+      source-endpoint [user@][host:]pool/dataset
+      target-endpoint [user@][host:]pool/dataset
 
 OPTIONS
+      -H  Suppress the header row.
+      -p  For piping/scripting, split the columns by a single tab.
       -n  Show the "zfs list" command lines that would be run and exit.
-      -w  Calculate missing written data for "zelta backup" or "zelta sync -I".
-      -d#  Limit "zfs list" depth to #.
+      -w  Add the "sizediff" column; note that this results in slower output.
+      -d# Limit "zfs list" depth to #.
+      -o  A comma-delimited list of fields with one or more of:
+            stub      The name of the dataset relative to the source or target
+            status    The target's sync status relative to the source, one of:
+                        NOTARGET, NOSOURCE, SYNCED, BEHIND, AHEAD, MISMATCH
+            sizediff  The amount of data missing on the target since the last snapshot match
+            numdiff   The number of snapshots missing on the target since the last snapshot match
+            match     The most recent common snapshot
+            srcfirst  The first snapshot on the source
+            tgtfirst  The first snapshot on the target
+            srclast   The last snapshot on the source
+            tgtlast   The last snapshot on the target
+            srcnum    Total number of snapshot on the source
+            tgtnum    Total number snapshot on the target
+        
 EOF
 }
 

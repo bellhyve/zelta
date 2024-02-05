@@ -19,8 +19,10 @@ There are additional functions and shortcuts:
 
 By "safe", we mean:
 - Zelta has an option to snapshot, or snapshot conditionally, before replications.
-- Zelta mounts read-only by default and resets mountpoints below the parent dataset.
+- Zelta replicates read-only by default and resets ("inherits") mountpoints below the parent dataset to avoid dangerous overlapping mounts.
 - Zelta does not have a force overwrite option, but plans to provide assistance with `zfs rollback` and related operations.
+
+Zelta is designed with Unix philosophy in mind. It is modular, extensible, and almost anything (including our safe defaults) can be changed with a tiny bit of elbow grease.
 
 
 # Alpha Software Notice, and a Commitment to Safety and Community Collaboration
@@ -32,9 +34,9 @@ We invite individuals of all technical backgrounds who want to protect both pers
 
 # Release
 
-Zelta's commands and switches should be considered somewhat in flux until its official release on February 19, 2024. For example, the default behavior for `zelta policy` just changed to mimic `zelta backup` by adding a snapshot command and including intermediate snapshots. Zelta also now mounts filesystems read-only rather than leaving them unmounted.
+Zelta's commands and switches should be considered somewhat in flux until its official release on February 19, 2024. For example, the default behavior for `zelta policy` just changed to mimic `zelta backup` by adding a snapshot command and including intermediate snapshots.
 
-Zelta is free to use and will be released under the Simplified BSD License or similar.
+Zelta is free to use and will be released on February 19, 2024 under the Simplified BSD License or similar.
 
 
 ## Goals and Methodology
@@ -91,7 +93,7 @@ Simply repeat this to update your backup. To learn more, see the `zelta replicat
 
 `zelta match` and `zelta backup` are useful for migrations and backup scripts that deal with a small number of replication jobs interactively. To deal with large numbers of backup datasets, you can use `zelta policy` perform many backups and receive a human-readable backup report or JSON detail.
 
-Next, we'll use a policy configuration file to perform the same task as we did in the first example: backing up a local `zroot` source to `backups/my_zroot_backup`. Set up and edit **zelta.conf**.
+Next, we'll use a policy configuration file to perform the same task as we did in the first example: backing up a local `zroot` source to `backuppool/my_zroot_backup`. Set up and edit **zelta.conf**.
 
 ```sh
 vi /usr/local/etc/zelta/zelta.conf
@@ -102,24 +104,24 @@ First, let's make a configuration to test local backups. The first line below is
 ```yaml
 MyLocalBackups:
   localhost:
-  - zroot: backups/my_zroot_backup
+  - zroot: backuppool/my_zroot_backup
 ```
 
 Run `zelta policy`. It will perform the backup operation and report some details if it succeeds, or an "⊜" symbol if it finds nothing to replication. Now we extend our policy with options and more datasets.
 
-On your backup servers, create a backup user and give it access to replicate to your backup target (`zfs allow -u backup receive,mount,create backups`). Note that the backup user will not be able to receive any property it doesn't have permission to. Missing some permissions doesn't prevent a successful backup of data, but if you'd like to back up a default FreeBSD system with all properties, set these additional permissions: `canmount,mountpoint,setuid,exec,atime,compression`.
+On your backup servers, create a backup user, which we will call "backupuser" user and give it access to replicate to your backup target, e.g., `zfs allow -u backupuser receive,mount,create,readonly backuppool`. Note that backupuser will not be able to receive any property it doesn't have permission to. Missing some permissions doesn't prevent a successful backup of data, but if you'd like to back up a default FreeBSD system with all properties, set these additional permissions: `canmount,mountpoint,setuid,exec,atime,compression`.
 
-On your source servers (the servers with datasets you would like to back up) also create a backup user, and grant it access to send snapshots from your source dataset (or a parent dataset above your backup source dataset), e.g., `zfs allow -u backup send,snapshot,hold pool/stuff`.
+On your source servers (the servers with datasets you would like to back up) also create a backup user, and grant it access to send snapshots from your source dataset (or a parent dataset above your backup source dataset), e.g., `zfs allow -u backupuser send,snapshot,hold pool/stuff`.
 
 Use SSH (key-based authentication)[https://docs.freebsd.org/en/books/handbook/security/#security-ssh-keygen] between your backup server and source servers. Make sure you can ssh from the machine you're running Zelta on to the others.
 
 ```yaml
-BACKUP_ROOT: backups
+BACKUP_ROOT: backuppool
 HOST_PREFIX: 1
 
 MySites:
   localhost:
-  - zroot: backups/my_zroot_backup
+  - zroot: backuppool/my_zroot_backup
   host1:
   - tank/vm/one
   - tank/vm/two
