@@ -1,7 +1,7 @@
 #!/bin/sh
 : ${ZELTA_ETC:="/usr/local/etc/zelta"}
 : ${ZELTA_ENV:="$ZELTA_ETC/zelta.env"}
-: ${ZELTA_SNAP_NAME:="date +%Y-%m-%d_%H.%M.%S"}
+: ${ZELTA_SNAP_NAME:="date -u +%Y-%m-%d_%H.%M.%S"}
 
 if [ -r $ZELTA_ENV ]; then
        . $ZELTA_ENV
@@ -21,16 +21,18 @@ AWKPRE="$AWK -f $ZELTA_SHARE"
 script_name=`echo $0 | sed 's-.*/--'`
 if [ ! "zelta" = "$script_name" ]; then
 	zelta_command="$script_name"
-else
-	zelta_command="$1"; shift;
+elif [ -n "$1" ]; then
+	zelta_command="$1";
+	shift;
 fi
 
 case $zelta_command in
-	# Legacy command names
+	# Command synonyms
 	zmatch) $AWKPRE/zelta-match.awk -- "$@" ;;
 	zpull) $AWKPRE/zelta-replicate.awk -- "$@" ;;
 	zpush) $AWKPRE/zelta-replicate.awk -- "$@" ;;
 	zeport) $AWKPRE/zelta-report.awk -- "$@" ;;
+	zp) $AWKPRE/zelta-policy.awk -- "$@" ;;
 	# "zelta replicate" variants
 	backup) $AWKPRE/zelta-replicate.awk -- -sI "$@" ;;
 	clone) $AWKPRE/zelta-replicate.awk -- -c "$@" ;;
