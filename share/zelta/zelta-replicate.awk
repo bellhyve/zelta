@@ -401,8 +401,8 @@ BEGIN {
 			report(LOG_ERROR, $0)
 		} else if (/^[0-9]+$/) {
 			report(LOG_VERBOSE, source " has written data")
-		} else if (/^parent dataset does not exist:/) {
-			rpl_cmd[++rpl_num] = zfs[target] "create " create_flags q($6)
+		} else if (sub(/^parent dataset does not exist: +/,"")) {
+			rpl_cmd[++rpl_num] = zfs[target] "create " create_flags q($0)
 			create_volume[rpl_num] = $6
 		} else if (! /@/) {
 			if (! $0 == $1) stop(3, $0)
@@ -421,6 +421,7 @@ BEGIN {
 			report(LOG_BASIC, "target snapshot ahead of source: "tlast_full)
 			report(LOG_BASIC, "  reverse replication or rollback target to: "target_match)
 		} else if (status == "SYNCED") report(LOG_VERBOSE, "target is up to date: "tlast_full)
+		else if (status == "NOSNAP") report(LOG_VERBOSE, "no snapshot for dataset "dataset)
 		else report(LOG_ERROR, "match error: "$0)
 	}
 	close(match_command)

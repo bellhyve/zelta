@@ -67,11 +67,15 @@ function get_snapshot_data(volume_name) {
 		} else if (/(sys|user)[ \t]+[0-9]/) {
 			return 0
 		} else if (!($1 ~ /@/) && ($2 ~ /[0-9]/)) {
-			volume_written[volume_name] += $3
 			# Toggle remote/target list to see what's missing
 			stub = substr($1, trim)
 			if (volume_check[stub]) delete volume_check[stub]
 			else volume_check[stub] = $1
+			if (!stub_list[stub]++) stub_order[++stub_num] = stub
+			if (!status[stub]) status[stub] = "NOSNAP"
+			if (!num_snaps[volume_name,stub]) num_snaps[volume_name,stub] = 0
+			stub_written[volume_name,stub] += $3
+			volume_written[volume_name] += $3
 			return 0
 		} else if (! /@/) {
 			report(LOG_ERROR,$0)
@@ -84,10 +88,8 @@ function get_snapshot_data(volume_name) {
 		snapshot_written = $3			# written property
 		split(snapshot_stub, split_stub, "@")
 		dataset_stub = split_stub[1]		# [child] (blank for top volume name)
-		if (!stub_list[dataset_stub]++) {
-			stub_order[++stub_num] = dataset_stub
-		}
 		snapshot_name = "@" split_stub[2]	# @snapshot
+		num_snaps[volume_name,dataset_stub]++   # Total snapshots per dataset
 		return 1
 }
 
@@ -96,6 +98,7 @@ function load_target_snapshots() {
 		if (!get_snapshot_data(target)) { continue }
 		target_guid[snapshot_stub] = snapshot_guid
 		target_written[snapshot_stub] = snapshot_written
+		stub_written[target,stub] += snapshot_written
 		if (!(target_vol_count[dataset_stub]++)) {
 			target_latest[dataset_stub] = snapshot_stub
 			tgtlast[dataset_stub] = snapshot_name
@@ -104,7 +107,6 @@ function load_target_snapshots() {
 		}
 		#target_list[dataset_stub target_vol_count[dataset_stub]] = snapshot_stub
 		tgtfirst[dataset_stub] = snapshot_name
-		tgtnum[dataset_stub]++
 	}
 	close(snapshot_list_command)
 }
@@ -201,7 +203,6 @@ NR == 3 {
 
 NR > 3 {
 	if (!get_snapshot_data(source)) { next }
-	srcnum[dataset_stub]++
 	source_guid[snapshot_stub] = snapshot_guid
 	source_written[snapshot_stub] = snapshot_written
 	if (!(source_vol_count[dataset_stub]++)) {
@@ -228,9 +229,6 @@ NR > 3 {
 				status[dataset_stub] = "MIXED"
 			} else {
 				status[dataset_stub] = "BEHIND"
-				delta_update = volume[source] source_latest[dataset_stub]
-				delta_target = volume[target] dataset_stub
-				delta[dataset_stub] = snapshot_name OFS delta_update OFS delta_target
 				basic_log[dataset_stub] = "match: " snapshot_stub OFS "latest: " source_latest[dataset_stub]
 			}
 		} else {
@@ -280,8 +278,8 @@ function chart_header() {
 	if ("srclast" in COL) make_header_column("SRCLAST", srclast)
 	if ("tgtfirst" in COL) make_header_column("TGTFIRST", tgtfirst)
 	if ("tgtlast" in COL) make_header_column("TGTLAST", tgtlast)
-	if ("srcnum" in COL) make_header_column("SRCNUM", srcnum)
-	if ("tgtnum" in COL) make_header_column("TGTNUM", tgtnum)
+	if ("srcnum" in COL) make_header_column("SRCNUM", num_snaps[source,stub])
+	if ("tgtnum" in COL) make_header_column("TGTNUM", num_snaps[target,stub])
 	if (!NOHEADER) print_row(columns)
 }
 
@@ -298,8 +296,8 @@ function chart_row(stub) {
 	if ("srclast" in COL) columns[++c] = srclast[stub]
 	if ("tgtfirst" in COL) columns[++c] = tgtfirst[stub]
 	if ("tgtlast" in COL) columns[++c] = tgtlast[stub]
-	if ("srcnum" in COL) columns[++c] = srcnum[stub]
-	if ("tgtnum" in COL) columns[++c] = tgtnum[stub]
+	if ("srcnum" in COL) columns[++c] = num_snaps[source,stub]
+	if ("tgtnum" in COL) columns[++c] = num_snaps[target,stub]
 	print_row(columns)
 }
 
