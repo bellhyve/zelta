@@ -19,6 +19,13 @@
 # behavior for updating existing replicas is to copy intermediate snapshots. You can use
 # "-R" to replicate the source's snapshot history. Use the -I flag to replicate incremental
 # snapshots.
+#
+# ZELTA_PIPE "-z" output key:
+# error_code <0: number of failed streams
+# error_code 0: replicated or up-to-date
+# error_code 1: warnings
+# error_code 2: replication error
+# error_code 3: target is ahead of source
 
 function track_errors(message) {
 	if (!message && !error_count) return 0
@@ -414,12 +421,14 @@ BEGIN {
 		} else if (status == "BEHIND") command_queue(slast_full, targetds, match_snap)
 		else if (status == "TGTONLY") report(LOG_VERBOSE, "snapshot only exists on target: "targetds)
 		else if (status == "MIXED") {
+			error_code = 3
 			report(LOG_BASIC, "latest target snapshot not on source: "tlast_full)
-			report(LOG_BASIC, "  consider target rollback: "target_match )
-			report(LOG_BASIC, "  or source rollback to: "source_match)
+			report(LOG_VERBOSE, "  consider target rollback: "target_match )
+			report(LOG_VERBOSE, "  or source rollback to: "source_match)
 		} else if (status == "AHEAD") {
+			error_code = 3
 			report(LOG_BASIC, "target snapshot ahead of source: "tlast_full)
-			report(LOG_BASIC, "  reverse replication or rollback target to: "target_match)
+			report(LOG_VERBOSE, "  reverse replication or rollback target to: "target_match)
 		} else if (status == "SYNCED") report(LOG_VERBOSE, "target is up to date: "tlast_full)
 		else if (status == "NOSNAP") report(LOG_VERBOSE, "no snapshot for dataset "dataset)
 		else report(LOG_ERROR, "match error: "$0)

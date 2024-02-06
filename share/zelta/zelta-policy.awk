@@ -1,13 +1,12 @@
 #!/usr/bin/awk -f
 #
-# zelta policy - iterates through "zelta" commands
+# zelta policy, zp - iterates through "zelta" commands
 #
-# usage: zelta [site, host, dataset, or source host:dataset] ...
+# usage: zelta policy [site, host, dataset, or source host:dataset] ...
 #
 # requires: zelta-sync.awk, zelta-match.awk
-# optional: JSON.awk (for JSON-style config)
 #
-# zelta reads a YAML or JSON-style configuration file. The minimal
+# zelta reads a YAML-style configuration file. The minimal
 # conifguration is:
 #
 # 	BACKUP_ROOT: backup/parent
@@ -15,34 +14,13 @@
 #   	  host:
 #   	  - data/set:
 #
-# Options include:
+# See the example confiuguration for details.
 #
-# BACKUP_ROOT:	The backup parent name. In the above, zelta will replicate the
-# 		source host:dataset to backup/parent/set.
+# Arguments can be any site, host, dataset, or a host:dataset pair, separated by
+# spaces.
 #
-# PREFIX:	Add parent names to the target; for example "PREFIX: 1" will
-# 		replicate to backup/parent/data/set.
-#
-#
-# site:		A label with no indentation identifies a site, which is useful
-# 		for defining host backup sets and for use with multithreading.
-#
-#   host:	Indented. ssh hostnames to access the source dataset.
-#
-#   localhost:	Use "localhost" to skip ssh and replicate from a local dataset.
-#
-# - src: tgt	Instead of using BACKUP_ROOT, specifiy an exact backup target
-# 		dataset with the format "- data/set: target/dataset". For
-# 		example:
-# 			    - data/set: backup/archive/data-set
-# 		would replicate host:data/set to backup/archive/data-set
-#
-# See the example confiuguration for more information.
-#
-# Arguments can be any site, host, dataset, or a host:dataset pair.
-#
-# By default, zelta attempts to replicate from every site, host, and dataset. This
-# behavior can be overridden by adding one or more unique item names from the
+# By default, "zelta policy" attempts to replicate from every site, host, and dataset.
+# This behavior can be overridden by adding one or more unique item names from the
 # configuration file to the argument list. For example, entering a site name will
 # replicate all datasets from all hosts of a site. Keep this in mind when reusing
 # host or dataset names.
@@ -185,19 +163,20 @@ function zelta_sync(host, source, target) {
 	if ((LOG_MODE == LOG_DELAY) && !c["JSON"]) report(LOG_DELAY, host":"source": ")
 	report(LOG_ACTIVE, source": ")
 	while (sync_cmd|getline) {
+		# received_streams, total_bytes, time, error
 		if (/[0-9]+ [0-9]+ [0-9]+\.*[0-9]* -?[0-9]+/) {
 			if ($2) report(LOG_DELAY, h_num($2) ": ")
 			if ($4) {
-				report(LOG_DELAY, "✗ ")
+				report(LOG_DELAY, "failed: ")
 				sync_status = 0
 				if ($4 == 1) report(LOG_DELAY, "error matching snapshots")
 				else if ($4 == 2) report(LOG_DELAY, "replication error")
-				else if ($4 == 3) report(LOG_DELAY, "error matching snapshots")
+				else if ($4 == 3) report(LOG_DELAY, "target is ahead of source")
 				else if ($4 == 4) report(LOG_DELAY, "error creating parent volume")
 				else if ($4 < 0) report(LOG_DELAY, (0-$4) " missing streams")
 				else report(LOG_DELAY, "error: " $0)
-			} else if ($1) { report(LOG_DELAY, "✔ transferred in " $3 "s") }
-			else report(LOG_DELAY, "⊜")
+			} else if ($1) { report(LOG_DELAY, "replicated in " $3 "s") }
+			else report(LOG_DELAY, "nothing to replicate")
 		} else {
 			report(LOG_DELAY, $0)
 			if (/replicationErrorCode/ && !/0,/) sync_status = 0
