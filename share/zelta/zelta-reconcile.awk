@@ -246,7 +246,8 @@ NR > 3 {
 #function new_volume_check() {
 
 function print_row(col) {
-	for(c=1;c<=length(col);c++) {
+	num_col = arrlen(col)
+	for(c=1;c<=num_col;c++) {
 		if (MODE=="PARSE") printf ((c>1)?"\t":"") col[c]
 		if (MODE=="CHART") printf ((c>1)?"  ":"") pad[c], col[c]
 	}
@@ -278,8 +279,8 @@ function chart_header() {
 	if ("srclast" in COL) make_header_column("SRCLAST", srclast)
 	if ("tgtfirst" in COL) make_header_column("TGTFIRST", tgtfirst)
 	if ("tgtlast" in COL) make_header_column("TGTLAST", tgtlast)
-	if ("srcnum" in COL) make_header_column("SRCNUM", num_snaps[source,stub])
-	if ("tgtnum" in COL) make_header_column("TGTNUM", num_snaps[target,stub])
+	if ("srcnum" in COL) make_header_column("SRCNUM", num_snaps)
+	if ("tgtnum" in COL) make_header_column("TGTNUM", num_snaps)
 	if (!NOHEADER) print_row(columns)
 }
 
