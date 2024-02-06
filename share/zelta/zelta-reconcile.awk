@@ -36,7 +36,7 @@ function env(env_name, var_default) {
 function report(level, message) {
 	if (!message) return 0
 	if ((level <= LOG_LEVEL) && (level < 0)) print message > STDERR
-	if (level <= LOG_LEVEL) print message
+	else if (level <= LOG_LEVEL) print message
 }
 
 function h_num(num) {
