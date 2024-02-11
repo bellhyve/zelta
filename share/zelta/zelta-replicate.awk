@@ -67,6 +67,13 @@ function q(s) { return "'" s "'" }
 
 function dq(s) { return "\"" s "\"" }
 
+function run_zfs_command(cmd_args, qarg1, qarg2) {
+	rzc_prefix = TIME_COMMAND" "SHELL_WRAPPER
+        rzc_args = cmd_args q(qarg1) (qarg2?" "q(qarg2):"")
+	rzc_cmd = rzc_prefix " " dq(rzc_args) ALL_OUT
+	return rzc_cmd
+}
+
 function command_queue(send_dataset, receive_volume, match_snapshot) {
 	num_streams++
 	if (zfs_send_command ~ /ssh/) {
@@ -146,7 +153,9 @@ function get_options() {
 function get_config() {
 	# Load environemnt variables and options and set up zfs send/receive flags
 	SHELL_WRAPPER = env("ZELTA_SHELL", "sh -c")
-	SEND_FLAGS = env("ZELTA_SEND_FLAGS", "-Lcp")
+	SSH_SEND = env("REMOTE_SEND_COMMAND", "ssh -n")
+	SSH_RECEIVE = env("REMOTE_RECEIVE_COMMAND", "ssh")
+	SEND_FLAGS = env("ZELTA_SEND_FLAGS", "-Lcpw")
 	RECEIVE_PREFIX = env("ZELTA_RECEIVE_PREFIX", "")
 	RECEIVE_FLAGS = env("ZELTA_RECEIVE_FLAGS", "-ux mountpoint -o readonly=on")
 	INTR_FLAGS = env("ZELTA_INTR_FLAGS", "-i")
@@ -172,11 +181,14 @@ function get_config() {
 		else RECEIVE_PREFIX="dd status=progress |"
 		report(LOG_VERBOSE,"using progress pipe: " RECEIVE_PREFIX)
 	}
-	if (INITIATOR) SHELL_WRAPPER = "ssh -n "INITIATOR
+	if (INITIATOR) SHELL_WRAPPER = SSH_SEND INITIATOR
 	RPL_CMD_PREFIX = (VV?"":TIME_COMMAND" ") SHELL_WRAPPER" "
 	RPL_CMD_SUFFIX = (VV?"":ALL_OUT)
-	match_flags = "-Hpo stub,status,match,srcfirst,srclast,tgtlast "
-	match_command = SHELL_WRAPPER" "dq("zelta match " match_flags DEPTH q(source) " " q(target)) ALL_OUT
+	match_flags = "-Hpo stub,status,match,srcfirst,srclast,tgtlast "DEPTH
+	match_command = SHELL_WRAPPER" "dq("zelta match " match_flags q(source) " " q(target)) ALL_OUT
+	#print match_command
+	#print run_zfs_command("zelta match "match_flags, source, target)
+	#exit
 	if (CLONE_MODE) {
 		send_flags = "clone -o readonly=off "
 		return 1
@@ -374,8 +386,8 @@ BEGIN {
 		if (INITIATOR == prefix[source]) prefix[source] = ""
 		if (INITIATOR == prefix[target]) prefix[target] = ""
 	}
-	zfs[source] = (prefix[source]?"ssh -n "prefix[source]" ":"") "zfs "
-	zfs[target] = (prefix[target]?"ssh "prefix[target]" ":"") "zfs "
+	zfs[source] = (prefix[source]?SSH_SEND" "prefix[source]" ":"") "zfs "
+	zfs[target] = (prefix[target]?SSH_RECEIVE" "prefix[target]" ":"") "zfs "
 
 	zfs_send_command = zfs[source] send_flags
 	zfs_receive_command = RECEIVE_PREFIX zfs[target] recv_flags
@@ -383,13 +395,20 @@ BEGIN {
 	time_start = sys_time()
 	if (SNAPSHOT_ALL) run_snapshot()
 	if (SNAPSHOT_WRITTEN) {
-		check_written_command = "zelta match -pqw " q(source)
+		# This could also be just a "zfs list -Hprt filesystem,volume -o written"
+		# but we use zelta match for endpoint handling and timer. We probably
+		# need an arbitrary "zelta run" to just run stuff and handle quotes
+		# and tiemrs and crap.
+		check_written_command = "zelta match -Hpo srcwritten " DEPTH q(source)
 		while (check_written_command | getline) {
 			if ($1 == "SOURCE_LIST_TIME:") source_zfs_list_time = $2
-			else if (/^source volume has changed/) {
-				report(LOG_VERBOSE, source " has written data")
-				run_snapshot()
-			}
+			else if (/^[0-9]+$/) {
+				if ($1) {
+					report(LOG_VERBOSE, source " has written data")
+					run_snapshot()
+					break
+				}
+			} else report(LOG_VERBOSE, "unexpected list output: " $0)
 		}
 		close(check_written_command)
 		if ((SNAPSHOT_WRITTEN>1) && !source_latest) {
@@ -420,11 +439,10 @@ BEGIN {
 			} else command_queue(slast_full, targetds)
 		} else if (status == "BEHIND") command_queue(slast_full, targetds, match_snap)
 		else if (status == "TGTONLY") report(LOG_VERBOSE, "snapshot only exists on target: "targetds)
-		else if (status == "MIXED") {
+		else if (status == "MISMATCH") {
 			error_code = 3
-			report(LOG_BASIC, "latest target snapshot not on source: "tlast_full)
-			report(LOG_VERBOSE, "  consider target rollback: "target_match )
-			report(LOG_VERBOSE, "  or source rollback to: "source_match)
+			report(LOG_BASIC, "datasets differ: "targetds)
+			if (target_match) report(LOG_VERBOSE, "  consider target rollback: "target_match )
 		} else if (status == "AHEAD") {
 			error_code = 3
 			report(LOG_BASIC, "target snapshot ahead of source: "tlast_full)
