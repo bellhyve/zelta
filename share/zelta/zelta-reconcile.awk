@@ -35,8 +35,8 @@ function env(env_name, var_default) {
 
 function report(level, message) {
 	if (!message) return 0
-	if ((level <= LOG_LEVEL) && (level < 0)) print message > STDERR
-	if (level <= LOG_LEVEL) print message
+	if ((level <= LOG_LEVEL) && (level < 1)) print message > STDERR
+	else if (level <= LOG_LEVEL) print message
 }
 
 function h_num(num) {
@@ -69,13 +69,11 @@ function get_snapshot_data(volume_name) {
 		} else if (!($1 ~ /@/) && ($2 ~ /[0-9]/)) {
 			# Toggle remote/target list to see what's missing
 			stub = substr($1, trim)
-			if (volume_check[stub]) delete volume_check[stub]
-			else volume_check[stub] = $1
 			if (!stub_list[stub]++) stub_order[++stub_num] = stub
 			if (!status[stub]) status[stub] = "NOSNAP"
 			if (!num_snaps[volume_name,stub]) num_snaps[volume_name,stub] = 0
 			stub_written[volume_name,stub] += $3
-			volume_written[volume_name] += $3
+			total_written[volume_name] += $3
 			return 0
 		} else if (! /@/) {
 			report(LOG_ERROR,$0)
@@ -87,9 +85,9 @@ function get_snapshot_data(volume_name) {
 		snapshot_guid = $2			# GUID property
 		snapshot_written = $3			# written property
 		split(snapshot_stub, split_stub, "@")
-		dataset_stub = split_stub[1]		# [child] (blank for top volume name)
+		stub = split_stub[1]		# [child] (blank for top volume name)
 		snapshot_name = "@" split_stub[2]	# @snapshot
-		num_snaps[volume_name,dataset_stub]++   # Total snapshots per dataset
+		num_snaps[volume_name,stub]++   # Total snapshots per dataset
 		return 1
 }
 
@@ -98,15 +96,13 @@ function load_target_snapshots() {
 		if (!get_snapshot_data(target)) { continue }
 		target_guid[snapshot_stub] = snapshot_guid
 		target_written[snapshot_stub] = snapshot_written
-		stub_written[target,stub] += snapshot_written
-		if (!(target_vol_count[dataset_stub]++)) {
-			target_latest[dataset_stub] = snapshot_stub
-			tgtlast[dataset_stub] = snapshot_name
-			target_order[++target_num] = dataset_stub
-			status[dataset_stub] = "TGTONLY"
+		if (!(target_vol_count[stub]++)) {
+			target_latest[stub] = snapshot_stub
+			tgtlast[stub] = snapshot_name
+			target_order[++target_num] = stub
+			status[stub] = "TGTONLY"
 		}
-		#target_list[dataset_stub target_vol_count[dataset_stub]] = snapshot_stub
-		tgtfirst[dataset_stub] = snapshot_name
+		tgtfirst[stub] = snapshot_name
 	}
 	close(snapshot_list_command)
 }
@@ -152,17 +148,33 @@ BEGIN {
 
 	PASS_FLAGS = env("ZELTA_MATCH_FLAGS", "")
 	LOG_LEVEL = env("ZELTA_LOG_LEVEL", 0)
-	PROPERTIES_ALL = "stub,status,sizediff,numdiff,match,srcfirst,srclast,tgtfirst,tgtlast,srcnum,tgtnum"
-	PROPERTIES_DEFAULT = "stub,status,match,srclast"
+	PROPERTIES_DEFAULT = "stub,status,match,srclast,summary"
+	PROPERTIES_ALL = PROPERTIES_DEFAULT ",xfer,written,srcfirst,tgtfirst,tgtlast,srcsnaps,tgtsnaps"
 	PROPERTIES = env("ZELTA_MATCH_PROPERTIES", PROPERTIES_DEFAULT)
 	if (PROPERTIES == "all") PROPERTIES = PROPERTIES_ALL
 	split(PROPERTIES, PROPLIST, ",")
-	for (i in PROPLIST) COL[PROPLIST[i]]++
+	for (i in PROPLIST) {
+		if (PROPLIST[i] == "xfer") {
+			COL["xfersize"]++
+			COL["xfersnaps"]++
+		} else if (PROPLIST[i] ~ /srcwr/) COL["srcwritten"]++
+		else if (PROPLIST[i] ~ /tgtwr/) COL["tgtwritten"]++
+		else if (PROPLIST[i] ~ /wri/) {
+			COL["srcwritten"]++
+			COL["tgtwritten"]++
+		} else COL[PROPLIST[i]]++
+	}
 	
 	MODE = "CHART"
 	if (PASS_FLAGS ~ /p/) MODE = "PARSE"
+	if (PASS_FLAGS ~ /q/) LOG_LEVEL--
 	if (PASS_FLAGS ~ /H/) NOHEADER++
 	if (PASS_FLAGS ~ /v/) LOG_LEVEL++
+	if (PASS_FLAGS ~ /w/) {
+		COL["xfersize"]++
+		COL["srcwritten"]++
+		COL["tgtcwritten"]++
+	}
 
 	exit_code = 0
 	LOG_MODE = ZELTA_PIPE ? 0 : 1
@@ -183,8 +195,7 @@ NR == 2 { target = get_endpoint_info() }
 
 NR == 3 {
 	zfs_list_time = 0
-	volume_written[source] = 0
-	volume_written[target] = 0
+	transfer_size = 0
 	if (!target) next
 	snapshot_list_command = $0;
 	if ((source == target) || !snapshot_list_command) {
@@ -205,48 +216,47 @@ NR > 3 {
 	if (!get_snapshot_data(source)) { next }
 	source_guid[snapshot_stub] = snapshot_guid
 	source_written[snapshot_stub] = snapshot_written
-	if (!(source_vol_count[dataset_stub]++)) {
-		source_latest[dataset_stub] = snapshot_stub
-		srclast[dataset_stub] = snapshot_name
-		source_order[++source_num] = dataset_stub
+	if (!(source_vol_count[stub]++)) {
+		source_latest[stub] = snapshot_stub
+		srclast[stub] = snapshot_name
+		source_order[++source_num] = stub
 	}
 	# Catch oldest snapshot name to ensure replication completeness
-	source_oldest[dataset_stub] = snapshot_name
+	source_oldest[stub] = snapshot_name
 
-	if (dataset_stub in matches) next
-	else if (!target_latest[dataset_stub] && !(dataset_stub in new_volume)) {
-		if (!dataset_stub) check_parent()
-		new_volume[dataset_stub] = snapshot_name
-		status[dataset_stub] = "SRCONLY"
+	if (stub in matches) next
+	else if (!target_latest[stub] && !(stub in new_volume)) {
+		if (!stub) check_parent()
+		new_volume[stub] = snapshot_name
+		if (stub_written[target,stub]) status[stub] = "MISMATCH"
+		else status[stub] = "SRCONLY"
 	} else if (target_guid[snapshot_stub]) {
 		if (target_guid[snapshot_stub] == source_guid[snapshot_stub]) {
-			matches[dataset_stub] = snapshot_name
-			if (snapshot_stub == source_latest[dataset_stub]) {
-				basic_log[dataset_stub] = "target has latest source snapshot: " snapshot_stub
-				status[dataset_stub] = (snapshot_stub==target_latest[dataset_stub]) ? "SYNCED" : "AHEAD"
-			} else if (guid_error[dataset_stub]) {
+			matches[stub] = snapshot_name
+			if (snapshot_stub == source_latest[stub]) {
+				basic_log[stub] = "target has latest source snapshot: " snapshot_stub
+				status[stub] = (snapshot_stub==target_latest[stub]) ? "SYNCED" : "AHEAD"
+			} else if (guid_error[stub]) {
 				report(LOG_ERROR,"latest guid match on target snapshot: " dataset_name)
-				status[dataset_stub] = "MIXED"
+				status[stub] = "MISMATCH"
 			} else {
-				status[dataset_stub] = "BEHIND"
-				basic_log[dataset_stub] = "match: " snapshot_stub OFS "latest: " source_latest[dataset_stub]
+				status[stub] = "BEHIND"
+				basic_log[stub] = "match: " snapshot_stub OFS "latest: " source_latest[stub]
 			}
 		} else {
 			report(LOG_ERROR,"guid mismatch on: " snapshot_stub)
-			guid_error[dataset_stub]++
+			guid_error[stub]++
 		}
 	} else {
-		total_transfer_size += snapshot_written
-		size_diff[dataset_stub] += snapshot_written
-		num_diff[dataset_stub]++
+		transfer_size += snapshot_written
+		size_diff[stub] += snapshot_written
+		num_diff[stub]++
 	}
 }
 
-# Add a check to see if it's safe to add a volume in zelta-replicate
-#function new_volume_check() {
-
 function print_row(col) {
-	for(c=1;c<=length(col);c++) {
+	num_col = arrlen(col)
+	for(c=1;c<=num_col;c++) {
 		if (MODE=="PARSE") printf ((c>1)?"\t":"") col[c]
 		if (MODE=="CHART") printf ((c>1)?"  ":"") pad[c], col[c]
 	}
@@ -262,6 +272,18 @@ function make_header_column(title, arr) {
 	}
 }
 
+function summarize(stub) {
+	if (status[stub]=="SYNCED") s = "up-to-date"
+	else if (status[stub]=="SRCONLY") s = "syncable, new volume"
+	else if ((status[stub]=="BEHIND") && stub_written[source,stub]) s = "target is written"
+	else if (status[stub]=="BEHIND") s = "syncable"
+	else if (status[stub]=="TGTONLY") s = "no source dataset"
+	else if (status[stub]=="AHEAD") s = "target is ahead"
+	else if (status[stub]=="NOSNAP") s = "no source snapshots"
+	else s = "datasets differ"
+	return s
+}
+
 function chart_header() {
 	c = 0
 	delete columns
@@ -271,15 +293,18 @@ function chart_header() {
 	}
 	if ("stub" in COL) make_header_column("STUB", stub_order)
 	if ("status" in COL) make_header_column("STATUS", status)
-	if ("sizediff" in COL) make_header_column("SIZEDIFF", size_diff)
-	if ("numdiff" in COL) make_header_column("NUMDIFF", num_diff)
+	if ("xfersize" in COL) make_header_column("XFERSIZE", size_diff)
+	if ("xfersnaps" in COL) make_header_column("XFERSNAPS", num_diff)
 	if ("match" in COL) make_header_column("MATCH", matches)
 	if ("srcfirst" in COL) make_header_column("SRCFIRST", source_oldest)
 	if ("srclast" in COL) make_header_column("SRCLAST", srclast)
+	if ("srcwritten" in COL) make_header_column("SRCWRI", stub_written)
 	if ("tgtfirst" in COL) make_header_column("TGTFIRST", tgtfirst)
 	if ("tgtlast" in COL) make_header_column("TGTLAST", tgtlast)
-	if ("srcnum" in COL) make_header_column("SRCNUM", num_snaps[source,stub])
-	if ("tgtnum" in COL) make_header_column("TGTNUM", num_snaps[target,stub])
+	if ("srcsnaps" in COL) make_header_column("SRCSNAPS", num_snaps)
+	if ("tgtsnaps" in COL) make_header_column("TGTSNAPS", num_snaps)
+	if ("tgtwritten" in COL) make_header_column("TGTWRI", stub_written)
+	if ("summary" in COL) make_header_column("SUMMARY", summary)
 	if (!NOHEADER) print_row(columns)
 }
 
@@ -289,34 +314,53 @@ function chart_row(stub) {
 	delete columns
 	if ("stub" in COL) columns[++c] = stub
 	if ("status" in COL) columns[++c] = status[stub]
-	if ("sizediff" in COL) columns[++c] = h_num(size_diff[stub])
-	if ("numdiff" in COL) columns[++c] = num_diff[stub]
+	if ("xfersize" in COL) columns[++c] = h_num(size_diff[stub])
+	if ("xfersnaps" in COL) columns[++c] = num_diff[stub]
 	if ("match" in COL) columns[++c] = matches[stub]
 	if ("srcfirst" in COL) columns[++c] = source_oldest[stub]
 	if ("srclast" in COL) columns[++c] = srclast[stub]
+	if ("srcwritten" in COL) columns[++c] = h_num(stub_written[source,stub])
 	if ("tgtfirst" in COL) columns[++c] = tgtfirst[stub]
 	if ("tgtlast" in COL) columns[++c] = tgtlast[stub]
-	if ("srcnum" in COL) columns[++c] = num_snaps[source,stub]
-	if ("tgtnum" in COL) columns[++c] = num_snaps[target,stub]
+	if ("tgtwritten" in COL) columns[++c] = h_num(stub_written[target,stub])
+	if ("srcsnaps" in COL) columns[++c] = num_snaps[source,stub]
+	if ("tgtsnaps" in COL) columns[++c] = num_snaps[target,stub]
+	if ("summary" in COL) columns[++c] = summary[stub]
 	print_row(columns)
 }
 
 END {
-	arr_sort(stub_order)
-	for (i=1;i<=arrlen(stub_order);i++) {
-		stub = stub_order[i]
+	for (stub in stub_list) {
 		if ((matches[stub] != srclast[stub]) && (matches[stub] != tgtlast[stub])) {
-			status[stub] = "MIXED"
+			status[stub] = "MISMATCH"
 		}
+		if (status[stub] == "SYNCED") count_synced++
+		else if ((status[stub] == "SRCONLY") || (status[stub] == "BEHIND")) count_ready++
+		else count_nomatch++
+		if ("summary" in COL) summary[stub] = summarize(stub)
 		if (srclast[stub] == tgtlast[stub]) num_diff[stub] = 0
-		chart_row(stub)
+	}
+	if (LOG_LEVEL >= 0) {
+		arr_sort(stub_order)
+		for (i=1;i<=arrlen(stub_order);i++) chart_row(stub_order[i])
 	}
 	source_zfs_list_time = zfs_list_time
+	count_stub = arrlen(stub_list)
 	if (MODE=="PARSE") print "SOURCE_LIST_TIME:", source_zfs_list_time, ":","TARGET_LIST_TIME", target_zfs_list_time
-	if (arrlen(source_latest) == 0) report(LOG_DEFAULT,"no source snapshots found")
-	if (volume_written[source]) report(LOG_DEFAULT, "source volume has changed: " h_num(volume_written[source]))
-	if (volume_written[target]) report(LOG_DEFAULT, "target volume has changed: " h_num(volume_written[target]))
-	for (stub in volume_check) if (!source_latest[stub]) missing_branch[stub]
-	report(LOG_PIPE, create_parent)
-	if (total_transfer_size) report(LOG_DEFAULT, "new snapshot transfer size: " h_num(total_transfer_size))
+	else {
+		if (arrlen(source_latest) == 0) report(LOG_WARNING, "no source snapshots found")
+		else if (count_stub == count_synced) report(LOG_DEFAULT, count_stub " datasets synced")
+		else if (count_stub == count_ready) report(LOG_DEFAULT, count_stub " datasets syncable")
+		else if (count_stub == count_nomatch) report(LOG_WARNING, count_stub " datasets unsyncable")
+		else {
+			log_msg = count_stub " total datasets"
+			log_msg = log_msg (count_synced?", "count_synced" synced":"")
+			log_msg = log_msg (count_ready?", "count_ready" syncable":"")
+			log_msg = log_msg (count_nomatch?", "count_nomatch" unsyncable":"")
+			report(LOG_WARNING, log_msg)
+		}
+		if (total_written[target]) report(LOG_WARNING, "target dataset has changed: " h_num(total_written[target]))
+		if (total_written[source]) report(LOG_WARNING, "source dataset has changed: " h_num(total_written[source]))
+		if (transfer_size) report(LOG_DEFAULT, "snapshot syncable transfer size: " h_num(transfer_size))
+	}
 }

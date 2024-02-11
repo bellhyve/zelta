@@ -69,10 +69,10 @@ function get_options() {
                         if (gsub(/n/,"")) DRY_RUN++
                         if (gsub(/H/,"")) PASS_FLAGS = PASS_FLAGS "H" 
                         if (gsub(/p/,"")) PASS_FLAGS = PASS_FLAGS "p"
+                        if (gsub(/q/,"")) PASS_FLAGS = PASS_FLAGS "q"
                         if (gsub(/j/,"")) PASS_FLAGS = PASS_FLAGS "j" # Future
                         if (gsub(/v/,"")) PASS_FLAGS = PASS_FLAGS "v" # Future
-                        if (gsub(/w/,"")) WRITTEN++
-                        if (gsub(/q/,"")) QUIET++
+                        if (gsub(/w/,"")) { WRITTEN++; PASS_FLAGS = PASS_FLAGS "w" }
 			if (gsub(/o/,"")) PROPERTIES = sub_opt()
                         if (gsub(/d/,"")) ZELTA_DEPTH = sub_opt()
                         if (/./) usage("unkown options: " $0)
@@ -99,7 +99,7 @@ function get_endpoint_info(endpoint) {
 }
 
 function error(string) {
-	print "error: "string | "cat 1>&2"
+	print "error: "string > "/dev/stderr"
 }
 
 function verbose(message) { if (VERBOSE) print message }
@@ -119,13 +119,16 @@ BEGIN {
 	get_options()
 	if (PASS_FLAGS) PASS_FLAGS = "ZELTA_MATCH_FLAGS='"PASS_FLAGS"' "
 	if (!target) WRITTEN++
-	PROPERTIES_DEFAULT = "stub" (WRITTEN ? ",sizediff" : "") ",status,match,srclast"
-	if (PROPERTIES ~ /sizediff/) WRITTEN++
+	if (!WRITTEN && PROPERTIES && split(PROPERTIES, PROPLIST, ",")) {
+		for (p in PROPLIST) {
+			$0 = PROPLIST[p]
+			if ((/^x/ || !/xfersn/) || /wri/ || /all/) WRITTEN++
+		}
+	}
 	ZFS_LIST_PROPERTIES_DEFAULT = "name,guid" (WRITTEN ? ",written" : "")
 	ZFS_LIST_PROPERTIES = env("ZFS_LIST_PROPERTIES", ZFS_LIST_PROPERTIES_DEFAULT)
-	if (!PROPERTIES) PROPERTIES = env("ZELTA_MATCH_PROPERTIES", PROPERTIES_DEFAULT)
 
-	MATCH_PREFIX = "ZELTA_MATCH_PROPERTIES='"PROPERTIES"' " PASS_FLAGS
+	MATCH_PREFIX = (PROPERTIES?"ZELTA_MATCH_PROPERTIES='"PROPERTIES"' ":"") PASS_FLAGS
 	MATCH_PREFIX = MATCH_PREFIX (ZELTA_DEPTH ? "ZELTA_DEPTH="ZELTA_DEPTH" " : "")
 	MATCH_COMMAND = MATCH_PREFIX "zelta reconcile"
 	ZFS_LIST_DEPTH = ZELTA_DEPTH ? " -d"ZELTA_DEPTH : ""
