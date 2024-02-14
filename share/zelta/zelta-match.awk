@@ -21,10 +21,9 @@
 #
 # -o    "all" or a list of properties to show.
 # -H    Hide header
-# -p    Sing-ltab delimited output
+# -p    Single tab delimited output
 # -n	Show the zfs list commands instead of running them.
 # -v	Verbose, tell the user if output is being suppressed.
-# -w	Adds sizediff column.
 # -d#	Limi depth to #.
 #
 # ENVIRONMENT VARIABLES
@@ -70,9 +69,8 @@ function get_options() {
                         if (gsub(/H/,"")) PASS_FLAGS = PASS_FLAGS "H" 
                         if (gsub(/p/,"")) PASS_FLAGS = PASS_FLAGS "p"
                         if (gsub(/q/,"")) PASS_FLAGS = PASS_FLAGS "q"
-                        if (gsub(/j/,"")) PASS_FLAGS = PASS_FLAGS "j" # Future
-                        if (gsub(/v/,"")) PASS_FLAGS = PASS_FLAGS "v" # Future
-                        if (gsub(/w/,"")) { WRITTEN++; PASS_FLAGS = PASS_FLAGS "w" }
+                        #if (gsub(/j/,"")) PASS_FLAGS = PASS_FLAGS "j" # Future
+                        #if (gsub(/v/,"")) PASS_FLAGS = PASS_FLAGS "v" # Future
 			if (gsub(/o/,"")) PROPERTIES = sub_opt()
                         if (gsub(/d/,"")) ZELTA_DEPTH = sub_opt()
                         if (/./) usage("unkown options: " $0)
@@ -118,14 +116,14 @@ BEGIN {
 	
 	get_options()
 	if (PASS_FLAGS) PASS_FLAGS = "ZELTA_MATCH_FLAGS='"PASS_FLAGS"' "
-	if (!target) WRITTEN++
-	if (!WRITTEN && PROPERTIES && split(PROPERTIES, PROPLIST, ",")) {
+	# "zfs list -o written" can slow things down, skip if possible
+	if (PROPERTIES && split(PROPERTIES, PROPLIST, ",")) {
 		for (p in PROPLIST) {
 			$0 = PROPLIST[p]
-			if ((/^x/ || !/xfersn/) || /wri/ || /all/) WRITTEN++
+			if ((/^x/ && !/xfersn/) || /wri/ || /all/) WRITTEN++
 		}
 	}
-	ZFS_LIST_PROPERTIES_DEFAULT = "name,guid" (WRITTEN ? ",written" : "")
+	ZFS_LIST_PROPERTIES_DEFAULT = "name,guid" (WRITTEN?",written":"")
 	ZFS_LIST_PROPERTIES = env("ZFS_LIST_PROPERTIES", ZFS_LIST_PROPERTIES_DEFAULT)
 
 	MATCH_PREFIX = (PROPERTIES?"ZELTA_MATCH_PROPERTIES='"PROPERTIES"' ":"") PASS_FLAGS
