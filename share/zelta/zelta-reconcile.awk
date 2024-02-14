@@ -189,6 +189,12 @@ function get_endpoint_info() {
 	return endpoint
 }
 
+function count_snapshot_diff() {
+	transfer_size += snapshot_written
+	xfersize[stub] += snapshot_written
+	xfersnaps[stub]++
+}
+
 NR == 1 { source = get_endpoint_info() }
 
 NR == 2 { target = get_endpoint_info() }
@@ -229,7 +235,10 @@ NR > 3 {
 		if (!stub) check_parent()
 		new_volume[stub] = snapshot_name
 		if (stub_written[target,stub]) status[stub] = "MISMATCH"
-		else status[stub] = "SRCONLY"
+		else {
+			status[stub] = "SRCONLY"
+			count_snapshot_diff()
+		}
 	} else if (target_guid[snapshot_stub]) {
 		if (target_guid[snapshot_stub] == source_guid[snapshot_stub]) {
 			matches[stub] = snapshot_name
@@ -247,11 +256,7 @@ NR > 3 {
 			report(LOG_ERROR,"guid mismatch on: " snapshot_stub)
 			guid_error[stub]++
 		}
-	} else {
-		transfer_size += snapshot_written
-		size_diff[stub] += snapshot_written
-		num_diff[stub]++
-	}
+	} else count_snapshot_diff()
 }
 
 function print_row(col) {
@@ -293,8 +298,8 @@ function chart_header() {
 	}
 	if ("stub" in COL) make_header_column("STUB", stub_order)
 	if ("status" in COL) make_header_column("STATUS", status)
-	if ("xfersize" in COL) make_header_column("XFERSIZE", size_diff)
-	if ("xfersnaps" in COL) make_header_column("XFERSNAPS", num_diff)
+	if ("xfersize" in COL) make_header_column("XFERSIZE", xfersize)
+	if ("xfersnaps" in COL) make_header_column("XFERSNAPS", xfersnaps)
 	if ("match" in COL) make_header_column("MATCH", matches)
 	if ("srcfirst" in COL) make_header_column("SRCFIRST", source_oldest)
 	if ("srclast" in COL) make_header_column("SRCLAST", srclast)
@@ -314,8 +319,8 @@ function chart_row(stub) {
 	delete columns
 	if ("stub" in COL) columns[++c] = stub
 	if ("status" in COL) columns[++c] = status[stub]
-	if ("xfersize" in COL) columns[++c] = h_num(size_diff[stub])
-	if ("xfersnaps" in COL) columns[++c] = num_diff[stub]
+	if ("xfersize" in COL) columns[++c] = h_num(xfersize[stub])
+	if ("xfersnaps" in COL) columns[++c] = xfersnaps[stub]
 	if ("match" in COL) columns[++c] = matches[stub]
 	if ("srcfirst" in COL) columns[++c] = source_oldest[stub]
 	if ("srclast" in COL) columns[++c] = srclast[stub]
@@ -338,7 +343,7 @@ END {
 		else if ((status[stub] == "SRCONLY") || (status[stub] == "BEHIND")) count_ready++
 		else count_nomatch++
 		if ("summary" in COL) summary[stub] = summarize(stub)
-		if (srclast[stub] == tgtlast[stub]) num_diff[stub] = 0
+		if (srclast[stub] == tgtlast[stub]) xfersnaps[stub] = 0
 	}
 	if (LOG_LEVEL >= 0) {
 		arr_sort(stub_order)

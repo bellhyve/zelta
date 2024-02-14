@@ -63,9 +63,16 @@ function resolve_target(source, target) {
 	return (c["PUSH_TO"] ? c["PUSH_TO"] ":" : "") target
 }
 
+function copy_array(src, tgt) {
+	delete tgt
+	for (key in src) tgt[key] = src[key]
+}
+
 function load_config() {
 	FS = "(:?[ \t]+)|(:$)"
 	OFS=","
+	global_conf["INTERMEDIATE"] = 1
+	global_conf["SNAPSHOT"] = 1
 	while ((getline < ZELTA_CONFIG)>0) {
 		if (split($0, arr, "#")) {
 			$0 = arr[1]
@@ -73,14 +80,17 @@ function load_config() {
 		gsub(/[ \t]+$/, "", $0)
 		if (! $0) { continue }
 		if (/^[^ ]+: +[^ ]/) {
+			global_conf[$1] = $2
 			c[$1] = $2
 		} else if (/^[^ ]+:$/) {
 			current_site = $1
 			sites[current_site]++
+			copy_array(global_conf, site_conf)
 		} else if (/^  [^ ]+:$/) {
 			current_host = $2
 			hosts[current_host] = 1
 			hosts_by_site[current_site,current_host] = 1
+			copy_array(site_conf, host_conf)
 		} else if (/^  - [^ ]/) {
 			source_dataset = $3
 			target_dataset = resolve_target(source_dataset, $4)
@@ -89,6 +99,7 @@ function load_config() {
 			}
 			datasets[current_host, source_dataset] = resolve_target(source_dataset, target_dataset)
 			dataset_count[source_dataset]++
+			# Construct command queue here
 		} else {
 			print "can't parse: " $0
 			continue
@@ -163,6 +174,7 @@ function zelta_sync(host, source, target) {
 	if ((LOG_MODE == LOG_DELAY) && !c["JSON"]) report(LOG_DELAY, host":"source": ")
 	report(LOG_ACTIVE, source": ")
 	while (sync_cmd|getline) {
+		# Provide a one-line sync summary
 		# received_streams, total_bytes, time, error
 		if (/[0-9]+ [0-9]+ [0-9]+\.*[0-9]* -?[0-9]+/) {
 			if ($2) report(LOG_DELAY, h_num($2) ": ")
@@ -173,10 +185,11 @@ function zelta_sync(host, source, target) {
 				else if ($4 == 2) report(LOG_DELAY, "replication error")
 				else if ($4 == 3) report(LOG_DELAY, "target is ahead of source")
 				else if ($4 == 4) report(LOG_DELAY, "error creating parent volume")
+				else if ($4 == 5) report(LOG_DELAY, "match error")
 				else if ($4 < 0) report(LOG_DELAY, (0-$4) " missing streams")
 				else report(LOG_DELAY, "error: " $0)
 			} else if ($1) { report(LOG_DELAY, "replicated in " $3 "s") }
-			else report(LOG_DELAY, "nothing to replicate")
+			else report(LOG_DELAY, "up-to-date")
 		} else {
 			report(LOG_DELAY, $0)
 			if (/replicationErrorCode/ && !/0,/) sync_status = 0
