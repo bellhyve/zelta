@@ -233,7 +233,7 @@ function get_endpoint_info(endpoint) {
 	user[endpoint] = $3
 	host[endpoint] = $4
 	ds[endpoint] = $5
-	snapshot[endpoint] = $6
+	snapshot[endpoint] = ($6?"@"$6:"")
 	close("zelta endpoint " endpoint)
 }
 
@@ -472,6 +472,9 @@ BEGIN {
 				command_queue(sfirst_full, targetds)
 				command_queue(slast_full, targetds, sfirst)
 			} else command_queue(slast_full, targetds)
+		} else if (status == "TGTEMPTY") {
+			if (snapshot[source]) command_queue(slast_full, targetds, snapshot[source])
+			else report(LOG_BASIC, "no target snapshot: "targetds)
 		} else if (status == "BEHIND") command_queue(slast_full, targetds, match_snap)
 		else if (status == "TGTONLY") report(LOG_VERBOSE, "snapshot only exists on target: "targetds)
 		else if (status == "MISMATCH") {
