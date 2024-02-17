@@ -2,37 +2,38 @@
 #
 # zelta policy, zp - iterates through "zelta" commands
 #
-# usage: zelta policy [-flags] [site, host, dataset, or source host:dataset] ...
+# usage: zelta policy [-flags] [site, host, dataset, dataset_last_element, or source host:dataset] ...
 #
-# requires: zelta-sync.awk, zelta-match.awk
+# requires: zelta-sync.awk, zelta-match.awk, or a compatible pipe
 #
-# zelta reads a YAML-style configuration file. The minimal
-# conifguration is:
+# zelta reads a YAML-style configuration file. The minimal conifguration is:
 #
-# 	BACKUP_ROOT: backup/parent
 # 	site:
 #   	  host:
-#   	  - data/set:
+#   	  - data/set: pool/target
 #
 # See the example confiuguration for details.
 #
-# Arguments can be any site, host, dataset, or a host:dataset pair, separated by
-# spaces.
+# Arguments can be any site, host, dataset, last dataset element, or a host:dataset pair, separated by
+# whitespace.
 #
 # By default, "zelta policy" attempts to replicate from every site, host, and dataset.
 # This behavior can be overridden by adding one or more unique item names from the
 # configuration file to the argument list. For example, entering a site name will
 # replicate all datasets from all hosts of a site. Keep this in mind when reusing
-# host or dataset names.
+# host or dataset names. For example, "zelta policy zroot" will back up every dataset
+# ending in "zroot".
 #
 # It can also be used to loop through the site/host/volume/dataset objects to run
 # other commmands such as other replication tools, logging, replications setup
 # functions, or any arbitrary command.
 
-function report(mode, message) {
-	if (LOG_WARNING == mode) { print "error: " message | STDOUT }
-	else if (LOG_ACTIVE == mode) { printf message }
-	else if ((LOG_DELAY == mode) && ((LOG_MODE == LOG_DELAY))) {
+function report(level, message) {
+	if (level < 0) {
+		print "error: " message > STDERR
+		if (mode < -1) exit 1
+	} else if ((level < 1) && (MODE == "ACTIVE")) { printf message }
+	else if ((level < 1) || (MODE == "VERBOSE")) {
 		if (message == "") {
 			printf buffer_delay
 			buffer_delay = ""
@@ -43,13 +44,20 @@ function report(mode, message) {
 function usage(message) {
 	usage_command = "zelta usage policy"
 	while (usage_command |getline) print
-	close(usage_command)
-	report(LOG_WARNING, message)
-	exit 1
+	report(LOG_ERROR, message)
 }
 
 function env(env_name, var_default) {
 	return ( (env_name in ENVIRON) ? ENVIRON[env_name] : var_default )
+}
+
+function get_hostname() {
+	hostname = ENVIRON["HOST"] ? ENVIRON["HOST"] : ENVIRON["HOSTNAME"]
+	if (!hostname) {
+		"hostname" | getline hostname; close("hostname")
+	}
+	if (hostname) LOCALHOST[hostname]++
+	LOCALHOST["localhost"]++
 }
 
 function resolve_target(source, target) {
@@ -129,6 +137,7 @@ function get_options() {
 			PASS_FLAGS = PASS_FLAGS (PASS_FLAGS ? " " ARGV[i] : ARGV[i])
 			while (/./) {
 				if (sub(/^-/,"")) long_option()
+				# Deprecate after adding long options to zelta replicate
 				else if (sub(/^j/,"")) cli_options["output_mode"] = "JSON"
 				else if (sub(/^q/,"")) cli_options["output_mode"] = "QUIET"
 				else if (sub(/^n/,"")) cli_options["output_mode"] = "DRY_RUN"
@@ -141,18 +150,19 @@ function get_options() {
 		}
 	}
 	if (!length(LIMIT_PATTERN)) AUTO++
+
 }
 
 function set_mode() {
-	MODE = toupper(cli_options["output_mode"] ? cli_options["output_mode"] : "DEFAULT")
-	if (cli_options["list"]) MODE = "LIST"
+	if (cli_options["output_mode"]) MODE = toupper(cli_options["output_mode"])
+	else if (cli_options["list"]) MODE = "LIST"
 	else if (cli_options["json"]) MODE = "JSON"
 	else if (cli_options["quiet"]) MODE = "QUIET"
 	else if (cli_options["dry_run"]) MODE = "DRY_RUN"
 	else if (cli_options["verbose"]) MODE = "VERBOSE"
+	else if (AUTO) MODE = "ACTIVE"
 	else MODE = "DEFAULT"
 	if (MODE == "JSON") MODE_FLAGS = "j"
-	#else if (MODE == "DRY_RUN") MODE_FLAGS = "n"
 	else if (MODE == "VERBOSE") MODE_FLAGS = "v"
 	else if (MODE == "QUIET") MODE_FLAGS = "q"
 	else MODE_FLAGS = "z"
@@ -161,10 +171,7 @@ function set_mode() {
 function copy_array(src, tgt) {
 	delete tgt
 	for (key in src) tgt[key] = src[key]
-}
-
-function override(tgt) {
-	for (key in cli_options) tgt[key] = src[key]
+	for (key in cli_options) tgt[key] = cli_options[key]
 }
 
 function set_var(option_list, var, val) {
@@ -178,7 +185,7 @@ function set_var(option_list, var, val) {
 function load_config() {
 	FS = "(:?[ \t]+)|(:$)"
 	OFS=","
-	CONF_ERR = "options parse error at line: "
+	CONF_ERR = "configuration parse error at line: "
 	POLICY_COMMAND = "zelta policy"
 	BACKUP_COMMAND = "zelta replicate"
 
@@ -239,10 +246,12 @@ function load_config() {
 		} else usage(CONF_ERR CONF_LINE)
 	}
 	if (length(datasets)==0) usage("no datasets defined in " ZELTA_CONFIG)
+	for (key in cli_options) global_conf[key] = cli_options[key]
 	FS = "[ \t]+";
-	# Fix: Handle LOG_JSON
-	LOG_ACTIVE = 1; LOG_DELAY = 2; LOG_WARNING = 3
-	LOG_MODE = LOG_DELAY
+	LOG_ERROR = -2
+	LOG_WARNING = -1
+	LOG_DEFAULT = 0
+	LOG_VERBOSE = 1
 }
 
 function sub_keys(key_pair, key1, key2_list, key2_subset) {
@@ -283,7 +292,7 @@ function zelta_sync(site, host, source, target) {
 	} else if (MODE == "DRY_RUN") {
 		print "+ " sync_cmd
 		return 1
-	} else if (AUTO && (MODE == "DEFAULT")) report(LOG_ACTIVE, source": ")
+	} else if (MODE == "ACTIVE") report(LOG_DEFAULT, source": ")
 	else if ((MODE == "DEFAULT") || (MODE == "VERBOSE")) report(LOG_DELAY, host":"source": ")
 	while (sync_cmd|getline) {
 		# Provide a one-line sync summary
@@ -315,7 +324,7 @@ function zelta_sync(site, host, source, target) {
 
 function xargs() {
 	for (site in sites) site_list = site_list " "site
-	xargs_command = "echo" site_list " | xargs -n1 -P" global_conf["threads"] " " ZELTA_COMMAND
+	xargs_command = "echo" site_list " | xargs -n1 -P" global_conf["threads"] " " POLICY_COMMAND " " PASS_FLAGS
 	while (xargs_command | getline) { print }
 	close(xargs_command)
 	exit 0
@@ -323,21 +332,20 @@ function xargs() {
 
 BEGIN {
 	ZELTA_CONFIG = env("ZELTA_CONFIG", "/usr/local/etc/zelta/zelta.conf")
-	LOCALHOST["localhost"]++  # Consider addding other local hostnames
-	STDOUT = "cat 1>&2"
+	STDERR = "/dev/stderr"
+	get_hostname()
 	load_config()
-	LOG_AUTO = (AUTO && (MODE == "DEFAULT"))
 	if (AUTO && (global_conf["threads"] > 1)) xargs()
 	for (site in sites) {
-		if (LOG_AUTO) report(LOG_ACTIVE, site "\n")
+		if (MODE == "ACTIVE") report(LOG_DEFAULT, site "\n")
 		sub_keys(hosts_by_site, site, hosts, site_hosts)
 		for (host in site_hosts) {
-			if (LOG_AUTO) report(LOG_ACTIVE, "  " host "\n")
+			if (MODE == "ACTIVE") report(LOG_DEFAULT, "  " host "\n")
 			sub_keys(datasets, host, dataset_count, host_datasets)
 			for (source in host_datasets) {
 				target = datasets[host,source]
 				if (!AUTO && !should_replicate()) continue
-				if (LOG_AUTO) report(LOG_ACTIVE,"    ")
+				if (MODE == "ACTIVE") report(LOG_DEFAULT,"    ")
 				if (! zelta_sync(site, host, source, target)) {
 					failed_list[site"\t"host"\t"source"\t"target]++
 				}
@@ -347,7 +355,7 @@ BEGIN {
 	while (global_conf["retry"]-- > 0) {
 		for (failed_sync in failed_list) {
 			$0 = failed_sync
-			if (MODE != "JSON") report(LOG_DELAY, "retrying: " $2 ":" $3 ": ")
+			if (MODE != "JSON") report(LOG_DEFAULT, "retrying: " $2 ":" $3 ": ")
 			if (zelta_sync($1, $2, $3, $4)) {
 				delete failed_list[failed_sync]
 			}
