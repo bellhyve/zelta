@@ -112,7 +112,6 @@ BEGIN {
 	ZELTA_DEPTH = env("ZELTA_DEPTH", 0)
 	ZFS_LIST_PREFIX = "list -Hprt all -Screatetxg -o "
 	ZFS_LIST_PREFIX_WRITECHECK = "list -Hprt filesystem,volume -o "
-
 	
 	get_options()
 	if (PASS_FLAGS) PASS_FLAGS = "ZELTA_MATCH_FLAGS='"PASS_FLAGS"' "

@@ -1,6 +1,6 @@
 #!/usr/bin/awk -f
 #
-# zelta-endpoint.awk - resolve and validate a local or remote volume string
+# zelta-endpoint.awk - resolve and validate a local or remote dataset string
 
 
 function clear_vars() {
@@ -8,7 +8,7 @@ function clear_vars() {
 	prefix = ""
 	user = ""
 	host = ""
-	volume = ""
+	dataset = ""
 }
 
 function print_endpoint(endpoint) {
@@ -31,10 +31,10 @@ function print_endpoint(endpoint) {
 		if (host == "localhost") prefix = ""
 		sub(/^[^:]+:/,"",endpoint)
 	}
-	if (split(endpoint, vol_snap, "@")) {
-		volume = vol_snap[1]
-		snapshot = vol_snap[2]
-	} else volume = vol_snap[1]
+	if (split(endpoint, ds_snap, "@")) {
+		dataset = ds_snap[1]
+		snapshot = ds_snap[2]
+	} else dataset = ds_snap[1]
 	if (!user) user = ENVIRON["USER"]
 	if (!host) {
 		host = ENVIRON["HOST"] ? ENVIRON["HOST"] : ENVIRON["HOSTNAME"]
@@ -43,9 +43,9 @@ function print_endpoint(endpoint) {
 		}
 		if (!host) host = "localhost"
 	}
-	endpoint_id = user"_"host"_"volume
+	endpoint_id = user"_"host"_"dataset
 	gsub(/[^A-Za-z0-9_]/,"-", endpoint_id)
-	print endpoint_id,prefix,user,host,volume,snapshot
+	print endpoint_id,prefix,user,host,dataset,snapshot
 }
 
 BEGIN {

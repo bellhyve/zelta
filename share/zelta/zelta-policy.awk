@@ -24,7 +24,7 @@
 # host or dataset names. For example, "zelta policy zroot" will back up every dataset
 # ending in "zroot".
 #
-# It can also be used to loop through the site/host/volume/dataset objects to run
+# It can also be used to loop through the site/host/dataset objects to run
 # other commmands such as other replication tools, logging, replications setup
 # functions, or any arbitrary command.
 
@@ -305,7 +305,7 @@ function zelta_sync(site, host, source, target) {
 				if ($4 == 1) report(LOG_DELAY, "error matching snapshots")
 				else if ($4 == 2) report(LOG_DELAY, "replication error")
 				else if ($4 == 3) report(LOG_DELAY, "target is ahead of source")
-				else if ($4 == 4) report(LOG_DELAY, "error creating parent volume")
+				else if ($4 == 4) report(LOG_DELAY, "error creating parent dataset")
 				else if ($4 == 5) report(LOG_DELAY, "match error")
 				else if ($4 < 0) report(LOG_DELAY, (0-$4) " missing streams")
 				else report(LOG_DELAY, "error: " $0)

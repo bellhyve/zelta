@@ -1,6 +1,6 @@
 #!/usr/bin/awk -f
 #
-# zelta-replicate.awk - replicates a zfs endpoint/volume
+# zelta-replicate.awk - replicates a zfs endpoint/dataset
 #
 # After using match_command to identify out-of-date snapshots on the target, this script creates
 # individual replication streams for a snapshot and its children. This script is useful for
@@ -75,17 +75,17 @@ function run_zfs_command(cmd_args, qarg1, qarg2) {
 	return rzc_cmd
 }
 
-function command_queue(send_dataset, receive_volume, match_snapshot) {
+function command_queue(send_dataset, receive_dataset, match_snapshot) {
 	num_streams++
 	if (zfs_send_command ~ /ssh/) {
 		gsub(/ /, "\\ ", send_dataset)
 		gsub(/ /, "\\ ", match_snapshot)
 	}
-	if (zfs_receive_command ~ /ssh/) gsub(/ /, "\\ ", receive_volume)
-	#if (receive_volume) receive_part = " | " receive_prefix() zfs_receive_command q(receive_volume)
-	if (receive_volume) receive_part = zfs_receive_command q(receive_volume)
+	if (zfs_receive_command ~ /ssh/) gsub(/ /, "\\ ", receive_dataset)
+	#if (receive_dataset) receive_part = " | " receive_prefix() zfs_receive_command q(receive_dataset)
+	if (receive_dataset) receive_part = zfs_receive_command q(receive_dataset)
 	if (CLONE_MODE) {
-		send_command[++rpl_num] = zfs_send_command q(send_dataset) " " q(receive_volume)
+		send_command[++rpl_num] = zfs_send_command q(send_dataset) " " q(receive_dataset)
 		source_stream[rpl_num] = send_dataset
 	} else if (match_snapshot) {
 		send_part = intr_flags q(match_snapshot) " " q(send_dataset)
@@ -464,7 +464,7 @@ BEGIN {
 			report(LOG_VERBOSE, source " has written data")
 		} else if (sub(/^parent dataset does not exist: +/,"")) {
 			send_command[++rpl_num] = zfs[target] "create " create_flags q($0)
-			create_volume[rpl_num] = $6
+			create_dataset[rpl_num] = $6
 		} else if (! /@/) {
 			if (! $0 == $1) stop(3, $0)
 		} else if (status == "SRCONLY") {
@@ -527,7 +527,7 @@ BEGIN {
 			sub(/ \| .*/, "", send_command[r])
 		} else if (send_command[r] ~ "zfs create") {
 			if (system(send_command[r])) {
-				stop(4, "failed to create parent dataset: " create_volume[r])
+				stop(4, "failed to create parent dataset: " create_dataset[r])
 			}
 			continue
 		}
