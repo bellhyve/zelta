@@ -235,6 +235,7 @@ NR > 3 {
 		if (!stub) check_parent()
 		new_volume[stub] = snapshot_name
 		if (stub_written[target,stub]) status[stub] = "MISMATCH"
+		else if (num_snaps[target,stub] == "0") status[stub] = "TGTEMPTY"
 		else {
 			status[stub] = "SRCONLY"
 			count_snapshot_diff()
@@ -285,6 +286,7 @@ function summarize(stub) {
 	else if (status[stub]=="TGTONLY") s = "no source dataset"
 	else if (status[stub]=="AHEAD") s = "target is ahead"
 	else if (status[stub]=="NOSNAP") s = "no source snapshots"
+	else if (status[stub]=="TGTEMPTY") s = "no target snapshots"
 	else s = "datasets differ"
 	return s
 }

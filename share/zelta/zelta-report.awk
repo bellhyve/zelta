@@ -22,6 +22,7 @@ BEGIN {
 	FS = "[@\t]+"
 	# This seems to be faster than trying to limit the list in any way:
 	zfs_list = "zfs list -Hprt snap -oname,creation -S creation "BACKUP_ROOT
+	print zfs_list
 	while (zfs_list | getline) {
 		if (snaplist[$1]) continue
 		snaplist[$1]++
