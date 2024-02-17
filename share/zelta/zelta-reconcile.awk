@@ -35,7 +35,10 @@ function env(env_name, var_default) {
 
 function report(level, message) {
 	if (!message) return 0
-	if ((level <= LOG_LEVEL) && (level < 1)) print message > STDERR
+	if ((level <= LOG_LEVEL) && (level <= LOG_WARNING)) {
+		error_messages++
+		print message > STDERR
+	}
 	else if (level <= LOG_LEVEL) print message
 }
 
@@ -67,8 +70,7 @@ function get_snapshot_data(ds_name) {
 		} else if (/(sys|user)[ \t]+[0-9]/) {
 			return 0
 		} else if (!($1 ~ /@/) && ($2 ~ /[0-9]/)) {
-			# Toggle remote/target list to see what's missing
-			stub = substr($1, trim)
+			stub = ($1 == dataset[ds_name]) ? "" : substr($1, trim)
 			if (!stub_list[stub]++) stub_order[++stub_num] = stub
 			if (!status[stub]) status[stub] = "NOSNAP"
 			if (!num_snaps[ds_name,stub]) num_snaps[ds_name,stub] = 0
@@ -120,6 +122,7 @@ function check_parent() {
 	if (parent_check ~ /dataset does not exist/) {
 		report(LOG_DEFAULT, "parent dataset does not exist: " parent)
 	}
+	close(parent_list_command)
 }
 
 function arr_sort(arr) {
@@ -278,7 +281,7 @@ function make_header_column(title, arr) {
 	}
 }
 
-function summarize(stub) {
+function summarize() {
 	if (status[stub]=="SYNCED") s = "up-to-date"
 	else if (status[stub]=="SRCONLY") s = "syncable, new dataset"
 	else if ((status[stub]=="BEHIND") && stub_written[source,stub]) s = "target is written"
@@ -315,24 +318,24 @@ function chart_header() {
 	if (!NOHEADER) print_row(columns)
 }
 
-function chart_row(stub) {
+function chart_row(field) {
 	if (!ROW++) chart_header()
 	c=0
 	delete columns
-	if ("stub" in COL) columns[++c] = stub
-	if ("status" in COL) columns[++c] = status[stub]
-	if ("xfersize" in COL) columns[++c] = h_num(xfersize[stub])
-	if ("xfersnaps" in COL) columns[++c] = xfersnaps[stub]
-	if ("match" in COL) columns[++c] = matches[stub]
-	if ("srcfirst" in COL) columns[++c] = source_oldest[stub]
-	if ("srclast" in COL) columns[++c] = srclast[stub]
-	if ("srcwritten" in COL) columns[++c] = h_num(stub_written[source,stub])
-	if ("tgtfirst" in COL) columns[++c] = tgtfirst[stub]
-	if ("tgtlast" in COL) columns[++c] = tgtlast[stub]
-	if ("tgtwritten" in COL) columns[++c] = h_num(stub_written[target,stub])
-	if ("srcsnaps" in COL) columns[++c] = num_snaps[source,stub]
-	if ("tgtsnaps" in COL) columns[++c] = num_snaps[target,stub]
-	if ("summary" in COL) columns[++c] = summary[stub]
+	if ("stub" in COL) columns[++c] = field
+	if ("status" in COL) columns[++c] = status[field]
+	if ("xfersize" in COL) columns[++c] = h_num(xfersize[field])
+	if ("xfersnaps" in COL) columns[++c] = xfersnaps[field]
+	if ("match" in COL) columns[++c] = matches[field]
+	if ("srcfirst" in COL) columns[++c] = source_oldest[field]
+	if ("srclast" in COL) columns[++c] = srclast[field]
+	if ("srcwritten" in COL) columns[++c] = h_num(field_written[source,field])
+	if ("tgtfirst" in COL) columns[++c] = tgtfirst[field]
+	if ("tgtlast" in COL) columns[++c] = tgtlast[field]
+	if ("tgtwritten" in COL) columns[++c] = h_num(field_written[target,field])
+	if ("srcsnaps" in COL) columns[++c] = num_snaps[source,field]
+	if ("tgtsnaps" in COL) columns[++c] = num_snaps[target,field]
+	if ("summary" in COL) columns[++c] = summary[field]
 	print_row(columns)
 }
 
@@ -344,7 +347,7 @@ END {
 		if (status[stub] == "SYNCED") count_synced++
 		else if ((status[stub] == "SRCONLY") || (status[stub] == "BEHIND")) count_ready++
 		else count_nomatch++
-		if ("summary" in COL) summary[stub] = summarize(stub)
+		if ("summary" in COL) summary[stub] = summarize()
 		if (srclast[stub] == tgtlast[stub]) xfersnaps[stub] = 0
 	}
 	if (LOG_LEVEL >= 0) {
@@ -370,4 +373,5 @@ END {
 		if (total_written[source]) report(LOG_WARNING, "source dataset has changed: " h_num(total_written[source]))
 		if (transfer_size) report(LOG_DEFAULT, "snapshot syncable transfer size: " h_num(transfer_size))
 	}
+	if (error_messages) close(STDERR)
 }

@@ -100,8 +100,6 @@ function error(string) {
 	print "error: "string > "/dev/stderr"
 }
 
-function verbose(message) { if (VERBOSE) print message }
-
 BEGIN {
 	FS="\t"
 	exit_code = 0
@@ -154,20 +152,16 @@ BEGIN {
 	if (DRY_RUN) {
 		print "+ "zfs_list[source]
 		print "+ "zfs_list[target]
-		exit
+		exit 1
 	}
 
 	zfs_list[source] = TIME_COMMAND zfs_list[source] ALL_OUT
 	zfs_list[target] = TIME_COMMAND zfs_list[target] ALL_OUT
 
-#print hash_source,ds[source],MATCH_COMMAND
-#print hash_target,ds[target],MATCH_COMMAND
-#print zfs_list[source]
-#print zfs_list[target]
-
 	print hash_source,ds[source] | MATCH_COMMAND
 	print hash_target,ds[target] | MATCH_COMMAND
 	print (target ? zfs_list[target] : "") | MATCH_COMMAND
-	while (zfs_list[source] | getline) print | MATCH_COMMAND
+	while (zfs_list[source] | getline zfs_list_output) print zfs_list_output | MATCH_COMMAND
 	close(zfs_list[source])
+	close(MATCH_COMMAND)
 }

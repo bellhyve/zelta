@@ -67,13 +67,13 @@ function q(s) { return "'" s "'" }
 
 function dq(s) { return "\"" s "\"" }
 
-function run_zfs_command(cmd_args, qarg1, qarg2) {
-	# Future: Help wrap commands so I don't have to do this everywhere inline
-	rzc_prefix = TIME_COMMAND SHELL_WRAPPER
-        rzc_args = cmd_args q(qarg1) (qarg2?" "q(qarg2):"")
-	rzc_cmd = rzc_prefix " " dq(rzc_args) ALL_OUT
-	return rzc_cmd
-}
+#function run_zfs_command(cmd_args, qarg1, qarg2) {
+#	# Future: Help wrap commands so I don't have to do this everywhere inline
+#	rzc_prefix = TIME_COMMAND SHELL_WRAPPER
+#        rzc_args = cmd_args q(qarg1) (qarg2?" "q(qarg2):"")
+#	rzc_cmd = rzc_prefix " " dq(rzc_args) ALL_OUT
+#	return rzc_cmd
+#}
 
 function command_queue(send_dataset, receive_dataset, match_snapshot) {
 	num_streams++
@@ -268,13 +268,13 @@ function get_pipe() {
 }
 
 function j(e) {
-	if (length(e) == 0) return "null"
+	if (e == "") return "null"
 	else if (e ~ /^-?[0-9\.]+$/) return e
 	else return "\""e"\""
 }
 
-function jpair(l, r) {
-	printf "  "j(l)": "j(r)
+function jpair(name, val) {
+	printf "  "j(name)": "j(val)
 	return ","
 }
 
@@ -505,7 +505,7 @@ BEGIN {
 	FS = "[ \t]+"
 	received_streams = 0
 	total_bytes = 0
-	if (LOG_MODE = "PROGRESS") {
+	if (LOG_MODE == "PROGRESS") {
 		report(LOG_VERBOSE, "calculating transfer size")
 		for (r = 1; r <= rpl_num; r++) {
 			if (full_cmd) close(full_cmd)
