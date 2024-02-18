@@ -1,4 +1,6 @@
 #!/usr/bin/awk -f
+#
+# zelta-snapshot.awk - quick and dirty snapshot tool for zelta-defined endpoints
 
 function make_snapshot_name(snapshot) {
 	if (snapshot) return snapshot
@@ -25,13 +27,13 @@ BEGIN {
 	zfs = ($2?"ssh -n "$2" ":"") "zfs "
 	user = $3
 	host = $4
-	volume = $5
+	dataset = $5
 	snapshot = make_snapshot_name($6)
 	close(get_endpoint_info)
 
-	command = zfs "snapshot -r " "'"volume"@"snapshot"'"
+	command = zfs "snapshot -r " "'"dataset"@"snapshot"'"
 	last_exit_code = system(command)
-	if (!last_exit_code) print "snapshot created: "volume"@"snapshot
+	if (!last_exit_code) print "snapshot created: "dataset"@"snapshot
 	exit_code = last_exit_code?last_exit_code:exit_code
 }
 
