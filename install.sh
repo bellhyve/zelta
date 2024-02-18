@@ -1,4 +1,10 @@
 #!/bin/sh
+#
+# Zelta Installer
+#
+# Note that this will clobber /usr/local/share/zelta, /usr/local/bin/zelta, and
+# examples, but not other existing files. Keep this in mind if you intend to
+# directly modify the installed copies.
 
 if [ root = "$USER" ]; then
 	: ${ZELTA_BIN:="/usr/local/bin"}

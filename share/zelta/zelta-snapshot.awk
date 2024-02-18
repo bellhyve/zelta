@@ -1,4 +1,6 @@
 #!/usr/bin/awk -f
+#
+# zelta-snapshot.awk - quick and dirty snapshot tool for zelta-defined endpoints
 
 function make_snapshot_name(snapshot) {
 	if (snapshot) return snapshot

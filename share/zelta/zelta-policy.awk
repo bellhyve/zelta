@@ -1,6 +1,6 @@
 #!/usr/bin/awk -f
 #
-# zelta policy, zp - iterates through "zelta" commands
+# zelta policy, zp - iterates through replication commands indicated in a policy file
 #
 # usage: zelta policy [-flags] [site, host, dataset, dataset_last_element, or source host:dataset] ...
 #
@@ -115,6 +115,7 @@ function get_options() {
 	# Possible Options
 	OPTIONS["archive_root"]++
 	OPTIONS["backup_root"]++
+	OPTIONS["depth"]++
 	OPTIONS["host_prefix"]++
 	OPTIONS["initiator"]++
 	OPTIONS["intermediate"]++

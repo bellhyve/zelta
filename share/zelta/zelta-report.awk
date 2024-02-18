@@ -1,4 +1,9 @@
 #!/usr/bin/awk -f
+#
+# zelta-report.awk - send a Slack hook message with a list of out of date snapshots
+#   in "zelta policy"'s BACKUP_ROOT.
+#
+# Note that this script has not been designed for public use. Contributions are welcome.
 
 function env(env_name, var_default) {
 	return ( (env_name in ENVIRON) ? ENVIRON[env_name] : var_default )

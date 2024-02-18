@@ -2,7 +2,6 @@
 #
 # zelta-endpoint.awk - resolve and validate a local or remote dataset string
 
-
 function clear_vars() {
 	endpoint_id = ""
 	prefix = ""

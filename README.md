@@ -2,12 +2,12 @@
 
 **Zelta** is a suite of tools offering a streamlined approach to managing ZFS snapshot replication across various systems. It's built with the intention of simplifying complex ZFS functions into safe and user-friendly commands while also being the foundation for large and complex backup and failover environments. It's easy and accessible while working with most UNIX and UNIX-like base systems without additional packages, is optimized for environments with strict permission separation, and integrates well into many types of existing ZFS workflows.
 
-Zelta can be used to safely perform workstation backups with a single command, but it has also been used to replicate millions of snapshots across hundreds of systems, feeding alerting and analytics systems.
+Zelta can be used to safely perform workstation backups with a single command, but it has also been used to replicate millions of snapshots across hundreds of systems automatically, feeding alerting and analytics systems.
 
 The suite comprises three main components:
 
 - `zelta match`: Compares two ZFS dataset trees, reporting matching snapshots or discrepancies. It's a helpful tool for replication assistance, rollback assistance, and source-backup validation.
-- `zelta replicate`: A robust ZFS dataset tree replication tool with very safe defaults.
+- `zelta replicate`: A robust ZFS dataset tree replication tool with safe defaults.
 - `zelta policy`: A policy-based backup tool for managing extensive replication jobs.
 
 There are additional functions and shortcuts:
@@ -20,29 +20,21 @@ There are additional functions and shortcuts:
 By "safe", we mean:
 - Zelta has an option to snapshot, or snapshot conditionally, before replications.
 - Zelta replicates read-only by default and resets ("inherits") mountpoints below the parent dataset to avoid dangerous overlapping mounts.
-- Zelta does not have a force overwrite option, but plans to provide assistance with `zfs rollback` and related operations.
+- Zelta does not have a force overwrite option, but provides assistance with `zfs rollback` and related operations.
 
 Zelta is designed with Unix philosophy in mind. It is modular, extensible, and almost anything (including our safe defaults) can be changed with a tiny bit of elbow grease.
 
 
-# Alpha Software Notice, and a Commitment to Safety and Community Collaboration
+# Early-Release Software Notice, and a Commitment to Safety and Community Collaboration
 
 Zelta, although a recent addition to GitHub, has been rigorously used in production for over five years. It has successfully managed the replication of millions of datasets, with a primary emphasis on safety. We're currently refining features, finalizing command names, and enhancing documentation.
 
 We invite individuals of all technical backgrounds who want to protect both personal and organizational mission-critical data to collaborate with us. Your input is crucial in making Zelta, and ZFS at large, more accessible and user-friendly. By engaging with us, you'll not only contribute to the development of Zelta but also gain the opportunity to receive direct support and insights from our team at (Bell Tower)[https://belltower.it/].
 
 
-# Release
-
-Zelta's commands and switches should be considered somewhat in flux until its official release on February 19, 2024. For example, the default behavior for `zelta policy` just changed to mimic `zelta backup` by adding a snapshot command and including intermediate snapshots.
-
-Zelta is free to use and will be released on February 19, 2024 under the Simplified BSD License or similar.
-
-
 ## Goals and Methodology
 
 ZFS's versatility is unparalleled in the open source world, but users of all experience levels wrestle with its complex command structures with non-intuitive and often destructive defaults. Zelta addresses this by providing streamlined commands and safer defaults for common backup and migration tasks.
-
 
 The act of simply backing up a boot drive with the basic ZFS commands (`zfs send -R zroot@latest | zfs receive backup/zroot`) is difficult to construct and will likely result in errors and overlapping mounts. Zelta simplifies this process to:
 - `zelta backup zroot backup/zroot`: Backs up the latest `zroot` snapshots to `backup/zroot`
@@ -86,7 +78,7 @@ source snapshot created: @2024-01-31_12.38.53
 3G sent, 21/21 streams received in 10.34 seconds
 ```
 
-Simply repeat this to update your backup. To learn more, see the `zelta replicate` section of this document and this (manpage draft)[https://github.com/bellhyve/zelta/wiki/zelta-replicate-(man-page-draft)].
+Repeat this command to update your backup. To learn more, see the `zelta replicate` section of this document and this (manpage draft)[https://github.com/bellhyve/zelta/wiki/zelta-replicate-(man-page-draft)].
 
 
 ## Quick Start: Back up the universe using a policy
@@ -107,13 +99,9 @@ MyLocalBackups:
   - zroot: backuppool/my_zroot_backup
 ```
 
-Run `zelta policy`. It will perform the backup operation and report some details if it succeeds, or an "⊜" symbol if it finds nothing to replication. Now we extend our policy with options and more datasets.
+Run `zelta policy`. It will perform the backup operation and report some details about its success or failure. Now we can extend our policy with options and more datasets.
 
-On your backup servers, create a backup user, which we will call "backupuser" user and give it access to replicate to your backup target, e.g., `zfs allow -u backupuser receive,mount,create,readonly backuppool`. Note that backupuser will not be able to receive any property it doesn't have permission to. Missing some permissions doesn't prevent a successful backup of data, but if you'd like to back up a default FreeBSD system with all properties, set these additional permissions: `canmount,mountpoint,setuid,exec,atime,compression`.
-
-On your source servers (the servers with datasets you would like to back up) also create a backup user, and grant it access to send snapshots from your source dataset (or a parent dataset above your backup source dataset), e.g., `zfs allow -u backupuser send,snapshot,hold pool/stuff`.
-
-Use SSH (key-based authentication)[https://docs.freebsd.org/en/books/handbook/security/#security-ssh-keygen] between your backup server and source servers. Make sure you can ssh from the machine you're running Zelta on to the others.
+To replicate from or between remote servers, `zelta` uses `ssh`. To learn about setting up remote access, ZFS privilege separation, and optimizing `ssh` with its excellent client-side functions, see the Zelta wiki on (Setting Up and Optimizing Remote Replications)[https://github.com/bellhyve/zelta/wiki/Setting-Up-and-Optimizing-Remote-Replications].
 
 ```yaml
 BACKUP_ROOT: backuppool
@@ -149,7 +137,7 @@ See the [configuration example](https://github.com/bellhyve/zelta/blob/main/zelt
 
 ## zelta match
 
-`zelta match` is a tool used for comparing ZFS datasets. It identifies the most recent matching snapshot between two given datasets. This tool is particularly useful for determining if datasets are in sync and identifying the latest common snapshot.
+`zelta match` is a tool used for identifying the relationship between the two given dataset trees. This tool is particularly useful for determining if datasets are in sync and identifying the latest common snapshot.
 
 ```sh
 zelta match [options] source_dataset target_dataset

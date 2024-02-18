@@ -1,24 +1,19 @@
 #!/usr/bin/awk -f
 #
-# zelta-replicate.awk - replicates a zfs endpoint/dataset
+# zelta-replicate.awk, zelta (replicate|backup|sync), zpull - replicates remote or local trees
+#   of zfs datasets
+# 
+# After using "zelta match" to identify out-of-date snapshots on the target, this script creates
+# replication streams to synchronize the snapshots of a dataset and its children. This script is
+# useful for backup and migration operations. It intentionally does not have a rollback feature,
+# and instead assumes (or attempts to make) the backup target readonly.
 #
-# After using match_command to identify out-of-date snapshots on the target, this script creates
-# individual replication streams for a snapshot and its children. This script is useful for
-# migrations in that it will recursively replicate the latest parent snapshot and its
-# children, unlike the "zfs send -R" option.
-#
-# If called with the argument "-z" zelta sync reports an abbreviated output for reporting:
+# If called with the argument "-z" zelta sync reports an abbreviated output for single-line
+# reporting, as provided by the default "zelta policy" output:
 #
 # 	received_streams, total_bytes, time, error
 #
-# Additional flags can be set with the environmental variables ZELTA_SEND_FLAGS and
-# ZELTA_RECEIVE_FLAGS.
-#
-# Note that as zelta sync is used as both a backup and migration tool, the default behavior
-# for new replicas is to only copy the latest snapshots from the source heirarchy, while the
-# behavior for updating existing replicas is to copy intermediate snapshots. You can use
-# "-R" to replicate the source's snapshot history. Use the -I flag to replicate incremental
-# snapshots.
+# See the zelta.env.sample and usage output for further details.
 #
 # ZELTA_PIPE "-z" output key:
 # error_code <0: number of failed streams
