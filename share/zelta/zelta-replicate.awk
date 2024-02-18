@@ -427,29 +427,24 @@ BEGIN {
 	zfs_receive_command = zfs[target] recv_flags
 
 	time_start = sys_time()
-	if (SNAPSHOT_ALL) run_snapshot()
 	if (SNAPSHOT_WRITTEN) {
-		# This could also be just a "zfs list -Hprt filesystem,volume -o written"
-		# but we use zelta match for endpoint handling and timer. We probably
-		# need an arbitrary "zelta run" to just run stuff and handle quotes
-		# and tiemrs and crap.
-		check_written_command = "zelta match -Hpo srcwritten " DEPTH q(source)
-		print check_written_command
+		# This needs to be adapted to scan the source for dataset type so we can apply appropriate properties, e.g., skip
+		# mountpoints on volumes in a LBYL mode.
+		check_written_command = RPL_CMD_PREFIX dq(zfs[source] "list -Hprt filesystem,volume -o written " DEPTH q(ds[source])) ALL_OUT
 		while (check_written_command | getline) {
-			if ($1 == "SOURCE_LIST_TIME:") source_zfs_list_time = $2
+			if (sub(/^real[ \t]+/,"")) source_zfs_list_time += $0
+			else if (/^(sys|user|0)/) { }
 			else if (/^[0-9]+$/) {
-				if ($1) {
-					report(LOG_VERBOSE, source " has written data")
-					run_snapshot()
-					break
-				}
+				source_is_written++
+				report(LOG_VERBOSE, source " has written data")
 			} else report(LOG_VERBOSE, "unexpected list output: " $0)
 		}
 		close(check_written_command)
-		if ((SNAPSHOT_WRITTEN>1) && !source_latest) {
-			report(LOG_BASIC, "source not written")
-			stop(0)
-		}
+	}
+	if (SNAPSHOT_ALL || source_is_written) source_latest = run_snapshot()
+	if ((SNAPSHOT_WRITTEN>1) && !source_latest) {
+		report(LOG_BASIC, "source not written")
+		stop(0)
 	}
 	match_command | getline
 	get_match_header()
