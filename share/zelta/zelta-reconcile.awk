@@ -2,32 +2,19 @@
 #
 # zelta reconcile - compares a snapshot list via pipe and command
 #
-# usage: internal to "zelta match", but could be leveraged for other comparison
+# usage: internal to "zelta match", but most code could be leveraged for other comparison
 # operations.
 #
-# Reports the most recent matching snapshot and the latest snapshot of a volume and
+# Reports the most recent matching snapshot and the latest snapshot of a dataset and
 # its children, which are useful for various zfs operations
 #
-# In interactive mode, child snapshot names are provided relative to the target
-# dataset. For example, when zmatch is called with tank/dataset, tank/dataset/child's
-# snapshots will be reported as"/child@snapshot-name".
+# Child snapshot names are provided relative to the target using a trimmed dataset
+# referred to as a STUB. For example, when zmatch is called with tank/dataset, 
+# tank/dataset/child's snapshots will be reported as "/child@snapshot-name".
 #
-# Specifically:
-#   - The latest matching snapshot and child snapshots
-#   - Missing child volumes on the destination
-#   - Matching snapshot names with different GUIDs
-#   - Newer target snapshots not on the source
-#
+# DEPRECATED FEATURE:
 # If only one argument is given, report the amount of data written since the last
 # snapshot.
-#
-# ENVIRONMENT VARIABLES
-#
-# ZELTA_PIPE: When set to 1, we provide full snapshot names and simplify the output as
-# follows:
-#   - No output is provided for an up-to-date match.
-#   - A single snapshot indicates the volume is missing on the target.
-#   - A tab separated pair of snapshots indicates the out-of-date match and the latest.
 
 function env(env_name, var_default) {
 	return ( (env_name in ENVIRON) ? ENVIRON[env_name] : var_default )
@@ -35,7 +22,10 @@ function env(env_name, var_default) {
 
 function report(level, message) {
 	if (!message) return 0
-	if ((level <= LOG_LEVEL) && (level < 1)) print message > STDERR
+	if ((level <= LOG_LEVEL) && (level <= LOG_WARNING)) {
+		error_messages++
+		print message > STDERR
+	}
 	else if (level <= LOG_LEVEL) print message
 }
 
@@ -57,8 +47,8 @@ function arrlen(array) {
 	return element_count
 }
 
-function get_snapshot_data(volume_name) {
-		trim = vol_name_length[volume_name]
+function get_snapshot_data(ds_name) {
+		trim = ds_name_length[ds_name]
 		if (/dataset does not exist/) return 0
 		else if (/^real[ \t]+[0-9]/) {
 			split($0, time_arr, /[ \t]+/)
@@ -67,27 +57,26 @@ function get_snapshot_data(volume_name) {
 		} else if (/(sys|user)[ \t]+[0-9]/) {
 			return 0
 		} else if (!($1 ~ /@/) && ($2 ~ /[0-9]/)) {
-			# Toggle remote/target list to see what's missing
-			stub = substr($1, trim)
+			stub = ($1 == dataset[ds_name]) ? "" : substr($1, trim)
 			if (!stub_list[stub]++) stub_order[++stub_num] = stub
 			if (!status[stub]) status[stub] = "NOSNAP"
-			if (!num_snaps[volume_name,stub]) num_snaps[volume_name,stub] = 0
-			stub_written[volume_name,stub] += $3
-			total_written[volume_name] += $3
+			if (!num_snaps[ds_name,stub]) num_snaps[ds_name,stub] = 0
+			stub_written[ds_name,stub] += $3
+			total_written[ds_name] += $3
 			return 0
 		} else if (! /@/) {
 			report(LOG_ERROR,$0)
 			exit_code = 1
 			return 0
 		}
-		dataset_name = $1			# full/volume@snapshot
+		snapshot_full_name = $1			# full/dataset@snapshot
 		snapshot_stub = substr($1, trim)	# [child]@snapshot
 		snapshot_guid = $2			# GUID property
 		snapshot_written = $3			# written property
 		split(snapshot_stub, split_stub, "@")
-		stub = split_stub[1]		# [child] (blank for top volume name)
+		stub = split_stub[1]			# [child] (blank for top dataset name)
 		snapshot_name = "@" split_stub[2]	# @snapshot
-		num_snaps[volume_name,stub]++   # Total snapshots per dataset
+		num_snaps[ds_name,stub]++		# Total snapshots per dataset
 		return 1
 }
 
@@ -96,7 +85,7 @@ function load_target_snapshots() {
 		if (!get_snapshot_data(target)) { continue }
 		target_guid[snapshot_stub] = snapshot_guid
 		target_written[snapshot_stub] = snapshot_written
-		if (!(target_vol_count[stub]++)) {
+		if (!(target_ds_count[stub]++)) {
 			target_latest[stub] = snapshot_stub
 			tgtlast[stub] = snapshot_name
 			target_order[++target_num] = stub
@@ -109,7 +98,7 @@ function load_target_snapshots() {
 
 function check_parent() {
 	if (!(snapshot_list_command ~ /zfs list/)) return 0
-	parent = volume[target]
+	parent = dataset[target]
 	if (!gsub(/\/[^\/]+$/, "", parent)) {
 		report(LOG_ERROR,"invalid target: " parent)
 		exit 1
@@ -120,6 +109,7 @@ function check_parent() {
 	if (parent_check ~ /dataset does not exist/) {
 		report(LOG_DEFAULT, "parent dataset does not exist: " parent)
 	}
+	close(parent_list_command)
 }
 
 function arr_sort(arr) {
@@ -184,8 +174,8 @@ BEGIN {
 function get_endpoint_info() {
 	endpoint = $1
 	endpoint_hash[endpoint] = $1
-	volume[endpoint] = $2
-	vol_name_length[endpoint] = length(volume[endpoint]) + 1
+	dataset[endpoint] = $2
+	ds_name_length[endpoint] = length(dataset[endpoint]) + 1
 	return endpoint
 }
 
@@ -222,7 +212,7 @@ NR > 3 {
 	if (!get_snapshot_data(source)) { next }
 	source_guid[snapshot_stub] = snapshot_guid
 	source_written[snapshot_stub] = snapshot_written
-	if (!(source_vol_count[stub]++)) {
+	if (!(source_ds_count[stub]++)) {
 		source_latest[stub] = snapshot_stub
 		srclast[stub] = snapshot_name
 		source_order[++source_num] = stub
@@ -231,9 +221,9 @@ NR > 3 {
 	source_oldest[stub] = snapshot_name
 
 	if (stub in matches) next
-	else if (!target_latest[stub] && !(stub in new_volume)) {
+	else if (!target_latest[stub] && !(stub in new_dataset)) {
 		if (!stub) check_parent()
-		new_volume[stub] = snapshot_name
+		new_dataset[stub] = snapshot_name
 		if (stub_written[target,stub]) status[stub] = "MISMATCH"
 		else if (num_snaps[target,stub] == "0") status[stub] = "TGTEMPTY"
 		else {
@@ -247,7 +237,7 @@ NR > 3 {
 				basic_log[stub] = "target has latest source snapshot: " snapshot_stub
 				status[stub] = (snapshot_stub==target_latest[stub]) ? "SYNCED" : "AHEAD"
 			} else if (guid_error[stub]) {
-				report(LOG_ERROR,"latest guid match on target snapshot: " dataset_name)
+				report(LOG_ERROR,"latest guid match on target snapshot: " snapshot_full_name)
 				status[stub] = "MISMATCH"
 			} else {
 				status[stub] = "BEHIND"
@@ -278,9 +268,9 @@ function make_header_column(title, arr) {
 	}
 }
 
-function summarize(stub) {
+function summarize() {
 	if (status[stub]=="SYNCED") s = "up-to-date"
-	else if (status[stub]=="SRCONLY") s = "syncable, new volume"
+	else if (status[stub]=="SRCONLY") s = "syncable, new dataset"
 	else if ((status[stub]=="BEHIND") && stub_written[source,stub]) s = "target is written"
 	else if (status[stub]=="BEHIND") s = "syncable"
 	else if (status[stub]=="TGTONLY") s = "no source dataset"
@@ -315,24 +305,24 @@ function chart_header() {
 	if (!NOHEADER) print_row(columns)
 }
 
-function chart_row(stub) {
+function chart_row(field) {
 	if (!ROW++) chart_header()
 	c=0
 	delete columns
-	if ("stub" in COL) columns[++c] = stub
-	if ("status" in COL) columns[++c] = status[stub]
-	if ("xfersize" in COL) columns[++c] = h_num(xfersize[stub])
-	if ("xfersnaps" in COL) columns[++c] = xfersnaps[stub]
-	if ("match" in COL) columns[++c] = matches[stub]
-	if ("srcfirst" in COL) columns[++c] = source_oldest[stub]
-	if ("srclast" in COL) columns[++c] = srclast[stub]
-	if ("srcwritten" in COL) columns[++c] = h_num(stub_written[source,stub])
-	if ("tgtfirst" in COL) columns[++c] = tgtfirst[stub]
-	if ("tgtlast" in COL) columns[++c] = tgtlast[stub]
-	if ("tgtwritten" in COL) columns[++c] = h_num(stub_written[target,stub])
-	if ("srcsnaps" in COL) columns[++c] = num_snaps[source,stub]
-	if ("tgtsnaps" in COL) columns[++c] = num_snaps[target,stub]
-	if ("summary" in COL) columns[++c] = summary[stub]
+	if ("stub" in COL) columns[++c] = field
+	if ("status" in COL) columns[++c] = status[field]
+	if ("xfersize" in COL) columns[++c] = h_num(xfersize[field])
+	if ("xfersnaps" in COL) columns[++c] = xfersnaps[field]
+	if ("match" in COL) columns[++c] = matches[field]
+	if ("srcfirst" in COL) columns[++c] = source_oldest[field]
+	if ("srclast" in COL) columns[++c] = srclast[field]
+	if ("srcwritten" in COL) columns[++c] = h_num(field_written[source,field])
+	if ("tgtfirst" in COL) columns[++c] = tgtfirst[field]
+	if ("tgtlast" in COL) columns[++c] = tgtlast[field]
+	if ("tgtwritten" in COL) columns[++c] = h_num(field_written[target,field])
+	if ("srcsnaps" in COL) columns[++c] = num_snaps[source,field]
+	if ("tgtsnaps" in COL) columns[++c] = num_snaps[target,field]
+	if ("summary" in COL) columns[++c] = summary[field]
 	print_row(columns)
 }
 
@@ -344,7 +334,7 @@ END {
 		if (status[stub] == "SYNCED") count_synced++
 		else if ((status[stub] == "SRCONLY") || (status[stub] == "BEHIND")) count_ready++
 		else count_nomatch++
-		if ("summary" in COL) summary[stub] = summarize(stub)
+		if ("summary" in COL) summary[stub] = summarize()
 		if (srclast[stub] == tgtlast[stub]) xfersnaps[stub] = 0
 	}
 	if (LOG_LEVEL >= 0) {
@@ -370,4 +360,5 @@ END {
 		if (total_written[source]) report(LOG_WARNING, "source dataset has changed: " h_num(total_written[source]))
 		if (transfer_size) report(LOG_DEFAULT, "snapshot syncable transfer size: " h_num(transfer_size))
 	}
+	if (error_messages) close(STDERR)
 }

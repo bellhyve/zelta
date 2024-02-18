@@ -1,6 +1,6 @@
 #!/usr/bin/awk -f
 #
-# zmatch - compares a source and target datasets for dataset simiddlarity
+# zmatch - compares a source and target datasets for dataset similarity
 #
 # usage: zmatch [user@][host:]source/dataset [user@][host:]target/dataset
 #
@@ -17,27 +17,14 @@
 #   - Matching snapshot names with different GUIDs
 #   - Newer target snapshots not on the source
 #
-# SWITCHES
+# ZFS LIST SWITCHES
 #
-# -o    "all" or a list of properties to show.
-# -H    Hide header
-# -p    Single tab delimited output
-# -n	Show the zfs list commands instead of running them.
-# -v	Verbose, tell the user if output is being suppressed.
-# -d#	Limi depth to #.
-#
-# ENVIRONMENT VARIABLES
-#
-# ZELTA_PIPE: When set to 1, we provide full snapshot names and simplify the output as
-# follows:
-#   - Real time in seconds of the "zfs list" operations in the format: 1.01 : 3.51
-#   - No other output is provided if no updates are possible/available.
-#   - A single dataset name indicates a parent dataset is missing.
-#   - A "source_snapshot target_dataset" indicates a source dataset needs to be replicated
-#   - If two source snapshots are given, an incremental transfer is needed.
-#
-# ZELTA_DEPTH: Adds "-d $ZELTA_DEPTH" to zfs list commands. Useful for limiting
-# replication depth in zpull.
+# -d#	limit recursion depth to #.
+# -H    hide header
+# -n	show the zfs list commands instead of running them
+# -o    "all" or a list of properties to show
+# -p    single tab delimited output
+# -v	verbose, tell the user if output is being suppressed.
 
 function usage(message) {
 	usage_command = "zelta usage match"
@@ -100,8 +87,6 @@ function error(string) {
 	print "error: "string > "/dev/stderr"
 }
 
-function verbose(message) { if (VERBOSE) print message }
-
 BEGIN {
 	FS="\t"
 	exit_code = 0
@@ -112,7 +97,6 @@ BEGIN {
 	ZELTA_DEPTH = env("ZELTA_DEPTH", 0)
 	ZFS_LIST_PREFIX = "list -Hprt all -Screatetxg -o "
 	ZFS_LIST_PREFIX_WRITECHECK = "list -Hprt filesystem,volume -o "
-
 	
 	get_options()
 	if (PASS_FLAGS) PASS_FLAGS = "ZELTA_MATCH_FLAGS='"PASS_FLAGS"' "
@@ -135,10 +119,6 @@ BEGIN {
 	else ZFS_LIST_FLAGS = ZFS_LIST_PREFIX_WRITECHECK ZFS_LIST_PROPERTIES ZFS_LIST_DEPTH " "
 
 	ALL_OUT =" 2>&1"
-
-
-	if (!ZELTA_PIPE) { VERBOSE = 1 }
-
 	OFS="\t"
 
 	hash_source = get_endpoint_info(source)
@@ -155,20 +135,17 @@ BEGIN {
 	if (DRY_RUN) {
 		print "+ "zfs_list[source]
 		print "+ "zfs_list[target]
-		exit
+		exit 1
 	}
 
 	zfs_list[source] = TIME_COMMAND zfs_list[source] ALL_OUT
 	zfs_list[target] = TIME_COMMAND zfs_list[target] ALL_OUT
 
-#print hash_source,ds[source],MATCH_COMMAND
-#print hash_target,ds[target],MATCH_COMMAND
-#print zfs_list[source]
-#print zfs_list[target]
-
 	print hash_source,ds[source] | MATCH_COMMAND
 	print hash_target,ds[target] | MATCH_COMMAND
+	# Single volume "matches" are deprecated (use "zfs list" instead)
 	print (target ? zfs_list[target] : "") | MATCH_COMMAND
-	while (zfs_list[source] | getline) print | MATCH_COMMAND
+	while (zfs_list[source] | getline zfs_list_output) print zfs_list_output | MATCH_COMMAND
 	close(zfs_list[source])
+	close(MATCH_COMMAND)
 }

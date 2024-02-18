@@ -1,6 +1,6 @@
 #!/usr/bin/awk -f
 #
-# zelta policy, zp - iterates through "zelta" commands
+# zelta policy, zp - iterates through replication commands indicated in a policy file
 #
 # usage: zelta policy [-flags] [site, host, dataset, dataset_last_element, or source host:dataset] ...
 #
@@ -24,16 +24,16 @@
 # host or dataset names. For example, "zelta policy zroot" will back up every dataset
 # ending in "zroot".
 #
-# It can also be used to loop through the site/host/volume/dataset objects to run
+# It can also be used to loop through the site/host/dataset objects to run
 # other commmands such as other replication tools, logging, replications setup
 # functions, or any arbitrary command.
 
 function report(level, message) {
-	if (level < 0) {
+	if (level <= LOG_WARNING) {
 		print "error: " message > STDERR
-		if (mode < -1) exit 1
-	} else if ((level < 1) && (MODE == "ACTIVE")) { printf message }
-	else if ((level < 1) || (MODE == "VERBOSE")) {
+		if (level <= LOG_ERROR) exit 1
+	} else if ((level <= LOG_DEFAULT ) && (MODE == "ACTIVE")) { printf message }
+	else if ((level <= LOG_DEFAULT) || (MODE == "VERBOSE")) {
 		if (message == "") {
 			printf buffer_delay
 			buffer_delay = ""
@@ -60,22 +60,22 @@ function get_hostname() {
 	LOCALHOST["localhost"]++
 }
 
-function resolve_target(source, target) {
-	if (target) { return target }
-	target = host_conf["backup_root"]
-	if (host_conf["host_prefix"] && current_host) {
-		target = target "/" current_host
+function resolve_target(src, tgt) {
+	if (tgt) { return tgt }
+	tgt = host_conf["backup_root"]
+	if (host_conf["host_prefix"] && host) {
+		tgt = tgt "/" host
 	}
-	n = split(source, segments, "/")
+	n = split(src, segments, "/")
 	for (i = n - host_conf["host_prefix"]; i <= n; i++) {
 		if (segments[i]) {
-			target = target "/" segments[i]
+			tgt = tgt "/" segments[i]
 		}
 	}
-	return (host_conf["push_to"] ? host_conf["push_to"] ":" : "") target
+	return (host_conf["push_to"] ? host_conf["push_to"] ":" : "") tgt
 }
 
-function create_backup_command(current_host, source_dataset) {
+function create_backup_command() {
 	flags = "-" MODE_FLAGS
 	#flags = flags (host_conf["dry_run"] ? "n" : "")
 	flags = flags ((host_conf["intermediate"]=="0") ? "i" : "I")
@@ -86,9 +86,9 @@ function create_backup_command(current_host, source_dataset) {
 	else if (snap_flags=="SKIP") flags = flags "ss"
 	else flags = flags "s"
 	flags = flags (host_conf["depth"] ? " -d" host_conf["depth"] : "")
-	cmd_src = q((current_host in LOCALHOST) ? source_dataset : (current_host":"source_dataset))
-	cmd_tgt = q(datasets[current_host, source_dataset])
-	backup_command[current_site,current_host,source_dataset] = host_conf["backup_command"] " " flags " " cmd_src " " cmd_tgt
+	cmd_src = q((host in LOCALHOST) ? source : (host":"source))
+	cmd_tgt = q(datasets[host, source])
+	backup_command[site,host,source] = host_conf["backup_command"] " " flags " " cmd_src " " cmd_tgt
 }
 
 function var_name(var) {
@@ -115,6 +115,7 @@ function get_options() {
 	# Possible Options
 	OPTIONS["archive_root"]++
 	OPTIONS["backup_root"]++
+	OPTIONS["depth"]++
 	OPTIONS["host_prefix"]++
 	OPTIONS["initiator"]++
 	OPTIONS["intermediate"]++
@@ -131,6 +132,7 @@ function get_options() {
 	OPTIONS_BOOLEAN["quiet"]++
 	OPTIONS_BOOLEAN["verbose"]++
 
+	AUTO = 1
 	for (i=1;i<ARGC;i++) {
 		$0 = ARGV[i]
 		if (gsub(/^-/,"")) {
@@ -146,11 +148,10 @@ function get_options() {
 				else usage("unknown option: " $0)
 			}
 		} else {
+			AUTO = 0
 			LIMIT_PATTERN[$0]++
 		}
 	}
-	if (!length(LIMIT_PATTERN)) AUTO++
-
 }
 
 function set_mode() {
@@ -212,8 +213,8 @@ function load_config() {
 		# Sites:
 		} else if (/^[^ ]+:$/) {
 			conf_context = "site"
-			current_site = $1
-			sites[current_site]++
+			site = $1
+			sites[site]++
 			copy_array(global_conf, site_conf)
 		} else if (/^  [^ ]+: +[^ ]/) {
 			set_var(site_conf, $2, $3)
@@ -222,9 +223,9 @@ function load_config() {
 		} else if (/^  [^ ]+:$/) {
 			if (conf_context == "global") usage(CONF_ERR CONF_LINE)
 			conf_context = "host"
-			current_host = $2
-			hosts[current_host] = 1
-			hosts_by_site[current_site,current_host] = 1
+			host = $2
+			hosts[host] = 1
+			hosts_by_site[site,host] = 1
 			copy_array(site_conf, host_conf)
 		} else if ($2 == "options") {
 			conf_context = "options"
@@ -235,17 +236,20 @@ function load_config() {
 			set_var(host_conf, $2, $3)
 		} else if ((/^  - [^ ]/) || (/^    - [^ ]/)) {
 			if (!(conf_context ~ /^(datasets|host)$/)) usage(CONF_ERR CONF_LINE)
-			source_dataset = $3
-			target_dataset = resolve_target(source_dataset, $4)
-			if (!target_dataset) {
-				report(LOG_WARNING,"no target defined for " source_dataset)
-			}
-			datasets[current_host, source_dataset] = resolve_target(source_dataset, target_dataset)
-			dataset_count[source_dataset]++
-			backup_command[current_host, source_dataset] = create_backup_command(current_host, source_dataset)
+			source = $3
+			target = resolve_target(source, $4)
+			if (!target) {
+				report(LOG_WARNING,"no target defined for " source)
+			} else target = resolve_target(source, target)
+			if (!should_replicate()) continue
+			total_datasets++
+			datasets[host, source] = target
+			dataset_count[source]++
+			backup_command[host, source] = create_backup_command()
 		} else usage(CONF_ERR CONF_LINE)
 	}
-	if (length(datasets)==0) usage("no datasets defined in " ZELTA_CONFIG)
+	close(ZELTA_CONFIG)
+	if (!total_datasets) usage("no datasets defined in " ZELTA_CONFIG)
 	for (key in cli_options) global_conf[key] = cli_options[key]
 	FS = "[ \t]+";
 	LOG_ERROR = -2
@@ -257,13 +261,14 @@ function load_config() {
 function sub_keys(key_pair, key1, key2_list, key2_subset) {
 	delete key2_subset
 	for (key2 in key2_list) {
-		if (key_pair[key1, key2]) {
+		if ((key1,key2) in key_pair) {
 			key2_subset[key2]++
 		}
 	}
 }
 
 function should_replicate() {
+	if (AUTO) return 1
 	target_stub = target
 	sub(/.*\//,"",target_stub)
 	if (site in LIMIT_PATTERN || host in LIMIT_PATTERN || source in LIMIT_PATTERN ||target in LIMIT_PATTERN || host":"source in LIMIT_PATTERN || target_stub in LIMIT_PATTERN) {
@@ -283,7 +288,7 @@ function h_num(num) {
 	return int(num) suffix
 }
 
-function zelta_sync(site, host, source, target) {
+function zelta_sync() {
 	sync_cmd = backup_command[site,host,source]
 	sync_status = 1
 	if (MODE == "LIST") {
@@ -293,31 +298,31 @@ function zelta_sync(site, host, source, target) {
 		print "+ " sync_cmd
 		return 1
 	} else if (MODE == "ACTIVE") report(LOG_DEFAULT, source": ")
-	else if ((MODE == "DEFAULT") || (MODE == "VERBOSE")) report(LOG_DELAY, host":"source": ")
+	else if ((MODE == "DEFAULT") || (MODE == "VERBOSE")) report(LOG_DEFAULT, host":"source": ")
 	while (sync_cmd|getline) {
 		# Provide a one-line sync summary
 		# received_streams, total_bytes, time, error
 		if (/[0-9]+ [0-9]+ [0-9]+\.*[0-9]* -?[0-9]+/) {
-			if ($2) report(LOG_DELAY, h_num($2) ": ")
+			if ($2) report(LOG_DEFAULT, h_num($2) ": ")
 			if ($4) {
-				report(LOG_DELAY, "failed: ")
+				report(LOG_DEFAULT, "failed: ")
 				sync_status = 0
-				if ($4 == 1) report(LOG_DELAY, "error matching snapshots")
-				else if ($4 == 2) report(LOG_DELAY, "replication error")
-				else if ($4 == 3) report(LOG_DELAY, "target is ahead of source")
-				else if ($4 == 4) report(LOG_DELAY, "error creating parent volume")
-				else if ($4 == 5) report(LOG_DELAY, "match error")
-				else if ($4 < 0) report(LOG_DELAY, (0-$4) " missing streams")
-				else report(LOG_DELAY, "error: " $0)
-			} else if ($1) { report(LOG_DELAY, "replicated in " $3 "s") }
-			else report(LOG_DELAY, "up-to-date")
+				if ($4 == 1) report(LOG_DEFAULT, "error matching snapshots")
+				else if ($4 == 2) report(LOG_DEFAULT, "replication error")
+				else if ($4 == 3) report(LOG_DEFAULT, "target is ahead of source")
+				else if ($4 == 4) report(LOG_DEFAULT, "error creating parent dataset")
+				else if ($4 == 5) report(LOG_DEFAULT, "match error")
+				else if ($4 < 0) report(LOG_DEFAULT, (0-$4) " missing streams")
+				else report(LOG_DEFAULT, "error: " $0)
+			} else if ($1) { report(LOG_DEFAULT, "replicated in " $3 "s") }
+			else report(LOG_DEFAULT, "up-to-date")
 		} else {
-			report(LOG_DELAY, $0)
+			report(LOG_DEFAULT, $0)
 			if (/replicationErrorCode/ && !/0,/) sync_status = 0
 		}
-		report(LOG_DELAY, "\n")
+		report(LOG_DEFAULT, "\n")
 	}
-	report(LOG_DELAY, "")
+	report(LOG_DEFAULT, "")
 	close(sync_cmd)
 	return sync_status
 }
@@ -346,17 +351,19 @@ BEGIN {
 				target = datasets[host,source]
 				if (!AUTO && !should_replicate()) continue
 				if (MODE == "ACTIVE") report(LOG_DEFAULT,"    ")
-				if (! zelta_sync(site, host, source, target)) {
+				if (! zelta_sync()) {
+					failed_num++
 					failed_list[site"\t"host"\t"source"\t"target]++
 				}
 			}
 		}
 	}
-	while (global_conf["retry"]-- > 0) {
+	while ((global_conf["retry"]-- > 0) && failed_num) {
 		for (failed_sync in failed_list) {
 			$0 = failed_sync
-			if (MODE != "JSON") report(LOG_DEFAULT, "retrying: " $2 ":" $3 ": ")
-			if (zelta_sync($1, $2, $3, $4)) {
+			site = $1; host = $2; source = $3; target = $4
+			if (MODE != "JSON") report(LOG_DEFAULT, "retrying: " $host ":" $source ": ")
+			if (zelta_sync()) {
 				delete failed_list[failed_sync]
 			}
 		}

@@ -1,24 +1,19 @@
 #!/usr/bin/awk -f
 #
-# zelta-replicate.awk - replicates a zfs endpoint/volume
+# zelta-replicate.awk, zelta (replicate|backup|sync), zpull - replicates remote or local trees
+#   of zfs datasets
+# 
+# After using "zelta match" to identify out-of-date snapshots on the target, this script creates
+# replication streams to synchronize the snapshots of a dataset and its children. This script is
+# useful for backup and migration operations. It intentionally does not have a rollback feature,
+# and instead assumes (or attempts to make) the backup target readonly.
 #
-# After using match_command to identify out-of-date snapshots on the target, this script creates
-# individual replication streams for a snapshot and its children. This script is useful for
-# migrations in that it will recursively replicate the latest parent snapshot and its
-# children, unlike the "zfs send -R" option.
-#
-# If called with the argument "-z" zelta sync reports an abbreviated output for reporting:
+# If called with the argument "-z" zelta sync reports an abbreviated output for single-line
+# reporting, as provided by the default "zelta policy" output:
 #
 # 	received_streams, total_bytes, time, error
 #
-# Additional flags can be set with the environmental variables ZELTA_SEND_FLAGS and
-# ZELTA_RECEIVE_FLAGS.
-#
-# Note that as zelta sync is used as both a backup and migration tool, the default behavior
-# for new replicas is to only copy the latest snapshots from the source heirarchy, while the
-# behavior for updating existing replicas is to copy intermediate snapshots. You can use
-# "-R" to replicate the source's snapshot history. Use the -I flag to replicate incremental
-# snapshots.
+# See the zelta.env.sample and usage output for further details.
 #
 # ZELTA_PIPE "-z" output key:
 # error_code <0: number of failed streams
@@ -67,25 +62,25 @@ function q(s) { return "'" s "'" }
 
 function dq(s) { return "\"" s "\"" }
 
-function run_zfs_command(cmd_args, qarg1, qarg2) {
-	# Future: Help wrap commands so I don't have to do this everywhere inline
-	rzc_prefix = TIME_COMMAND SHELL_WRAPPER
-        rzc_args = cmd_args q(qarg1) (qarg2?" "q(qarg2):"")
-	rzc_cmd = rzc_prefix " " dq(rzc_args) ALL_OUT
-	return rzc_cmd
-}
+#function run_zfs_command(cmd_args, qarg1, qarg2) {
+#	# Future: Help wrap commands so I don't have to do this everywhere inline
+#	rzc_prefix = TIME_COMMAND SHELL_WRAPPER
+#        rzc_args = cmd_args q(qarg1) (qarg2?" "q(qarg2):"")
+#	rzc_cmd = rzc_prefix " " dq(rzc_args) ALL_OUT
+#	return rzc_cmd
+#}
 
-function command_queue(send_dataset, receive_volume, match_snapshot) {
+function command_queue(send_dataset, receive_dataset, match_snapshot) {
 	num_streams++
 	if (zfs_send_command ~ /ssh/) {
 		gsub(/ /, "\\ ", send_dataset)
 		gsub(/ /, "\\ ", match_snapshot)
 	}
-	if (zfs_receive_command ~ /ssh/) gsub(/ /, "\\ ", receive_volume)
-	#if (receive_volume) receive_part = " | " receive_prefix() zfs_receive_command q(receive_volume)
-	if (receive_volume) receive_part = zfs_receive_command q(receive_volume)
+	if (zfs_receive_command ~ /ssh/) gsub(/ /, "\\ ", receive_dataset)
+	#if (receive_dataset) receive_part = " | " receive_prefix() zfs_receive_command q(receive_dataset)
+	if (receive_dataset) receive_part = zfs_receive_command q(receive_dataset)
 	if (CLONE_MODE) {
-		send_command[++rpl_num] = zfs_send_command q(send_dataset) " " q(receive_volume)
+		send_command[++rpl_num] = zfs_send_command q(send_dataset) " " q(receive_dataset)
 		source_stream[rpl_num] = send_dataset
 	} else if (match_snapshot) {
 		send_part = intr_flags q(match_snapshot) " " q(send_dataset)
@@ -268,13 +263,13 @@ function get_pipe() {
 }
 
 function j(e) {
-	if (length(e) == 0) return "null"
+	if (e == "") return "null"
 	else if (e ~ /^-?[0-9\.]+$/) return e
 	else return "\""e"\""
 }
 
-function jpair(l, r) {
-	printf "  "j(l)": "j(r)
+function jpair(name, val) {
+	printf "  "j(name)": "j(val)
 	return ","
 }
 
@@ -427,28 +422,24 @@ BEGIN {
 	zfs_receive_command = zfs[target] recv_flags
 
 	time_start = sys_time()
-	if (SNAPSHOT_ALL) run_snapshot()
 	if (SNAPSHOT_WRITTEN) {
-		# This could also be just a "zfs list -Hprt filesystem,volume -o written"
-		# but we use zelta match for endpoint handling and timer. We probably
-		# need an arbitrary "zelta run" to just run stuff and handle quotes
-		# and tiemrs and crap.
-		check_written_command = "zelta match -Hpo srcwritten " DEPTH q(source)
+		# This needs to be adapted to scan the source for dataset type so we can apply appropriate properties, e.g., skip
+		# mountpoints on volumes in a LBYL mode.
+		check_written_command = RPL_CMD_PREFIX dq(zfs[source] "list -Hprt filesystem,volume -o written " DEPTH q(ds[source])) ALL_OUT
 		while (check_written_command | getline) {
-			if ($1 == "SOURCE_LIST_TIME:") source_zfs_list_time = $2
+			if (sub(/^real[ \t]+/,"")) source_zfs_list_time += $0
+			else if (/^(sys|user|0)/) { }
 			else if (/^[0-9]+$/) {
-				if ($1) {
-					report(LOG_VERBOSE, source " has written data")
-					run_snapshot()
-					break
-				}
+				source_is_written++
+				report(LOG_VERBOSE, source " has written data")
 			} else report(LOG_VERBOSE, "unexpected list output: " $0)
 		}
 		close(check_written_command)
-		if ((SNAPSHOT_WRITTEN>1) && !source_latest) {
-			report(LOG_BASIC, "source not written")
-			stop(0)
-		}
+	}
+	if (SNAPSHOT_ALL || source_is_written) source_latest = run_snapshot()
+	if ((SNAPSHOT_WRITTEN>1) && !source_latest) {
+		report(LOG_BASIC, "source not written")
+		stop(0)
 	}
 	match_command | getline
 	get_match_header()
@@ -464,7 +455,7 @@ BEGIN {
 			report(LOG_VERBOSE, source " has written data")
 		} else if (sub(/^parent dataset does not exist: +/,"")) {
 			send_command[++rpl_num] = zfs[target] "create " create_flags q($0)
-			create_volume[rpl_num] = $6
+			create_dataset[rpl_num] = $6
 		} else if (! /@/) {
 			if (! $0 == $1) stop(3, $0)
 		} else if (status == "SRCONLY") {
@@ -505,7 +496,7 @@ BEGIN {
 	FS = "[ \t]+"
 	received_streams = 0
 	total_bytes = 0
-	if (LOG_MODE = "PROGRESS") {
+	if (LOG_MODE == "PROGRESS") {
 		report(LOG_VERBOSE, "calculating transfer size")
 		for (r = 1; r <= rpl_num; r++) {
 			if (full_cmd) close(full_cmd)
@@ -527,7 +518,7 @@ BEGIN {
 			sub(/ \| .*/, "", send_command[r])
 		} else if (send_command[r] ~ "zfs create") {
 			if (system(send_command[r])) {
-				stop(4, "failed to create parent dataset: " create_volume[r])
+				stop(4, "failed to create parent dataset: " create_dataset[r])
 			}
 			continue
 		}
