@@ -434,6 +434,7 @@ BEGIN {
 		# need an arbitrary "zelta run" to just run stuff and handle quotes
 		# and tiemrs and crap.
 		check_written_command = "zelta match -Hpo srcwritten " DEPTH q(source)
+		print check_written_command
 		while (check_written_command | getline) {
 			if ($1 == "SOURCE_LIST_TIME:") source_zfs_list_time = $2
 			else if (/^[0-9]+$/) {

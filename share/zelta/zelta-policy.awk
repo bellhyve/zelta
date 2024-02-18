@@ -260,7 +260,6 @@ function load_config() {
 function sub_keys(key_pair, key1, key2_list, key2_subset) {
 	delete key2_subset
 	for (key2 in key2_list) {
-		#if (key_pair[key1, key2]) {
 		if ((key1,key2) in key_pair) {
 			key2_subset[key2]++
 		}
