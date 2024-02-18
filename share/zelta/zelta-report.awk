@@ -1,4 +1,9 @@
 #!/usr/bin/awk -f
+#
+# zelta-report.awk - send a Slack hook message with a list of out of date snapshots
+#   in "zelta policy"'s BACKUP_ROOT.
+#
+# Note that this script has not been designed for public use. Contributions are welcome.
 
 function env(env_name, var_default) {
 	return ( (env_name in ENVIRON) ? ENVIRON[env_name] : var_default )
@@ -22,6 +27,7 @@ BEGIN {
 	FS = "[@\t]+"
 	# This seems to be faster than trying to limit the list in any way:
 	zfs_list = "zfs list -Hprt snap -oname,creation -S creation "BACKUP_ROOT
+	print zfs_list
 	while (zfs_list | getline) {
 		if (snaplist[$1]) continue
 		snaplist[$1]++

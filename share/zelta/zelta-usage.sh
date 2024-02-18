@@ -39,31 +39,32 @@ DESCRIPTION
 
 ENDPOINT SYNTAX
     initiator.host  [user@]hostname
-      If an initiator host is given, run all commands there instead of locally.
+      If an initiator host is given, run all commands there instead of locally (zelta required.
     source-endpoint  [user@][host:]pool/dataset[@snapshot]
     target-endpoint  [user@][host:]pool/dataset
 
-LOG OPTIONS
+OUTPUT OPTIONS
       -j  Produce JSON output only.
+      -n  Dry-run; print the zfs commands instead of running replication commands.
       -q  Limit output to errors only.
-      -v  Produce more verbose output. Use "-vv" if using custom pipes.
+      -v  Produce more verbose output. Use "-vv" to prevent all buffering.
+      -z  Abbreviate output for single line "zelta policy" logging.
 
 MISC OPTIONS
       -c  Clone instead of replicate; default for "zelta clone".
-      -n  Dry-run; display replication commands instead of running them.
+      -L#  Pass -L to a "pv" pipe (pv must be installed). 
       -p  Pipe the "zfs send" output through "dd status=progress" or "pv" if installed.
-      -R  Use "zfs send -R"; useful with "-d1".
-      -S  Snapshot before performing the replication/clone task.
+      -S  Snapshot before performing the replication/clone task; default for "zelta backup".
       -s  Snapshot only if written; "-ss" to quit if no snapshot is needed.
       -T  Run all commands from the source host.
       -t  Run all commands from the target host.
-      -S  Snapshot before performing the replication/clone task; default for "zelta backup".
+      -M  No default "zfs receive" flags (replicate read-write with mountpoints).
+
+ZFS SEND FLAGS
+      -R  Use "zfs send -R"; useful with "-d1".
       -I  Replicate as many snapshots as possible; default for "zelta backup".
       -i  Replicate only the latest snapshot; default for "zelta sync".
-      -M  No default "zfs receive" flags; replicate read-write with mountpoints.
-      -u  Do not mount after replication.
       -d#  Limit depth to #.
-      -L#  Pass -L to a "pv" pipe (pv must be installed). 
 EOF
 }
 
@@ -75,7 +76,7 @@ DESCRIPTION
       given, report the amount of data unwritten since the last snapshot.
 
     By default, the user will receive a table output including the fields:
-      [stub,]status,match,srclast
+      [stub,]status,match,srclast,summary
     Where "stub" describes the snapshot name relative to both the source and target. Stub
     will be suppressed if there are no child snapshots.
 
@@ -87,14 +88,14 @@ OPTIONS
       -H  Suppress the header row.
       -p  For piping/scripting, split the columns by a single tab.
       -n  Show the "zfs list" command lines that would be run and exit.
-      -w  Add the "sizediff" column; note that this results in slower output.
+      -w  Add the "xfersize" column; note that this results in slower output.
       -d# Limit "zfs list" depth to #.
       -o  A comma-delimited list of fields with one or more of:
             stub      The name of the dataset relative to the source or target
             status    The target's sync status relative to the source, one of:
                         NOTARGET, NOSOURCE, SYNCED, BEHIND, AHEAD, MISMATCH
-            sizediff  The amount of data missing on the target since the last snapshot match
-            numdiff   The number of snapshots missing on the target since the last snapshot match
+            xfersize  The amount of data missing on the target since the last snapshot match
+            xfernum   The number of snapshots missing on the target since the last snapshot match
             match     The most recent common snapshot
             srcfirst  The first snapshot on the source
             tgtfirst  The first snapshot on the target
@@ -102,19 +103,26 @@ OPTIONS
             tgtlast   The last snapshot on the target
             srcnum    Total number of snapshot on the source
             tgtnum    Total number snapshot on the target
-        
+            summary   Human-readable description of the target state
 EOF
 }
 
 usage_policy() {
 	cat << EOF
 DESCRIPTION
-    zelta policy [-jv] [site|host|dataset] ...
+    zelta policy [-jvnq] [--POLICY_OVERRIDE=VAL] [site|host|dataset] ...
       Perform backups based on the zelta policy file.
 
 OPTIONS
       -j  Produce JSON output.
+      -n  Print a list of zelta replicate commands and exit.
+      -q  Suppress all output besides errors.
       -v  Produce more verbose output.
+
+LONG OPTIONS
+    All policy file options can also be passed as overrides in the command line.
+
+      --list  Print a list of the requested source endpoints and exit.
 
 POLICY OPTIONS
     See the example policy configuration for details.
@@ -146,6 +154,11 @@ My_LAN:
   my.twin.host:
   - twinpool/stuff: zroot/Backups/twin_stuff
 
+EXAMPLE OVERRIDE
+  Show a list of all dataset endpoints from hosts in site1, all dataset endpoints from host2, and the
+  dataset endpoint for dataset3:
+
+    zelta policy --list site1 host2 dataset3
 EOF
 }
 
