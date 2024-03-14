@@ -1,6 +1,3 @@
-# Created by: q5sys
-# $FreeBSD$
-
 PORTNAME=       zelta
 DISTVERSIONPREFIX=  v
 DISTVERSION=    0.5
