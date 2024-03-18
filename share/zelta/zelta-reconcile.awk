@@ -69,7 +69,7 @@ function get_snapshot_data(ds_name) {
 			exit_code = 1
 			return 0
 		}
-		snapshot_full_name = $1			# full/dataset@snapshot
+#		snapshot_full_name = $1			# full/dataset@snapshot
 		snapshot_stub = substr($1, trim)	# [child]@snapshot
 		snapshot_guid = $2			# GUID property
 		snapshot_written = $3			# written property
@@ -77,6 +77,8 @@ function get_snapshot_data(ds_name) {
 		stub = split_stub[1]			# [child] (blank for top dataset name)
 		snapshot_name = "@" split_stub[2]	# @snapshot
 		num_snaps[ds_name,stub]++		# Total snapshots per dataset
+		#guid[snapshot_stub] = snapshot_guid
+		#written[snapshot_stub] = $3
 		return 1
 }
 
@@ -225,7 +227,7 @@ NR > 3 {
 		if (!stub) check_parent()
 		new_dataset[stub] = snapshot_name
 		if (stub_written[target,stub]) status[stub] = "MISMATCH"
-		else if (num_snaps[target,stub] == "0") status[stub] = "TGTEMPTY"
+		else if (num_snaps[target,stub] == "0") status[stub] = "NOMATCH"
 		else {
 			status[stub] = "SRCONLY"
 			count_snapshot_diff()
@@ -234,17 +236,18 @@ NR > 3 {
 		if (target_guid[snapshot_stub] == source_guid[snapshot_stub]) {
 			matches[stub] = snapshot_name
 			if (snapshot_stub == source_latest[stub]) {
-				basic_log[stub] = "target has latest source snapshot: " snapshot_stub
+				#basic_log[stub] = "target has latest source snapshot: " snapshot_stub
 				status[stub] = (snapshot_stub==target_latest[stub]) ? "SYNCED" : "AHEAD"
 			} else if (guid_error[stub]) {
-				report(LOG_ERROR,"latest guid match on target snapshot: " snapshot_full_name)
+				# report(LOG_VERBOSE,"latest guid match: " snapshot_stub)
 				status[stub] = "MISMATCH"
 			} else {
 				status[stub] = "BEHIND"
-				basic_log[stub] = "match: " snapshot_stub OFS "latest: " source_latest[stub]
+				#basic_log[stub] = "match: " snapshot_stub OFS "latest: " source_latest[stub]
 			}
 		} else {
-			report(LOG_ERROR,"guid mismatch on: " snapshot_stub)
+			report(LOG_VERBOSE,"guid mismatch: " snapshot_stub)
+			#warning_log[stub] = warning_log[stub] "guid mismatch on: " snapshot_stub "\n"
 			guid_error[stub]++
 		}
 	} else count_snapshot_diff()
@@ -276,8 +279,10 @@ function summarize() {
 	else if (status[stub]=="TGTONLY") s = "no source dataset"
 	else if (status[stub]=="AHEAD") s = "target is ahead"
 	else if (status[stub]=="NOSNAP") s = "no source snapshots"
-	else if (status[stub]=="TGTEMPTY") s = "no target snapshots"
-	else s = "datasets differ"
+	else if (status[stub]=="NOMATCH") s = "target has no snapshots"
+	else if (status[stub]=="ORPHAN") s = "no parent snapshot"
+	else if (guid_error[stub]) s = "guid mismatch"
+	else s = "match, but latest snapshots differ"
 	return s
 }
 
@@ -331,7 +336,13 @@ END {
 		if ((matches[stub] != srclast[stub]) && (matches[stub] != tgtlast[stub])) {
 			status[stub] = "MISMATCH"
 		}
-		if (status[stub] == "SYNCED") count_synced++
+		if (stub && (status[stub] == "SRCONLY")) {
+			parent_stub = stub
+			sub(/\/[^\/]+$/, "", parent_stub)
+			if (!srclast[parent_stub]) status[stub] = "ORPHAN"
+		} else if (status[stub] == "NOSNAP") {
+		       if (num_snaps[source,stub] == "") status[stub] = "TGTONLY"
+		} else if (status[stub] == "SYNCED") count_synced++
 		else if ((status[stub] == "SRCONLY") || (status[stub] == "BEHIND")) count_ready++
 		else count_nomatch++
 		if ("summary" in COL) summary[stub] = summarize()
