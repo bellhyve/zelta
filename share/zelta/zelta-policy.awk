@@ -292,6 +292,7 @@ function zelta_sync() {
 	sync_cmd = backup_command[site,host,source]
 	sync_status = 1
 	if (MODE == "LIST") {
+		print "hmm"
 		print host":"source
 		return 1
 	} else if (MODE == "DRY_RUN") {

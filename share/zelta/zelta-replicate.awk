@@ -78,7 +78,7 @@ function command_queue(send_dataset, receive_dataset, match_snapshot) {
 	}
 	if (zfs_receive_command ~ /ssh/) gsub(/ /, "\\ ", receive_dataset)
 	#if (receive_dataset) receive_part = " | " receive_prefix() zfs_receive_command q(receive_dataset)
-	if (receive_dataset) receive_part = zfs_receive_command q(receive_dataset)
+	if (receive_dataset) receive_part = zfs_receive_command target_flags q(receive_dataset)
 	if (CLONE_MODE) {
 		send_command[++rpl_num] = zfs_send_command q(send_dataset) " " q(receive_dataset)
 		source_stream[rpl_num] = send_dataset
@@ -383,6 +383,7 @@ function get_match_header() {
 
 function name_match_row() {
 	# STUB STATUS XFERSIZE MATCH SRCFIRST SRCLAST TGTLAST
+	if ($mcol["STATUS"] !~ /^[A-Z]+$/) return 0
 	dataset = $mcol["STUB"]
 	sourceds = ds[source] dataset 
 	targetds = ds[target] dataset 
@@ -397,6 +398,13 @@ function name_match_row() {
 	target_match = targetds match_snap
 	source_match = sourceds match_snap
 	xfersize = (mcol["XFERSIZE"]?$mcol["XFERSIZE"]:0)
+	rotate_name = ds[target] "--rotate" dataset match_snap
+	# Toggle "can_rotate" if we have the same latest matching snapshot throughout the source tree
+	if (status == "TGTONLY") return 1
+	if (!dataset && match_snap && (match_snap != slast)) can_rotate = match_snap
+	else if (can_rotate && ((can_rotate != match_snap) || (match_snap == slast))) can_rotate = 0
+	#print dataset":" (can_rotate?"rotate":"notate")
+	return 1
 }
 
 BEGIN {
@@ -444,21 +452,23 @@ BEGIN {
 	match_command | getline
 	get_match_header()
 	while (match_command |getline) {
-		name_match_row()
-		if ($3 == ":") {
-			source_zfs_list_time += $2
-			target_zfs_list_time = $5
-		} else if (/error|Warning/) {
-			error_code = 1
-			report(LOG_WARNING, $0)
-		} else if (/^[0-9]+$/) {
-			report(LOG_VERBOSE, source " has written data")
-		} else if (sub(/^parent dataset does not exist: +/,"")) {
-			send_command[++rpl_num] = zfs[target] "create " create_flags q($0)
-			create_dataset[rpl_num] = $6
-		} else if (! /@/) {
-			if (! $0 == $1) stop(3, $0)
-		} else if (status == "SRCONLY") {
+		if (!name_match_row()) {
+			if ($3 == ":") {
+				source_zfs_list_time += $2
+				target_zfs_list_time = $5
+			} else if (/error|Warning/) {
+				error_code = 1
+				report(LOG_WARNING, $0)
+			} else if (/^[0-9]+$/) {
+				# This might be obsolete
+				report(LOG_VERBOSE, source " has written data")
+			} else if (sub(/^parent dataset does not exist: +/,"")) {
+				send_command[++rpl_num] = zfs[target] "create " create_flags q($0)
+				create_dataset[rpl_num] = $6
+			}
+			continue
+		}
+		if (status == "SRCONLY") {
 			if (INTR) {
 				command_queue(sfirst_full, targetds)
 				command_queue(slast_full, targetds, sfirst)
@@ -466,12 +476,17 @@ BEGIN {
 		} else if (status == "TGTEMPTY") {
 			if (snapshot[source]) command_queue(slast_full, targetds, snapshot[source])
 			else report(LOG_BASIC, "no target snapshot: "targetds)
-		} else if (status == "BEHIND") command_queue(slast_full, targetds, match_snap)
-		else if (status == "TGTONLY") report(LOG_VERBOSE, "snapshot only exists on target: "targetds)
-		else if (status == "MISMATCH") {
-			error_code = 3
-			report(LOG_BASIC, "datasets differ: "targetds)
-			if (target_match) report(LOG_VERBOSE, "  consider target rollback: "target_match )
+		} else if (status == "MISMATCH") {
+			if (can_rotate) {
+				target_flags = " -o origin=" q(rotate_name) " "
+				command_queue(slast_full, targetds, source_match)
+				target_flags = ""
+				report(LOG_VERBOSE, "datasets differ, rotating: "dataset)
+			} else {
+				error_code = 1
+				report(LOG_BASIC, "datasets differ: "dataset)
+				if (target_match) report(LOG_VERBOSE, "  consider target rollback: "target_match )
+			}
 		} else if (status == "AHEAD") {
 			error_code = 3
 			report(LOG_BASIC, "target snapshot ahead of source: "tlast_full)
@@ -479,10 +494,15 @@ BEGIN {
 		} else if (status == "SYNCED") {
 			synced_count++
 			report(LOG_VERBOSE, "target is up to date: "tlast_full)
-		} else if (status == "NOSNAP") report(LOG_VERBOSE, "no snapshot for dataset "dataset)
+		} else if (status == "BEHIND") command_queue(slast_full, targetds, match_snap)
+		else if (status == "TGTONLY") report(LOG_VERBOSE, "snapshot only exists on target: "targetds)
+		else if (status == "ORPHAN") report(LOG_VERBOSE, "no source parent snapshot: "dataset)
+		else if (status == "NOSNAP") report(LOG_VERBOSE, "no snapshot for dataset "dataset)
 		else report(LOG_WARNING, "match error: "$0)
 	}
 	close(match_command)
+
+	if (can_rotate) system("zfs rename " q(ds[target]) " " q(ds[target]"--rotate"))
 
 	if (!num_streams) {
 		if (synced_count) report(LOG_BASIC, "nothing to replicate")
@@ -525,6 +545,7 @@ BEGIN {
 		if (full_cmd) close(full_cmd)
 		if (receive_command[r]) replication_command = dq(send_command[r] get_pipe() receive_command[r])
 		else replication_command = dq(send_command[r])
+print replication_command
 		full_cmd = RPL_CMD_PREFIX replication_command RPL_CMD_SUFFIX
 		if (stream_size[r]) report(LOG_BASIC, source_stream[r]": sending " h_num(stream_size[r]))
 		replicate(full_cmd)
