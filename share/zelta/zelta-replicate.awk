@@ -111,6 +111,7 @@ function get_options() {
 			while (/./) {
 				# Long options
 				if (sub(/^-initiator=?/,"")) INITIATOR = opt_var()
+				if (sub(/^-rotate=?/,"")) ROTATE = opt_var()
 				# Log modes
 				# Default output mode: BASIC
 				else if (sub(/^j/,"")) MODE = "JSON"
@@ -329,6 +330,20 @@ function stop(err, message) {
 	exit error_code
 }
 
+function load_properties() {
+	zfs_list_command = RPL_CMD_PREFIX dq(zfs[source] "list -Hprt filesystem,volume -o all " DEPTH q(ds[source])) ALL_OUT
+	zfs_list_command | getline prop_header
+	split(prop_header, prop_name, /[\t]/)
+	#print prop_name[1]
+	exit
+	while (zfs_list_command | getline prop_list) {
+		#for (p=0;p<num_props;p++) property[$p] = $p
+		$0 = prop_list
+		#print $1
+	}
+}
+
+
 function run_snapshot() {
 	snapshot_command = "zelta snapshot " q(source)
 	if (dry_run(snapshot_command)) return
@@ -430,6 +445,8 @@ BEGIN {
 	zfs_receive_command = zfs[target] recv_flags
 
 	time_start = sys_time()
+	load_properties()
+
 	if (SNAPSHOT_WRITTEN) {
 		# This needs to be adapted to scan the source for dataset type so we can apply appropriate properties, e.g., skip
 		# mountpoints on volumes in a LBYL mode.
