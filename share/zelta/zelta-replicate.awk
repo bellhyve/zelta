@@ -55,7 +55,18 @@ function usage(message) {
 }
 
 function env(env_name, var_default) {
-	return ( (env_name in ENVIRON) ? ENVIRON[env_name] : var_default )
+	env_prefix = "ZELTA_"
+	if ((env_prefix env_name) in ENVIRON) return ENVIRON[env_prefix env_name] 
+	else if (env_name in ENVIRON) return ENVIRON[env_name]
+	else return (var_default ? var_default : "")
+}
+
+function arr_sum(arr, variable) {
+	for (i in arr) {
+		split(i, pair, SUBSEP)
+		if (pair[2] == variable) sum += arr[i]
+	}
+	return (sum ? sum : 0)
 }
 
 function q(s) { return "'" s "'" }
@@ -75,6 +86,7 @@ function command_queue(send_dataset, receive_dataset, match_snapshot) {
 	if (zfs_send_command ~ /ssh/) {
 		gsub(/ /, "\\ ", send_dataset)
 		gsub(/ /, "\\ ", match_snapshot)
+		gsub(/ /, "\\ ", target_flags)
 	}
 	if (zfs_receive_command ~ /ssh/) gsub(/ /, "\\ ", receive_dataset)
 	#if (receive_dataset) receive_part = " | " receive_prefix() zfs_receive_command q(receive_dataset)
@@ -90,7 +102,7 @@ function command_queue(send_dataset, receive_dataset, match_snapshot) {
 		source_stream[rpl_num] = match_snapshot "::" send_dataset
 		stream_size[rpl_num] = xfersize
 	} else {
-		send_command[++rpl_num] = zfs_send_command q(send_dataset)
+		send_command[++rpl_num] = zfs_send_command source_flags q(send_dataset)
 		receive_command[rpl_num] = receive_part
 		est_cmd[rpl_num] = zfs_send_command "-Pn " q(send_dataset)
 		source_stream[rpl_num] = send_dataset
@@ -111,7 +123,7 @@ function get_options() {
 			while (/./) {
 				# Long options
 				if (sub(/^-initiator=?/,"")) INITIATOR = opt_var()
-				if (sub(/^-rotate=?/,"")) ROTATE = opt_var()
+				if (sub(/^-rotate=?/,"")) ROTATE++
 				# Log modes
 				# Default output mode: BASIC
 				else if (sub(/^j/,"")) MODE = "JSON"
@@ -124,7 +136,7 @@ function get_options() {
 				else if (sub(/^i/,"")) INTR_FLAGS = "-i"
 				else if (sub(/^I/,"")) INTR_FLAGS = "-I"
 				else if (sub(/^M/,"")) RECEIVE_FLAGS = ""
-				else if (sub(/^m/,"")) RECEIVE_FLAGS = "-x mountpoint -o readonly=on"
+				else if (sub(/^m/,"")) RECEIVE_FLAGS = "-x mountpoint"
 				else if (sub(/^c/,"")) CLONE_MODE++
 				else if (sub(/^n/,"")) DRY_RUN++
 				else if (sub(/^R/,"")) REPLICATE++
@@ -151,16 +163,22 @@ function get_options() {
 	       
 function get_config() {
 	# Load environemnt variables and options and set up zfs send/receive flags
-	SHELL_WRAPPER = env("ZELTA_SHELL", "sh -c")
+	SHELL_WRAPPER = env("WRAPPER", "sh -c")
 	SSH_SEND = env("REMOTE_SEND_COMMAND", "ssh -n")
 	SSH_RECEIVE = env("REMOTE_RECEIVE_COMMAND", "ssh")
-	SEND_FLAGS = env("ZELTA_SEND_FLAGS", "-Lcpw")
-	RECEIVE_PREFIX = env("ZELTA_RECEIVE_PREFIX", "")
-	RECEIVE_FLAGS = env("ZELTA_RECEIVE_FLAGS", "-ux mountpoint -o readonly=on")
-	INTR_FLAGS = env("ZELTA_INTR_FLAGS", "-i")
+	SEND_FLAGS = env("SEND_FLAGS", "-Lc")
+	SEND_FLAGS_NEW = env("SEND_FLAGS_NEW", "-p")
+	SEND_FLAGS_ENCRYPTED = env("SEND_FLAGS_ENC", "-w")
+	RECEIVE_FLAGS_FS = env("RECEIVE_FLAGS_FS", "-u")
+	RECEIVE_FLAGS_NEW_FS = env("RECEIVE_FLAGS_NEW_FS", "-x mountpoint")
+	RECEIVE_FLAGS_NEW_VOL = env("RECEIVE_FLAGS_NEW_VOL")
+	RECEIVE_FLAGS_TOP = env("RECEIVE_FLAGS_TOP", "-o readonly=on")
+	INTR_FLAGS = env("INTR_FLAGS", "-i")
+	RECEIVE_PREFIX = env("RECEIVE_PREFIX")
+
 	LOG_LEVEL = 0
 	MODE = "BASIC"
-	# Don't interactivey print:
+	# Don't interactive print:
 	QUEUE_MODES["JSON"]++
 	#QUEUE_MODES["PROGRESS"]++
 
@@ -201,8 +219,8 @@ function get_config() {
 	if (INITIATOR) SHELL_WRAPPER = SSH_SEND INITIATOR
 	RPL_CMD_PREFIX = TIME_COMMAND SHELL_WRAPPER" "
 	if (DEPTH) DEPTH = "-d"DEPTH" "
-	match_cols = "stub,status,match,srcfirst,srclast,tgtlast" (PROGRESS?",xfersize":"")
-	match_flags = "-po "match_cols" "DEPTH
+	match_cols = "rel_name,status,match,src_first,src_last,tgt_last" (PROGRESS?",xfer_size":"")
+	match_flags = "-Hpo "match_cols" "DEPTH
 	match_command = SHELL_WRAPPER" "dq("zelta match " match_flags q(source) " " q(target))
 	if (CLONE_MODE) {
 		send_flags = "clone -o readonly=off "
@@ -330,21 +348,24 @@ function stop(err, message) {
 	exit error_code
 }
 
-function load_properties() {
-	zfs_list_command = RPL_CMD_PREFIX dq(zfs[source] "list -Hprt filesystem,volume -o all " DEPTH q(ds[source])) ALL_OUT
-	zfs_list_command | getline prop_header
-	split(prop_header, prop_name, /[\t]/)
-	#print prop_name[1]
-	exit
-	while (zfs_list_command | getline prop_list) {
-		#for (p=0;p<num_props;p++) property[$p] = $p
-		$0 = prop_list
-		#print $1
+function load_properties(endpoint, prop) {
+	ZFS_GET_LOCAL="get -Hpr -s local,none -t filesystem,volume -o name,property,value " DEPTH " all "
+	zfs_get_command = RPL_CMD_PREFIX dq(zfs[source] ZFS_GET_LOCAL q(ds[source])) ALL_OUT
+	while (zfs_get_command | getline) {
+		if (sub(ds[source],"",$1)) prop[$1,$2] = $3
+		else if (sub(/^real[ \t]+/,"")) list_time[endpoint] += $0
+		else if (/(user|sys)/) {}
+		else report(LOG_WARNING,"property loading error: " $0)
 	}
 }
 
-
 function run_snapshot() {
+	source_is_written = arr_sum(srcprop, "written")
+	do_snapshot = (SNAPSHOT_ALL || (SNAPSHOT_WRITTEN && source_is_written))
+	if ((SNAPSHOT_WRITTEN > 1) && !do_snapshot) {
+		report(LOG_BASIC, "source not written")
+		stop(0)
+	} else if (!do_snapshot) return 0
 	snapshot_command = "zelta snapshot " q(source)
 	if (dry_run(snapshot_command)) return
 	while (snapshot_command | getline snapline) {
@@ -380,6 +401,7 @@ function replicate(command) {
 		else if (/bytes.*transferred/) { }
 		else if (/receiving/ && /stream/) { }
 		else if (/ignoring$/) { }
+		#else if (/^cannot mount/) { }
 		else {
 			report(LOG_WARNING, $0)
 			error_code = 2
@@ -390,35 +412,47 @@ function replicate(command) {
 }
 
 function get_match_header() {
+	$0 = toupper(match_cols)
+	gsub(/,/,"\t")
 	for (i=0;i<=NF;++i) {
 		mcol[$i] = i
 	}
-	dataset = $mcol["STUB"]
+	dataset = $mcol["REL_NAME"]
 }
 
 function name_match_row() {
-	# STUB STATUS XFERSIZE MATCH SRCFIRST SRCLAST TGTLAST
-	if ($mcol["STATUS"] !~ /^[A-Z]+$/) return 0
-	dataset = $mcol["STUB"]
+	# REL_NAME STATUS XFER_SIZE MATCH SRC_FIRST SRC_LAST TGT_LAST
+	if ($mcol["STATUS"] !~ /^[A-Z_]+$/) return 0
+	dataset = $mcol["REL_NAME"]
 	sourceds = ds[source] dataset 
 	targetds = ds[target] dataset 
 	status = $mcol["STATUS"]
 	match_snap = $mcol["MATCH"]
-	sfirst = $mcol["SRCFIRST"]
+	sfirst = $mcol["SRC_FIRST"]
 	sfirst_full = sourceds sfirst
-	slast = $mcol["SRCLAST"]
+	slast = $mcol["SRC_LAST"]
 	slast_full = sourceds slast
-	tlast = $mcol["TGTLAST"]
+	tlast = $mcol["TGT_LAST"]
 	tlast_full = targetds tlast
 	target_match = targetds match_snap
 	source_match = sourceds match_snap
-	xfersize = (mcol["XFERSIZE"]?$mcol["XFERSIZE"]:0)
-	rotate_name = ds[target] "--rotate" dataset match_snap
-	# Toggle "can_rotate" if we have the same latest matching snapshot throughout the source tree
-	if (status == "TGTONLY") return 1
-	if (!dataset && match_snap && (match_snap != slast)) can_rotate = match_snap
-	else if (can_rotate && ((can_rotate != match_snap) || (match_snap == slast))) can_rotate = 0
-	#print dataset":" (can_rotate?"rotate":"notate")
+	xfersize = (mcol["XFER_SIZE"]?$mcol["XFER_SIZE"]:0)
+	if (ROTATE) {
+		if ((status == "TGT_ONLY") || (status == "SRC_ONLY")) return 1
+		if (!dataset && match_snap && (match_snap != slast)) {
+			can_rotate = match_snap
+			origin_name = ds[target] ":" can_rotate
+			sub(/@/,"",origin_name)
+		} else if (can_rotate && ((can_rotate != match_snap) || (match_snap == slast))) {
+			report(LOG_WARNING,"cannot rotate, matching snapshots are inconsistent on "dataset)
+			can_rotate = ""
+		}
+
+		rotate_name = ds[target] ":" can_rotate dataset can_rotate
+		sub(/@/,"",rotate_name)
+		# Toggle "can_rotate" if we have the same latest matching snapshot throughout the source tree
+		#print dataset":" (can_rotate?"rotate":"notate")
+	}
 	return 1
 }
 
@@ -445,28 +479,9 @@ BEGIN {
 	zfs_receive_command = zfs[target] recv_flags
 
 	time_start = sys_time()
-	load_properties()
-
-	if (SNAPSHOT_WRITTEN) {
-		# This needs to be adapted to scan the source for dataset type so we can apply appropriate properties, e.g., skip
-		# mountpoints on volumes in a LBYL mode.
-		check_written_command = RPL_CMD_PREFIX dq(zfs[source] "list -Hprt filesystem,volume -o written " DEPTH q(ds[source])) ALL_OUT
-		while (check_written_command | getline) {
-			if (sub(/^real[ \t]+/,"")) source_zfs_list_time += $0
-			else if (/^(sys|user|0)/) { }
-			else if (/^[0-9]+$/) {
-				source_is_written++
-				report(LOG_VERBOSE, source " has written data")
-			} else report(LOG_VERBOSE, "unexpected list output: " $0)
-		}
-		close(check_written_command)
-	}
-	if (SNAPSHOT_ALL || source_is_written) source_latest = run_snapshot()
-	if ((SNAPSHOT_WRITTEN>1) && !source_latest) {
-		report(LOG_BASIC, "source not written")
-		stop(0)
-	}
-	match_command | getline
+	load_properties(source, srcprop)
+	load_properties(target, tgtprop)
+	run_snapshot()
 	get_match_header()
 	while (match_command |getline) {
 		if (!name_match_row()) {
@@ -485,25 +500,25 @@ BEGIN {
 			}
 			continue
 		}
-		if (status == "SRCONLY") {
+		if (status == "SRC_ONLY") {
+			if (!dataset) target_flags = " " RECEIVE_FLAGS_TOP " "
 			if (INTR) {
 				command_queue(sfirst_full, targetds)
 				command_queue(slast_full, targetds, sfirst)
 			} else command_queue(slast_full, targetds)
-		} else if (status == "TGTEMPTY") {
+			if (!dataset) target_flags = ""
+		} else if (can_rotate) {
+			target_flags = " -o origin=" q(rotate_name) " " (!dataset ? RECEIVE_FLAGS_TOP " " : "")
+			command_queue(slast_full, targetds, source_match)
+			target_flags = ""
+			report(LOG_VERBOSE, "datasets differ, rotating: "dataset)
+		} else if (status == "TGT_EMPTY") {
 			if (snapshot[source]) command_queue(slast_full, targetds, snapshot[source])
 			else report(LOG_BASIC, "no target snapshot: "targetds)
 		} else if (status == "MISMATCH") {
-			if (can_rotate) {
-				target_flags = " -o origin=" q(rotate_name) " "
-				command_queue(slast_full, targetds, source_match)
-				target_flags = ""
-				report(LOG_VERBOSE, "datasets differ, rotating: "dataset)
-			} else {
-				error_code = 1
-				report(LOG_BASIC, "datasets differ: "dataset)
-				if (target_match) report(LOG_VERBOSE, "  consider target rollback: "target_match )
-			}
+			error_code = 1
+			report(LOG_BASIC, "datasets differ: "dataset)
+			if (target_match) report(LOG_VERBOSE, "  consider target rollback: "target_match )
 		} else if (status == "AHEAD") {
 			error_code = 3
 			report(LOG_BASIC, "target snapshot ahead of source: "tlast_full)
@@ -512,14 +527,16 @@ BEGIN {
 			synced_count++
 			report(LOG_VERBOSE, "target is up to date: "tlast_full)
 		} else if (status == "BEHIND") command_queue(slast_full, targetds, match_snap)
-		else if (status == "TGTONLY") report(LOG_VERBOSE, "snapshot only exists on target: "targetds)
+		else if (status == "TGT_ONLY") report(LOG_VERBOSE, "snapshot only exists on target: "targetds)
 		else if (status == "ORPHAN") report(LOG_VERBOSE, "no source parent snapshot: "dataset)
-		else if (status == "NOSNAP") report(LOG_VERBOSE, "no snapshot for dataset "dataset)
+		else if (status == "NO_SNAP") report(LOG_VERBOSE, "no snapshot for dataset "dataset)
 		else report(LOG_WARNING, "match error: "$0)
 	}
 	close(match_command)
 
-	if (can_rotate) system("zfs rename " q(ds[target]) " " q(ds[target]"--rotate"))
+	if (can_rotate) {
+		system(zfs[target] " rename " q(ds[target]) " " q(origin_name))
+	}
 
 	if (!num_streams) {
 		if (synced_count) report(LOG_BASIC, "nothing to replicate")
@@ -562,9 +579,9 @@ BEGIN {
 		if (full_cmd) close(full_cmd)
 		if (receive_command[r]) replication_command = dq(send_command[r] get_pipe() receive_command[r])
 		else replication_command = dq(send_command[r])
-print replication_command
 		full_cmd = RPL_CMD_PREFIX replication_command RPL_CMD_SUFFIX
 		if (stream_size[r]) report(LOG_BASIC, source_stream[r]": sending " h_num(stream_size[r]))
+#print replication_command
 		replicate(full_cmd)
 	}
 

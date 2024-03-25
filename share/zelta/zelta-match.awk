@@ -56,6 +56,7 @@ function get_options() {
                         if (gsub(/H/,"")) PASS_FLAGS = PASS_FLAGS "H" 
                         if (gsub(/p/,"")) PASS_FLAGS = PASS_FLAGS "p"
                         if (gsub(/q/,"")) PASS_FLAGS = PASS_FLAGS "q"
+                        if (gsub(/w/,"")) PASS_FLAGS = PASS_FLAGS "w"
                         #if (gsub(/j/,"")) PASS_FLAGS = PASS_FLAGS "j" # Future
                         #if (gsub(/v/,"")) PASS_FLAGS = PASS_FLAGS "v" # Future
 			if (gsub(/o/,"")) PROPERTIES = sub_opt()

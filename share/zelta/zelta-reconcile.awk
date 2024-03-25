@@ -9,12 +9,12 @@
 # its children, which are useful for various zfs operations
 #
 # Child snapshot names are provided relative to the target using a trimmed dataset
-# referred to as a STUB. For example, when zmatch is called with tank/dataset, 
+# referred to as a RELNAME. For example, when zmatch is called with tank/dataset, 
 # tank/dataset/child's snapshots will be reported as "/child@snapshot-name".
 #
-# DEPRECATED FEATURE:
-# If only one argument is given, report the amount of data written since the last
-# snapshot.
+# Development notes:
+#
+# The relative path name is referred to as a "stub."
 
 function env(env_name, var_default) {
 	return ( (env_name in ENVIRON) ? ENVIRON[env_name] : var_default )
@@ -30,7 +30,7 @@ function report(level, message) {
 }
 
 function h_num(num) {
-	if (MODE == "PARSE") return num
+	if (PARSABLE) return num
 	suffix = "B"
 	divisors = "KMGTPE"
 	for (h = 1; h <= length(divisors) && num >= 1024; h++) {
@@ -58,6 +58,7 @@ function get_snapshot_data(ds_name) {
 			return 0
 		} else if (!($1 ~ /@/) && ($2 ~ /[0-9]/)) {
 			stub = ($1 == dataset[ds_name]) ? "" : substr($1, trim)
+			name[ds_name,stub] = $1
 			if (!stub_list[stub]++) stub_order[++stub_num] = stub
 			if (!status[stub]) status[stub] = "NOSNAP"
 			if (!num_snaps[ds_name,stub]) num_snaps[ds_name,stub] = 0
@@ -91,7 +92,7 @@ function load_target_snapshots() {
 			target_latest[stub] = snapshot_stub
 			tgtlast[stub] = snapshot_name
 			target_order[++target_num] = stub
-			status[stub] = "TGTONLY"
+			status[stub] = "TGT_ONLY"
 		}
 		tgtfirst[stub] = snapshot_name
 	}
@@ -128,6 +129,26 @@ function arr_sort(arr) {
     }
 }
 
+function property_list() {
+	PROPERTIES_ALL = "rel_name,action,match,xfer_size,xfer_num,num_matches,src_name,src_first,src_next,src_last,src_snaps,src_written,tgt_name,tgt_first,tgt_next,tgt_last,tgt_written"
+	PROPERTIES_LIST_DEFAULT = "rel_name,action,match,src_first,src_next,src_last,tgt_last"
+	PROPERTIES_MATCH_DEFAULT = "rel_name,info"
+	split(PROPERTIES_ALL",info,status", prop_all, /,/)
+	for (p in prop_all) valid_prop[prop_all[p]]++
+	properties = env("ZELTA_MATCH_PROPERTIES", PROPERTIES_MATCH_DEFAULT)
+	if (properties == "all") properties = PROPERTIES_ALL
+	else if (properties == "list") properties = PROPERTIES_LIST_DEFAULT
+
+	prop_num = split(properties, prop_list, /,/)
+	for (p=1;p<=prop_num;p++) {
+		$0 = prop_list[p]
+		if ($0 in valid_prop) PROP_LIST[++PROP_NUM] = $0
+		else if (/^(name|stub)$/) PROP_LIST[++PROP_NUM] = "rel_name"
+		else print "error: unknown property "$0
+	}
+	for (p in PROP_LIST) PROP[PROP_LIST[p]]++
+}
+
 BEGIN {
 	FS="\t"
 	OFS="\t"
@@ -137,36 +158,19 @@ BEGIN {
 	LOG_DEFAULT=0
 	LOG_VERBOSE=1
 	LOG_VV=2
-
-	PASS_FLAGS = env("ZELTA_MATCH_FLAGS", "")
 	LOG_LEVEL = env("ZELTA_LOG_LEVEL", 0)
-	PROPERTIES_DEFAULT = "stub,status,match,srclast,summary"
-	PROPERTIES_ALL = PROPERTIES_DEFAULT ",xfer,written,srcfirst,tgtfirst,tgtlast,srcsnaps,tgtsnaps"
-	PROPERTIES = env("ZELTA_MATCH_PROPERTIES", PROPERTIES_DEFAULT)
-	if (PROPERTIES == "all") PROPERTIES = PROPERTIES_ALL
-	split(PROPERTIES, PROPLIST, ",")
-	for (i in PROPLIST) {
-		if (PROPLIST[i] == "xfer") {
-			COL["xfersize"]++
-			COL["xfersnaps"]++
-		} else if (PROPLIST[i] ~ /srcwr/) COL["srcwritten"]++
-		else if (PROPLIST[i] ~ /tgtwr/) COL["tgtwritten"]++
-		else if (PROPLIST[i] ~ /wri/) {
-			COL["srcwritten"]++
-			COL["tgtwritten"]++
-		} else COL[PROPLIST[i]]++
-	}
-	
+
 	MODE = "CHART"
-	if (PASS_FLAGS ~ /p/) MODE = "PARSE"
+	PASS_FLAGS = env("ZELTA_MATCH_FLAGS", "")
+	if (PASS_FLAGS ~ /p/) PARSABLE++
 	if (PASS_FLAGS ~ /q/) LOG_LEVEL--
-	if (PASS_FLAGS ~ /H/) NOHEADER++
-	if (PASS_FLAGS ~ /v/) LOG_LEVEL++
-	if (PASS_FLAGS ~ /w/) {
-		COL["xfersize"]++
-		COL["srcwritten"]++
-		COL["tgtcwritten"]++
+	if (PASS_FLAGS ~ /H/) {
+		NOHEADER++
+		MODE = "ONETAB"
 	}
+	if (PASS_FLAGS ~ /v/) LOG_LEVEL++
+
+	property_list()
 
 	exit_code = 0
 	LOG_MODE = ZELTA_PIPE ? 0 : 1
@@ -197,15 +201,7 @@ NR == 3 {
 	if (!target) next
 	snapshot_list_command = $0;
 	if ((source == target) || !snapshot_list_command) {
-		# Should I suppress unnecessary columns by default?
-		if (MODE == "CHART") {
-			report(LOG_VERBOSE, "same source and target, suppressing match output")
-			delete COL["status"]
-			delete COL["match"]
-			delete COL["tgtfirst"]
-			delete COL["tgtlast"]
-			delete COL["tgtnum"]
-		}
+		report(LOG_WARNING, "identical source and target")
 	} else load_target_snapshots()
 	target_zfs_list_time = zfs_list_time
 }
@@ -227,9 +223,9 @@ NR > 3 {
 		if (!stub) check_parent()
 		new_dataset[stub] = snapshot_name
 		if (stub_written[target,stub]) status[stub] = "MISMATCH"
-		else if (num_snaps[target,stub] == "0") status[stub] = "NOMATCH"
+		else if (num_snaps[target,stub] == "0") status[stub] = "NO_MATCH"
 		else {
-			status[stub] = "SRCONLY"
+			status[stub] = "SRC_ONLY"
 			count_snapshot_diff()
 		}
 	} else if (target_guid[snapshot_stub]) {
@@ -253,30 +249,12 @@ NR > 3 {
 	} else count_snapshot_diff()
 }
 
-function print_row(col) {
-	num_col = arrlen(col)
-	for(c=1;c<=num_col;c++) {
-		if (MODE=="PARSE") printf ((c>1)?"\t":"") col[c]
-		if (MODE=="CHART") printf ((c>1)?"  ":"") pad[c], col[c]
-	}
-	printf "\n"
-}
-
-function make_header_column(title, arr) {
-	columns[++c] = NOHEADER?"  ":title
-	if (MODE=="CHART") { 
-		width = length(title)
-		for (w in arr) if (length(arr[w])>width) width = length(arr[w])
-		pad[c] = "%-"width"s"
-	}
-}
-
 function summarize() {
 	if (status[stub]=="SYNCED") s = "up-to-date"
-	else if (status[stub]=="SRCONLY") s = "syncable, new dataset"
+	else if (status[stub]=="SRC_ONLY") s = "syncable, new dataset"
 	else if ((status[stub]=="BEHIND") && stub_written[source,stub]) s = "target is written"
 	else if (status[stub]=="BEHIND") s = "syncable"
-	else if (status[stub]=="TGTONLY") s = "no source dataset"
+	else if (status[stub]=="TGT_ONLY") s = "no source dataset"
 	else if (status[stub]=="AHEAD") s = "target is ahead"
 	else if (status[stub]=="NOSNAP") s = "no source snapshots"
 	else if (status[stub]=="NOMATCH") s = "target has no snapshots"
@@ -286,48 +264,70 @@ function summarize() {
 	return s
 }
 
-function chart_header() {
-	c = 0
-	delete columns
-	if ((arrlen(stub_order) <= 1) && MODE=="CHART") {
-		report(LOG_VERBOSE, "single dataset; hiding stub column")
-		delete COL["stub"]
+function print_row(cols) {
+	num_col = arrlen(cols)
+	for(c=1;c<=num_col;c++) {
+		if (MODE=="ONETAB") printf ((c>1)?"\t":"") cols[c]
+		if (MODE=="CHART") printf ((c>1)?"  ":"") pad[c], cols[c]
 	}
-	if ("stub" in COL) make_header_column("STUB", stub_order)
-	if ("status" in COL) make_header_column("STATUS", status)
-	if ("xfersize" in COL) make_header_column("XFERSIZE", xfersize)
-	if ("xfersnaps" in COL) make_header_column("XFERSNAPS", xfersnaps)
-	if ("match" in COL) make_header_column("MATCH", matches)
-	if ("srcfirst" in COL) make_header_column("SRCFIRST", source_oldest)
-	if ("srclast" in COL) make_header_column("SRCLAST", srclast)
-	if ("srcwritten" in COL) make_header_column("SRCWRI", stub_written)
-	if ("tgtfirst" in COL) make_header_column("TGTFIRST", tgtfirst)
-	if ("tgtlast" in COL) make_header_column("TGTLAST", tgtlast)
-	if ("srcsnaps" in COL) make_header_column("SRCSNAPS", num_snaps)
-	if ("tgtsnaps" in COL) make_header_column("TGTSNAPS", num_snaps)
-	if ("tgtwritten" in COL) make_header_column("TGTWRI", stub_written)
-	if ("summary" in COL) make_header_column("SUMMARY", summary)
-	if (!NOHEADER) print_row(columns)
+	printf "\n"
+	c = 0
+}
+
+function make_header_column(title, arr) {
+	columns[++c] = NOHEADER?"  ":toupper(title)
+	if (MODE=="CHART") { 
+		width = length(title)
+		for (w in arr) if (length(arr[w])>width) width = length(arr[w])
+		pad[c] = "%-"width"s"
+	}
+}
+
+function chart_header() {
+	for (cnum=1;cnum<=PROP_NUM;cnum++) {
+		col = PROP_LIST[cnum]
+		if ("rel_name" == col) make_header_column(col, stub_order)
+		if ("status" == col) make_header_column(col, status)
+		if ("xfer_size" == col) make_header_column(col, xfersize)
+		if ("xfer_snaps" == col) make_header_column(col, xfersnaps)
+		if ("match" == col) make_header_column(col, matches)
+		if ("src_name" == col) make_header_column(col, name)
+		if ("src_first" == col) make_header_column(col, source_oldest)
+		if ("src_last" == col) make_header_column(col, srclast)
+		if ("src_written" == col) make_header_column(col, stub_written)
+		if ("tgt_name" == col) make_header_column(col, name)
+		if ("tgt_first" == col) make_header_column(col, tgtfirst)
+		if ("tgt_last" == col) make_header_column(col, tgtlast)
+		if ("src_snaps" == col) make_header_column(col, num_snaps)
+		if ("tgt_snaps" == col) make_header_column(col, num_snaps)
+		if ("tgt_written" == col) make_header_column(col, stub_written)
+		if ("info" == col) make_header_column(col, summary)
+	}
+	print_row(columns)
 }
 
 function chart_row(field) {
-	if (!ROW++) chart_header()
-	c=0
+	if (!ROW++ && !(MODE == "ONETAB")) chart_header()
 	delete columns
-	if ("stub" in COL) columns[++c] = field
-	if ("status" in COL) columns[++c] = status[field]
-	if ("xfersize" in COL) columns[++c] = h_num(xfersize[field])
-	if ("xfersnaps" in COL) columns[++c] = xfersnaps[field]
-	if ("match" in COL) columns[++c] = matches[field]
-	if ("srcfirst" in COL) columns[++c] = source_oldest[field]
-	if ("srclast" in COL) columns[++c] = srclast[field]
-	if ("srcwritten" in COL) columns[++c] = h_num(field_written[source,field])
-	if ("tgtfirst" in COL) columns[++c] = tgtfirst[field]
-	if ("tgtlast" in COL) columns[++c] = tgtlast[field]
-	if ("tgtwritten" in COL) columns[++c] = h_num(field_written[target,field])
-	if ("srcsnaps" in COL) columns[++c] = num_snaps[source,field]
-	if ("tgtsnaps" in COL) columns[++c] = num_snaps[target,field]
-	if ("summary" in COL) columns[++c] = summary[field]
+	for (cnum=1;cnum<=PROP_NUM;cnum++) {
+		col = PROP_LIST[cnum]
+		if ("rel_name" == col) columns[++c] = field
+		if ("status" == col) columns[++c] = status[field]
+		if ("xfer_size" == col) columns[++c] = h_num(xfersize[field])
+		if ("xfer_snaps" == col) columns[++c] = xfersnaps[field]
+		if ("match" == col) columns[++c] = matches[field]
+		if ("src_name" == col) columns[++c] = name[source,field]
+		if ("src_first" == col) columns[++c] = source_oldest[field]
+		if ("src_last" == col) columns[++c] = srclast[field]
+		if ("src_written" == col) columns[++c] = h_num(field_written[source,field])
+		if ("tgt_name" == col) columns[++c] = name[target,field]
+		if ("tgt_first" == col) columns[++c] = tgtfirst[field]
+		if ("tgt_last" == col) columns[++c] = tgtlast[field]
+		if ("tgt_written" == col) columns[++c] = h_num(field_written[target,field])
+		if ("src_snaps" == col) columns[++c] = num_snaps[source,field]
+		if ("tgt_snaps" == col) columns[++c] = num_snaps[target,field]
+		if ("info" == col) columns[++c] = summary[field]
+	}
 	print_row(columns)
 }
 
@@ -336,16 +336,16 @@ END {
 		if ((matches[stub] != srclast[stub]) && (matches[stub] != tgtlast[stub])) {
 			status[stub] = "MISMATCH"
 		}
-		if (stub && (status[stub] == "SRCONLY")) {
+		if (stub && (status[stub] == "SRC_ONLY")) {
 			parent_stub = stub
 			sub(/\/[^\/]+$/, "", parent_stub)
 			if (!srclast[parent_stub]) status[stub] = "ORPHAN"
 		} else if (status[stub] == "NOSNAP") {
-		       if (num_snaps[source,stub] == "") status[stub] = "TGTONLY"
+		       if (num_snaps[source,stub] == "") status[stub] = "TGT_ONLY"
 		} else if (status[stub] == "SYNCED") count_synced++
-		else if ((status[stub] == "SRCONLY") || (status[stub] == "BEHIND")) count_ready++
+		else if ((status[stub] == "SRC_ONLY") || (status[stub] == "BEHIND")) count_ready++
 		else count_nomatch++
-		if ("summary" in COL) summary[stub] = summarize()
+		summary[stub] = summarize()
 		if (srclast[stub] == tgtlast[stub]) xfersnaps[stub] = 0
 	}
 	if (LOG_LEVEL >= 0) {
@@ -354,7 +354,7 @@ END {
 	}
 	source_zfs_list_time = zfs_list_time
 	count_stub = arrlen(stub_list)
-	if (MODE=="PARSE") print "SOURCE_LIST_TIME:", source_zfs_list_time, ":","TARGET_LIST_TIME", target_zfs_list_time
+	if (MODE=="ONETAB") print "SOURCE_LIST_TIME:", source_zfs_list_time, ":","TARGET_LIST_TIME", target_zfs_list_time
 	else {
 		if (arrlen(source_latest) == 0) report(LOG_WARNING, "no source snapshots found")
 		else if (count_stub == count_synced) report(LOG_DEFAULT, count_stub " datasets synced")
