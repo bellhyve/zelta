@@ -52,11 +52,12 @@ function get_options() {
         for (i=1;i<ARGC;i++) {
                 $0 = ARGV[i]
                 if (gsub(/^-/,"")) {
+			if (sub(/^-no-written/,"")) WRITTEN = 0
                         if (gsub(/n/,"")) DRY_RUN++
                         if (gsub(/H/,"")) PASS_FLAGS = PASS_FLAGS "H" 
                         if (gsub(/p/,"")) PASS_FLAGS = PASS_FLAGS "p"
                         if (gsub(/q/,"")) PASS_FLAGS = PASS_FLAGS "q"
-                        if (gsub(/w/,"")) PASS_FLAGS = PASS_FLAGS "w"
+                        if (gsub(/W/,"")) WRITTEN = 0
                         #if (gsub(/j/,"")) PASS_FLAGS = PASS_FLAGS "j" # Future
                         #if (gsub(/v/,"")) PASS_FLAGS = PASS_FLAGS "v" # Future
 			if (gsub(/o/,"")) PROPERTIES = sub_opt()
@@ -91,9 +92,10 @@ function error(string) {
 BEGIN {
 	FS="\t"
 	exit_code = 0
+	WRITTEN = 1
 	REMOTE_COMMAND_NOPIPE = env("REMOTE_COMMAND_NOPIPE", "ssh -n") " "
 	TIME_COMMAND = env("TIME_COMMAND", "/usr/bin/time -p") " "
-	ZELTA_MATCH_COMMAND = "zelta reconcile"
+	ZELTA_MATCH_COMMAND = "zelta match-pipe"
 	ZFS_LIST_PROPERTIES = env("ZFS_LIST_PROPERTIES", "name,guid")
 	ZELTA_DEPTH = env("ZELTA_DEPTH", 0)
 	ZFS_LIST_PREFIX = "list -Hprt all -Screatetxg -o "
@@ -113,7 +115,7 @@ BEGIN {
 
 	MATCH_PREFIX = (PROPERTIES?"ZELTA_MATCH_PROPERTIES='"PROPERTIES"' ":"") PASS_FLAGS
 	MATCH_PREFIX = MATCH_PREFIX (ZELTA_DEPTH ? "ZELTA_DEPTH="ZELTA_DEPTH" " : "")
-	MATCH_COMMAND = MATCH_PREFIX "zelta reconcile"
+	MATCH_COMMAND = MATCH_PREFIX "zelta match-pipe"
 	ZFS_LIST_DEPTH = ZELTA_DEPTH ? " -d"ZELTA_DEPTH : ""
 
 	if (target) ZFS_LIST_FLAGS = ZFS_LIST_PREFIX ZFS_LIST_PROPERTIES ZFS_LIST_DEPTH " "
