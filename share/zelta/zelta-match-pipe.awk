@@ -1,12 +1,11 @@
 #!/usr/bin/awk -f
 #
-# zelta reconcile - compares a snapshot list via pipe and command
+# zelta-match-pipe.awk - compares a snapshot list
 #
-# usage: internal to "zelta match", but most code could be leveraged for other comparison
-# operations.
-#
-# Reports the most recent matching snapshot and the latest snapshot of a dataset and
-# its children, which are useful for various zfs operations
+# usage: compares two "zfs list" commands; one "zfs list" is piped for parrallel
+# processing.
+# 
+# Reports on the relationship between two dataset trees.
 #
 # Child snapshot names are provided relative to the target using a trimmed dataset
 # referred to as a RELNAME. For example, when zmatch is called with tank/dataset, 
@@ -14,7 +13,7 @@
 #
 # Development notes:
 #
-# The relative path name is referred to as a "stub."
+# In code, the relative path name is referred to as a "stub."
 
 function env(env_name, var_default) {
 	return ( (env_name in ENVIRON) ? ENVIRON[env_name] : var_default )
@@ -40,63 +39,56 @@ function h_num(num) {
 	return int(num) suffix
 }
 
-# Needed to prevent mawk and gawk from turning length() checked arrays into scalers
 function arrlen(array) {
 	element_count = 0
 	for (key in array) element_count++
 	return element_count
 }
 
-function get_snapshot_data(ds_name) {
-		trim = ds_name_length[ds_name]
-		if (/dataset does not exist/) return 0
-		else if (/^real[ \t]+[0-9]/) {
-			split($0, time_arr, /[ \t]+/)
-			zfs_list_time = time_arr[2]
-			return 0
-		} else if (/(sys|user)[ \t]+[0-9]/) {
-			return 0
-		} else if (!($1 ~ /@/) && ($2 ~ /[0-9]/)) {
-			stub = ($1 == dataset[ds_name]) ? "" : substr($1, trim)
-			name[ds_name,stub] = $1
-			if (!stub_list[stub]++) stub_order[++stub_num] = stub
-			if (!status[stub]) status[stub] = "NOSNAP"
-			if (!num_snaps[ds_name,stub]) num_snaps[ds_name,stub] = 0
-			stub_written[ds_name,stub] += $3
-			total_written[ds_name] += $3
-			return 0
-		} else if (! /@/) {
-			report(LOG_ERROR,$0)
-			exit_code = 1
-			return 0
-		}
-#		snapshot_full_name = $1			# full/dataset@snapshot
-		snapshot_stub = substr($1, trim)	# [child]@snapshot
-		snapshot_guid = $2			# GUID property
-		snapshot_written = $3			# written property
-		split(snapshot_stub, split_stub, "@")
-		stub = split_stub[1]			# [child] (blank for top dataset name)
-		snapshot_name = "@" split_stub[2]	# @snapshot
-		num_snaps[ds_name,stub]++		# Total snapshots per dataset
-		#guid[snapshot_stub] = snapshot_guid
-		#written[snapshot_stub] = $3
-		return 1
+function input_has_dataset() {
+	if (/^real[ \t]+[0-9]/) {
+		split($0, time_arr, /[ \t]+/)
+		zfs_list_time += time_arr[2]
+		return 0
+	} else if (/(sys|user)[ \t]+[0-9]/) return 0
+	else if (/dataset does not exist/) return 0
+	else if ($2 ~ /^[0-9]+$/) return 1
+	else {
+		report(LOG_ERROR,$0)
+		exit_code = 1
+		return 0
+	}
 }
 
-function load_target_snapshots() {
-	while  (snapshot_list_command | getline) {
-		if (!get_snapshot_data(target)) { continue }
-		target_guid[snapshot_stub] = snapshot_guid
-		target_written[snapshot_stub] = snapshot_written
-		if (!(target_ds_count[stub]++)) {
-			target_latest[stub] = snapshot_stub
-			tgtlast[stub] = snapshot_name
-			target_order[++target_num] = stub
-			status[stub] = "TGT_ONLY"
-		}
-		tgtfirst[stub] = snapshot_name
+function process_dataset(endpoint) {
+	stub = ($1 == dataset[endpoint]) ? "" : substr($1, ds_name_length[endpoint])
+	name[endpoint,stub] = $1
+	if (!stub_list[stub]++) stub_order[++stub_num] = stub
+	if (!status[stub]) status[stub] = "NOSNAP"
+	if (!num_snaps[endpoint,stub]) num_snaps[endpoint,stub] = 0
+	written[endpoint,stub] += $3
+	total_written[endpoint] += $3
+}
+
+function process_snapshot(endpoint) {
+	snapshot_stub = substr($1, ds_name_length[endpoint])	# [child]@snapshot
+	guid[endpoint,snapshot_stub] = $2	# GUID property
+	written[endpoint,snapshot_stub] = $3	# written property
+	split(snapshot_stub, split_stub, "@")
+	stub = split_stub[1]			# [child] (blank for top dataset name)
+	snapshot_name = "@" split_stub[2]	# @snapshot
+	# First, Last, and Count of snapshots
+	if (!num_snaps[endpoint,stub]++) last[endpoint,stub] = snapshot_name
+	first[endpoint,stub] = snapshot_name
+}
+
+function get_snapshot_data(endpoint) {
+	if (input_has_dataset()) {
+		if ($1 ~ /@/) { 
+			process_snapshot(endpoint)
+			return 1
+		} else process_dataset(endpoint)
 	}
-	close(snapshot_list_command)
 }
 
 function check_parent() {
@@ -202,38 +194,32 @@ NR == 3 {
 	snapshot_list_command = $0;
 	if ((source == target) || !snapshot_list_command) {
 		report(LOG_WARNING, "identical source and target")
-	} else load_target_snapshots()
+	} else {
+		# Load target snapshots
+		while  (snapshot_list_command | getline) get_snapshot_data(target)
+		close(snapshot_list_command)
+	}
 	target_zfs_list_time = zfs_list_time
 }
 
 NR > 3 {
 	if (!get_snapshot_data(source)) { next }
-	source_guid[snapshot_stub] = snapshot_guid
-	source_written[snapshot_stub] = snapshot_written
-	if (!(source_ds_count[stub]++)) {
-		source_latest[stub] = snapshot_stub
-		srclast[stub] = snapshot_name
-		source_order[++source_num] = stub
-	}
-	# Catch oldest snapshot name to ensure replication completeness
-	source_oldest[stub] = snapshot_name
-
 	if (stub in matches) next
-	else if (!target_latest[stub] && !(stub in new_dataset)) {
+	else if (!last[target,stub] && !(stub in new_dataset)) {
 		if (!stub) check_parent()
 		new_dataset[stub] = snapshot_name
-		if (stub_written[target,stub]) status[stub] = "MISMATCH"
+		if (written[target,stub]) status[stub] = "MISMATCH"
 		else if (num_snaps[target,stub] == "0") status[stub] = "NO_MATCH"
 		else {
 			status[stub] = "SRC_ONLY"
 			count_snapshot_diff()
 		}
-	} else if (target_guid[snapshot_stub]) {
-		if (target_guid[snapshot_stub] == source_guid[snapshot_stub]) {
+	} else if (guid[target,snapshot_stub]) {
+		if (guid[target,snapshot_stub] == guid[source,snapshot_stub]) {
 			matches[stub] = snapshot_name
-			if (snapshot_stub == source_latest[stub]) {
+			if (snapshot_stub == last[source,stub]) {
 				#basic_log[stub] = "target has latest source snapshot: " snapshot_stub
-				status[stub] = (snapshot_stub==target_latest[stub]) ? "SYNCED" : "AHEAD"
+				status[stub] = (snapshot_stub == last[target,stub]) ? "SYNCED" : "AHEAD"
 			} else if (guid_error[stub]) {
 				# report(LOG_VERBOSE,"latest guid match: " snapshot_stub)
 				status[stub] = "MISMATCH"
@@ -252,7 +238,7 @@ NR > 3 {
 function summarize() {
 	if (status[stub]=="SYNCED") s = "up-to-date"
 	else if (status[stub]=="SRC_ONLY") s = "syncable, new dataset"
-	else if ((status[stub]=="BEHIND") && stub_written[source,stub]) s = "target is written"
+	else if ((status[stub]=="BEHIND") && written[source,stub]) s = "target is written"
 	else if (status[stub]=="BEHIND") s = "syncable"
 	else if (status[stub]=="TGT_ONLY") s = "no source dataset"
 	else if (status[stub]=="AHEAD") s = "target is ahead"
@@ -292,15 +278,15 @@ function chart_header() {
 		if ("xfer_snaps" == col) make_header_column(col, xfersnaps)
 		if ("match" == col) make_header_column(col, matches)
 		if ("src_name" == col) make_header_column(col, name)
-		if ("src_first" == col) make_header_column(col, source_oldest)
-		if ("src_last" == col) make_header_column(col, srclast)
-		if ("src_written" == col) make_header_column(col, stub_written)
+		if ("src_first" == col) make_header_column(col, first)
+		if ("src_last" == col) make_header_column(col, last)
+		if ("src_written" == col) make_header_column(col, written)
 		if ("tgt_name" == col) make_header_column(col, name)
-		if ("tgt_first" == col) make_header_column(col, tgtfirst)
-		if ("tgt_last" == col) make_header_column(col, tgtlast)
+		if ("tgt_first" == col) make_header_column(col, first)
+		if ("tgt_last" == col) make_header_column(col, last)
 		if ("src_snaps" == col) make_header_column(col, num_snaps)
 		if ("tgt_snaps" == col) make_header_column(col, num_snaps)
-		if ("tgt_written" == col) make_header_column(col, stub_written)
+		if ("tgt_written" == col) make_header_column(col, written)
 		if ("info" == col) make_header_column(col, summary)
 	}
 	print_row(columns)
@@ -317,13 +303,13 @@ function chart_row(field) {
 		if ("xfer_snaps" == col) columns[++c] = xfersnaps[field]
 		if ("match" == col) columns[++c] = matches[field]
 		if ("src_name" == col) columns[++c] = name[source,field]
-		if ("src_first" == col) columns[++c] = source_oldest[field]
-		if ("src_last" == col) columns[++c] = srclast[field]
-		if ("src_written" == col) columns[++c] = h_num(field_written[source,field])
+		if ("src_first" == col) columns[++c] = first[source,field]
+		if ("src_last" == col) columns[++c] = last[source,field]
+		if ("src_written" == col) columns[++c] = h_num(written[source,field])
 		if ("tgt_name" == col) columns[++c] = name[target,field]
-		if ("tgt_first" == col) columns[++c] = tgtfirst[field]
-		if ("tgt_last" == col) columns[++c] = tgtlast[field]
-		if ("tgt_written" == col) columns[++c] = h_num(field_written[target,field])
+		if ("tgt_first" == col) columns[++c] = first[target,field]
+		if ("tgt_last" == col) columns[++c] = last[target,field]
+		if ("tgt_written" == col) columns[++c] = h_num(written[target,field])
 		if ("src_snaps" == col) columns[++c] = num_snaps[source,field]
 		if ("tgt_snaps" == col) columns[++c] = num_snaps[target,field]
 		if ("info" == col) columns[++c] = summary[field]
@@ -333,20 +319,20 @@ function chart_row(field) {
 
 END {
 	for (stub in stub_list) {
-		if ((matches[stub] != srclast[stub]) && (matches[stub] != tgtlast[stub])) {
+		if ((matches[stub] != last[source,stub]) && (matches[stub] != last[target,stub])) {
 			status[stub] = "MISMATCH"
 		}
 		if (stub && (status[stub] == "SRC_ONLY")) {
 			parent_stub = stub
 			sub(/\/[^\/]+$/, "", parent_stub)
-			if (!srclast[parent_stub]) status[stub] = "ORPHAN"
+			if (!last[source,parent_stub]) status[stub] = "ORPHAN"
 		} else if (status[stub] == "NOSNAP") {
 		       if (num_snaps[source,stub] == "") status[stub] = "TGT_ONLY"
 		} else if (status[stub] == "SYNCED") count_synced++
 		else if ((status[stub] == "SRC_ONLY") || (status[stub] == "BEHIND")) count_ready++
 		else count_nomatch++
 		summary[stub] = summarize()
-		if (srclast[stub] == tgtlast[stub]) xfersnaps[stub] = 0
+		if (last[source,stub] == last[target,stub]) xfersnaps[stub] = 0
 	}
 	if (LOG_LEVEL >= 0) {
 		arr_sort(stub_order)
