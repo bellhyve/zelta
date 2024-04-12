@@ -1,0 +1,11 @@
+**************************************************************************
+To start using Zelta, you will need to configure the conf file located at:
+
+    /usr/local/etc/zelta/zelta.conf
+
+For detailed information on configuring Zelta, please refer to the documentation:
+
+    https://github.com/bellhyve/zelta/blob/main/README.md
+
+If you find any bugs please file them @ https://github.com/bellhyve/zelta/issues
+**************************************************************************

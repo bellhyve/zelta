@@ -1,0 +1,39 @@
+PORTNAME=	zelta
+DISTVERSIONPREFIX=	v
+DISTVERSION=	0.5
+DISTVERSIONSUFFIX=	-beta
+CATEGORIES=	sysutils
+DISTNAME=	${PORTNAME}-${DISTVERSIONPREFIX}${DISTVERSION}${DISTVERSIONSUFFIX}
+MASTER_SITES=	GH
+
+MAINTAINER=	jt@obs-sec.com
+COMMENT=	Zelta Replication Suite
+
+LICENSE=	BSD2CLAUSE
+
+USE_GITHUB=	yes
+GH_ACCOUNT=	q5sys
+GH_PROJECT=	zelta
+GH_TAGNAME=	v0.5-beta
+
+NO_BUILD=	yes
+
+ZELTA_ETC?=	${PREFIX}/etc/zelta
+ZELTA_SHARE?=	${PREFIX}/share/zelta
+
+ZELTA_CONF?=	zelta.conf
+ZELTA_ENV?=	zelta.env
+
+do-install:
+	${INSTALL_SCRIPT} ${WRKSRC}/bin/zelta ${STAGEDIR}${PREFIX}/bin
+	${LN} -sf ${STAGEDIR}${PREFIX}/bin/zelta ${STAGEDIR}${PREFIX}/bin/zmatch
+	${LN} -sf ${STAGEDIR}${PREFIX}/bin/zelta ${STAGEDIR}${PREFIX}/bin/zp
+	${LN} -sf ${STAGEDIR}${PREFIX}/bin/zelta ${STAGEDIR}${PREFIX}/bin/zpull
+	${LN} -sf ${STAGEDIR}${PREFIX}/bin/zelta ${STAGEDIR}${PREFIX}/bin/zmatch
+	${MKDIR} -p ${STAGEDIR}${PREFIX}${ZELTA_ETC}
+	${INSTALL_DATA} ${WRKSRC}/${ZELTA_ENV} ${STAGEDIR}${PREFIX}${ZELTA_ETC}/${ZELTA_ENV}.dist
+	${INSTALL_DATA} ${WRKSRC}/${ZELTA_CONF} ${STAGEDIR}${PREFIX}${ZELTA_ETC}/${ZELTA_CONF}.dist
+	${MKDIR} -p ${STAGEDIR}${PREFIX}${ZELTA_SHARE}
+	${INSTALL_DATA} ${WRKSRC}/share/zelta/* ${STAGEDIR}${PREFIX}${ZELTA_SHARE}
+
+.include <bsd.port.mk>
