@@ -1,0 +1,14 @@
+bin/zelta
+bin/zmatch
+bin/zp
+bin/zpull
+usr/local/%%ETCDIR%%/zelta.conf.dist
+usr/local/%%ETCDIR%%/zelta.env.dist
+usr/local/%%DATADIR%%/zelta-endpoint.awk
+usr/local/%%DATADIR%%/zelta-match.awk
+usr/local/%%DATADIR%%/zelta-policy.awk
+usr/local/%%DATADIR%%/zelta-reconcile.awk
+usr/local/%%DATADIR%%/zelta-replicate.awk
+usr/local/%%DATADIR%%/zelta-report.awk
+usr/local/%%DATADIR%%/zelta-snapshot.awk
+usr/local/%%DATADIR%%/zelta-usage.sh
