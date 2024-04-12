@@ -75,12 +75,12 @@ function get_endpoint_info(endpoint) {
 	FS = "\t"
 	endpoint_command = "zelta endpoint " endpoint
 	endpoint_command | getline
-	#endpoint_id[endpoint] = $1
-	zfs[endpoint] = $2
-	#user[endpoint] = $3
-	#host[endpoint] = $4
-	ds[endpoint] = $5
-	#snapshot[endpoint] = $6
+	#endpoint_id[endpoint]	= $1
+	zfs[endpoint]		= $2
+	#user[endpoint]		= $3
+	#host[endpoint]		= $4
+	ds[endpoint]		= $5
+	#snapshot[endpoint]	= $6
 	close(endpoint_command)
 	return $1
 }
@@ -91,18 +91,18 @@ function error(string) {
 
 BEGIN {
 	FS="\t"
-	exit_code = 0
-	WRITTEN = 1
-	REMOTE_COMMAND_NOPIPE = env("REMOTE_COMMAND_NOPIPE", "ssh -n") " "
-	TIME_COMMAND = env("TIME_COMMAND", "/usr/bin/time -p") " "
-	ZELTA_MATCH_COMMAND = "zelta match-pipe"
-	ZFS_LIST_PROPERTIES = env("ZFS_LIST_PROPERTIES", "name,guid")
-	ZELTA_DEPTH = env("ZELTA_DEPTH", 0)
-	ZFS_LIST_PREFIX = "list -Hprt all -Screatetxg -o "
-	ZFS_LIST_PREFIX_WRITECHECK = "list -Hprt filesystem,volume -o "
+	exit_code			= 0
+	WRITTEN				= 1
+	REMOTE_COMMAND_NOPIPE		= env("REMOTE_COMMAND_NOPIPE", "ssh -n") " "
+	TIME_COMMAND			= env("TIME_COMMAND", "/usr/bin/time -p") " "
+	ZELTA_MATCH_COMMAND		= "zelta match-pipe"
+	ZFS_LIST_PROPERTIES		= env("ZFS_LIST_PROPERTIES", "name,guid")
+	ZELTA_DEPTH			= env("ZELTA_DEPTH", 0)
+	ZFS_LIST_PREFIX			= "list -Hprt all -Screatetxg -o "
+	ZFS_LIST_PREFIX_WRITECHECK	= "list -Hprt filesystem,volume -o "
 	
 	get_options()
-	if (PASS_FLAGS) PASS_FLAGS = "ZELTA_MATCH_FLAGS='"PASS_FLAGS"' "
+	if (PASS_FLAGS) PASS_FLAGS	= "ZELTA_MATCH_FLAGS='"PASS_FLAGS"' "
 	# "zfs list -o written" can slow things down, skip if possible
 	if (PROPERTIES && split(PROPERTIES, PROPLIST, ",")) {
 		for (p in PROPLIST) {

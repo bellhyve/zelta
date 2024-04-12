@@ -121,24 +121,46 @@ function arr_sort(arr) {
     }
 }
 
+function add_prop_col(prop) {
+	PROP_LIST[++PROP_NUM] = prop
+	PROP_DICT[prop] = PROP_NUM
+}
+	
+function check_prop_col(prop) {
+	prop = tolower(prop)
+	gsub(/_/, "", prop)
+	if (prop ~ /^(relname|name|stub)/) add_prop_col("REL_NAME")
+	else if (prop == "status") add_prop_col("STATUS")
+	else if (prop == "action") add_prop_col("ACTION")
+	else if (prop == "match") add_prop_col("MATCH")
+	else if (prop == "xfersize") add_prop_col("XFER_SIZE")
+	else if (prop == "xfernum") add_prop_col("XFER_NUM")
+	else if (prop == "nummatches") add_prop_col("NUM_MATCHES")
+	else if (prop == "srcname") add_prop_col("SRC_NAME")
+	else if (prop == "srcfirst") add_prop_col("SRC_FIRST")
+	else if (prop == "srcnext") add_prop_col("SRC_NEXT")
+	else if (prop == "srclast") add_prop_col("SRC_LAST")
+	else if (prop == "srcwritten") add_prop_col("SRC_WRITTEN")
+	else if (prop == "tgtsnaps") add_prop_col("TGT_SNAPS")
+	else if (prop == "tgtname") add_prop_col("TGT_NAME")
+	else if (prop == "tgtfirst") add_prop_col("TGT_FIRST")
+	else if (prop == "tgtnext") add_prop_col("TGT_NEXT")
+	else if (prop == "tgtlast") add_prop_col("TGT_LAST")
+	else if (prop == "tgtwritten") add_prop_col("TGT_WRITTEN")
+	else if (prop == "tgtsnaps") add_prop_col("TGT_SNAPS")
+	else if (prop == "info") add_prop_col("INFO")
+	else print "error: unknown property " prop
+}
+	
 function property_list() {
-	PROPERTIES_ALL = "rel_name,action,match,xfer_size,xfer_num,num_matches,src_name,src_first,src_next,src_last,src_snaps,src_written,tgt_name,tgt_first,tgt_next,tgt_last,tgt_written"
-	PROPERTIES_LIST_DEFAULT = "rel_name,action,match,src_first,src_next,src_last,tgt_last"
+	PROPERTIES_ALL = "rel_name,status,action,match,xfer_size,xfer_num,num_matches,src_name,src_first,src_next,src_last,src_snaps,src_written,tgt_name,tgt_first,tgt_next,tgt_last,tgt_written"
+	PROPERTIES_LIST_DEFAULT = "rel_name,status,action,match,src_first,src_next,src_last,tgt_last"
 	PROPERTIES_MATCH_DEFAULT = "rel_name,info"
-	split(PROPERTIES_ALL",info,status", prop_all, /,/)
-	for (p in prop_all) valid_prop[prop_all[p]]++
 	properties = env("ZELTA_MATCH_PROPERTIES", PROPERTIES_MATCH_DEFAULT)
 	if (properties == "all") properties = PROPERTIES_ALL
 	else if (properties == "list") properties = PROPERTIES_LIST_DEFAULT
-
 	prop_num = split(properties, prop_list, /,/)
-	for (p=1;p<=prop_num;p++) {
-		$0 = prop_list[p]
-		if ($0 in valid_prop) PROP_LIST[++PROP_NUM] = $0
-		else if (/^(name|stub)$/) PROP_LIST[++PROP_NUM] = "rel_name"
-		else print "error: unknown property "$0
-	}
-	for (p in PROP_LIST) PROP[PROP_LIST[p]]++
+	for (p=1;p<=prop_num;p++) check_prop_col(prop_list[p])
 }
 
 BEGIN {
@@ -257,37 +279,44 @@ function print_row(cols) {
 		if (MODE=="CHART") printf ((c>1)?"  ":"") pad[c], cols[c]
 	}
 	printf "\n"
-	c = 0
 }
 
-function make_header_column(title, arr) {
-	columns[++c] = NOHEADER?"  ":toupper(title)
+function make_header_column(title, arr, endpoint) {
+	columns[cnum] = NOHEADER?"  ":toupper(title)
 	if (MODE=="CHART") { 
 		width = length(title)
-		for (w in arr) if (length(arr[w])>width) width = length(arr[w])
-		pad[c] = "%-"width"s"
+		for (w in arr) {
+			if (!endpoint || index(w, endpoint) == 1) {
+				if (length(arr[w])>width) width = length(arr[w])
+			}
+		}
+		pad[cnum] = "%-"width"s"
 	}
 }
 
 function chart_header() {
 	for (cnum=1;cnum<=PROP_NUM;cnum++) {
 		col = PROP_LIST[cnum]
-		if ("rel_name" == col) make_header_column(col, stub_order)
-		if ("status" == col) make_header_column(col, status)
-		if ("xfer_size" == col) make_header_column(col, xfersize)
-		if ("xfer_snaps" == col) make_header_column(col, xfersnaps)
-		if ("match" == col) make_header_column(col, matches)
-		if ("src_name" == col) make_header_column(col, name)
-		if ("src_first" == col) make_header_column(col, first)
-		if ("src_last" == col) make_header_column(col, last)
-		if ("src_written" == col) make_header_column(col, written)
-		if ("tgt_name" == col) make_header_column(col, name)
-		if ("tgt_first" == col) make_header_column(col, first)
-		if ("tgt_last" == col) make_header_column(col, last)
-		if ("src_snaps" == col) make_header_column(col, num_snaps)
-		if ("tgt_snaps" == col) make_header_column(col, num_snaps)
-		if ("tgt_written" == col) make_header_column(col, written)
-		if ("info" == col) make_header_column(col, summary)
+		if ("REL_NAME" == col) make_header_column(col, stub_order)
+		if ("STATUS" == col) make_header_column(col, status)
+		if ("ACTION" == col) make_header_column(col, action)
+		if ("XFER_SIZE" == col) make_header_column(col, xfersize)
+		if ("XFER_NUM" == col) make_header_column(col, xfersnaps)
+		if ("MATCH" == col) make_header_column(col, matches)
+		if ("NUM_MATCHES" == col) make_header_column(col, num_matches)
+		if ("SRC_NAME" == col) make_header_column(col, name, source)
+		if ("SRC_FIRST" == col) make_header_column(col, first, source)
+		if ("SRC_NEXT" == col) make_header_column(col, src_next)
+		if ("SRC_LAST" == col) make_header_column(col, last, source)
+		if ("SRC_WRITTEN" == col) make_header_column(col, written, source)
+		if ("SRC_SNAPS" == col) make_header_column(col, num_snaps)
+		if ("TGT_NAME" == col) make_header_column(col, name, target)
+		if ("TGT_FIRST" == col) make_header_column(col, first, target)
+		if ("TGT_NEXT" == col) make_header_column(col, tgt_next)
+		if ("TGT_LAST" == col) make_header_column(col, last, target)
+		if ("TGT_WRITTEN" == col) make_header_column(col, written, target)
+		if ("TGT_SNAPS" == col) make_header_column(col, num_snaps, target)
+		if ("INFO" == col) make_header_column(col, summary)
 	}
 	print_row(columns)
 }
@@ -297,22 +326,26 @@ function chart_row(field) {
 	delete columns
 	for (cnum=1;cnum<=PROP_NUM;cnum++) {
 		col = PROP_LIST[cnum]
-		if ("rel_name" == col) columns[++c] = field
-		if ("status" == col) columns[++c] = status[field]
-		if ("xfer_size" == col) columns[++c] = h_num(xfersize[field])
-		if ("xfer_snaps" == col) columns[++c] = xfersnaps[field]
-		if ("match" == col) columns[++c] = matches[field]
-		if ("src_name" == col) columns[++c] = name[source,field]
-		if ("src_first" == col) columns[++c] = first[source,field]
-		if ("src_last" == col) columns[++c] = last[source,field]
-		if ("src_written" == col) columns[++c] = h_num(written[source,field])
-		if ("tgt_name" == col) columns[++c] = name[target,field]
-		if ("tgt_first" == col) columns[++c] = first[target,field]
-		if ("tgt_last" == col) columns[++c] = last[target,field]
-		if ("tgt_written" == col) columns[++c] = h_num(written[target,field])
-		if ("src_snaps" == col) columns[++c] = num_snaps[source,field]
-		if ("tgt_snaps" == col) columns[++c] = num_snaps[target,field]
-		if ("info" == col) columns[++c] = summary[field]
+		if ("REL_NAME" == col) columns[cnum] = field
+		if ("STATUS" == col) columns[cnum] = status[field]
+		if ("ACTION" == col) columns[cnum] = action[field]
+		if ("XFER_SIZE" == col) columns[cnum] = h_num(xfersize[field])
+		if ("XFER_NUM" == col) columns[cnum] = xfersnaps[field]
+		if ("MATCH" == col) columns[cnum] = matches[field]
+		if ("NUM_MATCHES" == col) columns[cnum] = num_matches[field]
+		if ("SRC_NAME" == col) columns[cnum] = name[source,field]
+		if ("SRC_FIRST" == col) columns[cnum] = first[source,field]
+		if ("SRC_NEXT" == col) columns[cnum] = src_next[field]
+		if ("SRC_LAST" == col) columns[cnum] = last[source,field]
+		if ("SRC_WRITTEN" == col) columns[cnum] = h_num(written[source,field])
+		if ("SRC_SNAPS" == col) columns[cnum] = num_snaps[source,field]
+		if ("TGT_NAME" == col) columns[cnum] = name[target,field]
+		if ("TGT_FIRST" == col) columns[cnum] = first[target,field]
+		if ("TGT_NEXT" == col) columns[cnum] = tgt_next[field]
+		if ("TGT_LAST" == col) columns[cnum] = last[target,field]
+		if ("TGT_WRITTEN" == col) columns[cnum] = h_num(written[target,field])
+		if ("TGT_SNAPS" == col) columns[cnum] = num_snaps[target,field]
+		if ("INFO" == col) columns[cnum] = summary[field]
 	}
 	print_row(columns)
 }
