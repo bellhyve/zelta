@@ -6,7 +6,7 @@ CATEGORIES=	sysutils
 
 MAINTAINER=	jt@obs-sec.com
 COMMENT=	Zelta Replication Suite
-WWW=		https://github.com/bellhyve/zelta
+WWW=		https://zelta.space
 
 LICENSE=	BSD2CLAUSE
 

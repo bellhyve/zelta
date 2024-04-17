@@ -1,14 +1,15 @@
 [
 { type: install
   message: <<EOM
-To start using Zelta, configure the configuration file located at:
+To learn about Zelta, run "zelta usage" and refer to the
+wiki:
+
+    https://zelta.space
+
+The default "zelta policy" configuration is located at:
 
     %%ETCDIR%%/zelta.conf
 
-For detailed information on configuring Zelta, please refer to the
-documentation:
-
-    https://github.com/bellhyve/zelta/blob/main/README.md
 
 If you find any bugs please file them
 at https://github.com/bellhyve/zelta/issues.
