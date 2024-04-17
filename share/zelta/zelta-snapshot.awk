@@ -1,6 +1,8 @@
 #!/usr/bin/awk -f
 #
-# zelta-snapshot.awk - quick and dirty snapshot tool for zelta-defined endpoints
+# zelta-snapshot.awk
+#
+# Make a snapshot using Zelta's endpoint format. Called with "zelta snapshot".
 
 function make_snapshot_name(snapshot) {
 	if (snapshot) return snapshot
@@ -23,12 +25,12 @@ BEGIN {
 {
 	get_endpoint_info = "zelta endpoint " $0
 	get_endpoint_info | getline
-	endpoint_id = $1
-	zfs = ($2?"ssh -n "$2" ":"") "zfs "
-	user = $3
-	host = $4
-	dataset = $5
-	snapshot = make_snapshot_name($6)
+	endpoint_id	= $1
+	zfs		= ($2 ? "ssh -n " $2 " " : "") "zfs "
+	user		= $3
+	host		= $4
+	dataset		= $5
+	snapshot	= make_snapshot_name($6)
 	close(get_endpoint_info)
 
 	command = zfs "snapshot -r " "'"dataset"@"snapshot"'"
