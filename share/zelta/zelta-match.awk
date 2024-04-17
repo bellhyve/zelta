@@ -1,30 +1,13 @@
 #!/usr/bin/awk -f
+
 #
-# zmatch - compares a source and target datasets for dataset similarity
+# zelta-match.awk
 #
-# usage: zmatch [user@][host:]source/dataset [user@][host:]target/dataset
-#
-# Reports the most recent matching snapshot and the latest snapshot of a dataset and
-# its children, which are useful for various zfs operations
-#
-# In interactive mode, child snapshot names are provided relative to the target
-# dataset. For example, when zmatch is called with tank/dataset, tank/dataset/child's
-# snapshots will be reported as"/child@snapshot-name".
-#
-# Specifically:
-#   - The latest matching snapshot and child snapshots
-#   - Missing child dataset on the destination
-#   - Matching snapshot names with different GUIDs
-#   - Newer target snapshots not on the source
-#
-# ZFS LIST SWITCHES
-#
-# -d#	limit recursion depth to #.
-# -H    hide header
-# -n	show the zfs list commands instead of running them
-# -o    "all" or a list of properties to show
-# -p    single tab delimited output
-# -v	verbose, tell the user if output is being suppressed.
+# Called via "zelta match", "zelta list", or "zmatch", describes the
+# relationship between two trees of ZFS datasets. This script processes
+# arguments and runs a "zfs list" command on the source endpoint, then passes
+# the output and instructions to zfs-match-pipe.awk to compare the lists
+# (which allows for parallel processing with only AWK calls).
 
 function usage(message) {
 	usage_command = "zelta usage match"
@@ -48,21 +31,42 @@ function sub_opt() {
 	return opt
 }
 
+function pass_flags(flag) {
+	PASS_FLAGS = PASS_FLAGS flag
+}
+
+function long_opt() {
+	if (! sub(/^--/,"")) return 0
+	else {
+		if (split($0,arg_opt,"=")) {
+			$0 = arg_opt[1]
+			option = arg_opt[2]
+		} else option = ""
+		gsub(/-/,"")
+		return 1
+	}
+}
+
 function get_options() {
         for (i=1;i<ARGC;i++) {
                 $0 = ARGV[i]
-                if (gsub(/^-/,"")) {
-			if (sub(/^-no-written/,"")) WRITTEN = 0
-                        if (gsub(/n/,"")) DRY_RUN++
-                        if (gsub(/H/,"")) PASS_FLAGS = PASS_FLAGS "H" 
-                        if (gsub(/p/,"")) PASS_FLAGS = PASS_FLAGS "p"
-                        if (gsub(/q/,"")) PASS_FLAGS = PASS_FLAGS "q"
-                        if (gsub(/W/,"")) WRITTEN = 0
-                        #if (gsub(/j/,"")) PASS_FLAGS = PASS_FLAGS "j" # Future
-                        #if (gsub(/v/,"")) PASS_FLAGS = PASS_FLAGS "v" # Future
-			if (gsub(/o/,"")) PROPERTIES = sub_opt()
-                        if (gsub(/d/,"")) ZELTA_DEPTH = sub_opt()
-                        if (/./) usage("unkown options: " $0)
+                if (long_opt()) {
+			if (/^dryrun$/)		DRY_RUN++
+			else if (/^help$/)	usage()
+			else if (/^nowritten$/)	WRITTEN = 0
+			else usage("unkown option: --" $0)
+                } else if (sub(/^-/,"")) while (/./) {
+                        if (/h/)		usage()
+                        else if (sub(/^n/,""))	DRY_RUN++
+                        else if (sub(/^H/,""))	pass_flags("H")
+                        else if (sub(/^p/,""))	pass_flags("p")
+                        else if (sub(/^q/,""))	pass_flags("q")
+                        #else if (sub(/^j/,""))	pass_flags("j")
+                        #else if (sub(/^v/,""))	pass_flags("v")
+                        else if (sub(/^W/,""))	WRITTEN = 0
+			else if (sub(/^o$/,""))	PROPERTIES = sub_opt()
+                        else if (sub(/^d$/,""))	ZELTA_DEPTH = sub_opt()
+                        else if (/./) usage("unkown options: " $0)
                 } else if (target) {
                         usage("too many options: " $0)
                 } else if (source) target = $0
