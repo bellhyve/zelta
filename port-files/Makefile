@@ -4,14 +4,14 @@ DISTVERSION=	0.5
 DISTVERSIONSUFFIX=	-beta
 CATEGORIES=	sysutils
 
-MAINTAINER=	jt@obs-sec.com
+MAINTAINER=	daniel@belltech.it
 COMMENT=	Zelta Replication Suite
 WWW=		https://github.com/bellhyve/zelta
 
 LICENSE=	BSD2CLAUSE
 
 USE_GITHUB=	yes
-GH_ACCOUNT=	q5sys
+GH_ACCOUNT=	bellhyve
 
 NO_ARCH=	yes
 NO_BUILD=	yes
