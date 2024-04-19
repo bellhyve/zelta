@@ -4,16 +4,6 @@
 #
 # usage: compares two "zfs list" commands; one "zfs list" is piped for parrallel
 # processing.
-# 
-# Reports on the relationship between two dataset trees.
-#
-# Child snapshot names are provided relative to the target using a trimmed dataset
-# referred to as a RELNAME. For example, when zmatch is called with tank/dataset, 
-# tank/dataset/child's snapshots will be reported as "/child@snapshot-name".
-#
-# Development notes:
-#
-# In code, the relative path name is referred to as a "stub."
 
 function env(env_name, var_default) {
 	return ( (env_name in ENVIRON) ? ENVIRON[env_name] : var_default )
@@ -61,31 +51,47 @@ function input_has_dataset() {
 }
 
 function process_dataset(endpoint) {
-	stub = ($1 == dataset[endpoint]) ? "" : substr($1, ds_name_length[endpoint])
-	name[endpoint,stub] = $1
-	if (!stub_list[stub]++) stub_order[++stub_num] = stub
-	if (!status[stub]) status[stub] = "NOSNAP"
-	if (!num_snaps[endpoint,stub]) num_snaps[endpoint,stub] = 0
-	written[endpoint,stub] += $3
+	rel_name = ($1 == dataset[endpoint]) ? "" : substr($1, ds_name_length[endpoint])
+	name[endpoint,rel_name] = $1
+	if (!rel_name_list[rel_name]++) rel_name_order[++rel_name_num] = rel_name
+	if (!status[rel_name]) status[rel_name] = "NOSNAP"
+	if (!num_snaps[endpoint,rel_name]) num_snaps[endpoint,rel_name] = 0
+	written[endpoint,rel_name] += $3
 	total_written[endpoint] += $3
 }
 
 function process_snapshot(endpoint) {
-	snapshot_stub = substr($1, ds_name_length[endpoint])	# [child]@snapshot
-	guid[endpoint,snapshot_stub] = $2	# GUID property
-	written[endpoint,snapshot_stub] = $3	# written property
-	split(snapshot_stub, split_stub, "@")
-	stub = split_stub[1]			# [child] (blank for top dataset name)
-	snapshot_name = "@" split_stub[2]	# @snapshot
+	snapshot_rel_name = substr($1, ds_name_length[endpoint])	# [child]@snapshot
+	guid_to_name[endpoint,guid] =  snapshot_rel_name
+	name_to_guid[endpoint,snapshot_rel_name] = guid	# GUID property
+	written[endpoint,snapshot_rel_name] = $3	# written property
+	split(snapshot_rel_name, split_rel_name, "@")
+	rel_name = split_rel_name[1]			# [child] (blank for top dataset name)
+	snapshot_name = "@" split_rel_name[2]	# @snapshot
 	# First, Last, and Count of snapshots
-	if (!num_snaps[endpoint,stub]++) last[endpoint,stub] = snapshot_name
-	first[endpoint,stub] = snapshot_name
+	if (!num_snaps[endpoint,rel_name]++) last[endpoint,rel_name] = snapshot_name
+	first[endpoint,rel_name] = snapshot_name
+}
+
+function process_bookmark(endpoint) {
+	bookmark_rel_name = substr($1, ds_name_length[endpoint])
+	snapshot_rel_name = bookmark_rel_name
+	if (guid_to_name[endpoint,guid]) return
+	guid_to_name[endpoint,guid] = bookmark_rel_name
+	name_to_guid[endpoint,bookmark_rel_name] = guid
+	match(bookmark_rel_name,/[@#]/)
+	rel_name = substr(bookmark_rel_name, 1, RSTART - 1)
+	snapshot_name = substr(bookmark_rel_name, RSTART)
 }
 
 function get_snapshot_data(endpoint) {
 	if (input_has_dataset()) {
+		guid = $2
 		if ($1 ~ /@/) { 
 			process_snapshot(endpoint)
+			return 1
+		} else if ($1 ~ /#/) { 
+			process_bookmark(endpoint)
 			return 1
 		} else process_dataset(endpoint)
 	}
@@ -129,7 +135,7 @@ function add_prop_col(prop) {
 function check_prop_col(prop) {
 	prop = tolower(prop)
 	gsub(/_/, "", prop)
-	if (prop ~ /^(relname|name|stub)/) add_prop_col("REL_NAME")
+	if (prop ~ /^(relname|name|rel_name)/) add_prop_col("REL_NAME")
 	else if (prop == "status") add_prop_col("STATUS")
 	else if (prop == "action") add_prop_col("ACTION")
 	else if (prop == "match") add_prop_col("MATCH")
@@ -141,7 +147,7 @@ function check_prop_col(prop) {
 	else if (prop == "srcnext") add_prop_col("SRC_NEXT")
 	else if (prop == "srclast") add_prop_col("SRC_LAST")
 	else if (prop == "srcwritten") add_prop_col("SRC_WRITTEN")
-	else if (prop == "tgtsnaps") add_prop_col("TGT_SNAPS")
+	else if (prop == "srcsnaps") add_prop_col("SRC_SNAPS")
 	else if (prop == "tgtname") add_prop_col("TGT_NAME")
 	else if (prop == "tgtfirst") add_prop_col("TGT_FIRST")
 	else if (prop == "tgtnext") add_prop_col("TGT_NEXT")
@@ -201,8 +207,8 @@ function get_endpoint_info() {
 
 function count_snapshot_diff() {
 	transfer_size += snapshot_written
-	xfersize[stub] += snapshot_written
-	xfersnaps[stub]++
+	xfersize[rel_name] += snapshot_written
+	xfersnaps[rel_name]++
 }
 
 NR == 1 { source = get_endpoint_info() }
@@ -226,48 +232,52 @@ NR == 3 {
 
 NR > 3 {
 	if (!get_snapshot_data(source)) { next }
-	if (stub in matches) next
-	else if (!last[target,stub] && !(stub in new_dataset)) {
-		if (!stub) check_parent()
-		new_dataset[stub] = snapshot_name
-		if (written[target,stub]) status[stub] = "MISMATCH"
-		else if (num_snaps[target,stub] == "0") status[stub] = "NO_MATCH"
+	if (rel_name in matches) next
+	else if (!last[target,rel_name] && !(rel_name in new_dataset)) {
+		if (!rel_name) check_parent()
+		new_dataset[rel_name] = snapshot_name
+		if (written[target,rel_name]) status[rel_name] = "MISMATCH"
+		else if (num_snaps[target,rel_name] == "0") status[rel_name] = "NO_MATCH"
 		else {
-			status[stub] = "SRC_ONLY"
+			status[rel_name] = "SRC_ONLY"
 			count_snapshot_diff()
 		}
-	} else if (guid[target,snapshot_stub]) {
-		if (guid[target,snapshot_stub] == guid[source,snapshot_stub]) {
-			matches[stub] = snapshot_name
-			if (snapshot_stub == last[source,stub]) {
-				#basic_log[stub] = "target has latest source snapshot: " snapshot_stub
-				status[stub] = (snapshot_stub == last[target,stub]) ? "SYNCED" : "AHEAD"
-			} else if (guid_error[stub]) {
-				# report(LOG_VERBOSE,"latest guid match: " snapshot_stub)
-				status[stub] = "MISMATCH"
-			} else {
-				status[stub] = "BEHIND"
-				#basic_log[stub] = "match: " snapshot_stub OFS "latest: " source_latest[stub]
-			}
+	} else if (guid_to_name[target,guid]) {
+		matches[rel_name] = snapshot_name
+		if (snapshot_name == last[source,rel_name]) {
+			status[rel_name] = (snapshot_name == last[target,rel_name]) ? "SYNCED" : "AHEAD"
 		} else {
-			report(LOG_VERBOSE,"guid mismatch: " snapshot_stub)
-			#warning_log[stub] = warning_log[stub] "guid mismatch on: " snapshot_stub "\n"
-			guid_error[stub]++
+			status[rel_name] = "BEHIND"
 		}
+		#if (name_to_guid[target,snapshot_rel_name] == name_to_guid[source,snapshot_rel_name]) {
+		#	if (snapshot_rel_name == last[source,rel_name]) {
+		#		#basic_log[rel_name] = "target has latest source snapshot: " snapshot_rel_name
+		#	} else if (guid_error[rel_name]) {
+		#		# report(LOG_VERBOSE,"latest guid match: " snapshot_rel_name)
+		#		status[rel_name] = "MISMATCH"
+		#	} else {
+		#		status[rel_name] = "BEHIND"
+		#		#basic_log[rel_name] = "match: " snapshot_rel_name OFS "latest: " source_latest[rel_name]
+		#	}
+		#} else {
+		#	report(LOG_VERBOSE,"guid mismatch: " snapshot_rel_name)
+		#	#warning_log[rel_name] = warning_log[rel_name] "guid mismatch on: " snapshot_rel_name "\n"
+		#	guid_error[rel_name]++
+		#}
 	} else count_snapshot_diff()
 }
 
 function summarize() {
-	if (status[stub]=="SYNCED") s = "up-to-date"
-	else if (status[stub]=="SRC_ONLY") s = "syncable, new dataset"
-	else if ((status[stub]=="BEHIND") && written[source,stub]) s = "target is written"
-	else if (status[stub]=="BEHIND") s = "syncable"
-	else if (status[stub]=="TGT_ONLY") s = "no source dataset"
-	else if (status[stub]=="AHEAD") s = "target is ahead"
-	else if (status[stub]=="NOSNAP") s = "no source snapshots"
-	else if (status[stub]=="NOMATCH") s = "target has no snapshots"
-	else if (status[stub]=="ORPHAN") s = "no parent snapshot"
-	else if (guid_error[stub]) s = "guid mismatch"
+	if (status[rel_name]=="SYNCED") s = "up-to-date"
+	else if (status[rel_name]=="SRC_ONLY") s = "syncable, new dataset"
+	else if ((status[rel_name]=="BEHIND") && written[source,rel_name]) s = "target is written"
+	else if (status[rel_name]=="BEHIND") s = "syncable"
+	else if (status[rel_name]=="TGT_ONLY") s = "no source dataset"
+	else if (status[rel_name]=="AHEAD") s = "target is ahead"
+	else if (status[rel_name]=="NOSNAP") s = "no source snapshots"
+	else if (status[rel_name]=="NOMATCH") s = "target has no snapshots"
+	else if (status[rel_name]=="ORPHAN") s = "no parent snapshot"
+	else if (guid_error[rel_name]) s = "guid mismatch"
 	else s = "match, but latest snapshots differ"
 	return s
 }
@@ -297,7 +307,7 @@ function make_header_column(title, arr, endpoint) {
 function chart_header() {
 	for (cnum=1;cnum<=PROP_NUM;cnum++) {
 		col = PROP_LIST[cnum]
-		if ("REL_NAME" == col) make_header_column(col, stub_order)
+		if ("REL_NAME" == col) make_header_column(col, rel_name_order)
 		if ("STATUS" == col) make_header_column(col, status)
 		if ("ACTION" == col) make_header_column(col, action)
 		if ("XFER_SIZE" == col) make_header_column(col, xfersize)
@@ -351,36 +361,36 @@ function chart_row(field) {
 }
 
 END {
-	for (stub in stub_list) {
-		if ((matches[stub] != last[source,stub]) && (matches[stub] != last[target,stub])) {
-			status[stub] = "MISMATCH"
+	for (rel_name in rel_name_list) {
+		if ((matches[rel_name] != last[source,rel_name]) && (matches[rel_name] != last[target,rel_name])) {
+			status[rel_name] = "MISMATCH"
 		}
-		if (stub && (status[stub] == "SRC_ONLY")) {
-			parent_stub = stub
-			sub(/\/[^\/]+$/, "", parent_stub)
-			if (!last[source,parent_stub]) status[stub] = "ORPHAN"
-		} else if (status[stub] == "NOSNAP") {
-		       if (num_snaps[source,stub] == "") status[stub] = "TGT_ONLY"
-		} else if (status[stub] == "SYNCED") count_synced++
-		else if ((status[stub] == "SRC_ONLY") || (status[stub] == "BEHIND")) count_ready++
+		if (rel_name && (status[rel_name] == "SRC_ONLY")) {
+			parent_rel_name = rel_name
+			sub(/\/[^\/]+$/, "", parent_rel_name)
+			if (!last[source,parent_rel_name]) status[rel_name] = "ORPHAN"
+		} else if (status[rel_name] == "NOSNAP") {
+		       if (num_snaps[source,rel_name] == "") status[rel_name] = "TGT_ONLY"
+		} else if (status[rel_name] == "SYNCED") count_synced++
+		else if ((status[rel_name] == "SRC_ONLY") || (status[rel_name] == "BEHIND")) count_ready++
 		else count_nomatch++
-		summary[stub] = summarize()
-		if (last[source,stub] == last[target,stub]) xfersnaps[stub] = 0
+		summary[rel_name] = summarize()
+		if (last[source,rel_name] == last[target,rel_name]) xfersnaps[rel_name] = 0
 	}
 	if (LOG_LEVEL >= 0) {
-		arr_sort(stub_order)
-		for (i=1;i<=arrlen(stub_order);i++) chart_row(stub_order[i])
+		arr_sort(rel_name_order)
+		for (i=1;i<=arrlen(rel_name_order);i++) chart_row(rel_name_order[i])
 	}
 	source_zfs_list_time = zfs_list_time
-	count_stub = arrlen(stub_list)
+	count_rel_name = arrlen(rel_name_list)
 	if (MODE=="ONETAB") print "SOURCE_LIST_TIME:", source_zfs_list_time, ":","TARGET_LIST_TIME", target_zfs_list_time
 	else {
 		if (arrlen(source_latest) == 0) report(LOG_WARNING, "no source snapshots found")
-		else if (count_stub == count_synced) report(LOG_DEFAULT, count_stub " datasets synced")
-		else if (count_stub == count_ready) report(LOG_DEFAULT, count_stub " datasets syncable")
-		else if (count_stub == count_nomatch) report(LOG_WARNING, count_stub " datasets unsyncable")
+		else if (count_rel_name == count_synced) report(LOG_DEFAULT, count_rel_name " datasets synced")
+		else if (count_rel_name == count_ready) report(LOG_DEFAULT, count_rel_name " datasets syncable")
+		else if (count_rel_name == count_nomatch) report(LOG_WARNING, count_rel_name " datasets unsyncable")
 		else {
-			log_msg = count_stub " total datasets"
+			log_msg = count_rel_name " total datasets"
 			log_msg = log_msg (count_synced?", "count_synced" synced":"")
 			log_msg = log_msg (count_ready?", "count_ready" syncable":"")
 			log_msg = log_msg (count_nomatch?", "count_nomatch" unsyncable":"")

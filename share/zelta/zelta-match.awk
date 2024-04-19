@@ -107,7 +107,6 @@ BEGIN {
 	
 	get_options()
 	if (PASS_FLAGS) PASS_FLAGS	= "ZELTA_MATCH_FLAGS='"PASS_FLAGS"' "
-	# "zfs list -o written" can slow things down, skip if possible
 	if (PROPERTIES && split(PROPERTIES, PROPLIST, ",")) {
 		for (p in PROPLIST) {
 			$0 = PROPLIST[p]
