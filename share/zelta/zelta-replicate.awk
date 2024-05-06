@@ -81,15 +81,18 @@ function dq(s) { return "\"" s "\"" }
 #	return rzc_cmd
 #}
 
-function command_queue(send_dataset, receive_dataset, match_snapshot) {
+function command_queue(send_dataset, receive_dataset, match_snapshot,	target_flags) {
 	num_streams++
+	if (!dataset) target_flags = " " RECEIVE_FLAGS_TOP " "
+	if (can_rotate) target_flags = " -o origin=" q(rotate_name) " " target_flags
 	if (zfs_send_command ~ /ssh/) {
 		gsub(/ /, "\\ ", send_dataset)
 		gsub(/ /, "\\ ", match_snapshot)
+	}
+	if (zfs_receive_command ~ /ssh/) {
+		gsub(/ /, "\\ ", receive_dataset)
 		gsub(/ /, "\\ ", target_flags)
 	}
-	if (zfs_receive_command ~ /ssh/) gsub(/ /, "\\ ", receive_dataset)
-	#if (receive_dataset) receive_part = " | " receive_prefix() zfs_receive_command q(receive_dataset)
 	if (receive_dataset) receive_part = zfs_receive_command target_flags q(receive_dataset)
 	if (CLONE_MODE) {
 		send_command[++rpl_num] = zfs_send_command q(send_dataset) " " q(receive_dataset)
@@ -100,13 +103,14 @@ function command_queue(send_dataset, receive_dataset, match_snapshot) {
 		receive_command[rpl_num] = receive_part
 		est_cmd[rpl_num] = zfs_send_command "-Pn " send_part
 		source_stream[rpl_num] = match_snapshot "::" send_dataset
-		stream_size[rpl_num] = xfersize
+		# zfs list xfersize sucks so find xfersize from a zfs send -n instead
+		# stream_size[rpl_num] = xfersize
 	} else {
 		send_command[++rpl_num] = zfs_send_command source_flags q(send_dataset)
 		receive_command[rpl_num] = receive_part
 		est_cmd[rpl_num] = zfs_send_command "-Pn " q(send_dataset)
 		source_stream[rpl_num] = send_dataset
-		stream_size[rpl_num] = xfersize
+		#stream_size[rpl_num] = xfersize
 	}
 }
 
@@ -219,7 +223,7 @@ function get_config() {
 	if (INITIATOR) SHELL_WRAPPER = SSH_SEND INITIATOR
 	RPL_CMD_PREFIX = TIME_COMMAND SHELL_WRAPPER" "
 	if (DEPTH) DEPTH = "-d"DEPTH" "
-	match_cols = "rel_name,status,match,src_first,src_last,tgt_last" (PROGRESS?",xfer_size":"")
+	match_cols = "relname,synccode,match,srcfirst,srclast,tgtlast,info"
 	match_flags = "-Hpo "match_cols" "DEPTH
 	match_command = SHELL_WRAPPER" "dq("zelta match " match_flags q(source) " " q(target))
 	if (CLONE_MODE) {
@@ -243,11 +247,11 @@ function get_endpoint_info(endpoint) {
 	FS = "\t"
 	endpoint_command = "zelta endpoint " endpoint
 	endpoint_command | getline
-	prefix[endpoint] = $2
-	user[endpoint] = $3
-	host[endpoint] = $4
-	ds[endpoint] = $5
-	snapshot[endpoint] = ($6?"@"$6:"")
+	prefix[endpoint]	= $2
+	user[endpoint]		= $3
+	host[endpoint]		= $4
+	ds[endpoint]		= $5
+	snapshot[endpoint]	= ($6?"@"$6:"")
 	close("zelta endpoint " endpoint)
 }
 
@@ -411,44 +415,59 @@ function replicate(command) {
 	close(command)
 }
 
-function get_match_header() {
-	$0 = toupper(match_cols)
-	gsub(/,/,"\t")
-	for (i=0;i<=NF;++i) {
-		mcol[$i] = i
+function initialize_sync_code(	i,j) {
+	for (i = 1; i <= length(sync_code); i++) {
+		digit = substr(sync_code, i, 1)
+		for (j = 0; j < 3; j++) {
+			bit[3*(i-1) + j + 1] = int(digit / (2^(2-j))) % 2
+		}
 	}
-	dataset = $mcol["REL_NAME"]
+}
+
+function get_update_option() {
+	initialize_sync_code()
+	src_only = (bit[2] && !bit[9])
+	tgt_behind = (bit[4] && !bit[5])
+	tgt_blocked = (!bit[4] || bit[7])
+	up_to_date = (bit[4] && bit[4])
+	# All other states can't sync
 }
 
 function name_match_row() {
-	# REL_NAME STATUS XFER_SIZE MATCH SRC_FIRST SRC_LAST TGT_LAST
-	if ($mcol["STATUS"] !~ /^[A-Z_]+$/) return 0
-	dataset = $mcol["REL_NAME"]
-	sourceds = ds[source] dataset 
-	targetds = ds[target] dataset 
-	status = $mcol["STATUS"]
-	match_snap = $mcol["MATCH"]
-	sfirst = $mcol["SRC_FIRST"]
-	sfirst_full = sourceds sfirst
-	slast = $mcol["SRC_LAST"]
-	slast_full = sourceds slast
-	tlast = $mcol["TGT_LAST"]
-	tlast_full = targetds tlast
-	target_match = targetds match_snap
-	source_match = sourceds match_snap
-	xfersize = (mcol["XFER_SIZE"]?$mcol["XFER_SIZE"]:0)
+	# match_cols = "relname,synccode,match,srcfirst,srclast,tgtlast,info"
+	if ($2 !~ /^[0-9][0-7][0-7]$/) return 0
+
+	dataset		= $1
+	sync_code	= $2
+	match_snap	= $3
+	sfirst		= $4
+	slast		= $5
+	tlast		= $6
+	info		= $7
+
+	sourceds	= ds[source] dataset 
+	targetds	= ds[target] dataset 
+	sfirst_full	= sourceds sfirst
+	slast_full	= sourceds slast
+	tlast_full	= targetds tlast
+	target_match	= targetds match_snap
+	source_match	= sourceds match_snap
+
+	# Compute update path
+	get_update_option()
+
 	if (ROTATE) {
-		if ((status == "TGT_ONLY") || (status == "SRC_ONLY")) return 1
+		if (!match_snap) return 1
 		if (!dataset && match_snap && (match_snap != slast)) {
 			can_rotate = match_snap
 			origin_name = ds[target] ":" can_rotate
 			sub(/@/,"",origin_name)
-		} else if (can_rotate && ((can_rotate != match_snap) || (match_snap == slast))) {
-			report(LOG_WARNING,"cannot rotate, matching snapshots are inconsistent on "dataset)
-			can_rotate = ""
-		}
+		}# else if (can_rotate && ((can_rotate != match_snap) || (match_snap == slast))) {
+		#	report(LOG_WARNING,"cannot rotate, matching snapshots are inconsistent on "dataset)
+		#	can_rotate = ""
+		#}
 
-		rotate_name = ds[target] ":" can_rotate dataset can_rotate
+		rotate_name = ds[target] ":" can_rotate dataset match_snap
 		sub(/@/,"",rotate_name)
 		# Toggle "can_rotate" if we have the same latest matching snapshot throughout the source tree
 		#print dataset":" (can_rotate?"rotate":"notate")
@@ -482,7 +501,7 @@ BEGIN {
 	load_properties(source, srcprop)
 	load_properties(target, tgtprop)
 	run_snapshot()
-	get_match_header()
+	#get_match_header()
 	while (match_command |getline) {
 		if (!name_match_row()) {
 			if ($3 == ":") {
@@ -491,46 +510,43 @@ BEGIN {
 			} else if (/error|Warning/) {
 				error_code = 1
 				report(LOG_WARNING, $0)
-			} else if (/^[0-9]+$/) {
-				# This might be obsolete
-				report(LOG_VERBOSE, source " has written data")
+			#} else if (/^[0-9]+$/) {
+			#	# This might be obsolete
+			#	report(LOG_VERBOSE, source " has written data")
 			} else if (sub(/^parent dataset does not exist: +/,"")) {
 				send_command[++rpl_num] = zfs[target] "create " create_flags q($0)
 				create_dataset[rpl_num] = $6
 			}
 			continue
 		}
-		if (status == "SRC_ONLY") {
-			if (!dataset) target_flags = " " RECEIVE_FLAGS_TOP " "
+		if (src_only) {
 			if (INTR) {
-				command_queue(sfirst_full, targetds)
-				command_queue(slast_full, targetds, sfirst)
-			} else command_queue(slast_full, targetds)
-			if (!dataset) target_flags = ""
-		} else if (can_rotate) {
-			target_flags = " -o origin=" q(rotate_name) " " (!dataset ? RECEIVE_FLAGS_TOP " " : "")
-			command_queue(slast_full, targetds, source_match)
-			target_flags = ""
-			report(LOG_VERBOSE, "datasets differ, rotating: "dataset)
-		} else if (status == "TGT_EMPTY") {
-			if (snapshot[source]) command_queue(slast_full, targetds, snapshot[source])
-			else report(LOG_BASIC, "no target snapshot: "targetds)
-		} else if (status == "MISMATCH") {
-			error_code = 1
-			report(LOG_BASIC, "datasets differ: "dataset)
-			if (target_match) report(LOG_VERBOSE, "  consider target rollback: "target_match )
-		} else if (status == "AHEAD") {
-			error_code = 3
-			report(LOG_BASIC, "target snapshot ahead of source: "tlast_full)
-			report(LOG_VERBOSE, "  reverse replication or rollback target to: "target_match)
-		} else if (status == "SYNCED") {
+							command_queue(sfirst_full, targetds)
+							command_queue(slast_full, targetds, sfirst)
+			} else				command_queue(slast_full, targetds)
+		} else if (tgt_behind) {
+							command_queue(slast_full, targetds, match_snap)
+		} else if (can_rotate && match_snap) {
+							command_queue(slast_full, targetds, source_match)
+		#} else if (action == "") {
+		#	error_code = 1
+		#	report(LOG_BASIC, "datasets differ: "dataset)
+		#	if (target_match) report(LOG_VERBOSE, "  consider target rollback: "target_match )
+		#} else if (status == "AHEAD") {
+		#	error_code = 3
+		#	report(LOG_BASIC, "target snapshot ahead of source: "tlast_full)
+		#	report(LOG_VERBOSE, "  reverse replication or rollback target to: "target_match)
+		#} else if (status == "SYNCED") {
+		#	synced_count++
+		#	report(LOG_VERBOSE, "target is up to date: "tlast_full)
+		#} else if (action == "INCREMENTAL") command_queue(slast_full, targetds, match_snap)
+		#else if (status == "TGT_ONLY") report(LOG_VERBOSE, "snapshot only exists on target: "targetds)
+		#else if (status == "ORPHAN") report(LOG_VERBOSE, "no source parent snapshot: "dataset)
+		#else if (status == "NO_SNAP") report(LOG_VERBOSE, "no snapshot for dataset "dataset)
+		} else if (up_to_date) {
+			report(LOG_VERBOSE, targetds ": "info)
 			synced_count++
-			report(LOG_VERBOSE, "target is up to date: "tlast_full)
-		} else if (status == "BEHIND") command_queue(slast_full, targetds, match_snap)
-		else if (status == "TGT_ONLY") report(LOG_VERBOSE, "snapshot only exists on target: "targetds)
-		else if (status == "ORPHAN") report(LOG_VERBOSE, "no source parent snapshot: "dataset)
-		else if (status == "NO_SNAP") report(LOG_VERBOSE, "no snapshot for dataset "dataset)
-		else report(LOG_WARNING, "match error: "$0)
+		} else report(LOG_WARNING, targetds": "info)
 	}
 	close(match_command)
 
