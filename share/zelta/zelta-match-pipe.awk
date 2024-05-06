@@ -135,8 +135,8 @@ function check_prop_col(prop) {
 	prop = tolower(prop)
 	gsub(/_/, "", prop)
 	if (prop ~ /^(relname|name)$/)	add_prop_col("REL_NAME")
-	#else if (prop == "status")	add_prop_col("STATUS")
-	#else if (prop == "action")	add_prop_col("ACTION")
+	else if (prop == "status")	add_prop_col("STATUS")
+	else if (prop == "synccode")	add_prop_col("SYNC_CODE")
 	else if (prop == "match")	add_prop_col("MATCH")
 	else if (prop == "xfersize")	add_prop_col("XFER_SIZE")
 	else if (prop == "xfernum")	add_prop_col("XFER_NUM")
@@ -240,20 +240,9 @@ NR > 3 {
 	} else if (!last[target,rel_name] && !(rel_name in new_dataset)) {
 		check_parent()
 		new_dataset[rel_name]	= checkpoint
-		#if (written[target,rel_name]) status[rel_name] = "MISMATCH"
-		#else if (num_snaps[target,rel_name] == "0") status[rel_name] = "NO_MATCH"
-		#else {
-		#	status[rel_name] = "SRC_ONLY"
-		#	count_snapshot_diff()
-		#}
 	} else if (guid_to_name[target,guid]) {
 		last_match[rel_name]		= checkpoint
 		last_match_guid[rel_name]	= guid
-		#if (checkpoint == last[source,rel_name]) {
-		#	status[rel_name] = (checkpoint == last[target,rel_name]) ? "SYNCED" : "AHEAD"
-		#} else {
-		#	status[rel_name] = "BEHIND"
-		#}
 	} else count_snapshot_diff()
 }
 
@@ -263,16 +252,44 @@ function dataset_is_orphan() {
 	return (!last[source,parent_rel_name])
 }
 
+function get_sync_code() {
+	if (name[source_id]) {
+		s		= 1
+		s		+= last[source_id] ? 2 : 0
+		s		+= written[source_id] ? 4 : 0
+	} else	s		= 0
+	m			= last_match_guid[rel_name] ? 1 : 0
+	m			+= source_latest_match ? 2 : 0
+	m			+= target_latest_match ? 4 : 0
+	if (name[target_id]) {
+		t		= 1
+		t		+= last[target_id] ? 2 : 0
+		t		+= written[target_id] ? 4 : 0
+	} else	t		= 0
+	return (s m t)
+}
+
+function get_status() {
+	if (m >= 6)				return	"UP_TO_DATE"
+	else if (!s)				return	"NO_SOURCE"
+	else if (!last[source_id])		return	"NO_SOURCE_SNAPSHOT"
+	else if (!t)				return	"SYNCABLE_NEW"
+	else if (m == 5)			return	"SYNCABLE_UPDATE"
+	else if (!source_latest_match)		return	"BLOCKED_BY_SNAPSHOT"
+	else if (written[target_id])		return	"BLOCKED_BY_WRITTEN"
+	else 					return	"UNSYNCABLE"
+}
+
 function get_info() {
 	if (!name[target_id] && name[source_id]) { 
 		if (dataset_is_orphan())	return	"source parent has no snapshots"
 		else if (last[source_id])	return	"source only; no target dataset"
 		else 				return	"no source snapshots; no target dataset"
 	} else if (!name[source_id] && name[target_id]) {
-		if (last[target_id])		return	"no source dataset; target only"
+		if (last[target_id])		return	"no source dataset; target dataset exists"
 		else 				return	"no source dataset; no target snapshots"
 	} else if (source_latest_match && target_latest_match) {
-		if (written[target_id])		return	"up-to-date; warning: target is written"
+		if (written[target_id])		return	"up-to-date but cannot sync: target is written"
 		else if (written[source_id])	return	"up-to-date; source is written"
 		else 				return	"up-to-date"
 	} else if (!source_latest_match && target_latest_match) {
@@ -280,49 +297,28 @@ function get_info() {
 		if (written[source_id])		return	"target is out-of-date; source is written"
 		else				return	"target is out-of-date"
 	} else if (source_latest_match && !target_latest_match) {
-						return	"warning: target has newer snapshots than source"
+						return	"cannot sync: target has newer snapshots than source"
 	} else if (last_match[rel_name]) {
-						return	"warning: source and target have diverged"
-	} else					return	"warning: cannot determine state"
-	#if (status[rel_name]=="SYNCED") s = "up-to-date"
-	#else if (status[rel_name]=="SRC_ONLY") s = "syncable, new dataset"
-	#else if ((status[rel_name]=="BEHIND") && written[source,rel_name]) s = "target is written"
-	#else if (status[rel_name]=="BEHIND") s = "syncable"
-	#else if (status[rel_name]=="TGT_ONLY") s = "no source dataset"
-	#else if (status[rel_name]=="AHEAD") s = "target is ahead"
-	#else if (status[rel_name]=="NOSNAP") s = "no source snapshots"
-	#else if (status[rel_name]=="NOMATCH") s = "target has no snapshots"
-	#else if (status[rel_name]=="ORPHAN") s = "no parent snapshot"
-	#else if (guid_error[rel_name]) s = "guid mismatch"
-	#else s = "match, but latest snapshots differ"
-	#return s
+						return	"cannot sync: source and target have diverged"
+	} else					return	"cannot determine sync state"
 }
 
 function get_summary() {
-		#if ((last_match[rel_name] != last[source,rel_name]) && (last_match[rel_name] != last[target,rel_name])) {
-#print rel_name, #last_match[rel_name] #, last[source,rel_name], last_match[rel_name], last[target,rel_name]
-		#	status[rel_name] = "MISMATCH"
-		#}
-		#if (rel_name && (status[rel_name] == "SRC_ONLY")) {
-		#	parent_rel_name = rel_name
-		#	sub(/\/[^\/]+$/, "", parent_rel_name)
-		#	if (!last[source,parent_rel_name]) status[rel_name] = "ORPHAN"
-		#} else if (status[rel_name] == "NOSNAP") {
-		#       if (num_snaps[source,rel_name] == "") status[rel_name] = "TGT_ONLY"
-		#} else if (status[rel_name] == "SYNCED") count_synced++
-		#else if ((status[rel_name] == "SRC_ONLY") || (status[rel_name] == "BEHIND")) count_ready++
-		#else count_blocked++
-		#if (last[source,rel_name] == last[target,rel_name]) xfersnaps[rel_name] = 0
 	target_id				= (target SUBSEP rel_name)
 	source_id				= (source SUBSEP rel_name)
-	source_latest_match			= (last_match_guid[rel_name] == last_guid[source_id])
-	target_latest_match			= (last_match_guid[rel_name] == last_guid[target_id])
-	target_out_of_date			= (last_guid[target_id] == last_match_guid[rel_name])
+	if (last_match_guid[rel_name]) {
+		source_latest_match		= (last_match_guid[rel_name] == last_guid[source_id])
+		target_latest_match		= (last_match_guid[rel_name] == last_guid[target_id])
+	} else {
+		source_latest_match		= 0
+		target_latest_match		= 0
+	}
+	sync_code[rel_name]			= get_sync_code()
+	status[rel_name]			= get_status()
 	info[rel_name]				= get_info()
-	if (source_latest_match == target_latest_match)		count_synced++
-	else if (name[source_id] && !name[target_id])		count_ready++
-	else if (target_out_of_date)				count_ready++	
-	else							count_blocked++
+	if (status[rel_name] ~ /^SYNCABLE/)	count_ready++
+	else if (m >= 6)			count_synced++
+	else					count_blocked++
 }
 
 function print_row(cols) {
@@ -352,7 +348,7 @@ function chart_header() {
 		col = PROP_LIST[cnum]
 		if ("REL_NAME" == col) make_header_column(col, rel_name_order)
 		if ("STATUS" == col) make_header_column(col, status)
-		if ("ACTION" == col) make_header_column(col, action)
+		if ("SYNC_CODE" == col) make_header_column(col, sync_code)
 		if ("XFER_SIZE" == col) make_header_column(col, xfersize)
 		if ("XFER_NUM" == col) make_header_column(col, xfersnaps)
 		#if ("NUM_MATCHES" == col) make_header_column(col, num_matches)
@@ -381,7 +377,7 @@ function chart_row(field) {
 		col = PROP_LIST[cnum]
 		if ("REL_NAME" == col) columns[cnum] = field
 		if ("STATUS" == col) columns[cnum] = status[field]
-		if ("ACTION" == col) columns[cnum] = action[field]
+		if ("SYNC_CODE" == col) columns[cnum] = sync_code[field]
 		if ("XFER_SIZE" == col) columns[cnum] = h_num(xfersize[field])
 		if ("XFER_NUM" == col) columns[cnum] = xfersnaps[field]
 		if ("MATCH" == col) columns[cnum] = last_match[field]
