@@ -36,11 +36,11 @@ Given `pool1` and `pool2` on a local system, you can back up one to the other wi
 
 
 ## Detailed Instructions
-You do **not** need to be root to perform ZFS replication, but additional setups steps are required to create users and set up `zfs allow`. Additionally, working with remote systems requires setting up your infrastructure for efficient use of `ssh`. Documentation and examples can be found on our (wiki)[https://github.com/bellhyve/zelta/wiki/Home-&-FAQ]. We are actively adding use case examples and updating the manpage drafts to reflect Zelta's active feature development.
+You do **not** need to be root to perform ZFS replication, but additional setups steps are required to create users and set up `zfs allow`. Additionally, working with remote systems requires setting up your infrastructure for efficient use of `ssh`. Documentation and examples can be found on our [wiki](https://github.com/bellhyve/zelta/wiki/Home-&-FAQ). We are actively adding use case examples and updating the manpage drafts to reflect Zelta's active feature development.
 
 Point-of-use documentation is also provided in the installed examples:
-- (zelta.conf)[https://github.com/bellhyve/zelta/blob/main/zelta.conf] for policy-based backups
-- (zelta.env)[https://github.com/bellhyve/zelta/blob/main/zelta.env] for location and behavior overrides
+- [zelta.conf](https://github.com/bellhyve/zelta/blob/main/zelta.conf) for policy-based backups
+- [zelta.env](https://github.com/bellhyve/zelta/blob/main/zelta.env) for location and behavior overrides
 - `zelta help` (From the command line.)
 
 
@@ -48,7 +48,7 @@ Point-of-use documentation is also provided in the installed examples:
 
 Zelta, although a recent addition to GitHub, has been rigorously used in production for over five years. It has successfully managed the replication of millions of datasets, with a primary emphasis on safety. We're currently refining features, finalizing command names, and enhancing documentation.
 
-We invite individuals of all technical backgrounds who want to protect both personal and organizational mission-critical data to collaborate with us. Your input is crucial in making Zelta, and ZFS at large, more accessible and user-friendly. By engaging with us, you'll not only contribute to the development of Zelta but also gain the opportunity to receive direct support and insights from our team at (Bell Tower)[https://belltower.it/].
+We invite individuals of all technical backgrounds who want to protect both personal and organizational mission-critical data to collaborate with us. Your input is crucial in making Zelta, and ZFS at large, more accessible and user-friendly. By engaging with us, you'll not only contribute to the development of Zelta but also gain the opportunity to receive direct support and insights from our team at [Bell Tower](https://belltower.it/).
 
 
 ## Goals and Methodology
@@ -61,7 +61,7 @@ The act of simply backing up a boot drive with the basic ZFS commands (`zfs send
 
 Zelta is both safer and easier to use, and simplifies complex backup and migration tasks for experts. We find it to be ideal for both routine maintenance and complex tasks like fleet backup management and asynchronous clustering. Zelta **never** destroys target data, but provides tools to help delicately untangle mismatched replicas.
 
-Zelta works with any snapshot management system or system scheduler. It's currently used to back up thousands of datasets in conjunction with (zfsnap)[https://github.com/zfsnap/zfsnap], however, basic snapshot and pruning features are being added to Zelta that will be sufficient for many users. See the `zelta.env` example to change Zelta's naming schemes.
+Zelta works with any snapshot management system or system scheduler. It's currently used to back up thousands of datasets in conjunction with [zfsnap](https://github.com/zfsnap/zfsnap), however, basic snapshot and pruning features are being added to Zelta that will be sufficient for many users. See the `zelta.env` example to change Zelta's naming schemes.
 
 ## Installation Notes
 
