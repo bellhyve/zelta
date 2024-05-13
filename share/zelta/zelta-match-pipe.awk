@@ -54,8 +54,13 @@ function input_has_dataset() {
 	}
 }
 
+function depth_too_high() {
+	return (ZELTA_DEPTH && (split(rel_name, depth_arr, "/") > ZELTA_DEPTH))
+}
+
 function process_dataset(endpoint) {
 	rel_name				= (dataset[endpoint] == $1) ? "" : substr($1, ds_name_length[endpoint])
+	if (depth_too_high()) return 0
 	endpoint_id				= (endpoint SUBSEP rel_name)
 	name[endpoint_id]			= $1
 	written[endpoint_id]			= $3
@@ -68,30 +73,30 @@ function process_dataset(endpoint) {
 	}
 }
 
-function process_checkpoint(endpoint) {
-	checkpoint_rel_name				= substr($1, ds_name_length[endpoint])
-	checkpoint_id					= (endpoint SUBSEP checkpoint_rel_name)
+function process_savepoint(endpoint) {
+	savepoint_rel_name				= substr($1, ds_name_length[endpoint])
+	savepoint_id					= (endpoint SUBSEP savepoint_rel_name)
 	guid						= $2
-	guid_to_name[endpoint,guid]			= checkpoint_rel_name
-	name_to_guid[checkpoint_id]			= guid
-	written[checkpoint_id]				= $3
-	match(checkpoint_rel_name,/[@#]/)
-	rel_name					= substr(checkpoint_rel_name, 1, RSTART - 1)
-	checkpoint					= substr(checkpoint_rel_name, RSTART)
+	guid_to_name[endpoint,guid]			= savepoint_rel_name
+	name_to_guid[savepoint_id]			= guid
+	written[savepoint_id]				= $3
+	match(savepoint_rel_name,/[@#]/)
+	rel_name					= substr(savepoint_rel_name, 1, RSTART - 1)
+	savepoint					= substr(savepoint_rel_name, RSTART)
 	dataset_id					= (endpoint SUBSEP rel_name)
 	if (!num_snaps[dataset_id]++) {
-		last[dataset_id]			= checkpoint
+		last[dataset_id]			= savepoint
 		last_guid[dataset_id]			= guid
 	}
-	first[dataset_id]	= checkpoint
+	first[dataset_id]	= savepoint
 	first_guid[dataset_id]	= guid
 }
 
-function get_checkpoint_data(endpoint) {
+function get_savepoint_data(endpoint) {
 	if (input_has_dataset()) {
 		if (is_dataset) process_dataset(endpoint)
 		else if ((guid_to_name[endpoint,$2]) && is_bookmark) return
-		else process_checkpoint(endpoint)
+		else process_savepoint(endpoint)
 	}
 }
 
@@ -184,6 +189,7 @@ BEGIN {
 
 	MODE			= "CHART"
 	PASS_FLAGS		= env("ZELTA_MATCH_FLAGS", "")
+	ZELTA_DEPTH		= env("ZELTA_DEPTH", "")
 
 	if (PASS_FLAGS ~ /p/) PARSABLE++
 	if (PASS_FLAGS ~ /q/) LOG_LEVEL--
@@ -226,22 +232,22 @@ NR == 3 {
 	} else {
 		# Load target snapshots
 		ds_trim_length = ds_name_length[target]
-		while  (snapshot_list_command | getline) get_checkpoint_data(target)
+		while  (snapshot_list_command | getline) get_savepoint_data(target)
 		close(snapshot_list_command)
 	}
 	target_zfs_list_time = zfs_list_time
 }
 
 NR > 3 {
-	get_checkpoint_data(source)
+	get_savepoint_data(source)
 	if (!(is_snapshot || is_bookmark)) next
 	if (rel_name in last_match) {
 		if (guid_to_name[target,guid]) num_matches[rel_name]++
 	} else if (!last[target,rel_name] && !(rel_name in new_dataset)) {
 		check_parent()
-		new_dataset[rel_name]	= checkpoint
+		new_dataset[rel_name]	= savepoint
 	} else if (guid_to_name[target,guid]) {
-		last_match[rel_name]		= checkpoint
+		last_match[rel_name]		= savepoint
 		last_match_guid[rel_name]	= guid
 	} else count_snapshot_diff()
 }
