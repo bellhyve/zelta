@@ -635,7 +635,7 @@ BEGIN {
 		else replication_command = dq(send_command[r])
 		full_cmd = RPL_CMD_PREFIX replication_command RPL_CMD_SUFFIX
 		if (stream_size[r]) report(LOG_BASIC, source_stream[r]": sending " h_num(stream_size[r]))
-#print replication_command
+print replication_command
 		replicate(full_cmd)
 	}
 
