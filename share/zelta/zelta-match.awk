@@ -22,7 +22,7 @@ function env(env_name, var_default) {
 }
 
 function sub_opt() {
-	if (!$0) {
+	if ($0 == "") {
 		i++
 		$0 = ARGV[i]
 	}
@@ -56,7 +56,7 @@ function get_options() {
 			else if (/^nowritten$/)	WRITTEN = 0
 			else usage("unkown option: --" $0)
                 } else if (sub(/^-/,"")) while (/./) {
-                        if (/h/)		usage()
+                        if (/^h/)		usage()
                         else if (sub(/^n/,""))	DRY_RUN++
                         else if (sub(/^H/,""))	pass_flags("H")
                         else if (sub(/^p/,""))	pass_flags("p")
@@ -64,8 +64,8 @@ function get_options() {
                         #else if (sub(/^j/,""))	pass_flags("j")
                         #else if (sub(/^v/,""))	pass_flags("v")
                         else if (sub(/^W/,""))	WRITTEN = 0
-			else if (sub(/^o$/,""))	PROPERTIES = sub_opt()
-                        else if (sub(/^d$/,""))	ZELTA_DEPTH = sub_opt()
+			else if (sub(/^o/,""))	PROPERTIES = sub_opt()
+                        else if (sub(/^d/,""))	ZELTA_DEPTH = sub_opt()
                         else if (/./) usage("unkown options: " $0)
                 } else if (target) {
                         usage("too many options: " $0)

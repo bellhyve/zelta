@@ -84,7 +84,7 @@ function dq(s) { return "\"" s "\"" }
 function command_queue(send_dataset, receive_dataset, match_snapshot,	target_flags) {
 	num_streams++
 	if (!dataset) target_flags = " " RECEIVE_FLAGS_TOP " "
-	if (can_rotate) target_flags = " -o origin=" q(rotate_name) " " target_flags
+	if (torigin_name) target_flags = " -o origin=" q(rotate_name) " " target_flags
 	if (zfs_send_command ~ /ssh/) {
 		gsub(/ /, "\\ ", send_dataset)
 		gsub(/ /, "\\ ", match_snapshot)
@@ -222,6 +222,7 @@ function get_config() {
 	}
 	if (INITIATOR) SHELL_WRAPPER = SSH_SEND INITIATOR
 	RPL_CMD_PREFIX = TIME_COMMAND SHELL_WRAPPER" "
+	if (DEPTH) PROP_DEPTH = "-d"(DEPTH-1)" "
 	if (DEPTH) DEPTH = "-d"DEPTH" "
 	match_cols = "relname,synccode,match,srcfirst,srclast,tgtlast,info"
 	match_flags = "-Hpo "match_cols" "DEPTH
@@ -239,6 +240,10 @@ function get_config() {
 	send_flags = SEND_COMMAND SEND_FLAGS " "
 	recv_flags = RECEIVE_COMMAND RECEIVE_FLAGS " "
 	if (INTR_FLAGS ~ "I") INTR++
+	if (ROTATE) {
+		INTR = 0
+		INTR_FLAGS = "-i"
+	}
 	intr_flags = INTR_FLAGS " "
 	create_flags = "-up"(DRY_RUN?"n":"")" "
 }
@@ -353,10 +358,10 @@ function stop(err, message) {
 }
 
 function load_properties(endpoint, prop) {
-	ZFS_GET_LOCAL="get -Hpr -s local,none -t filesystem,volume -o name,property,value " DEPTH " all "
-	zfs_get_command = RPL_CMD_PREFIX dq(zfs[source] ZFS_GET_LOCAL q(ds[source])) ALL_OUT
+	ZFS_GET_LOCAL="get -Hpr -s local,none -t filesystem,volume -o name,property,value " PROP_DEPTH " all "
+	zfs_get_command = RPL_CMD_PREFIX dq(zfs[endpoint] ZFS_GET_LOCAL q(ds[endpoint])) ALL_OUT
 	while (zfs_get_command | getline) {
-		if (sub(ds[source],"",$1)) prop[$1,$2] = $3
+		if (sub(ds[endpoint],"",$1)) prop[$1,$2] = $3
 		else if (sub(/^real[ \t]+/,"")) list_time[endpoint] += $0
 		else if (/(user|sys)/) {}
 		else report(LOG_WARNING,"property loading error: " $0)
@@ -422,15 +427,25 @@ function initialize_sync_code(	i,j) {
 			bit[3*(i-1) + j + 1] = int(digit / (2^(2-j))) % 2
 		}
 	}
+	src_written		= bit[1]
+	src_has_snap		= bit[2]
+	src_exists		= bit[3]
+	tgt_latest_match	= bit[4]
+	src_latest_match	= bit[5]
+	trees_match		= bit[6]
+	tgt_written		= bit[7]
+	tgt_has_snap		= bit[8]
+	tgt_exists		= bit[9]
 }
 
 function get_update_option() {
 	initialize_sync_code()
-	src_only = (bit[2] && !bit[9])
-	tgt_behind = (bit[4] && !bit[5])
-	tgt_blocked = (!bit[4] || bit[7])
-	up_to_date = (bit[4] && bit[4])
-	# All other states can't sync
+	tgt_written	= (tgt_written || tgtprop[dataset,"written"])
+	src_only	= (src_has_snap && !tgt_exists)
+	tgt_behind	= (tgt_latest_match && !src_latest_match)
+	tgt_blocked	= (!tgt_latest_match || tgt_written)
+	up_to_date	= (src_latest_match && tgt_latest_match)
+	check_origin	= (src_has_snap && !trees_match && tgt_has_snap && sorigin)
 }
 
 function name_match_row() {
@@ -453,22 +468,42 @@ function name_match_row() {
 	target_match	= targetds match_snap
 	source_match	= sourceds match_snap
 
+	sorigin		= srcprop[dataset,"origin"]
+	match_origin	= ""
+	rotate_name	= ""
+	
+
 	# Compute update path
 	get_update_option()
 
+	# No match. Was the source renamed?
+	if (check_origin) {
+		sub(/[#@].*/, "", sorigin)
+		sorigin_dataset = (prefix[source] ? prefix[source] ":" : "") sorigin
+		clone_match = "zelta match -Hd1 -omatch,sync_code " q(sorigin_dataset) " " q(target dataset)
+		while (clone_match | getline) {
+			if (/^[@#]/) { 
+				tgt_behind	= 1
+				match_snap	= $1
+				source_match	= sorigin match_snap
+			}
+		}
+		close(clone_match)
+	}
+		
+
 	if (ROTATE) {
-		if (!match_snap) return 1
-		if (!dataset && match_snap && (match_snap != slast)) {
-			can_rotate = match_snap
-			origin_name = ds[target] ":" can_rotate
-			sub(/@/,"",origin_name)
-		}# else if (can_rotate && ((can_rotate != match_snap) || (match_snap == slast))) {
+		if (tgt_behind && !dataset) {
+			torigin_name = ds[target] match_snap
+			sub(/[#@]/, "_", torigin_name)
+		}
+		# else if (can_rotate && ((can_rotate != match_snap) || (match_snap == slast))) {
 		#	report(LOG_WARNING,"cannot rotate, matching snapshots are inconsistent on "dataset)
 		#	can_rotate = ""
 		#}
 
-		rotate_name = ds[target] ":" can_rotate dataset match_snap
-		sub(/@/,"",rotate_name)
+		rotate_name = torigin_name dataset match_snap
+
 		# Toggle "can_rotate" if we have the same latest matching snapshot throughout the source tree
 		#print dataset":" (can_rotate?"rotate":"notate")
 	}
@@ -525,8 +560,8 @@ BEGIN {
 							command_queue(slast_full, targetds, sfirst)
 			} else				command_queue(slast_full, targetds)
 		} else if (tgt_behind) {
-							command_queue(slast_full, targetds, match_snap)
-		} else if (can_rotate && match_snap) {
+							command_queue(slast_full, targetds, source_match)
+		} else if (torigin_name && match_snap) {
 							command_queue(slast_full, targetds, source_match)
 		#} else if (action == "") {
 		#	error_code = 1
@@ -549,9 +584,12 @@ BEGIN {
 		} else report(LOG_WARNING, targetds": "info)
 	}
 	close(match_command)
-
-	if (can_rotate) {
-		system(zfs[target] " rename " q(ds[target]) " " q(origin_name))
+	
+	if (ROTATE) {
+		if (!torigin_name) stop(5, "no match available for requested rotation")
+		rename_command = zfs[target] " rename " q(ds[target]) " " q(torigin_name)
+		if (! dry_run(rename_command)) system(rename_command)
+		report(LOG_BASIC, "source renamed to " q(torigin_name))
 	}
 
 	if (!num_streams) {
