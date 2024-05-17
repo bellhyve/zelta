@@ -73,14 +73,6 @@ function q(s) { return "'" s "'" }
 
 function dq(s) { return "\"" s "\"" }
 
-#function run_zfs_command(cmd_args, qarg1, qarg2) {
-#	# Future: Help wrap commands so I don't have to do this everywhere inline
-#	rzc_prefix = TIME_COMMAND SHELL_WRAPPER
-#        rzc_args = cmd_args q(qarg1) (qarg2?" "q(qarg2):"")
-#	rzc_cmd = rzc_prefix " " dq(rzc_args) ALL_OUT
-#	return rzc_cmd
-#}
-
 function command_queue(send_dataset, receive_dataset, match_snapshot,	target_flags) {
 	num_streams++
 	if (!dataset) target_flags = " " RECEIVE_FLAGS_TOP " "
@@ -121,15 +113,37 @@ function opt_var() {
 }
 
 function get_options() {
+	ZFS_SEND_PASS_OPTS["--dedup"]++
+	ZFS_SEND_PASS_OPTS["--large-block"]++
+	ZFS_SEND_PASS_OPTS["--parsable"]++
+	ZFS_SEND_PASS_OPTS["--proctitle"]++
+	ZFS_SEND_PASS_OPTS["--embed"]++
+	ZFS_SEND_PASS_OPTS["--backup"]++
+	ZFS_SEND_PASS_OPTS["--compressed"]++
+	ZFS_SEND_PASS_OPTS["--raw"]++
+	ZFS_SEND_PASS_OPTS["--holds"]++
+	ZFS_SEND_PASS_OPTS["--props"]++
+	ZFS_SEND_PASS_OPTS["--skip-missing"]++
+	# Hande: --replicate, --dryrun
+	# Fix: -s for skip missing
+	ZFS_RECV_PASS_OPTLIST = "FdehMu"
+	# Fix: -s for save stream
 	for (i=1;i<ARGC;i++) {
 		$0 = ARGV[i]
-		if (gsub(/^-/,"")) {
+		if ($0 in ZFS_SEND_PASS_OPTS) {
+			SEND_FLAGS = (SEND_FLAGS ? " " : "") $0
+		} else if (gsub(/^-/,"")) {
 			while (/./) {
 				# Long options
-				if (sub(/^-initiator=?/,"")) INITIATOR = opt_var()
-				if (sub(/^-rotate=?/,"")) ROTATE++
+				if (sub(/^-initiator=?/,""))	INITIATOR = opt_var()
+				else if (sub(/^-rotate/,""))	ROTATE++
 				# Log modes
 				# Default output mode: BASIC
+				else if ($0 ~ "^["ZFS_RECV_PASS_OPTLIST"]") {
+					opt = substr($0, 1, 1)
+					RECEIVE_FLAGS = (RECEIVE_FLAGS ? " " : "") "-" opt
+					sub(/^./, "", $0)
+				}
 				else if (sub(/^j/,"")) MODE = "JSON"
 				else if (sub(/^z/,"")) MODE = "PIPE"
 				else if (sub(/^p/,"")) MODE = "PROGRESS"
@@ -140,7 +154,6 @@ function get_options() {
 				else if (sub(/^i/,"")) INTR_FLAGS = "-i"
 				else if (sub(/^I/,"")) INTR_FLAGS = "-I"
 				else if (sub(/^M/,"")) RECEIVE_FLAGS = ""
-				else if (sub(/^m/,"")) RECEIVE_FLAGS = "-x mountpoint"
 				else if (sub(/^c/,"")) CLONE_MODE++
 				else if (sub(/^n/,"")) DRY_RUN++
 				else if (sub(/^R/,"")) REPLICATE++
@@ -410,7 +423,6 @@ function replicate(command) {
 		else if (/bytes.*transferred/) { }
 		else if (/receiving/ && /stream/) { }
 		else if (/ignoring$/) { }
-		#else if (/^cannot mount/) { }
 		else {
 			report(LOG_WARNING, $0)
 			error_code = 2
@@ -497,15 +509,7 @@ function name_match_row() {
 			torigin_name = ds[target] match_snap
 			sub(/[#@]/, "_", torigin_name)
 		}
-		# else if (can_rotate && ((can_rotate != match_snap) || (match_snap == slast))) {
-		#	report(LOG_WARNING,"cannot rotate, matching snapshots are inconsistent on "dataset)
-		#	can_rotate = ""
-		#}
-
 		rotate_name = torigin_name dataset match_snap
-
-		# Toggle "can_rotate" if we have the same latest matching snapshot throughout the source tree
-		#print dataset":" (can_rotate?"rotate":"notate")
 	}
 	return 1
 }
@@ -536,7 +540,6 @@ BEGIN {
 	load_properties(source, srcprop)
 	load_properties(target, tgtprop)
 	run_snapshot()
-	#get_match_header()
 	while (match_command |getline) {
 		if (!name_match_row()) {
 			if ($3 == ":") {
@@ -545,9 +548,6 @@ BEGIN {
 			} else if (/error|Warning/) {
 				error_code = 1
 				report(LOG_WARNING, $0)
-			#} else if (/^[0-9]+$/) {
-			#	# This might be obsolete
-			#	report(LOG_VERBOSE, source " has written data")
 			} else if (sub(/^parent dataset does not exist: +/,"")) {
 				send_command[++rpl_num] = zfs[target] "create " create_flags q($0)
 				create_dataset[rpl_num] = $6
@@ -563,21 +563,6 @@ BEGIN {
 							command_queue(slast_full, targetds, source_match)
 		} else if (torigin_name && match_snap) {
 							command_queue(slast_full, targetds, source_match)
-		#} else if (action == "") {
-		#	error_code = 1
-		#	report(LOG_BASIC, "datasets differ: "dataset)
-		#	if (target_match) report(LOG_VERBOSE, "  consider target rollback: "target_match )
-		#} else if (status == "AHEAD") {
-		#	error_code = 3
-		#	report(LOG_BASIC, "target snapshot ahead of source: "tlast_full)
-		#	report(LOG_VERBOSE, "  reverse replication or rollback target to: "target_match)
-		#} else if (status == "SYNCED") {
-		#	synced_count++
-		#	report(LOG_VERBOSE, "target is up to date: "tlast_full)
-		#} else if (action == "INCREMENTAL") command_queue(slast_full, targetds, match_snap)
-		#else if (status == "TGT_ONLY") report(LOG_VERBOSE, "snapshot only exists on target: "targetds)
-		#else if (status == "ORPHAN") report(LOG_VERBOSE, "no source parent snapshot: "dataset)
-		#else if (status == "NO_SNAP") report(LOG_VERBOSE, "no snapshot for dataset "dataset)
 		} else if (up_to_date) {
 			report(LOG_VERBOSE, targetds ": "info)
 			synced_count++
@@ -635,7 +620,7 @@ BEGIN {
 		else replication_command = dq(send_command[r])
 		full_cmd = RPL_CMD_PREFIX replication_command RPL_CMD_SUFFIX
 		if (stream_size[r]) report(LOG_BASIC, source_stream[r]": sending " h_num(stream_size[r]))
-print replication_command
+#print replication_command
 		replicate(full_cmd)
 	}
 
@@ -643,6 +628,7 @@ print replication_command
 	stream_diff = received_streams - sent_streams
 	error_code = (error_code ? error_code : stream_diff)
 	track_errors("")
+
 	# Exit if we didn't parse "zfs send"
 	if (CLONE_MODE || !RPL_CMD_SUFFIX) exit error_code
 	report(LOG_BASIC, h_num(total_bytes) " sent, " received_streams "/" sent_streams " streams received in " zfs_replication_time " seconds")
