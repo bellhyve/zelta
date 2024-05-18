@@ -11,12 +11,12 @@ BEGIN {
 	cmd = cmd1 ALL_OUT " & " cmd2 ALL_OUT
 	while (cmd | getline) {
 		if (sub(/\].*I.*snapshot\].*/,"") && sub(/.*\[-/,"")) {
-			split ($0, options)
-			for (i in options) opt_list[i]++
+			split ($0, options, "")
+			for (i in options) opt_list[options[i]]++
 		}
 	}
 	for (i in opt_list) {
-		if (opt_list[i] > 1) printf options[i]
+		if (opt_list[i] > 1) printf i
 	}
 	print ""
 }
