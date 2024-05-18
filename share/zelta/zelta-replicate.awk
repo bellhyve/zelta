@@ -124,10 +124,14 @@ function get_options() {
 	ZFS_SEND_PASS_OPTS["--holds"]++
 	ZFS_SEND_PASS_OPTS["--props"]++
 	ZFS_SEND_PASS_OPTS["--skip-missing"]++
-	# Hande: --replicate, --dryrun
 	# Fix: -s for skip missing
-	ZFS_RECV_PASS_OPTLIST = "FdehMu"
 	# Fix: -s for save stream
+	ZFS_SEND_PASS_OPTLIST = "DLVebcwhp"
+	# Handle: -X (pass if using -R otherwise skip if exact match)
+	# Handle: --redact, -d
+	# Fix: -S for resume
+	# Fix: -t for resume
+	ZFS_RECV_PASS_OPTLIST = "FdehMu"
 	for (i=1;i<ARGC;i++) {
 		$0 = ARGV[i]
 		if ($0 in ZFS_SEND_PASS_OPTS) {
@@ -137,13 +141,20 @@ function get_options() {
 				# Long options
 				if (sub(/^-initiator=?/,""))	INITIATOR = opt_var()
 				else if (sub(/^-rotate/,""))	ROTATE++
-				# Log modes
-				# Default output mode: BASIC
+				else if (sub(/^-replicate/,""))	REPLICATE++
+				else if (sub(/^-dryrun/,""))	DRY_RUN++
+				else if ($0 ~ "^["ZFS_SEND_PASS_OPTLIST"]") {
+					opt = substr($0, 1, 1)
+					SEND_FLAGS = (SEND_FLAGS ? " " : "") "-" opt
+					sub(/^./, "", $0)
+				}
 				else if ($0 ~ "^["ZFS_RECV_PASS_OPTLIST"]") {
 					opt = substr($0, 1, 1)
 					RECEIVE_FLAGS = (RECEIVE_FLAGS ? " " : "") "-" opt
 					sub(/^./, "", $0)
 				}
+				# Log modes
+				# Default output mode: BASIC
 				else if (sub(/^j/,"")) MODE = "JSON"
 				else if (sub(/^z/,"")) MODE = "PIPE"
 				else if (sub(/^p/,"")) MODE = "PROGRESS"
@@ -183,7 +194,7 @@ function get_config() {
 	SHELL_WRAPPER = env("WRAPPER", "sh -c")
 	SSH_SEND = env("REMOTE_SEND_COMMAND", "ssh -n")
 	SSH_RECEIVE = env("REMOTE_RECEIVE_COMMAND", "ssh")
-	SEND_FLAGS = env("SEND_FLAGS", "-Lc")
+	SEND_FLAGS = env("SEND_FLAGS", "-Lce")
 	SEND_FLAGS_NEW = env("SEND_FLAGS_NEW", "-p")
 	SEND_FLAGS_ENCRYPTED = env("SEND_FLAGS_ENC", "-w")
 	RECEIVE_FLAGS_FS = env("RECEIVE_FLAGS_FS", "-u")
