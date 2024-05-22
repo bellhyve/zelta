@@ -522,9 +522,10 @@ function name_match_row() {
 		clone_match = "zelta match -Hd1 -omatch,sync_code " q(sorigin_dataset) " " q(target dataset)
 		while (clone_match | getline) {
 			if (/^[@#]/) { 
-				tgt_behind	= 1
-				match_snap	= $1
-				source_match	= sorigin match_snap
+				match_snap		= $1
+				source_match		= sorigin match_snap
+				if (ROTATE) tgt_behind	= 1
+				else report(LOG_WARNING, sourceds" is a clone of "source_match,"; consider --rotate")
 			}
 		}
 		close(clone_match)
@@ -600,8 +601,10 @@ BEGIN {
 	if (ROTATE) {
 		if (!torigin_name) stop(5, "no match available for requested rotation")
 		rename_command = zfs[target] " rename " q(ds[target]) " " q(torigin_name)
-		if (! dry_run(rename_command)) system(rename_command)
-		report(LOG_BASIC, "source renamed to " q(torigin_name))
+		if (! dry_run(rename_command)) {
+			system(rename_command)
+			report(LOG_BASIC, "source renamed to " q(torigin_name))
+		}
 	}
 
 	if (!num_streams) {
@@ -633,10 +636,11 @@ BEGIN {
 	estimate = "replicating " rpl_num " streams" estimate
 	report(LOG_BASIC, estimate)
 	for (r = 1; r <= rpl_num; r++) {
-		if (dry_run(send_command[r])) {
-			if (CLONE_MODE) continue
-			sub(/ \| .*/, "", send_command[r])
-		} else if (send_command[r] ~ "zfs create") {
+		#if (dry_run(send_command[r])) {
+		#	if (CLONE_MODE) continue
+		#	sub(/ \| .*/, "", send_command[r])
+		if (send_command[r] ~ "zfs create") {
+			if (dry_run(send_command[r])) continue
 			if (system(send_command[r])) {
 				stop(4, "failed to create parent dataset: " create_dataset[r])
 			}
@@ -645,9 +649,10 @@ BEGIN {
 		if (full_cmd) close(full_cmd)
 		if (receive_command[r]) replication_command = dq(send_command[r] get_pipe() receive_command[r])
 		else replication_command = dq(send_command[r])
+		if (dry_run(replication_command)) continue
+
 		full_cmd = RPL_CMD_PREFIX replication_command RPL_CMD_SUFFIX
 		if (stream_size[r]) report(LOG_BASIC, source_stream[r]": sending " h_num(stream_size[r]))
-#print replication_command
 		replicate(full_cmd)
 	}
 
