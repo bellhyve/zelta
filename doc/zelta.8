@@ -65,7 +65,7 @@ For detail see \f[B]zelta\-backup(8)\f[R] or the \c
 .UR https://zelta.space/home
 Zelta Wiki
 .UE \c
-\ or
+\&.
 .TP
 \f[B]zelta backup\f[R]
 Replicate a dataset tree.
@@ -85,22 +85,23 @@ Clone and mount a dataset tree.
 \f[B]zelta policy\f[R]
 Use \f[B]zelta.conf\f[R] to replicate dataset trees using a
 configuration file.
-.SS Helper Functions
-Note that these helper functions are intended for performing internal
-Zelta functions and are not well documented.
+.SS Other Zelta Scripts
 .TP
-\f[B]zelta time\f[R]
-If \f[B]time(1)\f[R] is unavailable, Zelta will use bash\[cq]s POSIX
-time function to time for precision reporting.
+\f[B]zelta enpoint\f[R]
+Validate and split an endpoint definiton.
 .TP
 \f[B]zelta report\f[R]
 An example API reporter.
 .TP
-\f[B]zelta snapshot\f[R]
-Create a recursive snapshot based on an eval of ZELTA_SNAP_NAME.
+\f[B]zelta sendopts\f[R]
+Determine compatible \f[B]zfs send\f[R] options between two hosts.
 .TP
-\f[B]zelta enpoint\f[R]
-Validate and split an endpoint definiton.
+\f[B]zelta snapshot\f[R]
+Create a recursive snapshot.
+.TP
+\f[B]zelta time\f[R]
+If \f[B]time(1)\f[R] is unavailable, Zelta will use bash\[cq]s POSIX
+time function to time for precision reporting.
 .SH SEE ALSO
 cron(8), ssh(1), zfs(8)
 .SH AUTHORS

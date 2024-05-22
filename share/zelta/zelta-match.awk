@@ -35,6 +35,7 @@ function usage(message) {
 	printf usage_table,	"tgt_snaps",	"total target snapshots and bookmarks"		> STDERR
 	printf usage_table"\n",	"info",		"description of the ds sync state"		> STDERR
 	print "Sizes are specified in bytes with standard units such as K, M, G, etc.\n"	> STDERR
+	print "For further help on a command or topic, run: zelta help [<topic>]"		> STDERR
 	exit 1
 }
 

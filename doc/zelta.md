@@ -49,7 +49,7 @@ See **zelta-match(8)** for more details.
 :    Describe the difference between dataset trees.
 
 ## Replication & Cloning
-Note that **zelta** is designed to be a safe and efficient backup tool that overides ZFS's destructive and obtrsive operations by default. For detail see **zelta-backup(8)** or the [Zelta Wiki](https://zelta.space/home) or 
+Note that **zelta** is designed to be a safe and efficient backup tool that overides ZFS's destructive and obtrsive operations by default. For detail see **zelta-backup(8)** or the [Zelta Wiki](https://zelta.space/home).
 
 **zelta backup**
 :    Replicate a dataset tree. By default run extra commands to detect optimal zfs send options, snapshot if necessary, and replicate as many intermediate datasets as possible.
@@ -65,20 +65,23 @@ Note that **zelta** is designed to be a safe and efficient backup tool that over
 **zelta policy**
 :    Use **zelta.conf** to replicate dataset trees using a configuration file.
 
-## Helper Functions
-Note that these helper functions are intended for performing internal Zelta functions and are not well documented.
+## Other Zelta Functions
+The following are additional Zelta utilities that are used internally and/or haven't been designed for public use.
 
-**zelta time**
-:    If **time(1)** is unavailable, Zelta will use bash's POSIX time function to time for precision reporting.
+**zelta enpoint**
+:    Validate and split an endpoint definiton.
 
 **zelta report**
 :    An example API reporter.
 
-**zelta snapshot**
-:    Create a recursive snapshot based on an eval of ZELTA_SNAP_NAME.
+**zelta sendopts**
+:    Determine compatible **zfs send** options between two hosts.
 
-**zelta enpoint**
-:    Validate and split an endpoint definiton.
+**zelta snapshot**
+:    Create a recursive snapshot.
+
+**zelta time**
+:    If **time(1)** is unavailable, Zelta will use bash's POSIX time function to time for precision reporting.
 
 # SEE ALSO
 cron(8), ssh(1), zfs(8)
