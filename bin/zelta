@@ -41,7 +41,7 @@ case $zelta_command in
 	zeport) $AWKPRE/zelta-report.awk -- "$@" ;;
 	# "zelta replicate" variants
 	backup) $AWKPRE/zelta-replicate.awk -- -sI "$@" ;;
-	clone) $AWKPRE/zelta-replicate.awk -- -c "$@" ;;
+	clone) $AWKPRE/zelta-replicate.awk -- --clone "$@" ;;
 	sync) $AWKPRE/zelta-replicate.awk -- -i "$@" ;;
 	# Utilities
 	snapshot) echo "$@" | $AWKPRE/zelta-snapshot.awk ;;

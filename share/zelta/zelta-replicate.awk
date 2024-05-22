@@ -146,6 +146,7 @@ function get_options() {
 			while (/./) {
 				# Long options
 				if (sub(/^-initiator=?/,""))		INITIATOR = opt_var()
+				else if (sub(/^-clone/,""))		CLONE_MODE++
 				else if (sub(/^-rotate/,""))		ROTATE++
 				else if (sub(/^-replicate/,""))		REPLICATE++
 				else if (sub(/^-dryrun/,""))		DRY_RUN++
@@ -172,7 +173,6 @@ function get_options() {
 				else if (sub(/^i/,"")) INTR_FLAGS = "-i"
 				else if (sub(/^I/,"")) INTR_FLAGS = "-I"
 				else if (sub(/^M/,"")) RECEIVE_FLAGS = ""
-				else if (sub(/^c/,"")) CLONE_MODE++
 				else if (sub(/^n/,"")) DRY_RUN++
 				else if (sub(/^R/,"")) REPLICATE++
 				else if (sub(/^s/,"")) SNAPSHOT_WRITTEN++
