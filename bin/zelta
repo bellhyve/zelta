@@ -48,8 +48,8 @@ case $zelta_command in
 	endpoint) echo "$@" | $AWKPRE/zelta-endpoint.awk ;;
 	time) "$@" | bash -c "time -p cat" ;;
 	# Info
-	version) echo zelta-pre-release; exit ;;
-	usage|help) . $ZELTA_SHARE/zelta-usage.sh "$@" ;;
+	-V|--version|version) echo zelta-pre-release; exit ;;
+	-?|usage|help) . $ZELTA_SHARE/zelta-usage.sh "$@" ;;
 	# Matching script name action
 	*)	if [ -r "$ZELTA_SHARE/zelta-$zelta_command.awk" ]; then
 			$AWKPRE/zelta-$zelta_command.awk -- "$@"

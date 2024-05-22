@@ -7,20 +7,23 @@ where 'command' is one of the following:
 
 	version
 
-	usage [command]
+	match [-Hp] [-d max] [-o field[,...]] source-endpoint target-endpoint
 
-	match [-flags] source-endpoint target-endpoint
+	<backup|sync> [zfs send/receive options] [-iIjnpqRtTv]
+	              [initiator] source-endpoint target-endpoint
 
-	backup [-flags] [initiator.host] source-endpoint target-endpoint
-	sync [-flags] [initiator.host] source-endpoint target-endpoint
-	clone [-flags] [initiator.host] source-endpoint target-endpoint
+	sync [zfs send/receive options] [-iIjnpqRtTv] [initiator]
+	     source-endpoint target-endpoint
 
-	policy [site|host|dataset] ...
+	clone [-d max] source-endpoint target-endpoint
 
-internal utilities: endpoint, snapshot, time, reconcile
+	policy [backup-override-options] [site|host|dataset] ...
 
-source-endpoint syntax: [user@][host:]pool/dataset[@snapshot]
-target-endpoint syntax: [user@][host:]pool/dataset
+Each dataset is of the form: pool/[dataset/]*dataset[@name]
+
+Each endpoint is of the form: [user@][host:]dataset
+
+For further help on a command or topic, run: zelta help [<topic>]
 EOF
 }
 
@@ -65,45 +68,6 @@ ZFS SEND FLAGS
       -I  Replicate as many snapshots as possible; default for "zelta backup".
       -i  Replicate only the latest snapshot; default for "zelta sync".
       -d#  Limit depth to #.
-EOF
-}
-
-usage_match() {
-	cat << EOF
-DESCRIPTION
-    zelta match [-Hpnw] [-d#] [-o fields] source-endpoint target-endpoint
-      Report the latest matching snapshot between two datasets. If only one argument is
-      given, report the amount of data unwritten since the last snapshot.
-
-    By default, the user will receive a table output including the fields:
-      [stub,]status,match,srclast,summary
-    Where "stub" describes the snapshot name relative to both the source and target. Stub
-    will be suppressed if there are no child snapshots.
-
-ENDPOINT SYNTAX
-      source-endpoint [user@][host:]pool/dataset
-      target-endpoint [user@][host:]pool/dataset
-
-OPTIONS
-      -H  Suppress the header row.
-      -p  For piping/scripting, split the columns by a single tab.
-      -n  Show the "zfs list" command lines that would be run and exit.
-      -w  Add the "xfersize" column; note that this results in slower output.
-      -d# Limit "zfs list" depth to #.
-      -o  A comma-delimited list of fields with one or more of:
-            stub      The name of the dataset relative to the source or target
-            status    The target's sync status relative to the source, one of:
-                        NOTARGET, NOSOURCE, SYNCED, BEHIND, AHEAD, MISMATCH
-            xfersize  The amount of data missing on the target since the last snapshot match
-            xfernum   The number of snapshots missing on the target since the last snapshot match
-            match     The most recent common snapshot
-            srcfirst  The first snapshot on the source
-            tgtfirst  The first snapshot on the target
-            srclast   The last snapshot on the source
-            tgtlast   The last snapshot on the target
-            srcnum    Total number of snapshot on the source
-            tgtnum    Total number snapshot on the target
-            summary   Human-readable description of the target state
 EOF
 }
 
@@ -162,10 +126,11 @@ EXAMPLE OVERRIDE
 EOF
 }
 
+# Add "man" if available.
 case $1 in
 	usage|help) usage_top ;;
 	backup|sync|clone|replicate) usage_sync "$1" ;;
-	match) usage_match ;;
+	match) zelta match -? ;;
 	policy) usage_policy ;;
 	*)	[ -n "$1" ] && echo unrecognized command \'$1\' >>/dev/null ;
 		usage_top ;;
