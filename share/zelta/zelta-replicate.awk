@@ -525,7 +525,10 @@ function name_match_row() {
 				match_snap		= $1
 				source_match		= sorigin match_snap
 				if (ROTATE) tgt_behind	= 1
-				else report(LOG_WARNING, sourceds" is a clone of "source_match,"; consider --rotate")
+				else {
+					report(LOG_WARNING, sourceds" is a clone of "source_match"; consider --rotate")
+					return 0
+				}
 			}
 		}
 		close(clone_match)
@@ -633,7 +636,7 @@ BEGIN {
 		}
 		estimate = ", " h_num(total_transfer_size)
 	}
-	estimate = "replicating " rpl_num " streams" estimate
+	estimate = (CLONE_MODE ? "cloning " : "replicating ") rpl_num " streams" estimate
 	report(LOG_BASIC, estimate)
 	for (r = 1; r <= rpl_num; r++) {
 		#if (dry_run(send_command[r])) {
@@ -647,11 +650,10 @@ BEGIN {
 			continue
 		}
 		if (full_cmd) close(full_cmd)
-		if (receive_command[r]) replication_command = dq(send_command[r] get_pipe() receive_command[r])
-		else replication_command = dq(send_command[r])
+		if (receive_command[r]) replication_command = send_command[r] get_pipe() receive_command[r]
+		else replication_command = send_command[r]
 		if (dry_run(replication_command)) continue
-
-		full_cmd = RPL_CMD_PREFIX replication_command RPL_CMD_SUFFIX
+		full_cmd = RPL_CMD_PREFIX dq(replication_command) RPL_CMD_SUFFIX
 		if (stream_size[r]) report(LOG_BASIC, source_stream[r]": sending " h_num(stream_size[r]))
 		replicate(full_cmd)
 	}
