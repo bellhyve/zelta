@@ -1,6 +1,6 @@
 #!/usr/bin/awk -f
 #
-# zelta-replicate.awk, zelta (replicate|backup|sync), zpull - replicates remote or local trees
+# zelta-replicate.awk, zelta (replicate|backup|sync|clone) - replicates remote or local trees
 #   of zfs datasets
 # 
 # After using "zelta match" to identify out-of-date snapshots on the target, this script creates
@@ -48,10 +48,16 @@ function siginfo(message) {
 }
 
 function usage(message) {
-	usage_command = "zelta usage replicate"
-	while (usage_command |getline) print
-	close(usage_command)
-	stop(1,message)
+	STDERR = "/dev/stderr"
+	if (message) print message							> STDERR
+	print "usage:"									> STDERR
+	print "	backup [-bcdDeeFhhLMpuVw] [-iIjnpqRtTv]"				> STDERR
+	print "	       [initiator] source-endpoint target-endpoint\n"			> STDERR
+	print "	sync [-bcdDeeFhhLMpuVw] [-iIjnpqRtTv]"					> STDERR
+	print "	     [initiator] source-endpoint target-endpoint\n"			> STDERR
+	print "	clone [-d max] source-dataset target-dataset\n"				> STDERR
+	print "For further help on a command or topic, run: zelta help [<topic>]"	> STDERR
+	stop(1)
 }
 
 function env(env_name, var_default) {
