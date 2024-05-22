@@ -433,7 +433,7 @@ function replicate(command) {
 		else if ($1 == "received") {
 			report(LOG_VERBOSE, source_stream[r]": "$0)
 			received_streams++
-		} else if (($1 == "size") && $2) {
+		} else if ($1 == "size") {
 			report(LOG_VERBOSE, source_stream[r]": sending " h_num($2))
 			total_bytes += $2
 		} else if ($1 ~ /:/ && $2 ~ /^[0-9]+$/) {
