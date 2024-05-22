@@ -10,10 +10,31 @@
 # (which allows for parallel processing with only AWK calls).
 
 function usage(message) {
-	usage_command = "zelta usage match"
-	while (usage_command |getline) print
-	close(usage_command)
-	if (message) error(message)
+	STDERR = "/dev/stderr"
+	usage_table = "\t%-13s%s\n"
+	print (message ? message "\n" : "") "usage:"						> STDERR
+	print "\tmatch [-Hp] [-d max] [-o field[,...]] source-endpoint target-endpoint\n"	> STDERR
+	print "The following fields are supported:\n"						> STDERR
+	printf usage_table"\n",	"FIELD",	"VALUES"					> STDERR
+	printf usage_table,	"rel_name",	"'' for top or relative ds name"		> STDERR
+	printf usage_table,	"sync_code",	"octal bits describing ds sync state"		> STDERR
+	printf usage_table,	"match",	"matching snapshot (or source bookmark)"	> STDERR
+	printf usage_table,	"xfer_size",	"sum of unreplicated source snapshots"		> STDERR
+	printf usage_table,	"xfer_num",	"count of unreplicated source snapshots"	> STDERR
+	printf usage_table,	"src_name",	"full source ds name"				> STDERR
+	printf usage_table,	"src_first",	"first available source snapshot"		> STDERR
+	printf usage_table,	"src_next",	"source snapshot following 'match'"		> STDERR
+	printf usage_table,	"src_last",	"most recent source snapshot"			> STDERR
+	printf usage_table,	"src_written",	"data written after last source snapshot"	> STDERR
+	printf usage_table,	"src_snaps",	"total source snapshots and bookmarks"		> STDERR
+	printf usage_table,	"tgt_name",	"full target ds name"				> STDERR
+	printf usage_table,	"tgt_first",	"first available target snapshot"		> STDERR
+	printf usage_table,	"tgt_next",	"target snapshot following 'match'"		> STDERR
+	printf usage_table,	"tgt_last",	"most recent target snapshot"			> STDERR
+	printf usage_table,	"tgt_written",	"data written after last target snapshot"	> STDERR
+	printf usage_table,	"tgt_snaps",	"total target snapshots and bookmarks"		> STDERR
+	printf usage_table"\n",	"info",		"description of the ds sync state"		> STDERR
+	print "Sizes are specified in bytes with standard units such as K, M, G, etc.\n"	> STDERR
 	exit 1
 }
 
@@ -56,7 +77,7 @@ function get_options() {
 			else if (/^nowritten$/)	WRITTEN = 0
 			else usage("unkown option: --" $0)
                 } else if (sub(/^-/,"")) while (/./) {
-                        if (/^h/)		usage()
+                        if (/^[h?]/)		usage()
                         else if (sub(/^n/,""))	DRY_RUN++
                         else if (sub(/^H/,""))	pass_flags("H")
                         else if (sub(/^p/,""))	pass_flags("p")

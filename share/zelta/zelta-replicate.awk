@@ -139,10 +139,11 @@ function get_options() {
 		} else if (gsub(/^-/,"")) {
 			while (/./) {
 				# Long options
-				if (sub(/^-initiator=?/,""))	INITIATOR = opt_var()
-				else if (sub(/^-rotate/,""))	ROTATE++
-				else if (sub(/^-replicate/,""))	REPLICATE++
-				else if (sub(/^-dryrun/,""))	DRY_RUN++
+				if (sub(/^-initiator=?/,""))		INITIATOR = opt_var()
+				else if (sub(/^-rotate/,""))		ROTATE++
+				else if (sub(/^-replicate/,""))		REPLICATE++
+				else if (sub(/^-dryrun/,""))		DRY_RUN++
+				else if (sub(/^-detect-options/,""))	DETECT_OPTIONS++
 				else if ($0 ~ "^["ZFS_SEND_PASS_OPTLIST"]") {
 					opt = substr($0, 1, 1)
 					SEND_FLAGS = (SEND_FLAGS ? " " : "") "-" opt
@@ -220,6 +221,8 @@ function get_config() {
 	get_options()
 	get_endpoint_info(source)
 	get_endpoint_info(target)
+	if (DETECT_OPTIONS) detect_send_options()
+
 	if (TRANSFER_FROM_SOURCE) INITIATOR = prefix[source]
 	if (TRANSFER_FROM_TARGET) INITIATOR = prefix[target]
 	if (INITIATOR) report(LOG_VERBOSE, "transferring via: "INITIATOR)
@@ -282,6 +285,13 @@ function get_endpoint_info(endpoint) {
 	ds[endpoint]		= $5
 	snapshot[endpoint]	= ($6?"@"$6:"")
 	close("zelta endpoint " endpoint)
+}
+
+function detect_send_options() {
+	cmd = "zelta sendopts " q(prefix[source]) " " q(prefix[target])
+	cmd | getline options; close(cmd)
+	split(options, optlist, "")
+	for (opt in optlist) VALID_SEND_OPT[opt]++
 }
 
 function sys_time() {
