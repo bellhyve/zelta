@@ -30,9 +30,9 @@ EOF
 # Add "man" if available.
 case $1 in
 	usage|help) usage_zelta ;;
-	backup|sync|clone|replicate) zelta backup -? ;;
-	match) zelta match -? ;;
-	policy) zelta policy -? ;;
+	backup|sync|clone|replicate) man zelta-backup ;;
+	match) man zelta-match ;;
+	policy) man zelta-policy ;;
 	*)	[ -n "$1" ] && echo unrecognized command \'$1\' >>/dev/null ;
 		usage_zelta ;;
 esac
