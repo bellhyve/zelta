@@ -51,9 +51,9 @@ function usage(message) {
 	STDERR = "/dev/stderr"
 	if (message) print message							> STDERR
 	print "usage:"									> STDERR
-	print "	backup [-bcdDeeFhhLMpuVw] [-iIjnpqRtTv]"				> STDERR
+	print "	backup [-bcDeeFhhLMpuVw] [-iIjnpqRtTv] [-d max]"			> STDERR
 	print "	       [initiator] source-endpoint target-endpoint\n"			> STDERR
-	print "	sync [-bcdDeeFhhLMpuVw] [-iIjnpqRtTv]"					> STDERR
+	print "	sync [-bcDeeFhhLMpuVw] [-iIjnpqRtTv] [-d max]"				> STDERR
 	print "	     [initiator] source-endpoint target-endpoint\n"			> STDERR
 	print "	clone [-d max] source-dataset target-dataset\n"				> STDERR
 	print "For further help on a command or topic, run: zelta help [<topic>]"	> STDERR
@@ -137,7 +137,8 @@ function get_options() {
 	# Handle: --redact, -d
 	# Fix: -S for resume
 	# Fix: -t for resume
-	ZFS_RECV_PASS_OPTLIST = "FdehMu"
+	ZFS_RECV_PASS_OPTLIST = "FehMu"
+	# Fix: -d for deduplicate
 	for (i=1;i<ARGC;i++) {
 		$0 = ARGV[i]
 		if ($0 in ZFS_SEND_PASS_OPTS) {
