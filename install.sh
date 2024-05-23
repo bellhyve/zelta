@@ -11,6 +11,9 @@ if [ root = "$USER" ]; then
 	: ${ZELTA_SHARE:="/usr/local/share/zelta"}
 	: ${ZELTA_ETC:="/usr/local/etc/zelta"}
 	: ${ZELTA_MAN:="/usr/local/share/man/man8"}
+	if [ ! -d "$ZELTA_MAN" ] ; then
+		ZELTA_MAN="/usr/share/man/man8"
+	fi
 elif [ -z "$ZELTA_BIN$ZELTA_SHARE$ZELTA_ETC" ]; then
 	: ${ZELTA_BIN:="$HOME/bin"}
 	: ${ZELTA_SHARE:="$HOME/.local/share/zelta"}
