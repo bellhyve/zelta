@@ -151,6 +151,7 @@ function get_options() {
 				else if (sub(/^-replicate/,""))		REPLICATE++
 				else if (sub(/^-dryrun/,""))		DRY_RUN++
 				else if (sub(/^-detect-options/,""))	DETECT_OPTIONS++
+				else if (sub(/^-depth=?/,""))		DEPTH = opt_var()
 				else if ($0 ~ "^["ZFS_SEND_PASS_OPTLIST"]") {
 					opt = substr($0, 1, 1)
 					SEND_FLAGS = (SEND_FLAGS ? " " : "") "-" opt
@@ -180,7 +181,7 @@ function get_options() {
 				else if (sub(/^t/,"")) TRANSFER_FROM_SOURCE
 				else if (sub(/^T/,"")) TRANSFER_FROM_TARGET
 				else if (sub(/^d/,"")) DEPTH = opt_var()
-				else if (sub(/L/,"")) LIMIT_BANDWIDTH = opt_var()
+				else if (sub(/^L/,"")) LIMIT_BANDWIDTH = opt_var()
 				else if (/./) usage("unknown or extra options: " $0)
 			}
 		} else if (target && INITIATOR) {
@@ -255,6 +256,7 @@ function get_config() {
 	}
 	if (INITIATOR) SHELL_WRAPPER = SSH_SEND INITIATOR
 	RPL_CMD_PREFIX = TIME_COMMAND SHELL_WRAPPER" "
+	if (REPLICATE) DEPTH = 1
 	if (DEPTH) PROP_DEPTH = "-d"(DEPTH-1)" "
 	if (DEPTH) DEPTH = "-d"DEPTH" "
 	match_cols = "relname,synccode,match,srcfirst,srclast,tgtlast,info"
