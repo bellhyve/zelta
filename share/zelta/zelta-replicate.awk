@@ -500,7 +500,7 @@ function name_match_row() {
 	sfirst		= $4
 	slast		= $5
 	tlast		= $6
-	info		= $7
+	info		= $7 (tgtprop[dataset,"written"] ? "; target is written" : "")
 
 	sourceds	= ds[source] dataset 
 	targetds	= ds[target] dataset 
@@ -593,7 +593,7 @@ BEGIN {
 							command_queue(sfirst_full, targetds)
 							command_queue(slast_full, targetds, sfirst)
 			} else				command_queue(slast_full, targetds)
-		} else if (tgt_behind) {
+		} else if (tgt_behind && !tgt_written) {
 							command_queue(slast_full, targetds, source_match)
 		} else if (torigin_name && match_snap) {
 							command_queue(slast_full, targetds, source_match)
