@@ -85,7 +85,6 @@ function get_options() {
                         else if (sub(/^q/,""))	pass_flags("q")
                         #else if (sub(/^j/,""))	pass_flags("j")
                         #else if (sub(/^v/,""))	pass_flags("v")
-                        else if (sub(/^W/,""))	WRITTEN = 0
 			else if (sub(/^o/,""))	PROPERTIES = sub_opt()
                         else if (sub(/^d/,""))	ZELTA_DEPTH = sub_opt()
                         else if (/./) usage("unkown options: " $0)
@@ -125,16 +124,17 @@ BEGIN {
 	ZFS_LIST_PROPERTIES		= env("ZFS_LIST_PROPERTIES", "name,guid")
 	ZELTA_DEPTH			= env("ZELTA_DEPTH", 0)
 	ZFS_LIST_PREFIX			= "list -Hprt all -Screatetxg -o "
-	ZFS_LIST_PREFIX_WRITECHECK	= "list -Hprt filesystem,volume -o "
+	#ZFS_LIST_PREFIX_WRITECHECK	= "list -Hprt filesystem,volume -o "
 	
 	get_options()
 	if (PASS_FLAGS) PASS_FLAGS	= "ZELTA_MATCH_FLAGS='"PASS_FLAGS"' "
-	if (PROPERTIES && split(PROPERTIES, PROPLIST, ",")) {
-		for (p in PROPLIST) {
-			$0 = PROPLIST[p]
-			if ((/^x/ && !/xfersn/) || /wri/ || /all/) WRITTEN++
-		}
-	}
+	# Find some logic to skip "written" besides --no-written
+	#if (PROPERTIES && split(PROPERTIES, PROPLIST, ",")) {
+	#	for (p in PROPLIST) {
+	#		$0 = PROPLIST[p]
+	#		if ((/^x/ && !/xfersn/) || /wri/ || /all/) WRITTEN++
+	#	}
+	#}
 	ZFS_LIST_PROPERTIES_DEFAULT = "name,guid" (WRITTEN?",written":"")
 	ZFS_LIST_PROPERTIES = env("ZFS_LIST_PROPERTIES", ZFS_LIST_PROPERTIES_DEFAULT)
 
@@ -143,16 +143,17 @@ BEGIN {
 	MATCH_COMMAND = MATCH_PREFIX "zelta match-pipe"
 	ZFS_LIST_DEPTH = ZELTA_DEPTH ? " -d"ZELTA_DEPTH : ""
 
-	if (target) ZFS_LIST_FLAGS = ZFS_LIST_PREFIX ZFS_LIST_PROPERTIES ZFS_LIST_DEPTH " "
-	else ZFS_LIST_FLAGS = ZFS_LIST_PREFIX_WRITECHECK ZFS_LIST_PROPERTIES ZFS_LIST_DEPTH " "
+	ZFS_LIST_FLAGS = ZFS_LIST_PREFIX ZFS_LIST_PROPERTIES ZFS_LIST_DEPTH " "
+	#if (target) ZFS_LIST_FLAGS = ZFS_LIST_PREFIX ZFS_LIST_PROPERTIES ZFS_LIST_DEPTH " "
+	#else ZFS_LIST_FLAGS = ZFS_LIST_PREFIX_WRITECHECK ZFS_LIST_PROPERTIES ZFS_LIST_DEPTH " "
 
 	ALL_OUT =" 2>&1"
 	OFS="\t"
 
-	hash_source = get_endpoint_info(source)
+	info_source = get_endpoint_info(source) OFS ds[source]
 	zfs[source] = ($2 ? REMOTE_COMMAND_NOPIPE $2 " " : "") "zfs "
 	if (target) {
-		hash_target = get_endpoint_info(target)
+		info_target = get_endpoint_info(target) OFS ds[target]
 		zfs[target] = ($2 ? REMOTE_COMMAND_NOPIPE $2 " " : "") "zfs "
 	}
 	
@@ -162,18 +163,20 @@ BEGIN {
 
 	if (DRY_RUN) {
 		print "+ "zfs_list[source]
-		print "+ "zfs_list[target]
+		if (target) print "+ "zfs_list[target]
 		exit 1
 	}
 
 	zfs_list[source] = TIME_COMMAND zfs_list[source] ALL_OUT
 	zfs_list[target] = TIME_COMMAND zfs_list[target] ALL_OUT
 
-	print hash_source,ds[source] | MATCH_COMMAND
-	print hash_target,ds[target] | MATCH_COMMAND
-	# Single volume "matches" are deprecated (use "zfs list" instead)
-	print (target ? zfs_list[target] : "") | MATCH_COMMAND
-	while (zfs_list[source] | getline zfs_list_output) print zfs_list_output | MATCH_COMMAND
+	print info_source				| MATCH_COMMAND
+	print (target ? info_target : "")		| MATCH_COMMAND
+	print (target ? zfs_list[target] : "")		| MATCH_COMMAND
+	#while (zfs_list[source] | getline zfs_list_output) {
+	while (zfs_list[source] | getline) print	| MATCH_COMMAND
+	#	print zfs_list_output				| MATCH_COMMAND
+	#}
 	close(zfs_list[source])
 	close(MATCH_COMMAND)
 }
