@@ -130,15 +130,15 @@ function get_options() {
 	ZFS_SEND_PASS_OPTS["--holds"]++
 	ZFS_SEND_PASS_OPTS["--props"]++
 	ZFS_SEND_PASS_OPTS["--skip-missing"]++
-	# Fix: -s for skip missing
-	# Fix: -s for save stream
 	ZFS_SEND_PASS_OPTLIST = "DLVebcwhp"
 	# Handle: -X (pass if using -R otherwise skip if exact match)
 	# Handle: --redact, -d
 	# Fix: -S for resume
+	# Fix: -s for skip missing
 	# Fix: -t for resume
 	ZFS_RECV_PASS_OPTLIST = "FehMu"
 	# Fix: -d for deduplicate
+	# Fix: -s for save stream
 	for (i=1;i<ARGC;i++) {
 		$0 = ARGV[i]
 		if ($0 in ZFS_SEND_PASS_OPTS) {
@@ -153,6 +153,7 @@ function get_options() {
 				else if (sub(/^-dryrun/,""))		DRY_RUN++
 				else if (sub(/^-detect-options/,""))	DETECT_OPTIONS++
 				else if (sub(/^-depth=?/,""))		DEPTH = opt_var()
+				else if (sub(/^-rate-limit=?/,""))	LIMIT_BANDWIDTH = opt_var()
 				else if ($0 ~ "^["ZFS_SEND_PASS_OPTLIST"]") {
 					opt = substr($0, 1, 1)
 					SEND_FLAGS = (SEND_FLAGS ? " " : "") "-" opt
@@ -182,7 +183,6 @@ function get_options() {
 				else if (sub(/^t/,"")) TRANSFER_FROM_SOURCE
 				else if (sub(/^T/,"")) TRANSFER_FROM_TARGET
 				else if (sub(/^d/,"")) DEPTH = opt_var()
-				else if (sub(/^L/,"")) LIMIT_BANDWIDTH = opt_var()
 				else if (/./) usage("unknown or extra options: " $0)
 			}
 		} else if (target && INITIATOR) {
@@ -261,7 +261,7 @@ function get_config() {
 	if (DEPTH) PROP_DEPTH = "-d"(DEPTH-1)" "
 	if (DEPTH) DEPTH = "-d"DEPTH" "
 	match_cols = "relname,synccode,match,srcfirst,srclast,tgtlast,info"
-	match_flags = "-Hpo "match_cols" "DEPTH
+	match_flags = "--no-written -Hpo "match_cols" "DEPTH
 	match_command = SHELL_WRAPPER" "dq("zelta match " match_flags q(source) " " q(target))
 	if (CLONE_MODE) {
 		send_flags = "clone -o readonly=off "

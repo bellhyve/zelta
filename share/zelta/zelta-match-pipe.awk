@@ -101,12 +101,13 @@ function get_savepoint_data(endpoint) {
 }
 
 function check_parent() {
-	if (!rel_name) return
+	if (!rel_name || !target) return
 	#if (!(snapshot_list_command ~ /zfs list/)) return
 	parent = dataset[target]
 	if (!gsub(/\/[^\/]+$/, "", parent)) {
 		report(LOG_ERROR,"invalid target: " parent)
-		exit 1
+		#exit 1
+		return 0
 	}
 	parent_list_command = snapshot_list_command
 	sub(/zfs list.*'/, "zfs list '"parent"'", parent_list_command)
