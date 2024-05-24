@@ -498,7 +498,7 @@ function name_match_row() {
 	sync_code	= $2
 	match_snap	= $3
 	sfirst		= $4
-	slast		= $5
+	slast		= (snapshot[source] ? snapshot[source] : $5) 
 	tlast		= $6
 	info		= $7 (tgtprop[dataset,"written"] ? "; target is written" : "")
 
@@ -508,7 +508,7 @@ function name_match_row() {
 	slast_full	= sourceds slast
 	tlast_full	= targetds tlast
 	target_match	= targetds match_snap
-	source_match	= sourceds (snapshot[source] ? snapshot[source] : match_snap )
+	source_match	= sourceds match_snap
 
 	sorigin		= srcprop[dataset,"origin"]
 	match_origin	= ""
