@@ -255,7 +255,7 @@ function get_config() {
 		TIME_COMMAND = ""
 		SEND_COMMAND = "send -v "
 	}
-	if (INITIATOR) SHELL_WRAPPER = SSH_SEND INITIATOR
+	if (INITIATOR) SHELL_WRAPPER = SSH_SEND " " INITIATOR
 	RPL_CMD_PREFIX = TIME_COMMAND SHELL_WRAPPER" "
 	if (REPLICATE) DEPTH = 1
 	if (DEPTH) PROP_DEPTH = "-d"(DEPTH-1)" "
@@ -508,13 +508,12 @@ function name_match_row() {
 	slast_full	= sourceds slast
 	tlast_full	= targetds tlast
 	target_match	= targetds match_snap
-	source_match	= sourceds match_snap
+	source_match	= sourceds (snapshot[source] ? snapshot[source] : match_snap )
 
 	sorigin		= srcprop[dataset,"origin"]
 	match_origin	= ""
 	rotate_name	= ""
 	
-
 	# Compute update path
 	get_update_option()
 
