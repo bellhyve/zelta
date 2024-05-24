@@ -42,9 +42,12 @@ function report(level, message) {
 }
 
 function usage(message) {
-	usage_command = "zelta usage policy"
-	while (usage_command |getline) print
-	report(LOG_ERROR, message)
+	if (message) print message							> STDERR
+	print "usage:"									> STDERR
+	print "	policy [backup-override-options] [site|host|dataset] ...\n"		> STDERR
+	print "See zelta.conf(5) for configuration details.\n"				> STDERR
+	print "For further help on a command or topic, run: zelta help [<topic>]"	> STDERR
+	exit(1)
 }
 
 function env(env_name, var_default) {
@@ -140,6 +143,7 @@ function get_options() {
 			while (/./) {
 				if (sub(/^-/,"")) long_option()
 				# Deprecate after adding long options to zelta replicate
+				else if (sub(/^[h?]/,"")) usage()
 				else if (sub(/^j/,"")) cli_options["output_mode"] = "JSON"
 				else if (sub(/^q/,"")) cli_options["output_mode"] = "QUIET"
 				else if (sub(/^n/,"")) cli_options["output_mode"] = "DRY_RUN"
@@ -292,6 +296,7 @@ function zelta_sync() {
 	sync_cmd = backup_command[site,host,source]
 	sync_status = 1
 	if (MODE == "LIST") {
+		print "hmm"
 		print host":"source
 		return 1
 	} else if (MODE == "DRY_RUN") {

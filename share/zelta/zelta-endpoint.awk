@@ -1,6 +1,10 @@
 #!/usr/bin/awk -f
+
 #
-# zelta-endpoint.awk - resolve and validate a local or remote dataset string
+# zelta-endpoint.awk
+#
+# Resolve and validate local or remote dataset endpoint strings, splitting them
+# into a tabbed list of elements. Called with "zelta endpoint".
 
 function clear_vars() {
 	endpoint_id = ""
