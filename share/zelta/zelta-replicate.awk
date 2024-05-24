@@ -153,7 +153,12 @@ function get_options() {
 				else if (sub(/^-dryrun/,""))		DRY_RUN++
 				else if (sub(/^-detect-options/,""))	DETECT_OPTIONS++
 				else if (sub(/^-depth=?/,""))		DEPTH = opt_var()
+				else if (sub(/^-json/,""))		MODE = "JSON"
 				else if (sub(/^-rate-limit=?/,""))	LIMIT_BANDWIDTH = opt_var()
+				else if (sub(/^-snapshot$/,""))		SNAPSHOT_ALL++
+				else if (sub(/^-snapshot-all$/,""))	SNAPSHOT_ALL++
+				else if (sub(/^-snapshot-written$/,""))	SNAPSHOT_WRITTEN++
+				else if (sub(/^-snapshot-or-skip$/,""))	SNAPSHOT_WRITTEN = 2
 				else if ($0 ~ "^["ZFS_SEND_PASS_OPTLIST"]") {
 					opt = substr($0, 1, 1)
 					SEND_FLAGS = (SEND_FLAGS ? " " : "") "-" opt
