@@ -1,32 +1,31 @@
-# Zelta Replication Suite
+![Zelta Logo](https://zelta.space/index/zelta-banner.svg)
 
-**Zelta** is a suite of tools offering a streamlined approach to managing ZFS snapshot replication across systems. It's built with the intention of simplifying complex ZFS functions into safe and user-friendly commands while also being the foundation for large-scale backup and failover environments. It's easy and accessible while working with most UNIX and UNIX-like base systems without additional packages. It's optimized for environments with strict permission separation, and integrates well into many types of existing ZFS workflows.
+# About the Zelta Replication Suite
+
+**Zelta** is a suite of tools offering a streamlined approach to managing ZFS replication across systems. It's built with the intention of simplifying complex ZFS functions into safe and user-friendly commands while also being the foundation for large-scale backup and failover environments. It's easy and accessible while working with most UNIX and UNIX-like base systems without additional packages. It's optimized for environments with strict permission separation and integrates well into many types of existing ZFS workflows.
 
 Zelta can be used to safely perform workstation backups with a single command, but it was designed for large environments with significant regulatory compliance concerns. Zelta is currently being used in production to replicate millions of snapshots across hundreds of systems automatically and in tandem with alerting and analytics systems.
+
+All Zelta tools operate recursively on a dataset and its children ("dataset trees") and all commands work locally or between systems remotely accessible via SSH.
 
 The suite comprises three main components:
 
 - `zelta match`: Compares two ZFS dataset trees, reporting matching snapshots or discrepancies. It's a helpful tool for replication assistance, rollback assistance, and source-backup validation.
-- `zelta replicate`: A robust ZFS dataset tree replication tool with safe defaults.
+- `zelta backup`: A robust ZFS dataset tree replication tool with safe defaults.
 - `zelta policy`: A policy-based backup tool for managing extensive replication jobs.
 
 There are additional functions and shortcuts:
-- `zelta backup`: A synonym for `zelta replicate` that adds a snapshot before replication if new source data was written, performs additional safety checks, and gives recommendations if a conflict occurs.
-- `zelta sync`: A synonym for `zelta replicate` that only replicates the latest snapshots, e.g., for faster migration.
-- `zelta clone`: Creates a read-write view of dataset tree for inspection and recovery.
-- `zelta snapshot`: A simple but customizable (local or remote) snapshot tool.
-
-Additional features are being tested and are coming soon:
-- `zelta clone` enhancements: Replicate divergent rollback trees to ensure you never lose a single byte.
-- `zelta prune`: A tool to identify snapshots to prune based on snapshot size and creation dates.
-- ZFS list caching: Speed up continuous sync operations with snapshot name prediction.
-- Non-ZFS backend storage: Back up and restore streams from arbitrary local and cloud storage systems.
+- `zelta sync`: Replicate as quickly as possible by performing minimal checks and transferring the latest data only.
+- `zelta clone`: Creates a read-write view of a dataset tree for inspection and recovery.
 
 By "safe", we mean:
-- Zelta can snapshot conditionally before replication if to ensure a backup is as up-to-date as possible.
-- Zelta replicates read-only by default and resets ("inherits") mountpoints below the parent dataset to avoid dangerous overlapping mounts.
-- Zelta does not have a force overwrite option, but provides assistance with `zfs rollback` and related operations. A cloning feature is in active development to eliminate the common ZFS admin habit of destroying divergent datasets.
+- Zelta can snapshot conditionally before replication to ensure a backup is as up-to-date as possible.
+- Zelta creates read-only replicas by default and resets ("inherits") mountpoints below the parent dataset to avoid dangerous overlapping mounts.
+- Zelta never suggests or requires using forced deletion overwrite option, but instead provides a **--rotate** feature that performs a cloning operation to preserve divergent datasets, e.g., after a rollback or cloned sorce event.
 
+<<<<<<< HEAD
+Zelta is designed with the Unix philosophy in mind. It is modular, extensible, and almost anything (including our safe defaults) can be changed with a tiny bit of elbow grease. Since Zelta commands and switches are designed with similar flags and phrases as the upstream ZFS tools, it's an excellent teaching tool for new ZFS administrators.
+=======
 Zelta is designed with Unix philosophy in mind. It is modular, extensible, and almost anything (including our safe defaults) can be changed with a tiny bit of elbow grease. Since Zelta commands and switches are designed with the similar flags and phrases as the upstream ZFS tools, it's an excellent teaching tool for new ZFS administrators.
 
 
@@ -42,13 +41,16 @@ Point-of-use documentation is also provided in the installed examples:
 - [zelta.conf](https://github.com/bellhyve/zelta/blob/main/zelta.conf) for policy-based backups
 - [zelta.env](https://github.com/bellhyve/zelta/blob/main/zelta.env) for location and behavior overrides
 - `zelta help` (From the command line.)
+>>>>>>> 9d7bb241cf95fe9fae05865a4e005327fd8897b2
 
 
 ## Early-Release Software Notice, and a Commitment to Safety and Community Collaboration
 
-Zelta, although a recent addition to GitHub, has been rigorously used in production for over five years. It has successfully managed the replication of millions of datasets, with a primary emphasis on safety. We're currently refining features, finalizing command names, and enhancing documentation.
+Although Zelta is a relatively recent addition to the open source world, it has been rigorously used in production for over five years. It has successfully managed the replication of millions of datasets, with a primary emphasis on safety. We're currently refining features and enhancing documentation.
 
 We invite individuals of all technical backgrounds who want to protect both personal and organizational mission-critical data to collaborate with us. Your input is crucial in making Zelta, and ZFS at large, more accessible and user-friendly. By engaging with us, you'll not only contribute to the development of Zelta but also gain the opportunity to receive direct support and insights from our team at [Bell Tower](https://belltower.it/).
+<<<<<<< HEAD
+=======
 
 
 ## Goals and Methodology
@@ -69,13 +71,22 @@ Zelta works with any snapshot management system or system scheduler. It's curren
 - All updates to the main branch are additionally tested on Illumos, MacOS, and Debian GNU/Linux with the packages nawk, mawk, and gawk.
 - PLEASE open an issue if Zelta is not working as expected on your system; see the FAQ for know problems and workarounds.
 - Make sure ssh auth and "zfs allow" is correctly configured for all involved systems.
+>>>>>>> 9d7bb241cf95fe9fae05865a4e005327fd8897b2
 
 
 ## Future
 
-See Zelta's issues for active development notes. An older version of Zelta contained a configuration editor and socat/netcat support, but in practice they weren't as useful as expected. Priorities include basic snapshot and pruning tools, as well as providing assistance to untangling mountpoint/canmount/readonly dataset trees to protect from the need to clobber backups and overlapping mountpoints.
+See Zelta's [issues](https://github.com/bellhyve/zelta/issues) for active development notes. Additional features being tested and coming soon:
+- `zelta prune`: A tool to identify snapshots to prune based on metadata (rather than by name).
+- ZFS list caching: Speed up continuous sync operations with snapshot name prediction, allowing for resumes and more continuous replication.
+- Non-ZFS backend storage: Back up and restore streams from any local or cloud storage.
 
 
 ## History
 
-Zelta evolved from a series of Bourne scripts deployed on October 7, 2019, later renamed to `zdelta`. The first production awk version of Zelta was deployed on September 1, 2021.
+Zelta evolved from a series of Bourne scripts deployed on October 7, 2019, later renamed to `zdelta`. The first production AWK version of Zelta was deployed on September 1, 2021.
+
+
+## Getting Started
+
+Continue to the [Zelta Overview](https://zelta.space/en/home/overview) to learn more.

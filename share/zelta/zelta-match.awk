@@ -1,36 +1,41 @@
 #!/usr/bin/awk -f
+
 #
-# zmatch - compares a source and target datasets for dataset similarity
+# zelta-match.awk
 #
-# usage: zmatch [user@][host:]source/dataset [user@][host:]target/dataset
-#
-# Reports the most recent matching snapshot and the latest snapshot of a dataset and
-# its children, which are useful for various zfs operations
-#
-# In interactive mode, child snapshot names are provided relative to the target
-# dataset. For example, when zmatch is called with tank/dataset, tank/dataset/child's
-# snapshots will be reported as"/child@snapshot-name".
-#
-# Specifically:
-#   - The latest matching snapshot and child snapshots
-#   - Missing child dataset on the destination
-#   - Matching snapshot names with different GUIDs
-#   - Newer target snapshots not on the source
-#
-# ZFS LIST SWITCHES
-#
-# -d#	limit recursion depth to #.
-# -H    hide header
-# -n	show the zfs list commands instead of running them
-# -o    "all" or a list of properties to show
-# -p    single tab delimited output
-# -v	verbose, tell the user if output is being suppressed.
+# Called via "zelta match", "zelta list", or "zmatch", describes the
+# relationship between two trees of ZFS datasets. This script processes
+# arguments and runs a "zfs list" command on the source endpoint, then passes
+# the output and instructions to zfs-match-pipe.awk to compare the lists
+# (which allows for parallel processing with only AWK calls).
 
 function usage(message) {
-	usage_command = "zelta usage match"
-	while (usage_command |getline) print
-	close(usage_command)
-	if (message) error(message)
+	STDERR = "/dev/stderr"
+	usage_table = "\t%-13s%s\n"
+	print (message ? message "\n" : "") "usage:"						> STDERR
+	print "\tmatch [-Hp] [-d max] [-o field[,...]] source-endpoint target-endpoint\n"	> STDERR
+	print "The following fields are supported:\n"						> STDERR
+	printf usage_table"\n",	"FIELD",	"VALUES"					> STDERR
+	printf usage_table,	"rel_name",	"'' for top or relative ds name"		> STDERR
+	printf usage_table,	"sync_code",	"octal bits describing ds sync state"		> STDERR
+	printf usage_table,	"match",	"matching snapshot (or source bookmark)"	> STDERR
+	printf usage_table,	"xfer_size",	"sum of unreplicated source snapshots"		> STDERR
+	printf usage_table,	"xfer_num",	"count of unreplicated source snapshots"	> STDERR
+	printf usage_table,	"src_name",	"full source ds name"				> STDERR
+	printf usage_table,	"src_first",	"first available source snapshot"		> STDERR
+	printf usage_table,	"src_next",	"source snapshot following 'match'"		> STDERR
+	printf usage_table,	"src_last",	"most recent source snapshot"			> STDERR
+	printf usage_table,	"src_written",	"data written after last source snapshot"	> STDERR
+	printf usage_table,	"src_snaps",	"total source snapshots and bookmarks"		> STDERR
+	printf usage_table,	"tgt_name",	"full target ds name"				> STDERR
+	printf usage_table,	"tgt_first",	"first available target snapshot"		> STDERR
+	printf usage_table,	"tgt_next",	"target snapshot following 'match'"		> STDERR
+	printf usage_table,	"tgt_last",	"most recent target snapshot"			> STDERR
+	printf usage_table,	"tgt_written",	"data written after last target snapshot"	> STDERR
+	printf usage_table,	"tgt_snaps",	"total target snapshots and bookmarks"		> STDERR
+	printf usage_table"\n",	"info",		"description of the ds sync state"		> STDERR
+	print "Sizes are specified in bytes with standard units such as K, M, G, etc.\n"	> STDERR
+	print "For further help on a command or topic, run: zelta help [<topic>]"		> STDERR
 	exit 1
 }
 
@@ -39,7 +44,7 @@ function env(env_name, var_default) {
 }
 
 function sub_opt() {
-	if (!$0) {
+	if ($0 == "") {
 		i++
 		$0 = ARGV[i]
 	}
@@ -48,19 +53,41 @@ function sub_opt() {
 	return opt
 }
 
+function pass_flags(flag) {
+	PASS_FLAGS = PASS_FLAGS flag
+}
+
+function long_opt() {
+	if (! sub(/^--/,"")) return 0
+	else {
+		if (split($0,arg_opt,"=")) {
+			$0 = arg_opt[1]
+			option = arg_opt[2]
+		} else option = ""
+		gsub(/-/,"")
+		return 1
+	}
+}
+
 function get_options() {
         for (i=1;i<ARGC;i++) {
                 $0 = ARGV[i]
-                if (gsub(/^-/,"")) {
-                        if (gsub(/n/,"")) DRY_RUN++
-                        if (gsub(/H/,"")) PASS_FLAGS = PASS_FLAGS "H" 
-                        if (gsub(/p/,"")) PASS_FLAGS = PASS_FLAGS "p"
-                        if (gsub(/q/,"")) PASS_FLAGS = PASS_FLAGS "q"
-                        #if (gsub(/j/,"")) PASS_FLAGS = PASS_FLAGS "j" # Future
-                        #if (gsub(/v/,"")) PASS_FLAGS = PASS_FLAGS "v" # Future
-			if (gsub(/o/,"")) PROPERTIES = sub_opt()
-                        if (gsub(/d/,"")) ZELTA_DEPTH = sub_opt()
-                        if (/./) usage("unkown options: " $0)
+                if (long_opt()) {
+			if (/^dryrun$/)		DRY_RUN++
+			else if (/^help$/)	usage()
+			else if (/^nowritten$/)	WRITTEN = 0
+			else usage("unkown option: --" $0)
+                } else if (sub(/^-/,"")) while (/./) {
+                        if (/^[h?]/)		usage()
+                        else if (sub(/^n/,""))	DRY_RUN++
+                        else if (sub(/^H/,""))	pass_flags("H")
+                        else if (sub(/^p/,""))	pass_flags("p")
+                        else if (sub(/^q/,""))	pass_flags("q")
+                        #else if (sub(/^j/,""))	pass_flags("j")
+                        #else if (sub(/^v/,""))	pass_flags("v")
+			else if (sub(/^o/,""))	PROPERTIES = sub_opt()
+                        else if (sub(/^d/,""))	ZELTA_DEPTH = sub_opt()
+                        else if (/./) usage("unkown options: " $0)
                 } else if (target) {
                         usage("too many options: " $0)
                 } else if (source) target = $0
@@ -73,12 +100,12 @@ function get_endpoint_info(endpoint) {
 	FS = "\t"
 	endpoint_command = "zelta endpoint " endpoint
 	endpoint_command | getline
-	#endpoint_id[endpoint] = $1
-	zfs[endpoint] = $2
-	#user[endpoint] = $3
-	#host[endpoint] = $4
-	ds[endpoint] = $5
-	#snapshot[endpoint] = $6
+	#endpoint_id[endpoint]	= $1
+	zfs[endpoint]		= $2
+	#user[endpoint]		= $3
+	#host[endpoint]		= $4
+	ds[endpoint]		= $5
+	#snapshot[endpoint]	= $6
 	close(endpoint_command)
 	return $1
 }
@@ -89,42 +116,44 @@ function error(string) {
 
 BEGIN {
 	FS="\t"
-	exit_code = 0
-	REMOTE_COMMAND_NOPIPE = env("REMOTE_COMMAND_NOPIPE", "ssh -n") " "
-	TIME_COMMAND = env("TIME_COMMAND", "/usr/bin/time -p") " "
-	ZELTA_MATCH_COMMAND = "zelta reconcile"
-	ZFS_LIST_PROPERTIES = env("ZFS_LIST_PROPERTIES", "name,guid")
-	ZELTA_DEPTH = env("ZELTA_DEPTH", 0)
-	ZFS_LIST_PREFIX = "list -Hprt all -Screatetxg -o "
-	ZFS_LIST_PREFIX_WRITECHECK = "list -Hprt filesystem,volume -o "
+	exit_code			= 0
+	WRITTEN				= 1
+	REMOTE_COMMAND_NOPIPE		= env("REMOTE_COMMAND_NOPIPE", "ssh -n") " "
+	TIME_COMMAND			= env("TIME_COMMAND", "/usr/bin/time -p") " "
+	ZELTA_MATCH_COMMAND		= "zelta match-pipe"
+	ZFS_LIST_PROPERTIES		= env("ZFS_LIST_PROPERTIES", "name,guid")
+	ZELTA_DEPTH			= env("ZELTA_DEPTH", 0)
+	ZFS_LIST_PREFIX			= "list -Hprt all -Screatetxg -o "
+	#ZFS_LIST_PREFIX_WRITECHECK	= "list -Hprt filesystem,volume -o "
 	
 	get_options()
-	if (PASS_FLAGS) PASS_FLAGS = "ZELTA_MATCH_FLAGS='"PASS_FLAGS"' "
-	# "zfs list -o written" can slow things down, skip if possible
-	if (PROPERTIES && split(PROPERTIES, PROPLIST, ",")) {
-		for (p in PROPLIST) {
-			$0 = PROPLIST[p]
-			if ((/^x/ && !/xfersn/) || /wri/ || /all/) WRITTEN++
-		}
-	}
+	if (PASS_FLAGS) PASS_FLAGS	= "ZELTA_MATCH_FLAGS='"PASS_FLAGS"' "
+	# Find some logic to skip "written" besides --no-written
+	#if (PROPERTIES && split(PROPERTIES, PROPLIST, ",")) {
+	#	for (p in PROPLIST) {
+	#		$0 = PROPLIST[p]
+	#		if ((/^x/ && !/xfersn/) || /wri/ || /all/) WRITTEN++
+	#	}
+	#}
 	ZFS_LIST_PROPERTIES_DEFAULT = "name,guid" (WRITTEN?",written":"")
 	ZFS_LIST_PROPERTIES = env("ZFS_LIST_PROPERTIES", ZFS_LIST_PROPERTIES_DEFAULT)
 
 	MATCH_PREFIX = (PROPERTIES?"ZELTA_MATCH_PROPERTIES='"PROPERTIES"' ":"") PASS_FLAGS
 	MATCH_PREFIX = MATCH_PREFIX (ZELTA_DEPTH ? "ZELTA_DEPTH="ZELTA_DEPTH" " : "")
-	MATCH_COMMAND = MATCH_PREFIX "zelta reconcile"
+	MATCH_COMMAND = MATCH_PREFIX "zelta match-pipe"
 	ZFS_LIST_DEPTH = ZELTA_DEPTH ? " -d"ZELTA_DEPTH : ""
 
-	if (target) ZFS_LIST_FLAGS = ZFS_LIST_PREFIX ZFS_LIST_PROPERTIES ZFS_LIST_DEPTH " "
-	else ZFS_LIST_FLAGS = ZFS_LIST_PREFIX_WRITECHECK ZFS_LIST_PROPERTIES ZFS_LIST_DEPTH " "
+	ZFS_LIST_FLAGS = ZFS_LIST_PREFIX ZFS_LIST_PROPERTIES ZFS_LIST_DEPTH " "
+	#if (target) ZFS_LIST_FLAGS = ZFS_LIST_PREFIX ZFS_LIST_PROPERTIES ZFS_LIST_DEPTH " "
+	#else ZFS_LIST_FLAGS = ZFS_LIST_PREFIX_WRITECHECK ZFS_LIST_PROPERTIES ZFS_LIST_DEPTH " "
 
 	ALL_OUT =" 2>&1"
 	OFS="\t"
 
-	hash_source = get_endpoint_info(source)
+	info_source = get_endpoint_info(source) OFS ds[source]
 	zfs[source] = ($2 ? REMOTE_COMMAND_NOPIPE $2 " " : "") "zfs "
 	if (target) {
-		hash_target = get_endpoint_info(target)
+		info_target = get_endpoint_info(target) OFS ds[target]
 		zfs[target] = ($2 ? REMOTE_COMMAND_NOPIPE $2 " " : "") "zfs "
 	}
 	
@@ -134,18 +163,20 @@ BEGIN {
 
 	if (DRY_RUN) {
 		print "+ "zfs_list[source]
-		print "+ "zfs_list[target]
+		if (target) print "+ "zfs_list[target]
 		exit 1
 	}
 
 	zfs_list[source] = TIME_COMMAND zfs_list[source] ALL_OUT
 	zfs_list[target] = TIME_COMMAND zfs_list[target] ALL_OUT
 
-	print hash_source,ds[source] | MATCH_COMMAND
-	print hash_target,ds[target] | MATCH_COMMAND
-	# Single volume "matches" are deprecated (use "zfs list" instead)
-	print (target ? zfs_list[target] : "") | MATCH_COMMAND
-	while (zfs_list[source] | getline zfs_list_output) print zfs_list_output | MATCH_COMMAND
+	print info_source				| MATCH_COMMAND
+	print (target ? info_target : "")		| MATCH_COMMAND
+	print (target ? zfs_list[target] : "")		| MATCH_COMMAND
+	#while (zfs_list[source] | getline zfs_list_output) {
+	while (zfs_list[source] | getline) print	| MATCH_COMMAND
+	#	print zfs_list_output				| MATCH_COMMAND
+	#}
 	close(zfs_list[source])
 	close(MATCH_COMMAND)
 }

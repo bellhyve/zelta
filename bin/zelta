@@ -1,4 +1,10 @@
 #!/bin/sh
+
+#
+# zelta - Zelta shell wrapper
+#
+# Initialize the environment for Zelta subcommands
+
 : ${ZELTA_ETC:="/usr/local/etc/zelta"}
 : ${ZELTA_ENV:="$ZELTA_ETC/zelta.env"}
 : ${ZELTA_SNAP_NAME:="date -u +%Y-%m-%d_%H.%M.%S"}
@@ -29,22 +35,22 @@ fi
 case $zelta_command in
 	# Command synonyms
 	zmatch) $AWKPRE/zelta-match.awk -- "$@" ;;
+	zp) $AWKPRE/zelta-policy.awk -- "$@" ;;
 	zpull) $AWKPRE/zelta-replicate.awk -- "$@" ;;
 	zpush) $AWKPRE/zelta-replicate.awk -- "$@" ;;
 	zeport) $AWKPRE/zelta-report.awk -- "$@" ;;
-	zp) $AWKPRE/zelta-policy.awk -- "$@" ;;
 	# "zelta replicate" variants
 	backup) $AWKPRE/zelta-replicate.awk -- -sI "$@" ;;
-	clone) $AWKPRE/zelta-replicate.awk -- -c "$@" ;;
+	clone) $AWKPRE/zelta-replicate.awk -- --clone "$@" ;;
 	sync) $AWKPRE/zelta-replicate.awk -- -i "$@" ;;
-	# Stream utilities
+	# Utilities
 	snapshot) echo "$@" | $AWKPRE/zelta-snapshot.awk ;;
 	endpoint) echo "$@" | $AWKPRE/zelta-endpoint.awk ;;
-	# Misc
 	time) "$@" | bash -c "time -p cat" ;;
-	version) echo zelta-pre-release; exit ;;
-	usage|help) . $ZELTA_SHARE/zelta-usage.sh "$@" ;;
-	# Default command actions
+	# Info
+	-V|--version|version) echo zelta-pre-release; exit ;;
+	-?|usage|help) . $ZELTA_SHARE/zelta-usage.sh "$@" ;;
+	# Matching script name action
 	*)	if [ -r "$ZELTA_SHARE/zelta-$zelta_command.awk" ]; then
 			$AWKPRE/zelta-$zelta_command.awk -- "$@"
 		else

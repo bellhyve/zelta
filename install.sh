@@ -10,10 +10,15 @@ if [ root = "$USER" ]; then
 	: ${ZELTA_BIN:="/usr/local/bin"}
 	: ${ZELTA_SHARE:="/usr/local/share/zelta"}
 	: ${ZELTA_ETC:="/usr/local/etc/zelta"}
+	: ${ZELTA_MAN:="/usr/local/share/man/man8"}
+	if [ ! -d "$ZELTA_MAN" ] ; then
+		ZELTA_MAN="/usr/share/man/man8"
+	fi
 elif [ -z "$ZELTA_BIN$ZELTA_SHARE$ZELTA_ETC" ]; then
 	: ${ZELTA_BIN:="$HOME/bin"}
 	: ${ZELTA_SHARE:="$HOME/.local/share/zelta"}
 	: ${ZELTA_ETC:="$HOME/.config/zelta"}
+	: ${ZELTA_MAN:="$ZELTA_SHARE/doc"}
 	echo Installing Zelta as an unprivilaged user. To ensure the per-user setup of
 	echo Zelta is being used, please export the following environment variables in
 	echo your shell\'s startup scripts:
@@ -21,6 +26,7 @@ elif [ -z "$ZELTA_BIN$ZELTA_SHARE$ZELTA_ETC" ]; then
 	echo export ZELTA_BIN=\"$ZELTA_BIN\"
 	echo export ZELTA_SHARE=\"$ZELTA_SHARE\"
 	echo export ZELTA_ETC=\"$ZELTA_ETC\"
+	echo export ZELTA_MAN=\"$ZELTA_MAN\"
 	echo 
 	echo You may also set these variables as desired and rerun this command.
 	echo Press Control-C to break or Return to install; read whatever
@@ -51,14 +57,19 @@ link_to_zelta() {
 }
 
 
-mkdir -p "$ZELTA_BIN" "$ZELTA_SHARE" "$ZELTA_ETC"
+mkdir -p "$ZELTA_BIN" "$ZELTA_SHARE" "$ZELTA_ETC" "$ZELTA_MAN"
 copy_file bin/zelta "$ZELTA"
 find share/zelta -name '*.awk' -o -name '*.sh' | while read -r file; do
     copy_file "$file" "${ZELTA_SHARE}/$(basename "$file")"
 done
-link_to_zelta zmatch
-link_to_zelta zpull
-link_to_zelta zp
+find doc -name '*.8' | while read -r file; do
+    copy_file "$file" "${ZELTA_MAN}/$(basename "$file")"
+done
+
+## Old Aliases:
+# link_to_zelta zmatch
+# link_to_zelta zpull
+# link_to_zelta zp
 
 # Environment and default overrides
 copy_file zelta.env "${ZELTA_ENV}.example"
