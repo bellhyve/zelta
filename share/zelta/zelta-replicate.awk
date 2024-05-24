@@ -93,7 +93,8 @@ function command_queue(send_dataset, receive_dataset, match_snapshot,	target_fla
 	}
 	if (receive_dataset) receive_part = zfs_receive_command target_flags q(receive_dataset)
 	if (CLONE_MODE) {
-		send_command[++rpl_num] = zfs_send_command q(send_dataset) " " q(receive_dataset)
+		if (!dataset) target_flags = " " CLONE_FLAGS_TOP " "
+		send_command[++rpl_num] = zfs_send_command target_flags q(send_dataset) " " q(receive_dataset)
 		source_stream[rpl_num] = send_dataset
 	} else if (match_snapshot) {
 		send_part = intr_flags q(match_snapshot) " " q(send_dataset)
@@ -269,12 +270,9 @@ function get_config() {
 	match_flags = "--no-written -Hpo "match_cols" "DEPTH
 	match_command = SHELL_WRAPPER" "dq("zelta match " match_flags q(source) " " q(target))
 	if (CLONE_MODE) {
-		send_flags = "clone -o readonly=off "
+		CLONE_FLAGS_TOP = env("CLONE_FLAGS_TOP", "-o readonly=off")
+		send_flags = "clone "
 		return 1
-	}
-	if (FORCE) {
-		report(LOG_WARNING,"using 'zfs receive -F'")
-		RECEIVE_FLAGS = RECEIVE_FLAGS" -F"
 	}
 	if (! target) usage()
 	SEND_FLAGS = SEND_FLAGS (DRY_RUN?"n":"") (REPLICATE?"R":"")
@@ -409,9 +407,11 @@ function load_properties(endpoint, prop) {
 	ZFS_GET_LOCAL="get -Hpr -s local,none -t filesystem,volume -o name,property,value " PROP_DEPTH " all "
 	zfs_get_command = RPL_CMD_PREFIX dq(zfs[endpoint] ZFS_GET_LOCAL q(ds[endpoint])) ALL_OUT
 	while (zfs_get_command | getline) {
-		if (sub(ds[endpoint],"",$1)) prop[$1,$2] = $3
+		
+		if (sub("^"ds[endpoint],"",$1)) prop[$1,$2] = $3
 		else if (sub(/^real[ \t]+/,"")) list_time[endpoint] += $0
-		else if (/(user|sys)/) {}
+		else if (/^[ \t]*(user|sys)/) {}
+		else if (/dataset does not exist/) NO_DS[endpoint]++
 		else report(LOG_WARNING,"property loading error: " $0)
 	}
 }
@@ -577,6 +577,7 @@ BEGIN {
 	time_start = sys_time()
 	load_properties(source, srcprop)
 	load_properties(target, tgtprop)
+	if (CLONE_MODE && !NO_DS[target]) stop(1, "cannot clone; target exists: "target)
 	run_snapshot()
 	while (match_command |getline) {
 		if (!name_match_row()) {
