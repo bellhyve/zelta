@@ -10,15 +10,15 @@ if [ root = "$USER" ]; then
 	: ${ZELTA_BIN:="/usr/local/bin"}
 	: ${ZELTA_SHARE:="/usr/local/share/zelta"}
 	: ${ZELTA_ETC:="/usr/local/etc/zelta"}
-	: ${ZELTA_MAN:="/usr/local/share/man/man8"}
-	if [ ! -d "$ZELTA_MAN" ] ; then
+	: ${ZELTA_MAN8:="/usr/local/share/man/man8"}
+	if [ ! -d "$ZELTA_MAN8" ] ; then
 		ZELTA_MAN="/usr/share/man/man8"
 	fi
 elif [ -z "$ZELTA_BIN$ZELTA_SHARE$ZELTA_ETC" ]; then
 	: ${ZELTA_BIN:="$HOME/bin"}
 	: ${ZELTA_SHARE:="$HOME/.local/share/zelta"}
 	: ${ZELTA_ETC:="$HOME/.config/zelta"}
-	: ${ZELTA_MAN:="$ZELTA_SHARE/doc"}
+	: ${ZELTA_DOC:="$ZELTA_SHARE/doc"}
 	echo Installing Zelta as an unprivilaged user. To ensure the per-user setup of
 	echo Zelta is being used, please export the following environment variables in
 	echo your shell\'s startup scripts:
@@ -26,7 +26,7 @@ elif [ -z "$ZELTA_BIN$ZELTA_SHARE$ZELTA_ETC" ]; then
 	echo export ZELTA_BIN=\"$ZELTA_BIN\"
 	echo export ZELTA_SHARE=\"$ZELTA_SHARE\"
 	echo export ZELTA_ETC=\"$ZELTA_ETC\"
-	echo export ZELTA_MAN=\"$ZELTA_MAN\"
+	echo export ZELTA_MAN=\"$ZELTA_DOC\"
 	echo 
 	echo You may also set these variables as desired and rerun this command.
 	echo Press Control-C to break or Return to install; read whatever
@@ -57,14 +57,17 @@ link_to_zelta() {
 }
 
 
-mkdir -p "$ZELTA_BIN" "$ZELTA_SHARE" "$ZELTA_ETC" "$ZELTA_MAN"
+mkdir -p "$ZELTA_BIN" "$ZELTA_SHARE" "$ZELTA_ETC" "$ZELTA_DOC"
 copy_file bin/zelta "$ZELTA"
 find share/zelta -name '*.awk' -o -name '*.sh' | while read -r file; do
     copy_file "$file" "${ZELTA_SHARE}/$(basename "$file")"
 done
-find doc -name '*.8' | while read -r file; do
-    copy_file "$file" "${ZELTA_MAN}/$(basename "$file")"
-done
+
+if [ ! -s "$ZELTA_MAN8" ] ; then
+	find doc -name '*.8' | while read -r file; do
+	    copy_file "$file" "${ZELTA_MAN}/$(basename "$file")"
+	done
+fi
 
 ## Old Aliases:
 # link_to_zelta zmatch
@@ -82,4 +85,11 @@ fi
 copy_file zelta.conf "${ZELTA_CONF}.example" "644"
 if [ ! -s "$ZELTA_CONF" ]; then
 	copy_file zelta.conf "$ZELTA_CONF" "644"
+fi
+
+# Add doc if requested
+if [ ! -s "$ZELTA_DOC" ]; then
+	find doc/ -type f | while read -r file; do
+	    copy_file "$file" "${ZELTA_DOC}/$(basename "$file")"
+	done
 fi
