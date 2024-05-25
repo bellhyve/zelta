@@ -363,11 +363,11 @@ BEGIN {
 			}
 		}
 	}
+	if (MODE != "JSON" && global_conf["retry"] && failed_num) report(LOG_DEFAULT, "retrying:\n")
 	while ((global_conf["retry"]-- > 0) && failed_num) {
 		for (failed_sync in failed_list) {
 			$0 = failed_sync
 			site = $1; host = $2; source = $3; target = $4
-			if (MODE != "JSON") report(LOG_DEFAULT, "retrying: " host ":" source ": ")
 			if (zelta_sync()) {
 				delete failed_list[failed_sync]
 			}
