@@ -310,7 +310,7 @@ function zelta_sync() {
 		if (/[0-9]+ [0-9]+ [0-9]+\.*[0-9]* -?[0-9]+/) {
 			if ($2) report(LOG_DEFAULT, h_num($2) ": ")
 			if ($4) {
-				report(LOG_DEFAULT, "failed: ")
+				#report(LOG_DEFAULT, "failed: ")
 				sync_status = 0
 				if ($4 == 1) report(LOG_DEFAULT, "error matching snapshots")
 				else if ($4 == 2) report(LOG_DEFAULT, "replication error")
@@ -367,7 +367,7 @@ BEGIN {
 		for (failed_sync in failed_list) {
 			$0 = failed_sync
 			site = $1; host = $2; source = $3; target = $4
-			if (MODE != "JSON") report(LOG_DEFAULT, "retrying: " $host ":" $source ": ")
+			if (MODE != "JSON") report(LOG_DEFAULT, "retrying: " host ":" source ": ")
 			if (zelta_sync()) {
 				delete failed_list[failed_sync]
 			}

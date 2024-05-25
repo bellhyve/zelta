@@ -14,7 +14,7 @@ if [ root = "$USER" ]; then
 	if [ ! -d "$ZELTA_MAN8" ] ; then
 		ZELTA_MAN="/usr/share/man/man8"
 	fi
-elif [ -z "$ZELTA_BIN$ZELTA_SHARE$ZELTA_ETC" ]; then
+elif [ -z "$ZELTA_BIN$ZELTA_SHARE$ZELTA_ETC$ZELTA_DOC" ]; then
 	: ${ZELTA_BIN:="$HOME/bin"}
 	: ${ZELTA_SHARE:="$HOME/.local/share/zelta"}
 	: ${ZELTA_ETC:="$HOME/.config/zelta"}
@@ -63,8 +63,9 @@ find share/zelta -name '*.awk' -o -name '*.sh' | while read -r file; do
     copy_file "$file" "${ZELTA_SHARE}/$(basename "$file")"
 done
 
-if [ ! -s "$ZELTA_MAN8" ] ; then
+if [ -x "$ZELTA_MAN8" ] ; then
 	find doc -name '*.8' | while read -r file; do
+		echo emm
 	    copy_file "$file" "${ZELTA_MAN}/$(basename "$file")"
 	done
 fi
@@ -88,7 +89,8 @@ if [ ! -s "$ZELTA_CONF" ]; then
 fi
 
 # Add doc if requested
-if [ ! -s "$ZELTA_DOC" ]; then
+if [ "$ZELTA_DOC" ]; then
+	mkdir -p "$ZELTA_DOC"
 	find doc/ -type f | while read -r file; do
 	    copy_file "$file" "${ZELTA_DOC}/$(basename "$file")"
 	done
