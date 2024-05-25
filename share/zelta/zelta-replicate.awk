@@ -515,6 +515,7 @@ function name_match_row() {
 	target_match	= targetds match_snap
 	source_match	= sourceds match_snap
 
+	single_snap	= (sfirst && (sfirst == slast))
 	sorigin		= srcprop[dataset,"origin"]
 	match_origin	= ""
 	rotate_name	= ""
@@ -594,7 +595,7 @@ BEGIN {
 			continue
 		}
 		if (src_only) {
-			if (INTR) {
+			if (INTR && !single_snap) {
 							command_queue(sfirst_full, targetds)
 							command_queue(slast_full, targetds, sfirst)
 			} else				command_queue(slast_full, targetds)
