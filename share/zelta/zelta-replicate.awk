@@ -577,9 +577,10 @@ BEGIN {
 
 	time_start = sys_time()
 	load_properties(source, srcprop)
+	if (NO_DS[source]) stop(1, "source does not exist: "source)
 	load_properties(target, tgtprop)
-	if (!NO_DS[source]) stop(1, "source does not exist: "source)
 	if (CLONE_MODE && !NO_DS[target]) stop(1, "cannot clone; target exists: "target)
+
 	run_snapshot()
 	while (match_command |getline) {
 		if (!name_match_row()) {
