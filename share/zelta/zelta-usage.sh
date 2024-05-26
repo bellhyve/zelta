@@ -1,7 +1,7 @@
 #!/bin/sh
 
 usage_zelta() {
-cat << EOF
+cat >&2 << EOF
 usage: zelta command args ...
 where 'command' is one of the following:
 
@@ -36,12 +36,16 @@ runman() {
 	fi
 }
 
-# Add "man" if available.
 case $1 in
-	usage|help) usage_zelta ;;
+	usage|-?) usage_zelta ;;
+	help) runman zelta ;;
 	backup|sync|clone|replicate) runman zelta-backup ;;
 	match) runman zelta-match ;;
 	policy) runman zelta-policy ;;
-	*)	[ -n "$1" ] && echo unrecognized command \'$1\' >>/dev/null ;
-		usage_zelta ;;
+	*)	if [ -n "$1" ] ; then
+			echo unrecognized command \'$1\' >&2
+			usage_zelta
+		else
+			runman zelta
+		fi  ;;
 esac
