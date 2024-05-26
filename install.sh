@@ -19,17 +19,27 @@ elif [ -z "$ZELTA_BIN$ZELTA_SHARE$ZELTA_ETC$ZELTA_DOC" ]; then
 	: ${ZELTA_SHARE:="$HOME/.local/share/zelta"}
 	: ${ZELTA_ETC:="$HOME/.config/zelta"}
 	: ${ZELTA_DOC:="$ZELTA_SHARE/doc"}
-	echo Installing Zelta as an unprivilaged user. To ensure the per-user setup of
-	echo Zelta is being used, please export the following environment variables in
-	echo your shell\'s startup scripts:
+	echo Installing Zelta as an Unprivileged User
+	echo
+	echo To install Zelta as an unprivileged user, follow these steps:
+	echo
+	echo 1. Set the following environment variables in your startup script
+	echo    or export them with your desired values:
 	echo
 	echo export ZELTA_BIN=\"$ZELTA_BIN\"
 	echo export ZELTA_SHARE=\"$ZELTA_SHARE\"
 	echo export ZELTA_ETC=\"$ZELTA_ETC\"
-	echo export ZELTA_MAN=\"$ZELTA_DOC\"
+	echo export ZELTA_DOC=\"$ZELTA_DOC\"
+	echo
+	echo 2. Ensure that \"$ZELTA_BIN\" is in PATH environment variable.
 	echo 
-	echo You may also set these variables as desired and rerun this command.
-	echo Press Control-C to break or Return to install; read whatever
+	echo Note: If you prefer a global installation, cancel this installation
+	echo and rerun this command as root, e.g. \`sudo install.sh\`.
+	echo
+	echo Proceed with installation?
+	echo
+	echo Press Control-C to stop or Return to install using the above paths.
+	read whatever
 fi
 
 : ${ZELTA_CONF:="$ZELTA_ETC/zelta.conf"}
