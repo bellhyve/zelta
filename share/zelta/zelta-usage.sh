@@ -29,7 +29,7 @@ EOF
 
 runman() {
 	SECTION=8
-	if [ ! -s "$ZELTA_DOC" ] ; then
+	if [ -s "$ZELTA_DOC" ] ; then
 		man "$ZELTA_DOC/$1.$SECTION"
 	else
 		man $SECTION $1
