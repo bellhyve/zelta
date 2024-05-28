@@ -12,7 +12,7 @@ if [ root = "$USER" ]; then
 	: ${ZELTA_ETC:="/usr/local/etc/zelta"}
 	: ${ZELTA_MAN8:="/usr/local/share/man/man8"}
 	if [ ! -d "$ZELTA_MAN8" ] ; then
-		ZELTA_MAN="/usr/share/man/man8"
+		ZELTA_MAN8="/usr/share/man/man8"
 	fi
 elif [ -z "$ZELTA_BIN$ZELTA_SHARE$ZELTA_ETC$ZELTA_DOC" ]; then
 	: ${ZELTA_BIN:="$HOME/bin"}
@@ -75,8 +75,7 @@ done
 
 if [ -x "$ZELTA_MAN8" ] ; then
 	find doc -name '*.8' | while read -r file; do
-		echo emm
-	    copy_file "$file" "${ZELTA_MAN}/$(basename "$file")"
+	    copy_file "$file" "${ZELTA_MAN8}/$(basename "$file")"
 	done
 fi
 

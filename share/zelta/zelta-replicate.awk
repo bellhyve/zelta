@@ -617,7 +617,7 @@ BEGIN {
 		rename_command = zfs[target] " rename " q(ds[target]) " " q(torigin_name)
 		if (! dry_run(rename_command)) {
 			system(rename_command)
-			report(LOG_BASIC, "source renamed to " q(torigin_name))
+			report(LOG_BASIC, "target renamed to " q(torigin_name))
 		}
 	}
 
