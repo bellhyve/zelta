@@ -515,6 +515,7 @@ function name_match_row() {
 	target_match	= targetds match_snap
 	source_match	= sourceds match_snap
 
+	single_snap	= (sfirst && (sfirst == slast))
 	sorigin		= srcprop[dataset,"origin"]
 	match_origin	= ""
 	rotate_name	= ""
@@ -576,8 +577,10 @@ BEGIN {
 
 	time_start = sys_time()
 	load_properties(source, srcprop)
+	if (NO_DS[source]) stop(1, "source does not exist: "source)
 	load_properties(target, tgtprop)
 	if (CLONE_MODE && !NO_DS[target]) stop(1, "cannot clone; target exists: "target)
+
 	run_snapshot()
 	while (match_command |getline) {
 		if (!name_match_row()) {
@@ -594,7 +597,7 @@ BEGIN {
 			continue
 		}
 		if (src_only) {
-			if (INTR) {
+			if (INTR && !single_snap) {
 							command_queue(sfirst_full, targetds)
 							command_queue(slast_full, targetds, sfirst)
 			} else				command_queue(slast_full, targetds)
@@ -614,7 +617,7 @@ BEGIN {
 		rename_command = zfs[target] " rename " q(ds[target]) " " q(torigin_name)
 		if (! dry_run(rename_command)) {
 			system(rename_command)
-			report(LOG_BASIC, "source renamed to " q(torigin_name))
+			report(LOG_BASIC, "target renamed to " q(torigin_name))
 		}
 	}
 

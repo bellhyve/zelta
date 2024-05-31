@@ -10,26 +10,36 @@ if [ root = "$USER" ]; then
 	: ${ZELTA_BIN:="/usr/local/bin"}
 	: ${ZELTA_SHARE:="/usr/local/share/zelta"}
 	: ${ZELTA_ETC:="/usr/local/etc/zelta"}
-	: ${ZELTA_MAN:="/usr/local/share/man/man8"}
-	if [ ! -d "$ZELTA_MAN" ] ; then
-		ZELTA_MAN="/usr/share/man/man8"
+	: ${ZELTA_MAN8:="/usr/local/share/man/man8"}
+	if [ ! -d "$ZELTA_MAN8" ] ; then
+		ZELTA_MAN8="/usr/share/man/man8"
 	fi
-elif [ -z "$ZELTA_BIN$ZELTA_SHARE$ZELTA_ETC" ]; then
+elif [ -z "$ZELTA_BIN$ZELTA_SHARE$ZELTA_ETC$ZELTA_DOC" ]; then
 	: ${ZELTA_BIN:="$HOME/bin"}
 	: ${ZELTA_SHARE:="$HOME/.local/share/zelta"}
 	: ${ZELTA_ETC:="$HOME/.config/zelta"}
-	: ${ZELTA_MAN:="$ZELTA_SHARE/doc"}
-	echo Installing Zelta as an unprivilaged user. To ensure the per-user setup of
-	echo Zelta is being used, please export the following environment variables in
-	echo your shell\'s startup scripts:
+	: ${ZELTA_DOC:="$ZELTA_SHARE/doc"}
+	echo Installing Zelta as an Unprivileged User
+	echo
+	echo To install Zelta as an unprivileged user, follow these steps:
+	echo
+	echo 1. Set the following environment variables in your startup script
+	echo    or export them with your desired values:
 	echo
 	echo export ZELTA_BIN=\"$ZELTA_BIN\"
 	echo export ZELTA_SHARE=\"$ZELTA_SHARE\"
 	echo export ZELTA_ETC=\"$ZELTA_ETC\"
-	echo export ZELTA_MAN=\"$ZELTA_MAN\"
+	echo export ZELTA_DOC=\"$ZELTA_DOC\"
+	echo
+	echo 2. Ensure that \"$ZELTA_BIN\" is in PATH environment variable.
 	echo 
-	echo You may also set these variables as desired and rerun this command.
-	echo Press Control-C to break or Return to install; read whatever
+	echo Note: If you prefer a global installation, cancel this installation
+	echo and rerun this command as root, e.g. \`sudo install.sh\`.
+	echo
+	echo Proceed with installation?
+	echo
+	echo Press Control-C to stop or Return to install using the above paths.
+	read whatever
 fi
 
 : ${ZELTA_CONF:="$ZELTA_ETC/zelta.conf"}
@@ -57,14 +67,17 @@ link_to_zelta() {
 }
 
 
-mkdir -p "$ZELTA_BIN" "$ZELTA_SHARE" "$ZELTA_ETC" "$ZELTA_MAN"
+mkdir -p "$ZELTA_BIN" "$ZELTA_SHARE" "$ZELTA_ETC" "$ZELTA_DOC"
 copy_file bin/zelta "$ZELTA"
 find share/zelta -name '*.awk' -o -name '*.sh' | while read -r file; do
     copy_file "$file" "${ZELTA_SHARE}/$(basename "$file")"
 done
-find doc -name '*.8' | while read -r file; do
-    copy_file "$file" "${ZELTA_MAN}/$(basename "$file")"
-done
+
+if [ -x "$ZELTA_MAN8" ] ; then
+	find doc -name '*.8' | while read -r file; do
+	    copy_file "$file" "${ZELTA_MAN8}/$(basename "$file")"
+	done
+fi
 
 ## Old Aliases:
 # link_to_zelta zmatch
@@ -82,4 +95,12 @@ fi
 copy_file zelta.conf "${ZELTA_CONF}.example" "644"
 if [ ! -s "$ZELTA_CONF" ]; then
 	copy_file zelta.conf "$ZELTA_CONF" "644"
+fi
+
+# Add doc if requested
+if [ "$ZELTA_DOC" ]; then
+	mkdir -p "$ZELTA_DOC"
+	find doc/ -type f | while read -r file; do
+	    copy_file "$file" "${ZELTA_DOC}/$(basename "$file")"
+	done
 fi
