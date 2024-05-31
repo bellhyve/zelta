@@ -115,7 +115,7 @@ function long_option() {
 }
 
 function get_options() {
-	# Possible Options
+	# Policy Options
 	OPTIONS["archive_root"]++
 	OPTIONS["backup_root"]++
 	OPTIONS["depth"]++
@@ -292,7 +292,7 @@ function h_num(num) {
 	return int(num) suffix
 }
 
-function zelta_sync() {
+function zelta_replicate() {
 	sync_cmd = backup_command[site,host,source]
 	sync_status = 1
 	if (MODE == "LIST") {
@@ -310,7 +310,7 @@ function zelta_sync() {
 		if (/[0-9]+ [0-9]+ [0-9]+\.*[0-9]* -?[0-9]+/) {
 			if ($2) report(LOG_DEFAULT, h_num($2) ": ")
 			if ($4) {
-				report(LOG_DEFAULT, "failed: ")
+				#report(LOG_DEFAULT, "failed: ")
 				sync_status = 0
 				if ($4 == 1) report(LOG_DEFAULT, "error matching snapshots")
 				else if ($4 == 2) report(LOG_DEFAULT, "replication error")
@@ -356,7 +356,7 @@ BEGIN {
 				target = datasets[host,source]
 				if (!AUTO && !should_replicate()) continue
 				if (MODE == "ACTIVE") report(LOG_DEFAULT,"    ")
-				if (! zelta_sync()) {
+				if (! zelta_replicate()) {
 					failed_num++
 					failed_list[site"\t"host"\t"source"\t"target]++
 				}
@@ -367,8 +367,8 @@ BEGIN {
 		for (failed_sync in failed_list) {
 			$0 = failed_sync
 			site = $1; host = $2; source = $3; target = $4
-			if (MODE != "JSON") report(LOG_DEFAULT, "retrying: " $host ":" $source ": ")
-			if (zelta_sync()) {
+			if (MODE != "JSON") report(LOG_DEFAULT, "retry: " )
+			if (zelta_replicate()) {
 				delete failed_list[failed_sync]
 			}
 		}
