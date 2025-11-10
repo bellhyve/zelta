@@ -2,3 +2,4 @@
 *.swo
 .zeport-hook
 .vscode
+.DS_Store

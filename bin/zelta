@@ -1,32 +1,62 @@
 #!/bin/sh
 
-#
 # zelta - Zelta shell wrapper
 #
 # Initialize the environment for Zelta subcommands
 
-ZELTA_VERSION="Zelta Replication Suite v1.0"
+set +x 
 
-: ${ZELTA_ETC:="/usr/local/etc/zelta"}
-: ${ZELTA_ENV:="$ZELTA_ETC/zelta.env"}
-: ${ZELTA_SNAP_NAME:="date -u +%Y-%m-%d_%H.%M.%S"}
+zelta_init() {
 
-if [ -r $ZELTA_ENV ]; then
-       . $ZELTA_ENV
-fi
+	ZELTA_VERSION="Zelta Replication Suite v1.1-alpha"
 
-: ${ZELTA_CONFIG:="$ZELTA_ETC/zelta.conf"}
-: ${ZELTA_SHARE:="/usr/local/share/zelta"}
-: ${AWK:="`which awk`"}
+	: ${ZELTA_ETC:="/usr/local/etc/zelta"}	# Dir for the default env and policy
+	: ${ZELTA_ENV:="$ZELTA_ETC/zelta.env"}	# Edit this file to change command defaults
+	if [ -r $ZELTA_ENV ]; then
+	       . $ZELTA_ENV
+	fi
+	: ${ZELTA_SHARE:="/usr/local/share/zelta"}	# Dir for helper scripts
+	: ${ZELTA_CONFIG:="$ZELTA_ETC/zelta.conf"}	# YAML for "zelta policy"
 
-export ZELTA_ETC ZELTA_SHARE ZELTA_ENV ZELTA_CONFIG AWK
-export ZELTA_SEND_FLAGS ZELTA_RECEIVE_FLAGS ZELTA_INTR_FLAGS ZELTA_DEPTH
-export TIME_COMMAND ZELTA_SNAP_NAME ZELTA_RECEIVE_PREFIX 
+	# Zelta defaults:
+	: ${ZELTA_SNAP_NAME:="date -u +%Y-%m-%d_%H.%M.%S"}
 
-AWKPRE="$AWK -f $ZELTA_SHARE"
+	: ${ZELTA_SEND_DEFAULT:="-Lec"}
+	: ${ZELTA_SEND_RAW:="-Lw"}
+	: ${ZELTA_SEND_NEW:="-p"}
+	: ${ZELTA_SEND_REPLICATE:="-Rs"}
+	: ${ZELTA_SEND_CHECK:="yes"}
+
+	: ${ZELTA_RECV_DEFAULT:=""}
+	: ${ZELTA_RECV_TOP:="-o readonly=on"}
+	: ${ZELTA_RECV_FS:="-u -x mountpoint"}
+	: ${ZELTA_RECV_VOL:=""}
+	: ${ZELTA_RECV_RESUME:="-s"}
+	: ${ZELTA_RESUME:="yes"}
+
+	: ${ZELTA_CLONE_DEFAULT:="-po readonly=off"}
+
+	: ${ZELTA_REMOTE_COMMAND:="ssh"}
+	: ${ZELTA_REMOTE_DEFAULT:="${ZELTA_REMOTE_COMMAND} -n"}
+	: ${ZELTA_REMOTE_SEND:="${ZELTA_REMOTE_DEFAULT}"}
+	: ${ZELTA_REMOTE_RECEIVE:="${ZELTA_REMOTE_COMMAND}"}
+
+	: ${AWK:="awk"}
+
+	export $(set | grep -o '^ZELTA_[A-Z_]*')
+}
+
+zelta_args() {
+	if [ -n "$1" ]; then
+		_opts=$("$AWK" -f "$ZELTA_SHARE/zelta-options.awk" -- "$@") || exit
+		eval "$_opts"
+	fi
+}
+
+
 
 # Try script name or symlink name as command, else use first argument
-script_name=`echo $0 | sed 's-.*/--'`
+script_name="${0##*/}"
 if [ ! "zelta" = "$script_name" ]; then
 	zelta_command="$script_name"
 elif [ -n "$1" ]; then
@@ -34,29 +64,40 @@ elif [ -n "$1" ]; then
 	shift;
 fi
 
+if [ $zelta_command = "exec" ]; then
+	zelta_command="$1";
+	shift;
+	_opts=$(cat)
+	eval "$_opts"
+else
+	zelta_init "$@"
+fi
+
+zelta_args()
+
 case $zelta_command in
 	# Command synonyms
-	zmatch)		$AWKPRE/zelta-match.awk -- "$@" ;;
-	zp)		$AWKPRE/zelta-policy.awk -- "$@" ;;
-	zpull)		$AWKPRE/zelta-replicate.awk -- "$@" ;;
-	zpush)		$AWKPRE/zelta-replicate.awk -- "$@" ;;
-	zeport)		$AWKPRE/zelta-report.awk -- "$@" ;;
+	zmatch)		"$AWK" -f "$ZELTA_SHARE/zelta-match.awk" -- "$@" ;;
+	zp)		"$AWK" -f "$ZELTA_SHARE/zelta-policy.awk" -- "$@" ;;
+	zpull)		"$AWK" -f "$ZELTA_SHARE/zelta-replicate.awk" -- "$@" ;;
+	zpush)		"$AWK" -f "$ZELTA_SHARE/zelta-replicate.awk" -- "$@" ;;
+	zeport)		"$AWK" -f "$ZELTA_SHARE/zelta-report.awk" -- "$@" ;;
 	# "zelta replicate" variants
-	backup)		$AWKPRE/zelta-replicate.awk -- -sI "$@" ;;
-	clone)		$AWKPRE/zelta-replicate.awk -- --clone "$@" ;;
-	sync)		$AWKPRE/zelta-replicate.awk -- -i "$@" ;;
+	backup)		"$AWK" -f "$ZELTA_SHARE/zelta-replicate.awk" -- -sI "$@" ;;
+	clone)		"$AWK" -f "$ZELTA_SHARE/zelta-replicate.awk" -- --clone "$@" ;;
+	sync)		"$AWK" -f "$ZELTA_SHARE/zelta-replicate.awk" -- -i "$@" ;;
 	# Utilities
-	snapshot)	echo "$@" | $AWKPRE/zelta-snapshot.awk ;;
-	endpoint)	echo "$@" | $AWKPRE/zelta-endpoint.awk ;;
+	snapshot)	echo "$@" | "$AWK" -f "$ZELTA_SHARE/zelta-snapshot.awk" ;;
+	endpoint)	echo "$@" | "$AWK" -f "$ZELTA_SHARE/zelta-endpoint.awk" ;;
 	time)		"$@" | bash -c "time -p cat" ;;
 	# Info
 	-V|--version)	echo $ZELTA_VERSION; exit ;;
 	version)	echo $ZELTA_VERSION; exit ;;
-	help)		. $ZELTA_SHARE/zelta-usage.sh "$@" ;;
+	help)		. "$ZELTA_SHARE/zelta-usage.sh" "$@" ;;
 	-?|usage)	"$ZELTA_SHARE/zelta-usage.sh" "$zelta_command" "$@" ;;
 	# Matching script name action
 	*)	if [ -r "$ZELTA_SHARE/zelta-$zelta_command.awk" ]; then
-			$AWKPRE/zelta-$zelta_command.awk -- "$@"
+			"$AWK" -f "$ZELTA_SHARE/zelta-$zelta_command.awk" -- "$@"
 		else
 			"$ZELTA_SHARE/zelta-usage.sh" usage "$zelta_command" "$@"
 		fi ;;
