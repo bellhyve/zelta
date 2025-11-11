@@ -232,6 +232,7 @@ function run_zfs_list() {
 	zfs_list_time = 0
 	transfer_size = 0
 	snapshot_list_command = $0;
+	print
 	load_property_list(PROPERTIES)
 	if ((source == target) || !snapshot_list_command) {
 		report(LOG_WARNING, "identical source and target")
@@ -252,9 +253,7 @@ function run_zfs_list() {
 	else if (sub(/^ZFS_LIST_STREAM: /,"")) {
 		if ($0 != option["SRC_ID"]) {
 			report(LOG_ERROR, "unexpected zfs list stream")
-		}
-		LIST_STREAM++ 
-		next
+		} else { LIST_STREAM++ }
 	}
 }
 

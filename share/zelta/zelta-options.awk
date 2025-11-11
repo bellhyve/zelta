@@ -1,6 +1,6 @@
 #!/usr/bin/awk -f
 #
-# zelta-options.awk: serialize common zelta arguments
+# zelta-args.awk: serialize common zelta arguments
 
 function env(env_name, var_default) {
 	env_prefix = "ZELTA_"
@@ -50,9 +50,11 @@ function get_endpoint(ep_type) {
 	endpoint_id = user"_"host"_"dataset
 	gsub(/[^A-Za-z0-9_]/,"-", endpoint_id)
 	if (prefix) {
-		if (ep_type == "SRC") { zfs = env("REMOTE_SEND") }
-		else if (ep_type == "TGT") { zfs = env("REMOTE_RECEIVE") }
-		else { zfs = env("REMOTE_DEFAULT") }
+		if (env("VERB") in repl_verb) {
+			if (ep_type == "SRC") { zfs = env("REMOTE_SEND") }
+			else if (ep_type == "TGT") { zfs = env("REMOTE_RECEIVE") }
+			else { zfs = env("REMOTE_DEFAULT") }
+		} else { zfs = env("REMOTE_DEFAULT") }
 		zfs = zfs " " prefix " zfs"
 	} else { zfs = "zfs" }
 	newenv[ep_pre "ID"] = endpoint_id
@@ -65,10 +67,15 @@ function get_endpoint(ep_type) {
 }
 
 function add_arg(opt) {
-	args = (args ? "\t" : args) opt
+	args = args (args ? "\t" : "") opt
 }
 
 function get_args() {
+	repl_verb["backup"]
+	repl_verb["replicate"]
+	repl_verb["sync"]
+	repl_verb["zpull"]
+	repl_verb["zpush"]
 	zfs_short_opts["X"]++
 	zfs_short_opts["d"]++
 	zfs_short_opts["o"]++
@@ -89,7 +96,7 @@ function get_args() {
 						}
 						add_arg(o " " subopt)
 						break
-					}
+					} else { add_arg(o) }
 				}
 			}
 		} else if (!source_set) {

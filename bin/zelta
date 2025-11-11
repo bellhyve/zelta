@@ -17,6 +17,9 @@ zelta_init() {
 	: ${ZELTA_CONFIG:="$ZELTA_ETC/zelta.conf"}	# YAML for "zelta policy"
 
 	# Zelta defaults:
+	: ${ZELTA_TIME_COMMAND:="time -p"}
+	: ${ZELTA_SH_COMMAND_PREFIX:="{"}
+	: ${ZELTA_SH_COMMAND_SUFFIX:="; }"}
 	: ${ZELTA_SNAP_NAME:="date -u +%Y-%m-%d_%H.%M.%S"}
 
 	: ${ZELTA_SEND_DEFAULT:="-Lec"}
@@ -39,8 +42,11 @@ zelta_init() {
 	: ${ZELTA_REMOTE_SEND:="${ZELTA_REMOTE_DEFAULT}"}
 	: ${ZELTA_REMOTE_RECEIVE:="${ZELTA_REMOTE_COMMAND}"}
 
+	ZELTA_VERB="${zelta_verb}"
+
 	: ${AWK:="awk"}
 
+	export AWK
 	export $(set | grep -o '^ZELTA_[A-Z_]*')
 }
 
@@ -54,14 +60,14 @@ zelta_args() {
 # Try script name or symlink name as command, else use first argument
 script_name="${0##*/}"
 if [ ! "zelta" = "$script_name" ]; then
-	zelta_command="$script_name"
+	zelta_verb="$script_name"
 elif [ -n "$1" ]; then
-	zelta_command="$1";
+	zelta_verb="$1";
 	shift;
 fi
 
-if [ $zelta_command = "exec" ]; then
-	zelta_command="$1";
+if [ $zelta_verb = "exec" ]; then
+	zelta_verb="$1";
 	shift;
 	_opts=$(cat)
 	eval export "$_opts"
@@ -71,11 +77,8 @@ fi
 
 zelta_args "$@"
 
-set|grep ^ZELTA
-exit
-
-case $zelta_command in
-	# Command synonyms
+case $zelta_verb in
+	# Synonyms
 	zmatch)		"$AWK" -f "$ZELTA_SHARE/zelta-match.awk" -- "$@" ;;
 	zp)		"$AWK" -f "$ZELTA_SHARE/zelta-policy.awk" -- "$@" ;;
 	zpull)		"$AWK" -f "$ZELTA_SHARE/zelta-replicate.awk" -- "$@" ;;
@@ -93,11 +96,11 @@ case $zelta_command in
 	-V|--version)	echo $ZELTA_VERSION; exit ;;
 	version)	echo $ZELTA_VERSION; exit ;;
 	help)		. "$ZELTA_SHARE/zelta-usage.sh" "$@" ;;
-	-?|usage)	"$ZELTA_SHARE/zelta-usage.sh" "$zelta_command" "$@" ;;
+	-?|usage)	"$ZELTA_SHARE/zelta-usage.sh" "$zelta_verb" "$@" ;;
 	# Matching script name action
-	*)	if [ -r "$ZELTA_SHARE/zelta-$zelta_command.awk" ]; then
-			"$AWK" -f "$ZELTA_SHARE/zelta-$zelta_command.awk" -- "$@"
+	*)	if [ -r "$ZELTA_SHARE/zelta-$zelta_verb.awk" ]; then
+			"$AWK" -f "$ZELTA_SHARE/zelta-$zelta_verb.awk" -- "$@"
 		else
-			"$ZELTA_SHARE/zelta-usage.sh" usage "$zelta_command" "$@"
+			"$ZELTA_SHARE/zelta-usage.sh" usage "$zelta_verb" "$@"
 		fi ;;
 esac
