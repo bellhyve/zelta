@@ -39,10 +39,6 @@ function usage(message) {
 	exit 1
 }
 
-function env(env_name, var_default) {
-	return ( (env_name in ENVIRON) ? ENVIRON[env_name] : var_default )
-}
-
 function pass_flags(flag) {
 	PASS_FLAGS = PASS_FLAGS flag
 }
@@ -88,20 +84,42 @@ function join_arr(arr, len,		i, str) {
 	return str
 }
 
-function zfs_list(zfs_cmd, ds,		p, cmd, cmd_part) {
-	if (!ds) return ""
+function zfs_list(endpoint,		p, cmd, cmd_part) {
+	if (! option[endpoint"_DS"]) return ""
 	p = 1
 	cmd_part[p++]			= option["SH_COMMAND_PREFIX"]
 	cmd_part[p++]			= option["TIME_COMMAND"]
-	cmd_part[p++]			= zfs_cmd
+	cmd_part[p++]			= option[endpoint"_ZFS"]
 	cmd_part[p++]			= "list -Hprt all -Screatetxg"
 	cmd_part[p++]			= "-o name,guid" (WRITTEN ? ",written" : "")
 	if (DEPTH) cmd_part[p++]	= "-d " DEPTH
-	cmd_part[p++]			= "'"ds"'"
+	cmd_part[p++]			= "'"option[endpoint"_DS"]"'"
 	cmd_part[p++]			= option["SH_COMMAND_SUFFIX"]
 	cmd_part[p]			= ALL_OUT
 	cmd = join_arr(cmd_part, p)
 	return cmd
+}
+
+function check_parent(endpoint,		p, cmd_part, cmd) {
+	ds = option[endpoint"_DS"]
+	if (!ds) return ""
+	# If the dataset is a pool or immediately below it, no need to check for a parent
+	if (gsub(/\//, "/", ds) <= 1) {
+		return 1
+	}
+	sub(/\/[^\/]*$/, "", ds)
+	p = 1
+	cmd_part[p++]			= option["SH_COMMAND_PREFIX"]
+	cmd_part[p++]                   = option[endpoint"_ZFS"]
+	cmd_part[p++]                   = "list -Ho name"
+	cmd_part[p++]                   = "'"ds"'"
+	cmd_part[p++]			= option["SH_COMMAND_SUFFIX"]
+	cmd_part[p]                     = ALL_OUT
+	cmd = join_arr(cmd_part, p)
+	cmd | getline cmd_output
+	close(cmd)
+	if (cmd_output==ds) return 1
+	else return 0
 }
 
 BEGIN {
@@ -116,8 +134,8 @@ BEGIN {
 
 	load_options()
 	MATCH_COMMAND			= ENVIRON["AWK"] " -f " option["SHARE"] "/zelta-match-pipe.awk"
-	ZFS_LIST_SRC			= zfs_list(option["SRC_ZFS"], option["SRC_DS"])
-	ZFS_LIST_TGT			= zfs_list(option["TGT_ZFS"], option["TGT_DS"])
+	ZFS_LIST_SRC			= zfs_list("SRC")
+	ZFS_LIST_TGT			= zfs_list("TGT")
 
 	if (DRY_RUN) {
 		print "+ " ZFS_LIST_SRC
@@ -125,14 +143,24 @@ BEGIN {
 		exit 1
 	}
 
+	#MATCH_COMMAND = "cat" # Test stream
+
 	# Stream to "zelta-match-pipe.awk"
-	if (PASS_FLAGS) print "PASS_FLAGS: " PASS_FLAGS		| MATCH_COMMAND
-	if (PROPERTIES) print "PROPERTIES: " PROPERTIES		| MATCH_COMMAND
-	if (DEPTH) print "DEPTH: " DEPTH			| MATCH_COMMAND
-	print "ZFS_LIST_TGT: " ZFS_LIST_TGT			| MATCH_COMMAND
-	print "ZFS_LIST_STREAM: " option["SRC_ID"]		| MATCH_COMMAND
-	while (ZFS_LIST_SRC | getline) print			| MATCH_COMMAND
-	close(ZFS_LIST_SRC)
-	print "ZFS_LIST_STREAM_END"				| MATCH_COMMAND
+	if (PASS_FLAGS) print "PASS_FLAGS: " PASS_FLAGS			| MATCH_COMMAND
+	if (PROPERTIES) print "PROPERTIES: " PROPERTIES			| MATCH_COMMAND
+	if (DEPTH) print "DEPTH: " DEPTH				| MATCH_COMMAND
+	if (option["TGT_DS"]) {
+		if (check_parent("TGT")) {
+			print "ZFS_LIST_TGT: " ZFS_LIST_TGT | MATCH_COMMAND
+		} else print "TGT_PARENT: no"				| MATCH_COMMAND
+	}
+	if (option["SRC_DS"]) {
+		if (check_parent("SRC")) {
+			print "ZFS_LIST_STREAM: " option["SRC_ID"]	| MATCH_COMMAND
+			while (ZFS_LIST_SRC | getline) print		| MATCH_COMMAND
+			close(ZFS_LIST_SRC)
+		} else print "SRC_PARENT: no"				| MATCH_COMMAND
+	}
+	print "ZFS_LIST_STREAM_END"					| MATCH_COMMAND
 	close(MATCH_COMMAND)
 }

@@ -248,6 +248,15 @@ function run_zfs_list() {
 	if (sub(/^PASS_FLAGS: /,"")) load_flags()
 	else if (sub(/^PROPERTIES: /,"")) PROPERTIES = $0
 	else if (sub(/^DEPTH: /,"")) DEPTH = $0
+	else if (sub(/^TGT_PARENT: /,"")) {
+		if ($0 == "no") {
+			report(LOG_ERROR, "parent dataset does not exist: " option["TGT_DS"])
+		}
+	} else if (sub(/^SRC_PARENT: /,"")) {
+		if ($0 == "no") {
+			report(LOG_ERROR, "parent dataset does not exist: " option["SRC_DS"])
+		}
+	} else if (sub(/^ZFS_LIST_TGT: /,"")) run_zfs_list()
 	else if (sub(/^ZFS_LIST_TGT: /,"")) run_zfs_list()
 	else if (sub(/^ZFS_LIST_STREAM: /,"")) {
 		if ($0 != option["SRC_ID"]) {
