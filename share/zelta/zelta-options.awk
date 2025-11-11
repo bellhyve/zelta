@@ -9,7 +9,7 @@ function env(env_name, var_default) {
 
 function error(error_message) {
 	STDERR = "/dev/stderr"
-	print "invalid argument: " error_message > STDERR
+	print "argument parsing error: " error_message > STDERR
 }
 
 
@@ -39,7 +39,7 @@ function get_endpoint(ep_type) {
 		dataset = ds_snap[1]
 		snapshot = ds_snap[2]
 	} else dataset = ds_snap[1]
-	if (!user) user = ENVIRON["USER"]
+	if (!user) { user = ENVIRON["USER"] }
 	if (!host) {
 		host = ENVIRON["HOST"] ? ENVIRON["HOST"] : ENVIRON["HOSTNAME"]
 		if (!host) {
@@ -50,41 +50,67 @@ function get_endpoint(ep_type) {
 	endpoint_id = user"_"host"_"dataset
 	gsub(/[^A-Za-z0-9_]/,"-", endpoint_id)
 	if (prefix) {
-		if (verb in repl_verbs) {
-			zfs = (ep_type == "TGT") ? env("REMOTE_SEND") : env("REMOTE_RECEIVE")
-		} else { zfs = env("REMOTE_DEFAULT") }
+		if (ep_type == "SRC") { zfs = env("REMOTE_SEND") }
+		else if (ep_type == "TGT") { zfs = env("REMOTE_RECEIVE") }
+		else { zfs = env("REMOTE_DEFAULT") }
 		zfs = zfs " " prefix " zfs"
 	} else { zfs = "zfs" }
-	args[ep_pre "ID"] = endpoint_id
-	args[ep_pre "USER"] = user
-	args[ep_pre "HOST"] = host
-	args[ep_pre "DS"] = dataset
-	args[ep_pre "SNAP"] = snapshot
-	args[ep_pre "PREFIX"] = prefix
-	args[ep_pre "ZFS"] = zfs
+	newenv[ep_pre "ID"] = endpoint_id
+	newenv[ep_pre "USER"] = user
+	newenv[ep_pre "HOST"] = host
+	newenv[ep_pre "DS"] = dataset
+	newenv[ep_pre "SNAP"] = snapshot
+	newenv[ep_pre "PREFIX"] = prefix
+	newenv[ep_pre "ZFS"] = zfs
 }
 
-function get_options() {
+function add_arg(opt) {
+	args = (args ? "\t" : args) opt
+}
+
+function get_args() {
+	zfs_short_opts["X"]++
+	zfs_short_opts["d"]++
+	zfs_short_opts["o"]++
+	zfs_short_opts["x"]++
         for (i=1;i<ARGC;i++) {
                 $0 = ARGV[i]
-		if (!/^-/) {
-			if (!source_set) {
-	       			get_endpoint("SRC")
-				source_set++
-			} else if (!target_set) {
-				get_endpoint("TGT")
-				target_set++
+		if (sub(/^-/,"")) {
+			if (sub(/^-/,"") || (length($0)==1)) {
+				add_arg($0)
 			} else {
-				error("too many options: '"$0"'")
-				exit
+				for (m=1;m<=length($0);m++) {
+					o = substr($0, m, 1)
+					if (o in zfs_short_opts) {
+						subopt = substr($0, m+1)
+						if (!subopt) {
+							i += 1
+							subopt = ARGV[i]
+						}
+						add_arg(o " " subopt)
+						break
+					}
+				}
 			}
+		} else if (!source_set) {
+			get_endpoint("SRC")
+			source_set++
+		} else if (!target_set) {
+			get_endpoint("TGT")
+			target_set++
+		} else {
+			error("too many options: '"$0"'")
+			exit
 		}
         }
+	if (args) { newenv["ZELTA_ARGS"] = args }
 }
 
 BEGIN {
-	get_options()
-	for (a in args) {
-		print "export " a "='" args[a] "'"
+	get_args()
+	if (length(newenv) == 0) { exit(1) }
+	for (e in newenv) {
+		export = export " " e "='" newenv[e] "'"
 	}
+	print export
 }
