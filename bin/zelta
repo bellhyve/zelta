@@ -4,8 +4,6 @@
 #
 # Initialize the environment for Zelta subcommands
 
-set +x 
-
 zelta_init() {
 
 	ZELTA_VERSION="Zelta Replication Suite v1.1-alpha"
@@ -49,11 +47,9 @@ zelta_init() {
 zelta_args() {
 	if [ -n "$1" ]; then
 		_opts=$("$AWK" -f "$ZELTA_SHARE/zelta-options.awk" -- "$@") || exit
-		eval "$_opts"
+		eval export "$_opts"
 	fi
 }
-
-
 
 # Try script name or symlink name as command, else use first argument
 script_name="${0##*/}"
@@ -68,12 +64,15 @@ if [ $zelta_command = "exec" ]; then
 	zelta_command="$1";
 	shift;
 	_opts=$(cat)
-	eval "$_opts"
+	eval export "$_opts"
 else
 	zelta_init "$@"
 fi
 
-zelta_args()
+zelta_args "$@"
+
+set|grep ^ZELTA
+exit
 
 case $zelta_command in
 	# Command synonyms
