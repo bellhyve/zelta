@@ -35,24 +35,6 @@ function arrlen(array) {
 	return element_count
 }
 
-function input_has_dataset() {
-	if (/^real[ \t]+[0-9]/) {
-		split($0, time_arr, /[ \t]+/)
-		zfs_list_time += time_arr[2]
-		return 0
-	} else if (/(sys|user)[ \t]+[0-9]/) return 0
-	else if (/dataset does not exist/) return 0
-	else if ($2 ~ /^[0-9]+$/) {
-		is_snapshot	= /@/ ? 1 : 0
-		is_bookmark	= /#/ ? 1 : 0
-		is_dataset	= !(is_snapshot || is_bookmark)
-		return 1
-	} else {
-		report(LOG_ERROR,$0)
-		exit_code = 1
-		return 0
-	}
-}
 
 function depth_too_high() {
 	return (DEPTH && (split(rel_name, depth_arr, "/") > DEPTH))
@@ -92,30 +74,25 @@ function process_savepoint(endpoint) {
 	first_guid[dataset_id]	= guid
 }
 
-function get_savepoint_data(endpoint) {
-	if (input_has_dataset()) {
+function parse_stream(endpoint) {
+	if (/^real[ \t]+[0-9]/) {
+		split($0, time_arr, /[ \t]+/)
+		zfs_list_time[endpoint] += time_arr[2]
+	} else if (/(sys|user)[ \t]+[0-9]/) return
+	else if (/dataset does not exist/) return
+	else if ($2 ~ /^[0-9]+$/) {
+		is_snapshot	= /@/ ? 1 : 0
+		is_bookmark	= /#/ ? 1 : 0
+		is_dataset	= !(is_snapshot || is_bookmark)
 		if (is_dataset) process_dataset(endpoint)
 		else if ((guid_to_name[endpoint,$2]) && is_bookmark) return
 		else process_savepoint(endpoint)
-	}
-}
-
-function check_parent() {
-	if (!rel_name || !target) return
-	#if (!(snapshot_list_command ~ /zfs list/)) return
-	parent = dataset[target]
-	if (!gsub(/\/[^\/]+$/, "", parent)) {
-		report(LOG_ERROR,"invalid target: " parent)
-		#exit 1
+		return 1
+	} else {
+		report(LOG_ERROR,$0)
+		exit_code = 1
 		return 0
 	}
-	parent_list_command = snapshot_list_command
-	sub(/zfs list.*'/, "zfs list '"parent"'", parent_list_command)
-	parent_list_command | getline parent_check
-	if (parent_check ~ /dataset does not exist/) {
-		report(LOG_DEFAULT, "parent dataset does not exist: " parent)
-	}
-	close(parent_list_command)
 }
 
 function arr_sort(arr) {
@@ -207,7 +184,8 @@ BEGIN {
 
 	LOG_LEVEL		= option["LOG_LEVEL"] ? option["LOG_LEVEL"] : LOG_DEFAULT
 	exit_code = 0
-	target_zfs_list_time = 0
+	zfs_list_time[source] = 0
+	zfs_list_time[target] = 0
 }
 
 function load_flags() {
@@ -229,21 +207,20 @@ function count_snapshot_diff() {
 }
 
 function run_zfs_list() {
-	zfs_list_time = 0
 	transfer_size = 0
-	snapshot_list_command = $0;
+	zfs_list_tgt = $0;
 	load_property_list(PROPERTIES)
-	if ((source == target) || !snapshot_list_command) {
-		report(LOG_WARNING, "identical source and target")
+	if ((source == target)) {
+		report(LOG_WARNING, "warning: identical source and target")
 	} else {
 		# Load target snapshots
 		ds_trim_length = ds_name_length[target]
-		while  (snapshot_list_command | getline) get_savepoint_data(target)
-		close(snapshot_list_command)
+		while  (zfs_list_tgt | getline) parse_stream(target)
+		close(zfs_list_tgt)
 	}
-	target_zfs_list_time = zfs_list_time
 }
 
+# Load variables from pipe
 !LIST_STREAM {
 	if (sub(/^PASS_FLAGS: /,"")) load_flags()
 	else if (sub(/^PROPERTIES: /,"")) PROPERTIES = $0
@@ -257,28 +234,29 @@ function run_zfs_list() {
 			report(LOG_ERROR, "parent dataset does not exist: " option["SRC_DS"])
 		}
 	} else if (sub(/^ZFS_LIST_TGT: /,"")) run_zfs_list()
-	else if (sub(/^ZFS_LIST_TGT: /,"")) run_zfs_list()
 	else if (sub(/^ZFS_LIST_STREAM: /,"")) {
+		# Make sure the environment matches the ID of the incoming stream
 		if ($0 != option["SRC_ID"]) {
 			report(LOG_ERROR, "unexpected zfs list stream")
 		}
+		# Switch to LIST_STREAM mode
 		LIST_STREAM++ 
 		next
 	}
 }
 
+# Load "zfs list" output (and "time -p" data) from pipe
 LIST_STREAM {
+	# Load ZFS
+	# Check for EOF of the current stream
 	if (/^ZFS_LIST_STREAM_END$/) {
 		LIST_STREAM = 0
 		next
 	}
-	get_savepoint_data(source)
+	parse_stream(source)
 	if (!(is_snapshot || is_bookmark)) next
 	if (rel_name in last_match) {
 		if (guid_to_name[target,guid]) num_matches[rel_name]++
-	} else if (!last[target,rel_name] && !(rel_name in new_dataset)) {
-		check_parent()
-		new_dataset[rel_name]	= savepoint
 	} else if (guid_to_name[target,guid]) {
 		last_match[rel_name]		= savepoint
 		last_match_guid[rel_name]	= guid
@@ -444,8 +422,7 @@ function summarize() {
 		for (i=1; i <= rel_name_num; i++) chart_row(rel_name_order[i])
 	}
 	if (MODE=="ONETAB") {
-		source_zfs_list_time = zfs_list_time
-		print "SOURCE_LIST_TIME:", source_zfs_list_time, ":","TARGET_LIST_TIME", target_zfs_list_time
+		print "SOURCE_LIST_TIME:", zfs_list_time[source], ":","TARGET_LIST_TIME", zfs_list_time[target]
 	} else {
 		#count_rel_name = arrlen(rel_name_list)
 		count_rel_name = rel_name_num
