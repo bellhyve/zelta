@@ -15,6 +15,9 @@
 #
 # See the zelta.env.sample and usage output for further details.
 #
+#
+
+# Deprecate this dumb idea and switch to "VARIABLE=VALUE" pairs, or just use JSON
 # ZELTA_PIPE "-z" output key:
 # error_code <0: number of failed streams
 # error_code 0: replicated or up-to-date
@@ -60,6 +63,7 @@ function usage(message) {
 	stop(1)
 }
 
+# Delete this and use opt["var"]
 function env(env_name, var_default) {
 	env_prefix = "ZELTA_"
 	if ((env_prefix env_name) in ENVIRON) return ENVIRON[env_prefix env_name] 
@@ -81,7 +85,7 @@ function dq(s) { return "\"" s "\"" }
 
 function command_queue(send_dataset, receive_dataset, match_snapshot,	target_flags) {
 	num_streams++
-	if (!dataset) target_flags = " " RECEIVE_FLAGS_TOP " "
+	if (!dataset) target_flags = " " RECV_FLAGS_TOP " "
 	if (torigin_name) target_flags = " -o origin=" q(rotate_name) " " target_flags
 	if (zfs_send_command ~ /ssh/) {
 		gsub(/ /, "\\ ", send_dataset)
@@ -113,95 +117,95 @@ function command_queue(send_dataset, receive_dataset, match_snapshot,	target_fla
 	}
 }
 
-function opt_var() {
-	var = ($0 ? $0 : ARGV[++i])
-	$0 = ""
-	return var
+# Add a space
+function str_add(s, n) {
+	return s ? s " " n : n
 }
 
-function get_options() {
-	ZFS_SEND_PASS_OPTS["--dedup"]++
-	ZFS_SEND_PASS_OPTS["--large-block"]++
-	ZFS_SEND_PASS_OPTS["--parsable"]++
-	ZFS_SEND_PASS_OPTS["--proctitle"]++
-	ZFS_SEND_PASS_OPTS["--embed"]++
-	ZFS_SEND_PASS_OPTS["--backup"]++
-	ZFS_SEND_PASS_OPTS["--compressed"]++
-	ZFS_SEND_PASS_OPTS["--raw"]++
-	ZFS_SEND_PASS_OPTS["--holds"]++
-	ZFS_SEND_PASS_OPTS["--props"]++
-	ZFS_SEND_PASS_OPTS["--skip-missing"]++
-	ZFS_SEND_PASS_OPTLIST = "DLVebcwhp"
+# Create endpoint shortcut variables; delete this probably
+function get_endpoint_info(endpoint,	ep) {
+	ep			= opt[endpoint "_ID"]
+	snapshot[ep]		= opt[endpoint "_PREFIX"]
+	zfs[ep]			= opt[endpoint "_ZFS"]
+	ds[ep]			= opt[endpoint "_DS"]
+	snapshot[ep]		= opt[endpoint "_SNAP"]
+	return ep
+}
+
+
+# Load ZELTA_ environemnt variables into opt
+function load_environment(o) {
+	for (o in ENVIRON) {
+		if (sub(/^ZELTA_/,"",o)) {
+			#print o, ENVIRON["ZELTA_" o]
+			opt[o] = ENVIRON["ZELTA_" o]
+		}
+	}
+	source = get_endpoint_info("SRC")
+	target = get_endpoint_info("TGT")
+}
+
+function load_options(o,args) {
+	ZFS_SEND_LONG_OPTS["--dedup"]++
+	ZFS_SEND_LONG_OPTS["--large-block"]++
+	ZFS_SEND_LONG_OPTS["--parsable"]++
+	ZFS_SEND_LONG_OPTS["--proctitle"]++
+	ZFS_SEND_LONG_OPTS["--embed"]++
+	ZFS_SEND_LONG_OPTS["--backup"]++
+	ZFS_SEND_LONG_OPTS["--compressed"]++
+	ZFS_SEND_LONG_OPTS["--raw"]++
+	ZFS_SEND_LONG_OPTS["--holds"]++
+	ZFS_SEND_LONG_OPTS["--props"]++
+	ZFS_SEND_LONG_OPTS["--skip-missing"]++
+	ZFS_SEND_OPTLIST = "DLVebcwhp"
 	# Handle: -X (pass if using -R otherwise skip if exact match)
 	# Handle: --redact, -d
 	# Fix: -S for resume
 	# Fix: -s for skip missing
 	# Fix: -t for resume
-	ZFS_RECV_PASS_OPTLIST = "FehMu"
+	ZFS_RECV_OPTLIST = "FehMu"
 	# Fix: -d for deduplicate
 	# Fix: -s for save stream
-	for (i=1;i<ARGC;i++) {
+	split(option["ARGS"],args,"\t")
+	for (i in args) {
 		$0 = ARGV[i]
-		if ($0 in ZFS_SEND_PASS_OPTS) {
-			SEND_FLAGS = (SEND_FLAGS ? " " : "") $0
-		} else if (gsub(/^-/,"")) {
-			while (/./) {
-				# Long options
-				if (sub(/^-initiator=?/,""))		INITIATOR = opt_var()
-				else if (sub(/^-clone/,""))		CLONE_MODE++
-				else if (sub(/^-rotate/,""))		ROTATE++
-				else if (sub(/^-replicate/,""))		REPLICATE++
-				else if (sub(/^-dryrun/,""))		DRY_RUN++
-				else if (sub(/^-detect-options/,""))	DETECT_OPTIONS++
-				else if (sub(/^-depth=?/,""))		DEPTH = opt_var()
-				else if (sub(/^-json/,""))		MODE = "JSON"
-				else if (sub(/^-rate-limit=?/,""))	LIMIT_BANDWIDTH = opt_var()
-				else if (sub(/^-snapshot$/,""))		SNAPSHOT_ALL++
-				else if (sub(/^-snapshot-all$/,""))	SNAPSHOT_ALL++
-				else if (sub(/^-snapshot-written$/,""))	SNAPSHOT_WRITTEN++
-				else if (sub(/^-snapshot-or-skip$/,""))	SNAPSHOT_WRITTEN = 2
-				else if ($0 ~ "^["ZFS_SEND_PASS_OPTLIST"]") {
-					opt = substr($0, 1, 1)
-					SEND_FLAGS = (SEND_FLAGS ? " " : "") "-" opt
-					sub(/^./, "", $0)
-				}
-				else if ($0 ~ "^["ZFS_RECV_PASS_OPTLIST"]") {
-					opt = substr($0, 1, 1)
-					RECEIVE_FLAGS = (RECEIVE_FLAGS ? " " : "") "-" opt
-					sub(/^./, "", $0)
-				}
-				# Log modes
-				# Default output mode: BASIC
-				else if (sub(/^j/,"")) MODE = "JSON"
-				else if (sub(/^z/,"")) MODE = "PIPE"
-				else if (sub(/^p/,"")) MODE = "PROGRESS"
-				else if (sub(/^q/,"")) LOG_LEVEL--
-				else if (sub(/^v/,"")) LOG_LEVEL++
-				# Command modifiers
-				# FRIENDLY_FORCE += gsub(/F/,"")
-				else if (sub(/^i/,"")) INTR_FLAGS = "-i"
-				else if (sub(/^I/,"")) INTR_FLAGS = "-I"
-				else if (sub(/^M/,"")) RECEIVE_FLAGS = ""
-				else if (sub(/^n/,"")) DRY_RUN++
-				else if (sub(/^R/,"")) REPLICATE++
-				else if (sub(/^s/,"")) SNAPSHOT_WRITTEN++
-				else if (sub(/^S/,"")) SNAPSHOT_ALL++
-				else if (sub(/^t/,"")) TRANSFER_FROM_SOURCE
-				else if (sub(/^T/,"")) TRANSFER_FROM_TARGET
-				else if (sub(/^d/,"")) DEPTH = opt_var()
-				else if (/./) usage("unknown or extra options: " $0)
-			}
-		} else if (target && INITIATOR) {
-			usage("too many options: " $0)
-		} else if (target) {
-			# To-do: Clunky handling of optional initiator
-			INITIATOR = source
-			source = target
-			target = $0
-		} else if (source) target = $0
-		else source = $0
+		if ($0 in ZFS_SEND_LONG_OPTS)				SEND_FLAGS = str_add(SEND_FLAGS, "--"$0)
+		else if ($0 ~ ZFS_SEND_OPTLIST)				SEND_FLAGS = str_add(SEND_FLAGS, "-"$0)
+		else if ($0 ~ ZFS_RECV_OPTLIST)				RECV_FLAGS = str_add(RECV_FLAGS, "-"$0)
+		else if (sub(/^initiator=?/,""))			INITIATOR = $0
+		else if (sub(/^rate-limit=?/,""))			LIMIT_BANDWIDTH = $0
+		else if (sub(/^depth=?/,""))				DEPTH = $0
+		else if (sub(/^d ?/,""))				DEPTH = $0
+		else if ($0 == "clone")					CLONE_MODE++
+		else if ($0 == "rotate")				ROTATE++
+		else if ($0 == "replicate")				REPLICATE++
+		else if ($0 == "R")					REPLICATE++
+		else if ($0 == "dryrun")				DRY_RUN++
+		else if ($0 == "detect-options")			DETECT_OPTIONS++
+		else if ($0 == "json")					MODE = "JSON"
+		else if ($0 == "j")					MODE = "JSON"
+		else if ($0 == "snapshot")				SNAPSHOT_ALL++
+		else if ($0 == "snapshot[-=]?all")			SNAPSHOT_ALL++
+		else if ($0 == "snapshot[-=]?written")			SNAPSHOT_WRITTEN++
+		else if ($0 == "snapshot[-=]?(or-)?skip")		SNAPSHOT_WRITTEN = 2
+		else if ($0 == "s")					SNAPSHOT_WRITTEN++	# DEPRECATE
+		else if ($0 == "S")					SNAPSHOT_ALL++
+		# Log modes
+		# Default output mode: BASIC
+		else if (sub(/^z/,"")) MODE = "PIPE"
+		else if (sub(/^p/,"")) MODE = "PROGRESS"
+		else if (sub(/^q/,"")) LOG_LEVEL--
+		else if (sub(/^v/,"")) LOG_LEVEL++
+		# Command modifiers
+		# FRIENDLY_FORCE += gsub(/F/,"")
+		else if ($0 == "i")					INTR_FLAGS = "-i"
+		else if ($0 == "I")					INTR_FLAGS = "-I"
+		else if ($0 == "M")					RECV_FLAGS = ""
+		else if ($0 == "n")					DRY_RUN++
+		else if ($0 == "t")					TRANSFER_FROM_SOURCE
+		else if ($0 == "T")					TRANSFER_FROM_TARGET
+		else usage("unknown or extra options: " $0)
 	}
-
 }
 	       
 function get_config() {
@@ -212,10 +216,10 @@ function get_config() {
 	SEND_FLAGS = env("SEND_FLAGS", "-Lce")
 	SEND_FLAGS_NEW = env("SEND_FLAGS_NEW", "-p")
 	SEND_FLAGS_ENCRYPTED = env("SEND_FLAGS_ENC", "-w")
-	RECEIVE_FLAGS_FS = env("RECEIVE_FLAGS_FS", "-u")
-	RECEIVE_FLAGS_NEW_FS = env("RECEIVE_FLAGS_NEW_FS", "-x mountpoint")
-	RECEIVE_FLAGS_NEW_VOL = env("RECEIVE_FLAGS_NEW_VOL")
-	RECEIVE_FLAGS_TOP = env("RECEIVE_FLAGS_TOP", "-o readonly=on")
+	RECV_FLAGS_FS = env("RECV_FLAGS_FS", "-u")
+	RECV_FLAGS_NEW_FS = env("RECV_FLAGS_NEW_FS", "-x mountpoint")
+	RECV_FLAGS_NEW_VOL = env("RECV_FLAGS_NEW_VOL")
+	RECV_FLAGS_TOP = env("RECV_FLAGS_TOP", "-o readonly=on")
 	INTR_FLAGS = env("INTR_FLAGS", "-i")
 	RECEIVE_PREFIX = env("RECEIVE_PREFIX")
 
@@ -232,9 +236,8 @@ function get_config() {
 	LOG_VERBOSE = 1
 	LOG_VV = 2
 
-	get_options()
-	get_endpoint_info(source)
-	get_endpoint_info(target)
+	load_environment()
+	load_options()
 	if (DETECT_OPTIONS) detect_send_options()
 
 	if (TRANSFER_FROM_SOURCE) INITIATOR = prefix[source]
@@ -264,20 +267,22 @@ function get_config() {
 	if (INITIATOR) SHELL_WRAPPER = SSH_SEND " " INITIATOR
 	RPL_CMD_PREFIX = TIME_COMMAND SHELL_WRAPPER" "
 	if (REPLICATE) DEPTH = 1
-	if (DEPTH) PROP_DEPTH = "-d"(DEPTH-1)" "
-	if (DEPTH) DEPTH = "-d"DEPTH" "
+	else if (DEPTH) {
+		DEPTH = " -d" DEPTH
+		PROP_DEPTH = "-d" (DEPTH-1)
+	}
 	match_cols = "relname,synccode,match,srcfirst,srclast,tgtlast,info"
-	match_flags = "--no-written -Hpo "match_cols" "DEPTH
-	match_command = SHELL_WRAPPER" "dq("zelta match " match_flags q(source) " " q(target))
+	match_flags = "-Hpo " match_cols DEPTH
+	match_command = "zelta run match " match_flags
 	if (CLONE_MODE) {
 		CLONE_FLAGS_TOP = env("CLONE_FLAGS_TOP", "-o readonly=off")
 		send_flags = "clone "
 		return 1
 	}
-	if (! target) usage()
+	if (! target) usage("target needed for replicaiton plan")
 	SEND_FLAGS = SEND_FLAGS (DRY_RUN?"n":"") (REPLICATE?"R":"")
 	send_flags = SEND_COMMAND SEND_FLAGS " "
-	recv_flags = RECEIVE_COMMAND RECEIVE_FLAGS " "
+	recv_flags = RECEIVE_COMMAND RECV_FLAGS " "
 	if (INTR_FLAGS ~ "I") INTR++
 	if (ROTATE) {
 		INTR = 0
@@ -287,28 +292,18 @@ function get_config() {
 	create_flags = "-up"(DRY_RUN?"n":"")" "
 }
 
-function get_endpoint_info(endpoint) {
-	FS = "\t"
-	endpoint_command = "zelta endpoint " endpoint
-	endpoint_command | getline
-	prefix[endpoint]	= $2
-	user[endpoint]		= $3
-	host[endpoint]		= $4
-	ds[endpoint]		= $5
-	snapshot[endpoint]	= ($6?"@"$6:"")
-	close("zelta endpoint " endpoint)
-}
-
+# Exclude default send opitons if they aren't on the source
 function detect_send_options() {
 	cmd = "zelta sendopts " q(prefix[source]) " " q(prefix[target])
 	cmd | getline options; close(cmd)
 	split(options, optlist, "")
 	for (opt in optlist) VALID_SEND_OPT[opt]++
+	# THIS LOOKS INCOMPLETE!
 }
 
 function sys_time() {
-        srand();
-        return srand();
+	srand();
+	return srand();
 }
 
 function h_num(num) {
@@ -405,7 +400,7 @@ function stop(err, message) {
 
 function load_properties(endpoint, prop) {
 	ZFS_GET_LOCAL="get -Hpr -s local,none -t filesystem,volume -o name,property,value " PROP_DEPTH " all "
-	zfs_get_command = RPL_CMD_PREFIX dq(zfs[endpoint] ZFS_GET_LOCAL q(ds[endpoint])) ALL_OUT
+	zfs_get_command = RPL_CMD_PREFIX dq(zfs[endpoint] " " ZFS_GET_LOCAL q(ds[endpoint])) ALL_OUT
 	while (zfs_get_command | getline) {
 		
 		if (sub("^"ds[endpoint],"",$1)) prop[$1,$2] = $3
@@ -553,6 +548,23 @@ function name_match_row() {
 	return 1
 }
 
+# We need to know sync state, 
+function plan_replication() {
+	load_properties(source, srcprop)
+	if (NO_DS[source]) stop(1, "source does not exist: "source)
+	load_properties(target, tgtprop)
+}
+
+function plan_clone() {
+	# ensure source and target are the same system or stop
+	load_properties(source, srcprop)
+	if (NO_DS[source]) stop(1, "source does not exist: "source)
+	load_properties(target, tgtprop)
+	if (CLONE_MODE && !NO_DS[target]) stop(1, "cannot clone; target exists: "target)
+	# if no snapshot is given find the latest snapshot with zelta match
+}
+
+
 BEGIN {
 	STDOUT = "/dev/stdout"
 	ALL_OUT = " 2>&1"
@@ -565,23 +577,20 @@ BEGIN {
 	error_code = 0
 	
 
-	if (INITIATOR) {
-		if (INITIATOR == prefix[source]) prefix[source] = ""
-		if (INITIATOR == prefix[target]) prefix[target] = ""
-	}
-	zfs[source] = (prefix[source]?SSH_SEND" "prefix[source]" ":"") "zfs "
-	zfs[target] = (prefix[target]?SSH_RECEIVE" "prefix[target]" ":"") "zfs "
+	#if (INITIATOR) {
+	#	if (INITIATOR == prefix[source]) prefix[source] = ""
+	#	if (INITIATOR == prefix[target]) prefix[target] = ""
+	#}
+	#zfs[source] = (prefix[source]?SSH_SEND" "prefix[source]" ":"") "zfs "
+	#zfs[target] = (prefix[target]?SSH_RECEIVE" "prefix[target]" ":"") "zfs "
 
-	zfs_send_command = zfs[source] send_flags
-	zfs_receive_command = zfs[target] recv_flags
+	zfs_send_command = zfs[source] " " send_flags
+	zfs_receive_command = zfs[target] " " recv_flags
 
 	time_start = sys_time()
-	load_properties(source, srcprop)
-	if (NO_DS[source]) stop(1, "source does not exist: "source)
-	load_properties(target, tgtprop)
-	if (CLONE_MODE && !NO_DS[target]) stop(1, "cannot clone; target exists: "target)
 
 	run_snapshot()
+	FS = "[\t]"
 	while (match_command |getline) {
 		if (!name_match_row()) {
 			if ($3 == ":") {
@@ -591,7 +600,7 @@ BEGIN {
 				error_code = 1
 				report(LOG_WARNING, $0)
 			} else if (sub(/^parent dataset does not exist: +/,"")) {
-				send_command[++rpl_num] = zfs[target] "create " create_flags q($0)
+				send_command[++rpl_num] = zfs[target] " create " create_flags q($0)
 				create_dataset[rpl_num] = $6
 			}
 			continue
@@ -665,6 +674,7 @@ BEGIN {
 		else replication_command = send_command[r]
 		if (dry_run(replication_command)) continue
 		full_cmd = RPL_CMD_PREFIX dq(replication_command) RPL_CMD_SUFFIX
+		print full_cmd
 		if (stream_size[r]) report(LOG_BASIC, source_stream[r]": sending " h_num(stream_size[r]))
 		replicate(full_cmd)
 	}
