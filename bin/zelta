@@ -6,7 +6,7 @@
 
 zelta_init() {
 
-	ZELTA_VERSION="Zelta Replication Suite v1.1-alpha"
+	ZELTA_VERSION="Zelta Replication Suite v1.1.0-alpha"
 
 	: ${ZELTA_ETC:="/usr/local/etc/zelta"}	# Dir for the default env and policy
 	: ${ZELTA_ENV:="$ZELTA_ETC/zelta.env"}	# Edit this file to change command defaults
@@ -57,24 +57,32 @@ zelta_args() {
 	fi
 }
 
-# Try script name or symlink name as command, else use first argument
+# Try script name or legacy symlink name as command, else he verb to the first argument.
 script_name="${0##*/}"
-if [ ! "zelta" = "$script_name" ]; then
+case "$script_name" in
+'zelta')
+	zelta_verb="$1";
+	shift;
+	;;
+*) 
 	zelta_verb="$script_name"
-elif [ -n "$1" ]; then
-	zelta_verb="$1";
-	shift;
-fi
+	;;
+esac
 
-if [ $zelta_verb = "exec" ]; then
-	zelta_verb="$1";
-	shift;
-	_opts=$(cat)
-	eval export "$_opts"
-else
+case "$zelta_verb" in
+run)
+	# For internal calls. Environment is pre-set.
+	echo got here
+	zelta_verb="$1"
+	shift
+	;;
+*)
+	# Standard public-facing command; load defaults.
 	zelta_init "$@"
-fi
+	;;
+esac
 
+# Sanitize and load arguments into variables
 zelta_args "$@"
 
 case $zelta_verb in

@@ -83,7 +83,8 @@ function get_args() {
         for (i=1;i<ARGC;i++) {
                 $0 = ARGV[i]
 		if (sub(/^-/,"")) {
-			if (sub(/^-/,"") || (length($0)==1)) {
+			if (sub(/^-/,"")) {
+				# Double-dash sub options must be --opt=val
 				add_arg($0)
 			} else {
 				for (m=1;m<=length($0);m++) {

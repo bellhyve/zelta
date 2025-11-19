@@ -74,6 +74,7 @@ function process_savepoint(endpoint) {
 	first_guid[dataset_id]	= guid
 }
 
+# Check for snapshot, bookmark, dataset, or time data
 function parse_stream(endpoint) {
 	if (/^real[ \t]+[0-9]/) {
 		split($0, time_arr, /[ \t]+/)
@@ -85,13 +86,11 @@ function parse_stream(endpoint) {
 		is_bookmark	= /#/ ? 1 : 0
 		is_dataset	= !(is_snapshot || is_bookmark)
 		if (is_dataset) process_dataset(endpoint)
-		else if ((guid_to_name[endpoint,$2]) && is_bookmark) return
+		else if (is_bookmark && (guid_to_name[endpoint,$2] || SKIP_BOOKMARKS)) return
 		else process_savepoint(endpoint)
-		return 1
 	} else {
 		report(LOG_ERROR,$0)
 		exit_code = 1
-		return 0
 	}
 }
 
@@ -207,6 +206,7 @@ function count_snapshot_diff() {
 }
 
 function run_zfs_list() {
+	SKIP_BOOKMARKS = 1
 	transfer_size = 0
 	zfs_list_tgt = $0;
 	load_property_list(PROPERTIES)
@@ -240,6 +240,7 @@ function run_zfs_list() {
 			report(LOG_ERROR, "unexpected zfs list stream")
 		}
 		# Switch to LIST_STREAM mode
+		SKIP_BOOKMARKS = 0
 		LIST_STREAM++ 
 		next
 	}
@@ -317,6 +318,7 @@ function get_info() {
 						return	"cannot sync: target has newer snapshots than source"
 	} else if (last_match[rel_name]) {
 						return	"cannot sync: source and target have diverged"
+	} else if (!target_latest_match) {	return	"cannot sync: target has no matching snapshots"
 	} else					return	"cannot determine sync state"
 }
 
