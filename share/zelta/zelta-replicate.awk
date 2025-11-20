@@ -215,7 +215,7 @@ function get_config() {
 	RECEIVE_FLAGS_FS = env("RECEIVE_FLAGS_FS", "-u")
 	RECEIVE_FLAGS_NEW_FS = env("RECEIVE_FLAGS_NEW_FS", "-x mountpoint")
 	RECEIVE_FLAGS_NEW_VOL = env("RECEIVE_FLAGS_NEW_VOL")
-	RECEIVE_FLAGS_TOP = env("RECEIVE_FLAGS_TOP", "-o readonly=on")
+	RECEIVE_FLAGS_TOP = env("RECEIVE_FLAGS_TOP", "-o readonly=on -ux mountpoint")
 	INTR_FLAGS = env("INTR_FLAGS", "-i")
 	RECEIVE_PREFIX = env("RECEIVE_PREFIX")
 
