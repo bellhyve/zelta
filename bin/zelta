@@ -40,7 +40,9 @@ zelta_init() {
 	: ${ZELTA_REMOTE_COMMAND:="ssh"}
 	: ${ZELTA_REMOTE_DEFAULT:="${ZELTA_REMOTE_COMMAND} -n"}
 	: ${ZELTA_REMOTE_SEND:="${ZELTA_REMOTE_DEFAULT}"}
-	: ${ZELTA_REMOTE_RECEIVE:="${ZELTA_REMOTE_COMMAND}"}
+	: ${ZELTA_REMOTE_RECV:="${ZELTA_REMOTE_COMMAND}"}
+
+	: ${ZELTA_LOG_LEVEL:="2"}
 
 	ZELTA_VERB="${zelta_verb}"
 
@@ -52,9 +54,41 @@ zelta_init() {
 
 zelta_args() {
 	if [ -n "$1" ]; then
-		_opts=$("$AWK" -f "$ZELTA_SHARE/zelta-options.awk" -- "$@") || exit
+		_opts=$($AWK -f "$ZELTA_SHARE/zelta-args.awk" -- "$@") || exit
 		eval export "$_opts"
 	fi
+}
+
+zelta_log() {
+	: ${max_log_level:=${ZELTA_LOG_LEVEL:-2}}
+	while IFS="	" read log_level log_message; do
+		: ${log_level:=${log_level:-2}}
+		case $log_level in
+		*[!0-9]*)	log_message="$log_level	$log_message"
+				log_level=2
+				;;
+		esac
+		: ${log_message:="missing log message"}
+		if [ "$log_level" -gt "$max_log_level" ] ; then
+			continue
+		elif [ "$log_level" -lt "0" ] ; then
+			# Force log output if log_level < 1
+			echo "critical: ${log_message}" >&2 
+		elif [ -t 2 ] && [ "$log_level" = 2 ] ; then
+			# Basic output
+			echo $log_message
+		else
+			case "$log_level" in
+			0)	log_prefix="error: " ;;
+			1)	log_prefix="warning: " ;;
+			2)	log_prefix="notice: " ;;
+			3)	log_prefix="info: " ;;
+			*)	log_prefix="debug: " ;;
+			esac
+			echo "${log_prefix}${log_message}" >&2 
+		fi
+	done
+	exit
 }
 
 # Try script name or legacy symlink name as command, else he verb to the first argument.
@@ -70,16 +104,18 @@ case "$script_name" in
 esac
 
 case "$zelta_verb" in
-run)
-	# For internal calls. Environment is pre-set.
-	echo got here
-	zelta_verb="$1"
-	shift
-	;;
+ipc-log)	shift;
+		zelta_log "$@"
+		;;
+ipc-run)
+		# For internal calls. Environment is pre-set.
+		zelta_verb="$1"
+		shift
+		;;
 *)
-	# Standard public-facing command; load defaults.
-	zelta_init "$@"
-	;;
+		# Standard public-facing command; load defaults.
+		zelta_init "$@"
+		;;
 esac
 
 # Sanitize and load arguments into variables
@@ -95,7 +131,7 @@ case $zelta_verb in
 	# "zelta replicate" variants
 	backup)		"$AWK" -f "$ZELTA_SHARE/zelta-replicate.awk" -- -sI "$@" ;;
 	clone)		"$AWK" -f "$ZELTA_SHARE/zelta-replicate.awk" -- --clone "$@" ;;
-	sync)		"$AWK" -f "$ZELTA_SHARE/zelta-replicate.awk" -- -i "$@" ;;
+	sync)		$AWK -f "$ZELTA_SHARE/zelta-replicate.awk" -- -i "$@" ;;
 	# Utilities
 	snapshot)	echo "$@" | "$AWK" -f "$ZELTA_SHARE/zelta-snapshot.awk" ;;
 	endpoint)	echo "$@" | "$AWK" -f "$ZELTA_SHARE/zelta-endpoint.awk" ;;
@@ -107,7 +143,7 @@ case $zelta_verb in
 	-?|usage)	"$ZELTA_SHARE/zelta-usage.sh" "$zelta_verb" "$@" ;;
 	# Matching script name action
 	*)	if [ -r "$ZELTA_SHARE/zelta-$zelta_verb.awk" ]; then
-			"$AWK" -f "$ZELTA_SHARE/zelta-$zelta_verb.awk" -- "$@"
+			$AWK -f "$ZELTA_SHARE/zelta-$zelta_verb.awk" -- "$@"
 		else
 			"$ZELTA_SHARE/zelta-usage.sh" usage "$zelta_verb" "$@"
 		fi ;;

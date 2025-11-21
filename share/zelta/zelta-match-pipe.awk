@@ -5,17 +5,8 @@
 # usage: compares two "zfs list" commands; one "zfs list" is piped for parrallel
 # processing.
 
-function env(env_name, var_default) {
-	return ( (env_name in ENVIRON) ? ENVIRON[env_name] : var_default )
-}
-
-function report(level, message) {
-	if (!message) return 0
-	if ((level <= LOG_LEVEL) && (level <= LOG_WARNING)) {
-		error_messages++
-		print message > STDERR
-	}
-	else if (level <= LOG_LEVEL) print message
+function report(mode, message) {
+	log_buffer[++log_count] = mode "\t" message
 }
 
 function h_num(num) {
@@ -89,7 +80,7 @@ function parse_stream(endpoint) {
 		else if (is_bookmark && (guid_to_name[endpoint,$2] || SKIP_BOOKMARKS)) return
 		else process_savepoint(endpoint)
 	} else {
-		report(LOG_ERROR,$0)
+		report(LOG_WARNING, "stream output unexpected: "$0)
 		exit_code = 1
 	}
 }
@@ -136,7 +127,7 @@ function check_prop_col(prop) {
 	else if (prop == "tgtwritten")	add_prop_col("TGT_WRITTEN")
 	else if (prop == "tgtsnaps")	add_prop_col("TGT_SNAPS")
 	else if (prop == "info")	add_prop_col("INFO")
-	else print "error: unknown property " prop
+	else report(LOG_ERROR, "unknown property " prop)
 }
 
 function load_property_list(props,	_prop_list, _p, _prop_num) {
@@ -151,7 +142,7 @@ function load_property_list(props,	_prop_list, _p, _prop_num) {
 function load_options() {
         for (o in ENVIRON) {
                 if (sub(/^ZELTA_/,"",o)) {
-                        option[o] = ENVIRON["ZELTA_"o]
+                        opt[o] = ENVIRON["ZELTA_"o]
                 }
         }
 }
@@ -159,12 +150,13 @@ function load_options() {
 BEGIN {
 	FS			= "\t"
 	OFS			= "\t"
-	STDERR			= "/dev/stderr"
-	LOG_ERROR		= -2
-	LOG_WARNING		= -1
-	LOG_DEFAULT		= 0
-	LOG_VERBOSE		= 1
-	LOG_VV			= 2
+
+	LOGGER = "zelta ipc-log"
+	LOG_ERROR = 0
+	LOG_WARNING = 1
+	LOG_NOTICE = 2
+	LOG_INFO = 3
+	LOG_DEBUG = 4
 
 	PROPERTIES_ALL		= "relname,xfersize,xfernum,match,srcfirst,srclast,srcsnaps,srcwritten,tgtlast,tgtwritten,tgtsnaps"
 	PROPERTIES_LIST		= "relname,match,srcfirst,srcnext,srclast,tgtlast"
@@ -174,14 +166,13 @@ BEGIN {
 	MODE			= "CHART"
 
 	load_options()
-	source = option["SRC_ID"]
-	target = option["TGT_ID"]
-	dataset[source] = option["SRC_DS"]
-	dataset[target] = option["TGT_DS"]
-	ds_name_length[source] = length(option["SRC_DS"]) + 1
-	ds_name_length[target] = length(option["TGT_DS"]) + 1
+	source = opt["SRC_ID"]
+	target = opt["TGT_ID"]
+	dataset[source] = opt["SRC_DS"]
+	dataset[target] = opt["TGT_DS"]
+	ds_name_length[source] = length(opt["SRC_DS"]) + 1
+	ds_name_length[target] = length(opt["TGT_DS"]) + 1
 
-	LOG_LEVEL		= option["LOG_LEVEL"] ? option["LOG_LEVEL"] : LOG_DEFAULT
 	exit_code = 0
 	zfs_list_time[source] = 0
 	zfs_list_time[target] = 0
@@ -191,12 +182,11 @@ function load_flags() {
 	PASS_FLAGS		= $0
 
 	if (PASS_FLAGS ~ /p/) PARSABLE++
-	if (PASS_FLAGS ~ /q/) LOG_LEVEL--
+	if (PASS_FLAGS ~ /time/) SHOW_LIST_TIME++
 	if (PASS_FLAGS ~ /H/) {
 		NOHEADER++
 		MODE = "ONETAB"
 	}
-	if (PASS_FLAGS ~ /v/) LOG_LEVEL++
 }
 
 function count_snapshot_diff() {
@@ -215,28 +205,28 @@ function run_zfs_list() {
 	} else {
 		# Load target snapshots
 		ds_trim_length = ds_name_length[target]
-		while  (zfs_list_tgt | getline) parse_stream(target)
-		close(zfs_list_tgt)
+		while  (zfs_list_tgt | getline ) { parse_stream(target) }
+		#close(zfs_list_tgt)
 	}
 }
 
 # Load variables from pipe
 !LIST_STREAM {
-	if (sub(/^PASS_FLAGS: /,"")) load_flags()
-	else if (sub(/^PROPERTIES: /,"")) PROPERTIES = $0
-	else if (sub(/^DEPTH: /,"")) DEPTH = $0
-	else if (sub(/^TGT_PARENT: /,"")) {
+	if (sub(/^PASS_FLAGS:\t/,"")) load_flags()
+	else if (sub(/^PROPERTIES:\t/,"")) PROPERTIES = $0
+	else if (sub(/^DEPTH:\t/,"")) DEPTH = $0
+	else if (sub(/^TGT_PARENT:\t/,"")) {
 		if ($0 == "no") {
-			report(LOG_ERROR, "parent dataset does not exist: " option["TGT_DS"])
+			report(LOG_ERROR, "parent dataset does not exist: " opt["TGT_DS"])
 		}
-	} else if (sub(/^SRC_PARENT: /,"")) {
+	} else if (sub(/^SRC_PARENT:\t/,"")) {
 		if ($0 == "no") {
-			report(LOG_ERROR, "parent dataset does not exist: " option["SRC_DS"])
+			report(LOG_ERROR, "parent dataset does not exist: " opt["SRC_DS"])
 		}
-	} else if (sub(/^ZFS_LIST_TGT: /,"")) run_zfs_list()
-	else if (sub(/^ZFS_LIST_STREAM: /,"")) {
+	} else if (sub(/^ZFS_LIST_TGT:\t/,"")) run_zfs_list()
+	else if (sub(/^ZFS_LIST_STREAM:\t/,"")) {
 		# Make sure the environment matches the ID of the incoming stream
-		if ($0 != option["SRC_ID"]) {
+		if ($1 != opt["SRC_ID"]) {
 			report(LOG_ERROR, "unexpected zfs list stream")
 		}
 		# Switch to LIST_STREAM mode
@@ -419,18 +409,19 @@ function chart_row(field) {
 }
 
 function summarize() {
-	if (LOG_LEVEL >= 0) {
+	if (opt["LOG_LEVEL"] >= 0) {
 		arr_sort(rel_name_order)
 		for (i=1; i <= rel_name_num; i++) chart_row(rel_name_order[i])
 	}
-	if (MODE=="ONETAB") {
-		print "SOURCE_LIST_TIME:", zfs_list_time[source], ":","TARGET_LIST_TIME", zfs_list_time[target]
+	if (SHOW_LIST_TIME) {
+		print "SOURCE_LIST_TIME:", zfs_list_time[source]
+		print "TARGET_LIST_TIME:", zfs_list_time[target]
 	} else {
 		#count_rel_name = arrlen(rel_name_list)
 		count_rel_name = rel_name_num
 		#if (arrlen(source_latest) == 0) report(LOG_WARNING, "no source snapshots found")
-		if (count_rel_name == count_synced) report(LOG_DEFAULT, count_rel_name " datasets synced")
-		else if (count_rel_name == count_ready) report(LOG_DEFAULT, count_rel_name " datasets syncable")
+		if (count_rel_name == count_synced) report(LOG_NOTICE, count_rel_name " datasets synced")
+		else if (count_rel_name == count_ready) report(LOG_NOTICE, count_rel_name " datasets syncable")
 		else if (count_rel_name == count_blocked) report(LOG_WARNING, count_rel_name " datasets unsyncable")
 		else {
 			log_msg = count_rel_name " total datasets"
@@ -441,12 +432,12 @@ function summarize() {
 		}
 		if (total_written[target]) report(LOG_WARNING, "target dataset has changed: " h_num(total_written[target]))
 		if (total_written[source]) report(LOG_WARNING, "source dataset has changed: " h_num(total_written[source]))
-		if (transfer_size) report(LOG_DEFAULT, "snapshot syncable transfer size: " h_num(transfer_size))
+		if (transfer_size) report(LOG_NOTICE, "snapshot syncable transfer size: " h_num(transfer_size))
 	}
 }
 
 END {
 	for (rel_name in rel_name_list) get_summary()
 	summarize()
-	if (error_messages) close(STDERR)
+	close(LOGGER)
 }
