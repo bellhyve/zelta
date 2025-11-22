@@ -153,7 +153,7 @@ case $zelta_verb in
 	# "zelta replicate" variants
 	backup)		$AWK -f "$ZELTA_SHARE/zelta-replicate.awk" -- -sI "$@" ;;
 	clone)		$AWK -f "$ZELTA_SHARE/zelta-replicate.awk" -- --clone "$@" ;;
-	sync)		$AWK -f "$ZELTA_SHARE/zelta-replicate.awk" -- -i "$@" ;;
+	sync)		$AWK -f "$ZELTA_SHARE/zelta-common.awk" -f "$ZELTA_SHARE/zelta-replicate.awk" -- -i "$@" ;;
 	# Utilities
 	snapshot)	echo "$@" | $AWK -f "$ZELTA_SHARE/zelta-snapshot.awk" ;;
 	endpoint)	echo "$@" | $AWK -f "$ZELTA_SHARE/zelta-endpoint.awk" ;;
