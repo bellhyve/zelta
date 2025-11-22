@@ -2,12 +2,16 @@
 #
 # zelta-args.awk: serialize common zelta arguments
 
-function env(env_name, var_default) {
-	return ENVIRON[ENV_PREFIX env_name]
+function init(		o) {
+	for (o in ENVIRON) {
+		if (sub(/^ZELTA_/,"",o)) {
+			opt[o] = ENVIRON["ZELTA_" o]
+		}
+	}
 }
 
 function report(mode, message) {
-	print mode "\t" message | LOGGER
+	print mode "\t" message | opt["LOG_COMMAND"]
 	LOG_LINES++
 }
 
@@ -51,14 +55,6 @@ function get_endpoint(ep_type) {
 	}
 	endpoint_id = user"_"host"_"dataset
 	gsub(/[^A-Za-z0-9_]/,"-", endpoint_id)
-	if (prefix) {
-		if (env("VERB") in repl_verb) {
-			if (ep_type == "SRC") { zfs = env("REMOTE_SEND") }
-			else if (ep_type == "TGT") { zfs = env("REMOTE_RECEIVE") }
-			else { zfs = env("REMOTE_DEFAULT") }
-		} else { zfs = env("REMOTE_DEFAULT") }
-		zfs = zfs " " prefix " zfs"
-	} else { zfs = "zfs" }
 	# Change the ID  back to just the actual endpoint string, I think.
 	newenv[ep_pre "ID"] = endpoint_id
 	newenv[ep_pre "USER"] = user
@@ -121,7 +117,7 @@ function get_args() {
 }
 
 BEGIN {
-	LOGGER = "zelta ipc-log"
+	init()
 	LOG_ERROR = 0
 	LOG_WARNING = 1
 	LOG_NOTICE = 2
@@ -131,11 +127,11 @@ BEGIN {
 	ENV_PREFIX = "ZELTA_"
 
 	# We need to know the LOG_LEVEL default for -v/-q
-	newenv["LOG_LEVEL"] = env("LOG_LEVEL")
+	newenv["LOG_LEVEL"] = opt["LOG_LEVEL"]
 	get_args()
 	for (e in newenv) {
 		# Make sure we're actually changing something
-		if (newenv[e] != env(e)) {
+		if (newenv[e] != opt[e]) {
 			export = export " " (ENV_PREFIX e) "='" newenv[e] "'"
 		}
 	}
