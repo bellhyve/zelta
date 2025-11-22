@@ -57,7 +57,8 @@ function track_errors(message) {
 }
 
 function report(mode, message) {
-	print mode "\t" message | LOGGER
+	print mode "\t" message | opt["LOG_COMMAND"]
+	logged_messages++
 }
 
 # This should produce replication status output if we can reliably catch siginfo
@@ -67,12 +68,12 @@ function siginfo(message) {
 	track_errors()
 }
 
-# Delete this and use opt["var"]
-function env(env_name, var_default) {
-	env_prefix = "ZELTA_"
-	if ((env_prefix env_name) in ENVIRON) return ENVIRON[env_prefix env_name] 
-	else if (env_name in ENVIRON) return ENVIRON[env_name]
-	else return (var_default ? var_default : "")
+function init(          o) {
+        for (o in ENVIRON) {
+                if (sub(/^ZELTA_/,"",o)) {
+                        opt[o] = ENVIRON["ZELTA_" o]
+                }
+        }
 }
 
 function arr_sum(arr, variable) {
@@ -147,19 +148,6 @@ function get_endpoint_info(endpoint,	ep) {
 	return ep
 }
 
-
-# Load ZELTA_ environemnt variables into opt
-function load_environment(o) {
-	for (o in ENVIRON) {
-		if (sub(/^ZELTA_/,"",o)) {
-			#print o, ENVIRON["ZELTA_" o]
-			opt[o] = ENVIRON["ZELTA_" o]
-		}
-	}
-	source = get_endpoint_info("SRC")
-	target = get_endpoint_info("TGT")
-}
-
 function load_options(o,args) {
 	ZFS_SEND_LONG_OPTS["--dedup"]++
 	ZFS_SEND_LONG_OPTS["--large-block"]++
@@ -209,8 +197,6 @@ function load_options(o,args) {
 		# Default output mode: BASIC
 		else if (sub(/^z/,"")) MODE = "PIPE"
 		else if (sub(/^p/,"")) MODE = "PROGRESS"
-		else if (sub(/^q/,"")) LOG_LEVEL--
-		else if (sub(/^v/,"")) LOG_LEVEL++
 		# Command modifiers
 		# FRIENDLY_FORCE += gsub(/F/,"")
 		else if ($0 == "i")					INTR_FLAGS = "-i"
@@ -225,19 +211,16 @@ function load_options(o,args) {
 	       
 function get_config() {
 	# Load environemnt variables and options and set up zfs send/receive flags
-	SSH_SEND = env("REMOTE_SEND_COMMAND", "ssh -n")
-	SSH_RECEIVE = env("REMOTE_RECEIVE_COMMAND", "ssh")
-	SEND_FLAGS = env("SEND_FLAGS", "-Lce")
-	SEND_FLAGS_NEW = env("SEND_FLAGS_NEW", "-p")
-	SEND_FLAGS_ENCRYPTED = env("SEND_FLAGS_ENC", "-w")
-	RECV_FLAGS_FS = env("RECV_FLAGS_FS", "-u")
-	RECV_FLAGS_NEW_FS = env("RECV_FLAGS_NEW_FS", "-x mountpoint")
-	RECV_FLAGS_NEW_VOL = env("RECV_FLAGS_NEW_VOL")
-	RECV_FLAGS_TOP = env("RECV_FLAGS_TOP", "-o readonly=on")
-	INTR_FLAGS = env("INTR_FLAGS", "-i")
-	RECEIVE_PREFIX = env("RECEIVE_PREFIX")
+	SEND_FLAGS		= opt["SEND_DEFAULT"]
+	RECV_FLAGS_TOP		= opt["RECV_FLAGS_TOP"]
+	INTR_FLAGS		= opt["INTR_FLAGS", "-i"]
+	RECEIVE_PREFIX		= opt["RECEIVE_PREFIX"]
+	if (opt["VERB"] == "backup") {
+		INTR_FLAGS 	= "-I"
+	} else	INTR_FLAGS	= "-i"
+	source = get_endpoint_info("SRC")
+	target = get_endpoint_info("TGT")
 
-	LOG_LEVEL = 0
 	MODE = "BASIC"
 	# Don't interactive print:
 	QUEUE_MODES["JSON"]++
@@ -249,14 +232,13 @@ function get_config() {
 	LOG_INFO = 3
 	LOG_DEBUG = 4
 
-	load_environment()
 	load_options()
 	if (DETECT_OPTIONS) detect_send_options()
 
 	#if (TRANSFER_FROM_SOURCE) INITIATOR = prefix[source]
 	#if (TRANSFER_FROM_TARGET) INITIATOR = prefix[target]
 	#if (INITIATOR) report(LOG_INFO, "transferring via: "INITIATOR)
-	if (MODE == "PIPE") LOG_LEVEL--
+	if ((MODE == "PIPE") && (opt["LOG_LEVEL"] < 3)) opt["LOG_LEVEL"] = 3
 	if (MODE == "PROGRESS") {
 		RPL_CMD_SUFFIX = ""
 		SEND_COMMAND = "send "
@@ -271,9 +253,9 @@ function get_config() {
 		SEND_COMMAND = "send -P "
 		RECEIVE_COMMAND = "receive -v "
 	}
-	if (LOG_LEVEL >= 2) {
-		RPL_CMD_SUFFIX = ""
-		SEND_COMMAND = "send -v "
+	if (opt["LOG_LEVEL"] >= 2) {
+		#RPL_CMD_SUFFIX = ""
+		#SEND_COMMAND = "send -v "
 	}
 	#if (INITIATOR) SHELL_WRAPPER = SSH_SEND " " INITIATOR
 	#RPL_CMD_PREFIX = str_add(opt["TIME_COMMAND"], SHELL_WRAPPER)
@@ -286,7 +268,7 @@ function get_config() {
 	match_flags = "--time --log-level=2 -Hpo " match_cols DEPTH
 	match_command = "zelta ipc-run match " match_flags ALL_OUT
 	if (CLONE_MODE) {
-		CLONE_FLAGS_TOP = env("CLONE_FLAGS_TOP", "-o readonly=off")
+		CLONE_FLAGS_TOP = opt["CLONE_FLAGS"]
 		send_flags = "clone "
 		return 1
 	}
@@ -406,6 +388,7 @@ function stop(err, message) {
 	if (message) report(LOG_WARNING, message)
 	if (MODE == "JSON") output_json()
 	else if (MODE == "PIPE") output_pipe()
+	if (logged_messages) close(opt["LOG_COMMAND"])
 	exit error_code
 }
 
@@ -586,7 +569,7 @@ function plan_clone() {
 BEGIN {
 	STDOUT = "/dev/stdout"
 	ALL_OUT = " 2>&1"
-	LOGGER = "zelta ipc-log"
+	init()
 	get_config()
 	received_streams = 0
 	total_bytes = 0

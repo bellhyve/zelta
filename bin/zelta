@@ -33,6 +33,7 @@ zelta_init() {
 	: ${ZELTA_CONFIG:="$ZELTA_ETC/zelta.conf"}	# YAML for "zelta policy"
 
 	# Zelta defaults:
+	: ${ZELTA_LOG_COMMAND:="zelta ipc-log"}
 	: ${ZELTA_TIME_COMMAND:="time -p"}
 	: ${ZELTA_SH_COMMAND_PREFIX:="{"}
 	: ${ZELTA_SH_COMMAND_SUFFIX:="; }"}
@@ -65,7 +66,7 @@ zelta_init() {
 	# We're prioritizing ZELTA_AWK over AWK (but use AWK below for clarity)
 	AWK="${ZELTA_AWK:-${AWK:-awk}}"
 
-	export AWK $(set | awk -F= '/^ZELTA_.*=/{print $1}')
+	export AWK $(set | $AWK -F= '/^ZELTA_.*=/{print $1}')
 }
 
 zelta_args() {
@@ -79,20 +80,25 @@ zelta_log() {
 	: ${max_log_level:=${ZELTA_LOG_LEVEL:-2}}
 	while IFS="	" read log_level log_message; do
 		: ${log_level:=${log_level:-2}}
+		# If no log_level is given, treat it as a "notice"
 		case $log_level in
-		*[!0-9]*)	log_message="$log_level	$log_message"
+		*[!0-9]*)	log_message="${log_level}${log_message:+ }${log_message}"
 				log_level=2
 				;;
 		esac
 		: ${log_message:="missing log message"}
 		if [ "$log_level" -gt "$max_log_level" ] ; then
+			# Log level hasn't been met, skip
 			continue
 		elif [ "$log_level" -lt "0" ] ; then
 			# Force log output if log_level < 1
 			echo "critical: ${log_message}" >&2 
 		elif [ -t 2 ] && [ "$log_level" = 2 ] ; then
-			# Basic output
+			# "Notice" is regular stdout on a term
 			echo $log_message
+		elif [ -t 2 ] && [ "$log_level" = 3 ] ; then
+			# "Info" is regular stderr on a term
+			echo $log_message >&2
 		else
 			case "$log_level" in
 			0)	log_prefix="error: " ;;
@@ -138,7 +144,7 @@ esac
 zelta_args "$@"
 
 case $zelta_verb in
-	# Synonyms
+	# Symlinks for zelta (legacy)
 	zmatch)		$AWK -f "$ZELTA_SHARE/zelta-match.awk" -- "$@" ;;
 	zp)		$AWK -f "$ZELTA_SHARE/zelta-policy.awk" -- "$@" ;;
 	zpull)		$AWK -f "$ZELTA_SHARE/zelta-replicate.awk" -- "$@" ;;
@@ -151,16 +157,17 @@ case $zelta_verb in
 	# Utilities
 	snapshot)	echo "$@" | $AWK -f "$ZELTA_SHARE/zelta-snapshot.awk" ;;
 	endpoint)	echo "$@" | $AWK -f "$ZELTA_SHARE/zelta-endpoint.awk" ;;
+	# Workaround for Linux with no /bin/sh "time -p" and no /usr/bin/time
 	time)		"$@" | bash -c "time -p cat" ;;
 	# Info
 	-V|--version)	echo $ZELTA_VERSION; exit ;;
 	version)	echo $ZELTA_VERSION; exit ;;
 	help)		. "$ZELTA_SHARE/zelta-usage.sh" "$@" ;;
 	-?|usage)	"$ZELTA_SHARE/zelta-usage.sh" "$zelta_verb" "$@" ;;
-	# Matching script name action
-	*)	if [ -r "$ZELTA_SHARE/zelta-$zelta_verb.awk" ]; then
-			$AWK -f "$ZELTA_SHARE/zelta-$zelta_verb.awk" -- "$@"
-		else
-			"$ZELTA_SHARE/zelta-usage.sh" usage "$zelta_verb" "$@"
-		fi ;;
+	*)		# Try zelta-VERB.awk
+			if [ -r "$ZELTA_SHARE/zelta-$zelta_verb.awk" ]; then
+				$AWK -f "$ZELTA_SHARE/zelta-$zelta_verb.awk" -- "$@"
+			else
+				"$ZELTA_SHARE/zelta-usage.sh" usage "$zelta_verb" "$@"
+			fi ;;
 esac
