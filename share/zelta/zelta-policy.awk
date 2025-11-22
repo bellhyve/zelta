@@ -50,10 +50,6 @@ function usage(message) {
 	exit(1)
 }
 
-function env(env_name, var_default) {
-	return ( (env_name in ENVIRON) ? ENVIRON[env_name] : var_default )
-}
-
 function get_hostname() {
 	hostname = ENVIRON["HOST"] ? ENVIRON["HOST"] : ENVIRON["HOSTNAME"]
 	if (!hostname) {
@@ -199,7 +195,7 @@ function load_config() {
 	conf_context = "global"
 	global_conf["backup_command"] = BACKUP_COMMAND
 
-	while ((getline < ZELTA_CONFIG)>0) {
+	while ((getline < opt["CONFIG"])>0) {
 		CONF_LINE++
 
 		# Clean up comments:
@@ -252,8 +248,8 @@ function load_config() {
 			backup_command[host, source] = create_backup_command()
 		} else usage(CONF_ERR CONF_LINE)
 	}
-	close(ZELTA_CONFIG)
-	if (!total_datasets) usage("no datasets defined in " ZELTA_CONFIG)
+	close(opt["CONFIG"])
+	if (!total_datasets) usage("no datasets defined in " opt["CONFIG"])
 	for (key in cli_options) global_conf[key] = cli_options[key]
 	FS = "[ \t]+";
 	LOG_ERROR = -2
@@ -341,7 +337,6 @@ function xargs() {
 }
 
 BEGIN {
-	ZELTA_CONFIG = env("ZELTA_CONFIG", "/usr/local/etc/zelta/zelta.conf")
 	STDERR = "/dev/stderr"
 	get_hostname()
 	load_config()

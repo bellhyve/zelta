@@ -5,57 +5,14 @@
 # usage: compares two "zfs list" commands; one "zfs list" is piped for parrallel
 # processing.
 
-function env(env_name, var_default) {
-	return ( (env_name in ENVIRON) ? ENVIRON[env_name] : var_default )
-}
-
-function report(level, message) {
-	if (!message) return 0
-	if ((level <= LOG_LEVEL) && (level <= LOG_WARNING)) {
-		error_messages++
-		print message > STDERR
-	}
-	else if (level <= LOG_LEVEL) print message
-}
-
-function h_num(num) {
-	if (PARSABLE) return num
-	suffix = "B"
-	divisors = "KMGTPE"
-	for (h = 1; h <= length(divisors) && num >= 1024; h++) {
-		num /= 1024
-		suffix = substr(divisors, h, 1)
-	}
-	return int(num) suffix
-}
-
 function arrlen(array) {
 	element_count = 0
 	for (key in array) element_count++
 	return element_count
 }
 
-function input_has_dataset() {
-	if (/^real[ \t]+[0-9]/) {
-		split($0, time_arr, /[ \t]+/)
-		zfs_list_time += time_arr[2]
-		return 0
-	} else if (/(sys|user)[ \t]+[0-9]/) return 0
-	else if (/dataset does not exist/) return 0
-	else if ($2 ~ /^[0-9]+$/) {
-		is_snapshot	= /@/ ? 1 : 0
-		is_bookmark	= /#/ ? 1 : 0
-		is_dataset	= !(is_snapshot || is_bookmark)
-		return 1
-	} else {
-		report(LOG_ERROR,$0)
-		exit_code = 1
-		return 0
-	}
-}
-
 function depth_too_high() {
-	return (ZELTA_DEPTH && (split(rel_name, depth_arr, "/") > ZELTA_DEPTH))
+	return (DEPTH && (split(rel_name, depth_arr, "/") > DEPTH))
 }
 
 function process_dataset(endpoint) {
@@ -92,30 +49,24 @@ function process_savepoint(endpoint) {
 	first_guid[dataset_id]	= guid
 }
 
-function get_savepoint_data(endpoint) {
-	if (input_has_dataset()) {
+# Check for snapshot, bookmark, dataset, or time data
+function parse_stream(endpoint) {
+	if (/^real[ \t]+[0-9]/) {
+		split($0, time_arr, /[ \t]+/)
+		zfs_list_time[endpoint] += time_arr[2]
+	} else if (/(sys|user)[ \t]+[0-9]/) return
+	else if (/dataset does not exist/) return
+	else if ($2 ~ /^[0-9]+$/) {
+		is_snapshot	= /@/ ? 1 : 0
+		is_bookmark	= /#/ ? 1 : 0
+		is_dataset	= !(is_snapshot || is_bookmark)
 		if (is_dataset) process_dataset(endpoint)
-		else if ((guid_to_name[endpoint,$2]) && is_bookmark) return
+		else if (is_bookmark && (guid_to_name[endpoint,$2] || SKIP_BOOKMARKS)) return
 		else process_savepoint(endpoint)
+	} else {
+		report(LOG_WARNING, "stream output unexpected: "$0)
+		exit_code = 1
 	}
-}
-
-function check_parent() {
-	if (!rel_name || !target) return
-	#if (!(snapshot_list_command ~ /zfs list/)) return
-	parent = dataset[target]
-	if (!gsub(/\/[^\/]+$/, "", parent)) {
-		report(LOG_ERROR,"invalid target: " parent)
-		#exit 1
-		return 0
-	}
-	parent_list_command = snapshot_list_command
-	sub(/zfs list.*'/, "zfs list '"parent"'", parent_list_command)
-	parent_list_command | getline parent_check
-	if (parent_check ~ /dataset does not exist/) {
-		report(LOG_DEFAULT, "parent dataset does not exist: " parent)
-	}
-	close(parent_list_command)
 }
 
 function arr_sort(arr) {
@@ -160,7 +111,7 @@ function check_prop_col(prop) {
 	else if (prop == "tgtwritten")	add_prop_col("TGT_WRITTEN")
 	else if (prop == "tgtsnaps")	add_prop_col("TGT_SNAPS")
 	else if (prop == "info")	add_prop_col("INFO")
-	else print "error: unknown property " prop
+	else report(LOG_ERROR, "unknown property " prop)
 }
 
 function load_property_list(props,	_prop_list, _p, _prop_num) {
@@ -171,46 +122,39 @@ function load_property_list(props,	_prop_list, _p, _prop_num) {
 		else check_prop_col(_prop_list[_p])
 	}
 }
-	
+
 BEGIN {
 	FS			= "\t"
 	OFS			= "\t"
-	STDERR			= "/dev/stderr"
-	LOG_ERROR		= -2
-	LOG_WARNING		= -1
-	LOG_DEFAULT		= 0
-	LOG_VERBOSE		= 1
-	LOG_VV			= 2
-	LOG_LEVEL		= env("ZELTA_LOG_LEVEL", 0)
 
 	PROPERTIES_ALL		= "relname,xfersize,xfernum,match,srcfirst,srclast,srcsnaps,srcwritten,tgtlast,tgtwritten,tgtsnaps"
 	PROPERTIES_LIST		= "relname,match,srcfirst,srcnext,srclast,tgtlast"
 	PROPERTIES_DEFAULT	= "relname,match,srclast,tgtlast,info"
-	load_property_list(env("ZELTA_MATCH_PROPERTIES", PROPERTIES_DEFAULT))
+	PROPERTIES		= PROPERTIES_DEFAULT
 
 	MODE			= "CHART"
-	PASS_FLAGS		= env("ZELTA_MATCH_FLAGS", "")
-	ZELTA_DEPTH		= env("ZELTA_DEPTH", "")
+
+	source = opt["SRC_ID"]
+	target = opt["TGT_ID"]
+	dataset[source] = opt["SRC_DS"]
+	dataset[target] = opt["TGT_DS"]
+	ds_name_length[source] = length(opt["SRC_DS"]) + 1
+	ds_name_length[target] = length(opt["TGT_DS"]) + 1
+
+	exit_code = 0
+	zfs_list_time[source] = 0
+	zfs_list_time[target] = 0
+}
+
+function load_flags() {
+	PASS_FLAGS		= $0
 
 	if (PASS_FLAGS ~ /p/) PARSABLE++
-	if (PASS_FLAGS ~ /q/) LOG_LEVEL--
+	if (PASS_FLAGS ~ /time/) SHOW_LIST_TIME++
 	if (PASS_FLAGS ~ /H/) {
 		NOHEADER++
 		MODE = "ONETAB"
 	}
-	if (PASS_FLAGS ~ /v/) LOG_LEVEL++
-
-
-	exit_code = 0
-	LOG_MODE = ZELTA_PIPE ? 0 : 1
-	target_zfs_list_time = 0
-}
-
-function get_endpoint_info() {
-	endpoint = $1
-	dataset[endpoint] = $2
-	ds_name_length[endpoint] = length(dataset[endpoint]) + 1
-	return endpoint
 }
 
 function count_snapshot_diff() {
@@ -219,34 +163,59 @@ function count_snapshot_diff() {
 	xfersnaps[rel_name]++
 }
 
-NR == 1 { source = get_endpoint_info() }
-
-NR == 2 { target = get_endpoint_info() }
-
-NR == 3 {
-	zfs_list_time = 0
+function run_zfs_list() {
+	SKIP_BOOKMARKS = 1
 	transfer_size = 0
-	if (!target) next
-	snapshot_list_command = $0;
-	if ((source == target) || !snapshot_list_command) {
-		report(LOG_WARNING, "identical source and target")
+	zfs_list_tgt = $0;
+	load_property_list(PROPERTIES)
+	if ((source == target)) {
+		report(LOG_WARNING, "warning: identical source and target")
 	} else {
 		# Load target snapshots
 		ds_trim_length = ds_name_length[target]
-		while  (snapshot_list_command | getline) get_savepoint_data(target)
-		close(snapshot_list_command)
+		while  (zfs_list_tgt | getline ) { parse_stream(target) }
+		#close(zfs_list_tgt)
 	}
-	target_zfs_list_time = zfs_list_time
 }
 
-NR > 3 {
-	get_savepoint_data(source)
+# Load variables from pipe
+!LIST_STREAM {
+	if (sub(/^PASS_FLAGS:\t/,"")) load_flags()
+	else if (sub(/^PROPERTIES:\t/,"")) PROPERTIES = $0
+	else if (sub(/^DEPTH:\t/,"")) DEPTH = $0
+	else if (sub(/^TGT_PARENT:\t/,"")) {
+		if ($0 == "no") {
+			report(LOG_ERROR, "parent dataset does not exist: " opt["TGT_DS"])
+		}
+	} else if (sub(/^SRC_PARENT:\t/,"")) {
+		if ($0 == "no") {
+			report(LOG_ERROR, "parent dataset does not exist: " opt["SRC_DS"])
+		}
+	} else if (sub(/^ZFS_LIST_TGT:\t/,"")) run_zfs_list()
+	else if (sub(/^ZFS_LIST_STREAM:\t/,"")) {
+		# Make sure the environment matches the ID of the incoming stream
+		if ($1 != opt["SRC_ID"]) {
+			report(LOG_ERROR, "unexpected zfs list stream")
+		}
+		# Switch to LIST_STREAM mode
+		SKIP_BOOKMARKS = 0
+		LIST_STREAM++ 
+		next
+	}
+}
+
+# Load "zfs list" output (and "time -p" data) from pipe
+LIST_STREAM {
+	# Load ZFS
+	# Check for EOF of the current stream
+	if (/^ZFS_LIST_STREAM_END$/) {
+		LIST_STREAM = 0
+		next
+	}
+	parse_stream(source)
 	if (!(is_snapshot || is_bookmark)) next
 	if (rel_name in last_match) {
 		if (guid_to_name[target,guid]) num_matches[rel_name]++
-	} else if (!last[target,rel_name] && !(rel_name in new_dataset)) {
-		check_parent()
-		new_dataset[rel_name]	= savepoint
 	} else if (guid_to_name[target,guid]) {
 		last_match[rel_name]		= savepoint
 		last_match_guid[rel_name]	= guid
@@ -307,6 +276,7 @@ function get_info() {
 						return	"cannot sync: target has newer snapshots than source"
 	} else if (last_match[rel_name]) {
 						return	"cannot sync: source and target have diverged"
+	} else if (!target_latest_match) {	return	"cannot sync: target has no matching snapshots"
 	} else					return	"cannot determine sync state"
 }
 
@@ -407,19 +377,19 @@ function chart_row(field) {
 }
 
 function summarize() {
-	if (LOG_LEVEL >= 0) {
+	if (opt["LOG_LEVEL"] >= 0) {
 		arr_sort(rel_name_order)
 		for (i=1; i <= rel_name_num; i++) chart_row(rel_name_order[i])
 	}
-	if (MODE=="ONETAB") {
-		source_zfs_list_time = zfs_list_time
-		print "SOURCE_LIST_TIME:", source_zfs_list_time, ":","TARGET_LIST_TIME", target_zfs_list_time
+	if (SHOW_LIST_TIME) {
+		print "SOURCE_LIST_TIME:", zfs_list_time[source]
+		print "TARGET_LIST_TIME:", zfs_list_time[target]
 	} else {
 		#count_rel_name = arrlen(rel_name_list)
 		count_rel_name = rel_name_num
 		#if (arrlen(source_latest) == 0) report(LOG_WARNING, "no source snapshots found")
-		if (count_rel_name == count_synced) report(LOG_DEFAULT, count_rel_name " datasets synced")
-		else if (count_rel_name == count_ready) report(LOG_DEFAULT, count_rel_name " datasets syncable")
+		if (count_rel_name == count_synced) report(LOG_NOTICE, count_rel_name " datasets synced")
+		else if (count_rel_name == count_ready) report(LOG_NOTICE, count_rel_name " datasets syncable")
 		else if (count_rel_name == count_blocked) report(LOG_WARNING, count_rel_name " datasets unsyncable")
 		else {
 			log_msg = count_rel_name " total datasets"
@@ -430,12 +400,12 @@ function summarize() {
 		}
 		if (total_written[target]) report(LOG_WARNING, "target dataset has changed: " h_num(total_written[target]))
 		if (total_written[source]) report(LOG_WARNING, "source dataset has changed: " h_num(total_written[source]))
-		if (transfer_size) report(LOG_DEFAULT, "snapshot syncable transfer size: " h_num(transfer_size))
+		if (transfer_size) report(LOG_NOTICE, "snapshot syncable transfer size: " h_num(transfer_size))
 	}
 }
 
 END {
 	for (rel_name in rel_name_list) get_summary()
 	summarize()
-	if (error_messages) close(STDERR)
+	close(LOGGER)
 }
