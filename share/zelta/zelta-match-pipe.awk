@@ -5,23 +5,11 @@
 # usage: compares two "zfs list" commands; one "zfs list" is piped for parrallel
 # processing.
 
-function h_num(num) {
-	if (PARSABLE) return num
-	suffix = "B"
-	divisors = "KMGTPE"
-	for (h = 1; h <= length(divisors) && num >= 1024; h++) {
-		num /= 1024
-		suffix = substr(divisors, h, 1)
-	}
-	return int(num) suffix
-}
-
 function arrlen(array) {
 	element_count = 0
 	for (key in array) element_count++
 	return element_count
 }
-
 
 function depth_too_high() {
 	return (DEPTH && (split(rel_name, depth_arr, "/") > DEPTH))
