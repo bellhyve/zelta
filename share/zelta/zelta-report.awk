@@ -5,8 +5,12 @@
 #
 # Note that this script has not been designed for public use. Contributions are welcome.
 
-function env(env_name, var_default) {
-	return ( (env_name in ENVIRON) ? ENVIRON[env_name] : var_default )
+function init(	  o) {
+	for (o in ENVIRON) {
+		if (sub(/^ZELTA_/,"",o)) {
+			opt[o] = ENVIRON["ZELTA_" o]
+		}
+	}
 }
 
 function err(msg) {
@@ -15,10 +19,9 @@ function err(msg) {
 }
 
 BEGIN {
-	ZELTA_CONFIG = env("ZELTA_CONFIG", "/usr/local/etc/zelta/zelta.conf")
-	get_backup_root_command = "awk '/^BACKUP_ROOT: /{print $2}' " ZELTA_CONFIG
+	get_backup_root_command = "awk '/^BACKUP_ROOT: /{print $2}' " opt["CONFIG"]
 	get_backup_root_command | getline BACKUP_ROOT
-	HOOK_FILE = env("SLACK_HOOK", ENVIRON["HOME"] "/.zeport-hook")
+	HOOK_FILE = ENVIRON["HOME"] "/.zeport-hook"
 	getline SLACK_HOOK < HOOK_FILE
 	if (! SLACK_HOOK || ! BACKUP_ROOT) err("please correctly set BACKUP_ROOT and SLACK_HOOK")
 	"hostname" | getline HOSTNAME

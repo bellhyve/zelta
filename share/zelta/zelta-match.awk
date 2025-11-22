@@ -39,144 +39,131 @@ function usage(message) {
 	exit 1
 }
 
-function env(env_name, var_default) {
-	return ( (env_name in ENVIRON) ? ENVIRON[env_name] : var_default )
-}
-
-function sub_opt() {
-	if ($0 == "") {
-		i++
-		$0 = ARGV[i]
-	}
-	opt = $0
-	$0 = ""
-	return opt
-}
-
 function pass_flags(flag) {
-	PASS_FLAGS = PASS_FLAGS flag
+	PASS_FLAGS = PASS_FLAGS ? (PASS_FLAGS OFS flag) : flag
 }
 
-function long_opt() {
-	if (! sub(/^--/,"")) return 0
-	else {
-		if (split($0,arg_opt,"=")) {
-			$0 = arg_opt[1]
-			option = arg_opt[2]
-		} else option = ""
-		gsub(/-/,"")
+function load_options(	i, o) {
+	for (o in ENVIRON) {
+		if (sub(/^ZELTA_/,"",o)) {
+			opt[o] = ENVIRON["ZELTA_"o]
+		}
+	}
+	split(opt["ARGS"],args,"\t")
+	for (i in args) {
+		$0 = args[i]
+		if (sub(/^o /,""))		PROPERTIES = $0
+		else if (sub(/^d /,""))		ZELTA_DEPTH = $0
+		else if (/^dry-?run$/)		DRY_RUN++
+		else if (/^n$/)			DRY_RUN++
+		else if (/^h$/)			usage()
+		else if (/^help$/)		usage()
+		else if (/^no-?written$/)	WRITTEN = 0
+		else if (/^H$/)			pass_flags("H")
+		else if (/^p$/)			pass_flags("p")
+		else if (/^time$/)		pass_flags("time")
+		#else if (sub(/^j/,""))		pass_flags("j")
+		else usage("unkown option: " $0)
+	}
+	# Skip "written" in scripting mode (-H) if no written summary or properties will be printed.
+	if (WRITTEN && PROPERTIES && (PASS_FLAGS ~ /[H]/) && (PROPERTIES !~ /(all|written|size)/)) {
+		WRITTEN = 0
+	}
+}
+
+function join_arr(arr, len,		i, str) {
+	for ( i=1; i<=len; i++ ) {
+		if (! arr[i]) continue
+		str = str sprintf("%s%s", arr[i], (i<len ? " " : ""))
+	}
+	return str
+}
+
+function zfs_list(endpoint,		p, cmd, cmd_part) {
+	if (! opt[endpoint"_DS"]) return ""
+	p = 1
+	cmd_part[p++]			= opt["SH_COMMAND_PREFIX"]
+	cmd_part[p++]			= opt["TIME_COMMAND"]
+	if (opt[endpoint "_PREFIX"]) {
+		cmd_part[p++]		= opt["REMOTE_DEFAULT"] " " opt[endpoint "_PREFIX"]
+	}
+	cmd_part[p++]			= "zfs"
+	cmd_part[p++]			= "list -Hprt all -Screatetxg"
+	cmd_part[p++]			= "-o name,guid" (WRITTEN ? ",written" : "")
+	if (DEPTH) cmd_part[p++]	= "-d " DEPTH
+	cmd_part[p++]			= "'"opt[endpoint"_DS"]"'"
+	cmd_part[p++]			= opt["SH_COMMAND_SUFFIX"]
+	cmd_part[p]			= ALL_OUT
+	cmd = join_arr(cmd_part, p)
+	return cmd
+}
+
+function check_parent(endpoint,		p, cmd_part, cmd) {
+	ds = opt[endpoint"_DS"]
+	if (!ds) return ""
+	# If the dataset is a pool or immediately below it, no need to check for a parent
+	if (gsub(/\//, "/", ds) <= 1) {
 		return 1
 	}
-}
-
-function get_options() {
-        for (i=1;i<ARGC;i++) {
-                $0 = ARGV[i]
-                if (long_opt()) {
-			if (/^dryrun$/)		DRY_RUN++
-			else if (/^help$/)	usage()
-			else if (/^nowritten$/)	WRITTEN = 0
-			else usage("unkown option: --" $0)
-                } else if (sub(/^-/,"")) while (/./) {
-                        if (/^[h?]/)		usage()
-                        else if (sub(/^n/,""))	DRY_RUN++
-                        else if (sub(/^H/,""))	pass_flags("H")
-                        else if (sub(/^p/,""))	pass_flags("p")
-                        else if (sub(/^q/,""))	pass_flags("q")
-                        #else if (sub(/^j/,""))	pass_flags("j")
-                        #else if (sub(/^v/,""))	pass_flags("v")
-			else if (sub(/^o/,""))	PROPERTIES = sub_opt()
-                        else if (sub(/^d/,""))	ZELTA_DEPTH = sub_opt()
-                        else if (/./) usage("unkown options: " $0)
-                } else if (target) {
-                        usage("too many options: " $0)
-                } else if (source) target = $0
-                else source = $0
-        }
-	if (!source) usage()
-}
-
-function get_endpoint_info(endpoint) {
-	FS = "\t"
-	endpoint_command = "zelta endpoint " endpoint
-	endpoint_command | getline
-	#endpoint_id[endpoint]	= $1
-	zfs[endpoint]		= $2
-	#user[endpoint]		= $3
-	#host[endpoint]		= $4
-	ds[endpoint]		= $5
-	#snapshot[endpoint]	= $6
-	close(endpoint_command)
-	return $1
-}
-
-function error(string) {
-	print "error: "string > "/dev/stderr"
+	sub(/\/[^\/]*$/, "", ds)
+	p = 1
+	#cmd_part[p++]			= opt["SH_COMMAND_PREFIX"]
+	#cmd_part[p++]                   = opt[endpoint"_ZFS"]
+	if (opt[endpoint "_PREFIX"]) {
+		cmd_part[p++]		= opt["REMOTE_DEFAULT"] " " opt[endpoint "_PREFIX"]
+	}
+	cmd_part[p++]			= "zfs"
+	cmd_part[p++]                   = "list -Ho name"
+	cmd_part[p++]                   = "'"ds"'"
+	#cmd_part[p++]			= opt["SH_COMMAND_SUFFIX"]
+	cmd_part[p]                     = ALL_OUT
+	cmd = join_arr(cmd_part, p)
+	cmd | getline cmd_output
+	close(cmd)
+	if (cmd_output==ds) return 1
+	else return 0
 }
 
 BEGIN {
-	FS="\t"
-	exit_code			= 0
+	# Constants
+	FS				= "\t"
+	OFS				= "\t"
+	ALL_OUT				= "2>&1"
+
+	# Defaults
+	DEPTH				= 0
 	WRITTEN				= 1
-	REMOTE_COMMAND_NOPIPE		= env("REMOTE_COMMAND_NOPIPE", "ssh -n") " "
-	TIME_COMMAND			= env("TIME_COMMAND", "/usr/bin/time -p") " "
-	ZELTA_MATCH_COMMAND		= "zelta match-pipe"
-	ZFS_LIST_PROPERTIES		= env("ZFS_LIST_PROPERTIES", "name,guid")
-	ZELTA_DEPTH			= env("ZELTA_DEPTH", 0)
-	ZFS_LIST_PREFIX			= "list -Hprt all -Screatetxg -o "
-	#ZFS_LIST_PREFIX_WRITECHECK	= "list -Hprt filesystem,volume -o "
-	
-	get_options()
-	if (PASS_FLAGS) PASS_FLAGS	= "ZELTA_MATCH_FLAGS='"PASS_FLAGS"' "
-	# Find some logic to skip "written" besides --no-written
-	#if (PROPERTIES && split(PROPERTIES, PROPLIST, ",")) {
-	#	for (p in PROPLIST) {
-	#		$0 = PROPLIST[p]
-	#		if ((/^x/ && !/xfersn/) || /wri/ || /all/) WRITTEN++
-	#	}
-	#}
-	ZFS_LIST_PROPERTIES_DEFAULT = "name,guid" (WRITTEN?",written":"")
-	ZFS_LIST_PROPERTIES = env("ZFS_LIST_PROPERTIES", ZFS_LIST_PROPERTIES_DEFAULT)
 
-	MATCH_PREFIX = (PROPERTIES?"ZELTA_MATCH_PROPERTIES='"PROPERTIES"' ":"") PASS_FLAGS
-	MATCH_PREFIX = MATCH_PREFIX (ZELTA_DEPTH ? "ZELTA_DEPTH="ZELTA_DEPTH" " : "")
-	MATCH_COMMAND = MATCH_PREFIX "zelta match-pipe"
-	ZFS_LIST_DEPTH = ZELTA_DEPTH ? " -d"ZELTA_DEPTH : ""
-
-	ZFS_LIST_FLAGS = ZFS_LIST_PREFIX ZFS_LIST_PROPERTIES ZFS_LIST_DEPTH " "
-	#if (target) ZFS_LIST_FLAGS = ZFS_LIST_PREFIX ZFS_LIST_PROPERTIES ZFS_LIST_DEPTH " "
-	#else ZFS_LIST_FLAGS = ZFS_LIST_PREFIX_WRITECHECK ZFS_LIST_PROPERTIES ZFS_LIST_DEPTH " "
-
-	ALL_OUT =" 2>&1"
-	OFS="\t"
-
-	info_source = get_endpoint_info(source) OFS ds[source]
-	zfs[source] = ($2 ? REMOTE_COMMAND_NOPIPE $2 " " : "") "zfs "
-	if (target) {
-		info_target = get_endpoint_info(target) OFS ds[target]
-		zfs[target] = ($2 ? REMOTE_COMMAND_NOPIPE $2 " " : "") "zfs "
-	}
-	
-
-	zfs_list[source] = zfs[source] ZFS_LIST_FLAGS "'"ds[source]"'"
-	zfs_list[target] = zfs[target] ZFS_LIST_FLAGS "'"ds[target]"'"
+	load_options()
+	MATCH_COMMAND			= ENVIRON["AWK"] " -f " opt["SHARE"] "/zelta-match-pipe.awk"
+	MATCH_COMMAND			= "zelta ipc-run match-pipe"
+	ZFS_LIST_SRC			= zfs_list("SRC")
+	ZFS_LIST_TGT			= zfs_list("TGT")
 
 	if (DRY_RUN) {
-		print "+ "zfs_list[source]
-		if (target) print "+ "zfs_list[target]
+		print "+ " ZFS_LIST_SRC
+		if (ZFS_LIST_TGT) print "+ " ZFS_LIST_TGT
 		exit 1
 	}
 
-	zfs_list[source] = TIME_COMMAND zfs_list[source] ALL_OUT
-	zfs_list[target] = TIME_COMMAND zfs_list[target] ALL_OUT
+	# MATCH_COMMAND = "cat" # Test stream
 
-	print info_source				| MATCH_COMMAND
-	print (target ? info_target : "")		| MATCH_COMMAND
-	print (target ? zfs_list[target] : "")		| MATCH_COMMAND
-	#while (zfs_list[source] | getline zfs_list_output) {
-	while (zfs_list[source] | getline) print	| MATCH_COMMAND
-	#	print zfs_list_output				| MATCH_COMMAND
-	#}
-	close(zfs_list[source])
+	# Stream to "zelta-match-pipe.awk"
+	if (PASS_FLAGS) print "PASS_FLAGS:", PASS_FLAGS			| MATCH_COMMAND
+	if (PROPERTIES) print "PROPERTIES:", PROPERTIES			| MATCH_COMMAND
+	if (DEPTH) print "DEPTH:", DEPTH				| MATCH_COMMAND
+	if (opt["TGT_DS"]) {
+		if (check_parent("TGT")) {
+			print "ZFS_LIST_TGT:", ZFS_LIST_TGT 		| MATCH_COMMAND
+		} else print "TGT_PARENT:", "no"			| MATCH_COMMAND
+	}
+	if (opt["SRC_DS"]) {
+		if (check_parent("SRC")) {
+			print "ZFS_LIST_STREAM:", opt["SRC_ID"]	| MATCH_COMMAND
+			while (ZFS_LIST_SRC | getline) print		| MATCH_COMMAND
+			close(ZFS_LIST_SRC)
+		} else print "SRC_PARENT:", no				| MATCH_COMMAND
+	}
+	print "ZFS_LIST_STREAM_END"					| MATCH_COMMAND
 	close(MATCH_COMMAND)
 }

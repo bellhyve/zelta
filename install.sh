@@ -67,7 +67,7 @@ link_to_zelta() {
 }
 
 
-mkdir -p "$ZELTA_BIN" "$ZELTA_SHARE" "$ZELTA_ETC" "$ZELTA_DOC"
+mkdir -p "$ZELTA_BIN" "$ZELTA_SHARE" "$ZELTA_ETC"
 copy_file bin/zelta "$ZELTA"
 find share/zelta -name '*.awk' -o -name '*.sh' | while read -r file; do
     copy_file "$file" "${ZELTA_SHARE}/$(basename "$file")"
