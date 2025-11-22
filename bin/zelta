@@ -4,9 +4,57 @@
 #
 # Initialize the environment for Zelta subcommands
 
+ZELTA_VERSION="Zelta Replication Suite v1.1.0-alpha"
+
+zelta_usage() {
+	[ -n "$1" ] && echo unrecognized command \'"$1"\' >&2
+	cat >&2 << EOF
+usage: zelta command args ...
+where 'command' is one of the following:
+
+	version
+
+	match [-Hp] [-d max] [-o field[,...]] source-endpoint target-endpoint
+
+	backup [-bcdDeeFhhLMpuVw] [-iIjnpqRtTv]
+	       [initiator] source-endpoint target-endpoint
+
+	sync [bcdDeeFhhLMpuVw] [-iIjnpqRtTv]
+	     [initiator] source-endpoint target-endpoint
+
+	clone [-d max] source-dataset target-dataset
+
+	policy [backup-options] [site|host|dataset] ...
+
+Each endpoint is of the form: [user@][host:]dataset
+
+Each dataset is of the form: pool/[dataset/]*dataset[@name]
+
+For further help on a command or topic, run: zelta help [<topic>]
+EOF
+	exit 1
+}
+
+# For "zelta help" run man
+zelta_man() {
+
+	case $1 in
+		'')					_manpage=zelta ;;
+		list|zmatch)				_manpage=zelta-match ;;
+		sync|clone|replicate|zpull|zpush)	_manpage=zelta-backup ;;
+		*)					_manpage=zelta-$1 ;;
+	esac
+	SECTION=8
+	if [ -s "$ZELTA_DOC" ] ; then
+		man "$ZELTA_DOC/$_manpage.$SECTION"
+	else
+		man $SECTION $_manpage
+	fi
+}
+
+
 zelta_init() {
 
-	ZELTA_VERSION="Zelta Replication Suite v1.1.0-alpha"
 
 	AWK="${ZELTA_AWK:-${AWK:-awk}}"
 	: ${ZELTA_ETC:="/usr/local/etc/zelta"}	# Dir for the default env and policy
@@ -26,7 +74,6 @@ zelta_init() {
 		' "$ZELTA_ENV")
 		
 		eval "$_env_settings"
-		set |grep '^ZELTA_SNA'
 	fi
 
 	: ${ZELTA_SHARE:="/usr/local/share/zelta"}	# Dir for helper scripts
@@ -69,9 +116,16 @@ zelta_init() {
 	export AWK $(set | $AWK -F= '/^ZELTA_.*=/{print $1}')
 }
 
+# Load awk common functions plus the verb utility
+zelta_run_awk() {
+	_verb="$1"
+	shift
+	$AWK -f "$ZELTA_SHARE/zelta-common.awk" -f "$ZELTA_SHARE/zelta-$_verb.awk" -- "$@"
+}
+
 zelta_args() {
 	if [ -n "$1" ]; then
-		_opts=$($AWK -f "$ZELTA_SHARE/zelta-args.awk" -- "$@") || exit
+		_opts=$(zelta_run_awk "args" "$@")
 		eval export "$_opts"
 	fi
 }
@@ -144,30 +198,34 @@ esac
 zelta_args "$@"
 
 case $zelta_verb in
-	# Symlinks for zelta (legacy)
-	zmatch)		$AWK -f "$ZELTA_SHARE/zelta-match.awk" -- "$@" ;;
-	zp)		$AWK -f "$ZELTA_SHARE/zelta-policy.awk" -- "$@" ;;
-	zpull)		$AWK -f "$ZELTA_SHARE/zelta-replicate.awk" -- "$@" ;;
-	zpush)		$AWK -f "$ZELTA_SHARE/zelta-replicate.awk" -- "$@" ;;
-	zeport)		$AWK -f "$ZELTA_SHARE/zelta-report.awk" -- "$@" ;;
-	# "zelta replicate" variants
-	backup)		$AWK -f "$ZELTA_SHARE/zelta-replicate.awk" -- -sI "$@" ;;
-	clone)		$AWK -f "$ZELTA_SHARE/zelta-replicate.awk" -- --clone "$@" ;;
-	sync)		$AWK -f "$ZELTA_SHARE/zelta-common.awk" -f "$ZELTA_SHARE/zelta-replicate.awk" -- -i "$@" ;;
+	# zelta match
+	list |\
+	zmatch |\
+	match)		zelta_run_awk "match" ;;
+	# zelta replicate
+	backup |\
+	clone |\
+	sync |\
+	zpull |\
+	zpush |\
+	replicate)	zelta_run_awk "replicate" ;;
+	zp |\
+	policy)		zelta_run_awk "policy" ;;
 	# Utilities
 	snapshot)	echo "$@" | $AWK -f "$ZELTA_SHARE/zelta-snapshot.awk" ;;
-	endpoint)	echo "$@" | $AWK -f "$ZELTA_SHARE/zelta-endpoint.awk" ;;
+	zeport)		zelta_run_awk "report" ;;
 	# Workaround for Linux with no /bin/sh "time -p" and no /usr/bin/time
 	time)		"$@" | bash -c "time -p cat" ;;
 	# Info
-	-V|--version)	echo $ZELTA_VERSION; exit ;;
-	version)	echo $ZELTA_VERSION; exit ;;
-	help)		. "$ZELTA_SHARE/zelta-usage.sh" "$@" ;;
-	-?|usage)	"$ZELTA_SHARE/zelta-usage.sh" "$zelta_verb" "$@" ;;
+	-V |\
+	--version |\
+	version)	echo $ZELTA_VERSION ;;
+	''|-?)		zelta_usage ;;
+	help)		zelta_man "$@" ;;
 	*)		# Try zelta-VERB.awk
 			if [ -r "$ZELTA_SHARE/zelta-$zelta_verb.awk" ]; then
-				$AWK -f "$ZELTA_SHARE/zelta-$zelta_verb.awk" -- "$@"
+				zelta_run_awk "$zelta_verb"
 			else
-				"$ZELTA_SHARE/zelta-usage.sh" usage "$zelta_verb" "$@"
+				zelta_usage "$zelta_verb"
 			fi ;;
 esac
