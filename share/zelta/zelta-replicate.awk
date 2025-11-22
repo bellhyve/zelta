@@ -193,7 +193,10 @@ function get_config() {
 	RECV_FLAGS_TOP		= opt["RECV_FLAGS_TOP"]
 	INTR_FLAGS		= opt["INTR_FLAGS", "-i"]
 	RECEIVE_PREFIX		= opt["RECEIVE_PREFIX"]
+
+	# Replace args with verb processing
 	if (opt["VERB"] == "backup") {
+		# add snapshot-if-needed and maybe some other lbyl options
 		INTR_FLAGS 	= "-I"
 	} else	INTR_FLAGS	= "-i"
 	source = get_endpoint_info("SRC")

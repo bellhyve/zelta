@@ -5,10 +5,6 @@
 # usage: compares two "zfs list" commands; one "zfs list" is piped for parrallel
 # processing.
 
-function report(mode, message) {
-	log_buffer[++log_count] = mode "\t" message
-}
-
 function h_num(num) {
 	if (PARSABLE) return num
 	suffix = "B"
@@ -139,24 +135,9 @@ function load_property_list(props,	_prop_list, _p, _prop_num) {
 	}
 }
 
-function load_options() {
-        for (o in ENVIRON) {
-                if (sub(/^ZELTA_/,"",o)) {
-                        opt[o] = ENVIRON["ZELTA_"o]
-                }
-        }
-}
-	
 BEGIN {
 	FS			= "\t"
 	OFS			= "\t"
-
-	LOGGER = "zelta ipc-log"
-	LOG_ERROR = 0
-	LOG_WARNING = 1
-	LOG_NOTICE = 2
-	LOG_INFO = 3
-	LOG_DEBUG = 4
 
 	PROPERTIES_ALL		= "relname,xfersize,xfernum,match,srcfirst,srclast,srcsnaps,srcwritten,tgtlast,tgtwritten,tgtsnaps"
 	PROPERTIES_LIST		= "relname,match,srcfirst,srcnext,srclast,tgtlast"
@@ -165,7 +146,6 @@ BEGIN {
 
 	MODE			= "CHART"
 
-	load_options()
 	source = opt["SRC_ID"]
 	target = opt["TGT_ID"]
 	dataset[source] = opt["SRC_DS"]

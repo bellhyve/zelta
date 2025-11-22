@@ -50,14 +50,6 @@ function usage(message) {
 	exit(1)
 }
 
-function init(          o) {
-        for (o in ENVIRON) {
-                if (sub(/^ZELTA_/,"",o)) {
-                        opt[o] = ENVIRON["ZELTA_" o]
-                }
-        }
-}
-
 function get_hostname() {
 	hostname = ENVIRON["HOST"] ? ENVIRON["HOST"] : ENVIRON["HOSTNAME"]
 	if (!hostname) {
@@ -345,7 +337,6 @@ function xargs() {
 }
 
 BEGIN {
-	init()
 	STDERR = "/dev/stderr"
 	get_hostname()
 	load_config()

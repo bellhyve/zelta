@@ -2,24 +2,6 @@
 #
 # zelta-args.awk: serialize common zelta arguments
 
-function init(		o) {
-	for (o in ENVIRON) {
-		if (sub(/^ZELTA_/,"",o)) {
-			opt[o] = ENVIRON["ZELTA_" o]
-		}
-	}
-}
-
-function report(mode, message) {
-	print mode "\t" message | opt["LOG_COMMAND"]
-	LOG_LINES++
-}
-
-function stop(exit_code) {
-	if (LOG_LINES) close(LOGGER)
-	exit exit_code
-}
-
 function get_endpoint(ep_type) {
 	ep_pre = ep_type "_"
 	endpoint = $0
@@ -117,17 +99,11 @@ function get_args() {
 }
 
 BEGIN {
-	init()
-	LOG_ERROR = 0
-	LOG_WARNING = 1
-	LOG_NOTICE = 2
-	LOG_INFO = 3
-	LOG_DEBUG = 4
-	
 	ENV_PREFIX = "ZELTA_"
 
 	# We need to know the LOG_LEVEL default for -v/-q
 	newenv["LOG_LEVEL"] = opt["LOG_LEVEL"]
+
 	get_args()
 	for (e in newenv) {
 		# Make sure we're actually changing something
