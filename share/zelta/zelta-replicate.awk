@@ -56,24 +56,11 @@ function track_errors(message) {
 	else print message > STDOUT
 }
 
-function report(mode, message) {
-	print mode "\t" message | opt["LOG_COMMAND"]
-	logged_messages++
-}
-
 # This should produce replication status output if we can reliably catch siginfo
 function siginfo(message) {
 	print buffered_messages message > STDOUT
 	buffered_messages = ""
 	track_errors()
-}
-
-function init(          o) {
-        for (o in ENVIRON) {
-                if (sub(/^ZELTA_/,"",o)) {
-                        opt[o] = ENVIRON["ZELTA_" o]
-                }
-        }
 }
 
 function arr_sum(arr, variable) {
@@ -83,10 +70,6 @@ function arr_sum(arr, variable) {
 	}
 	return (sum ? sum : 0)
 }
-
-function q(s) { return "'" s "'" }
-
-function dq(s) { return "\"" s "\"" }
 
 function zfs_cmd(endpoint, remote_type,		_ssh, _zfs) {
 	_zfs = "zfs"
@@ -130,11 +113,6 @@ function command_queue(send_dataset, receive_dataset, match_snapshot,	target_fla
 		source_stream[rpl_num] = send_dataset
 		#stream_size[rpl_num] = xfersize
 	}
-}
-
-# Add a space
-function str_add(s, n) {
-	return s ? s " " n : n
 }
 
 # Create endpoint shortcut variables; delete this probably
@@ -226,12 +204,6 @@ function get_config() {
 	QUEUE_MODES["JSON"]++
 	#QUEUE_MODES["PROGRESS"]++
 
-	LOG_ERROR = 0
-	LOG_WARNING = 1
-	LOG_NOTICE = 2
-	LOG_INFO = 3
-	LOG_DEBUG = 4
-
 	load_options()
 	if (DETECT_OPTIONS) detect_send_options()
 
@@ -292,21 +264,6 @@ function detect_send_options() {
 	split(options, optlist, "")
 	for (opt in optlist) VALID_SEND_OPT[opt]++
 	# THIS LOOKS INCOMPLETE!
-}
-
-function sys_time() {
-	srand();
-	return srand();
-}
-
-function h_num(num) {
-	suffix = "B"
-	divisors = "KMGTPE"
-	for (h = 1; h <= length(divisors) && num >= 1024; h++) {
-		num /= 1024
-		suffix = substr(divisors, h, 1)
-	}
-	return int(num) suffix
 }
 
 function dry_run(command) {
@@ -569,7 +526,6 @@ function plan_clone() {
 BEGIN {
 	STDOUT = "/dev/stdout"
 	ALL_OUT = " 2>&1"
-	init()
 	get_config()
 	received_streams = 0
 	total_bytes = 0
