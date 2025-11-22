@@ -8,11 +8,27 @@ zelta_init() {
 
 	ZELTA_VERSION="Zelta Replication Suite v1.1.0-alpha"
 
+	AWK="${ZELTA_AWK:-${AWK:-awk}}"
 	: ${ZELTA_ETC:="/usr/local/etc/zelta"}	# Dir for the default env and policy
 	: ${ZELTA_ENV:="$ZELTA_ETC/zelta.env"}	# Edit this file to change command defaults
-	if [ -r $ZELTA_ENV ]; then
-	       . $ZELTA_ENV
+	
+	# Read zelta.env prepending ZELTA_ prefix when necessary
+	if [ -r "$ZELTA_ENV" ]; then
+		_env_settings=$($AWK -F= '
+		    /^[[:space:]]*#/ || /^[[:space:]]*$/ { next }
+		    {
+			sub(/=/, ":=")
+			sub(/^[[:space:]]+/,"")
+			sub(/[[:space:]]*#.*$/, "")
+			if (! /^ZELTA_/) $0 = "ZELTA_" $0
+			printf ": ${%s}\n", $0
+		    }
+		' "$ZELTA_ENV")
+		
+		eval "$_env_settings"
+		set |grep '^ZELTA_SNA'
 	fi
+
 	: ${ZELTA_SHARE:="/usr/local/share/zelta"}	# Dir for helper scripts
 	: ${ZELTA_CONFIG:="$ZELTA_ETC/zelta.conf"}	# YAML for "zelta policy"
 
@@ -46,10 +62,10 @@ zelta_init() {
 
 	ZELTA_VERB="${zelta_verb}"
 
-	: ${AWK:="awk"}
+	# We're prioritizing ZELTA_AWK over AWK (but use AWK below for clarity)
+	AWK="${ZELTA_AWK:-${AWK:-awk}}"
 
-	export AWK
-	export $(set | grep -o '^ZELTA_[A-Z_]*')
+	export AWK $(set | awk -F= '/^ZELTA_.*=/{print $1}')
 }
 
 zelta_args() {
@@ -123,18 +139,18 @@ zelta_args "$@"
 
 case $zelta_verb in
 	# Synonyms
-	zmatch)		"$AWK" -f "$ZELTA_SHARE/zelta-match.awk" -- "$@" ;;
-	zp)		"$AWK" -f "$ZELTA_SHARE/zelta-policy.awk" -- "$@" ;;
-	zpull)		"$AWK" -f "$ZELTA_SHARE/zelta-replicate.awk" -- "$@" ;;
-	zpush)		"$AWK" -f "$ZELTA_SHARE/zelta-replicate.awk" -- "$@" ;;
-	zeport)		"$AWK" -f "$ZELTA_SHARE/zelta-report.awk" -- "$@" ;;
+	zmatch)		$AWK -f "$ZELTA_SHARE/zelta-match.awk" -- "$@" ;;
+	zp)		$AWK -f "$ZELTA_SHARE/zelta-policy.awk" -- "$@" ;;
+	zpull)		$AWK -f "$ZELTA_SHARE/zelta-replicate.awk" -- "$@" ;;
+	zpush)		$AWK -f "$ZELTA_SHARE/zelta-replicate.awk" -- "$@" ;;
+	zeport)		$AWK -f "$ZELTA_SHARE/zelta-report.awk" -- "$@" ;;
 	# "zelta replicate" variants
-	backup)		"$AWK" -f "$ZELTA_SHARE/zelta-replicate.awk" -- -sI "$@" ;;
-	clone)		"$AWK" -f "$ZELTA_SHARE/zelta-replicate.awk" -- --clone "$@" ;;
+	backup)		$AWK -f "$ZELTA_SHARE/zelta-replicate.awk" -- -sI "$@" ;;
+	clone)		$AWK -f "$ZELTA_SHARE/zelta-replicate.awk" -- --clone "$@" ;;
 	sync)		$AWK -f "$ZELTA_SHARE/zelta-replicate.awk" -- -i "$@" ;;
 	# Utilities
-	snapshot)	echo "$@" | "$AWK" -f "$ZELTA_SHARE/zelta-snapshot.awk" ;;
-	endpoint)	echo "$@" | "$AWK" -f "$ZELTA_SHARE/zelta-endpoint.awk" ;;
+	snapshot)	echo "$@" | $AWK -f "$ZELTA_SHARE/zelta-snapshot.awk" ;;
+	endpoint)	echo "$@" | $AWK -f "$ZELTA_SHARE/zelta-endpoint.awk" ;;
 	time)		"$@" | bash -c "time -p cat" ;;
 	# Info
 	-V|--version)	echo $ZELTA_VERSION; exit ;;

@@ -472,8 +472,7 @@ function replicate(command) {
 		else if (/receiving/ && /stream/) { }
 		else if (/ignoring$/) { }
 		else {
-			print "HMM " $0
-			report(LOG_WARNING, $0)
+			report(LOG_WARNING, "unexpected output in replication stream:", $0)
 			error_code = 2
 		}
 
