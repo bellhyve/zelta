@@ -85,18 +85,23 @@ zelta_init() {
 	: ${ZELTA_SH_COMMAND_PREFIX:="{"}
 	: ${ZELTA_SH_COMMAND_SUFFIX:="; }"}
 	: ${ZELTA_SNAP_NAME:="date -u +%Y-%m-%d_%H.%M.%S"}
+	: ${ZELTA_SNAP_MODE:="IF_NONE"}
 
 	: ${ZELTA_SEND_DEFAULT:="-Lec"}
 	: ${ZELTA_SEND_RAW:="-Lw"}
 	: ${ZELTA_SEND_NEW:="-p"}
+	: ${ZELTA_SEND_INTR:="-i"}
+	: ${ZELTA_SEND_PARTIAL:="-t"}
 	: ${ZELTA_SEND_REPLICATE:="-Rs"}
-	: ${ZELTA_SEND_CHECK:="yes"}
+
+	: ${ZELTA_SEND_CHECK:="no"}
 
 	: ${ZELTA_RECV_DEFAULT:=""}
 	: ${ZELTA_RECV_TOP:="-o readonly=on"}
 	: ${ZELTA_RECV_FS:="-u -x mountpoint"}
 	: ${ZELTA_RECV_VOL:=""}
-	: ${ZELTA_RECV_RESUME:="-s"}
+	: ${ZELTA_RECV_PARTIAL:="-s"}
+
 	: ${ZELTA_RESUME:="yes"}
 
 	: ${ZELTA_CLONE_DEFAULT:="-po readonly=off"}
@@ -212,7 +217,6 @@ case $zelta_verb in
 	zp |\
 	policy)		zelta_run_awk "policy" ;;
 	# Utilities
-	snapshot)	echo "$@" | $AWK -f "$ZELTA_SHARE/zelta-snapshot.awk" ;;
 	zeport)		zelta_run_awk "report" ;;
 	# Workaround for Linux with no /bin/sh "time -p" and no /usr/bin/time
 	time)		"$@" | bash -c "time -p cat" ;;

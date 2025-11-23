@@ -5,25 +5,8 @@
 # 
 # After using "zelta match" to identify out-of-date snapshots on the target, this script creates
 # replication streams to synchronize the snapshots of a dataset and its children. This script is
-# useful for backup and migration operations. It intentionally does not have a rollback feature,
-# and instead assumes (or attempts to make) the backup target readonly.
-#
-# If called with the argument "-z" zelta sync reports an abbreviated output for single-line
-# reporting, as provided by the default "zelta policy" output:
-#
-# 	received_streams, total_bytes, time, error
-#
-# See the zelta.env.sample and usage output for further details.
-#
-#
-
-# Deprecate this dumb idea and switch to "VARIABLE=VALUE" pairs, or just use JSON
-# ZELTA_PIPE "-z" output key:
-# error_code <0: number of failed streams
-# error_code 0: replicated or up-to-date
-# error_code 1: warnings
-# error_code 2: replication error
-# error_code 3: target is ahead of source
+# useful for backup, migration, and failover scenarios. It intentionally does not have a rollback
+# feature, and instead uses a "rotate" feature to rename and clone the diverged replica.
 
 # We follow zfs's standard of only showing short options when available
 function usage(message) {
@@ -42,35 +25,7 @@ function usage(message) {
 	exit 1
 }
 
-# Combine repeated errors; TO-DO: move to "zelta ipc-log"
-function track_errors(message) {
-	if (!message && !error_count) return 0
-	else if (message == last_error) {
-		++error_count
-		if (error_count >1) return 0
-	} else if (error_count > 2) {
-		message = "above error repeated "error_count" times"
-		error_count = 0
-	} else last_error = message
-	if (MODE in QUEUE_MODES) error_list[++err_num] = message
-	else print message > STDOUT
-}
-
-# This should produce replication status output if we can reliably catch siginfo
-function siginfo(message) {
-	print buffered_messages message > STDOUT
-	buffered_messages = ""
-	track_errors()
-}
-
-function arr_sum(arr, variable) {
-	for (i in arr) {
-		split(i, pair, SUBSEP)
-		if (pair[2] == variable) sum += arr[i]
-	}
-	return (sum ? sum : 0)
-}
-
+# Do I even need this?
 function zfs_cmd(endpoint, remote_type,		_ssh, _zfs) {
 	_zfs = "zfs"
 	if (! opt[endpoint "_PREFIX"]) return _zfs
@@ -94,7 +49,7 @@ function command_queue(send_dataset, receive_dataset, match_snapshot,	target_fla
 		gsub(/ /, "\\ ", target_flags)
 	}
 	if (receive_dataset) receive_part = zfs_receive_command target_flags q(receive_dataset)
-	if (CLONE_MODE) {
+	if (opt["VERB"] == "clone") {
 		if (!dataset) target_flags = " " CLONE_FLAGS_TOP " "
 		send_command[++rpl_num] = zfs_send_command target_flags q(send_dataset) " " q(receive_dataset)
 		source_stream[rpl_num] = send_dataset
@@ -126,59 +81,71 @@ function get_endpoint_info(endpoint,	ep) {
 	return ep
 }
 
+function load_verb_defaults() {
+	if (opt["VERB"] == "backup") {
+		opt["SEND_INTR"] 		= "-I"
+		opt["SNAP_MODE"]	= "IF_NEEDED"
+		opt["SEND_CHECK"]	= "yes"
+	}
+}
+
 function load_options(o,args) {
-	ZFS_SEND_LONG_OPTS["--dedup"]++
-	ZFS_SEND_LONG_OPTS["--large-block"]++
-	ZFS_SEND_LONG_OPTS["--parsable"]++
-	ZFS_SEND_LONG_OPTS["--proctitle"]++
-	ZFS_SEND_LONG_OPTS["--embed"]++
-	ZFS_SEND_LONG_OPTS["--backup"]++
-	ZFS_SEND_LONG_OPTS["--compressed"]++
-	ZFS_SEND_LONG_OPTS["--raw"]++
-	ZFS_SEND_LONG_OPTS["--holds"]++
-	ZFS_SEND_LONG_OPTS["--props"]++
-	ZFS_SEND_LONG_OPTS["--skip-missing"]++
-	ZFS_SEND_OPTLIST = "DLVebcwhp"
+	# Load acceptable zfs send/recv flag override lists
+	split("b,backup,c,compressed,D,dedup,e,embed,h,holds,L,large-block,p,parsable,proctitle,props,raw,skip-missing,V,w",_f,",")
+	for (_o in _f) _permitted_zfs_send_flags[_f[_o]]
+	split("e,F,h,M,u",_f,",")
+	for (_o in _f) _permitted_zfs_recv_flags[_f[_o]]
+
 	# Handle: -X (pass if using -R otherwise skip if exact match)
-	# Handle: --redact, -d
-	# Fix: -S for resume
-	# Fix: -s for skip missing
 	# Fix: -t for resume
-	ZFS_RECV_OPTLIST = "FehMu"
-	# Fix: -d for deduplicate
-	# Fix: -s for save stream
-	split(option["ARGS"],args,"\t")
+	split(opt["ARGS"],args,"\t")
 	for (i in args) {
-		$0 = ARGV[i]
-		if ($0 in ZFS_SEND_LONG_OPTS)				SEND_FLAGS = str_add(SEND_FLAGS, "--"$0)
-		else if ($0 ~ ZFS_SEND_OPTLIST)				SEND_FLAGS = str_add(SEND_FLAGS, "-"$0)
-		else if ($0 ~ ZFS_RECV_OPTLIST)				RECV_FLAGS = str_add(RECV_FLAGS, "-"$0)
-		#else if (sub(/^initiator=?/,""))			INITIATOR = $0
-		else if (sub(/^rate-limit=?/,""))			LIMIT_BANDWIDTH = $0
+		$0 = args[i]
+		if ($0 in _permitted_zfs_send_flags)			SEND_FLAGS = str_add(SEND_FLAGS, "--"$0)
+		else if ($0 in _permitted_zfs_recv_flags)		RECV_FLAGS = str_add(RECV_FLAGS, "-"$0)
+		else if (sub(/^rate-limit=/,""))			LIMIT_BANDWIDTH = $0
 		else if (sub(/^depth=?/,""))				DEPTH = $0
 		else if (sub(/^d ?/,""))				DEPTH = $0
-		else if ($0 == "clone")					CLONE_MODE++
+	       	else if (sub(/^exclude=/,""))				exclude_ds_list = $0
+	       	else if (sub(/^X ?/,""))				exclude_ds_list = $0
 		else if ($0 == "rotate")				ROTATE++
 		else if ($0 == "replicate")				REPLICATE++
 		else if ($0 == "R")					REPLICATE++
 		else if ($0 == "dryrun")				DRY_RUN++
-		else if ($0 == "detect-options")			DETECT_OPTIONS++
+		else if ($0 == "detect-options")			opt["SEND_CHECK"] = "yes"
 		else if ($0 == "json")					MODE = "JSON"
 		else if ($0 == "j")					MODE = "JSON"
-		else if ($0 == "snapshot")				SNAPSHOT_ALL++
-		else if ($0 == "snapshot[-=]?all")			SNAPSHOT_ALL++
-		else if ($0 == "snapshot[-=]?written")			SNAPSHOT_WRITTEN++
-		else if ($0 == "snapshot[-=]?(or-)?skip")		SNAPSHOT_WRITTEN = 2
-		else if ($0 == "s")					SNAPSHOT_WRITTEN++	# DEPRECATE
-		else if ($0 == "S")					SNAPSHOT_ALL++
+		else if ($0 == "resume")				opt["RESUME"] = "yes"
+		else if ($0 == "no-?resume")				opt["RESUME"] = ""
+		else if ($0 == "snapshot")				opt["SNAP_MODE"] = "IF_NEEDED"
+		else if ($0 == "snapshot")				opt["SNAP_MODE"] = "IF_NEEDED"
+		else if ($0 == "snapshot[-=]?all")			opt["SNAP_MODE"] = "ALWAYS"
+		else if ($0 == "snapshot[-=]?always")			opt["SNAP_MODE"] = "ALWAYS"
+		else if ($0 == "snapshot[-=]?written")			opt["SNAP_MODE"] = "ALWAYS"
+		else if ($0 == "snapshot[-=]?(or-)?skip")		opt["SNAP_MODE"] = "SKIP"
+		else if ($0 == "s"){
+			SNAPSHOT_WRITTEN++
+			report(LOG_WARNING, "option '-s' (snapshot) will be deprecated; use --snapshot, --skip-missing, or --partial")
+		}
+		else if ($0 == "S") {
+			SNAPSHOT_ALL++
+			report(LOG_WARNING, "option '-S' (snapshot always) will be deprecated; use --snapshot-always, --skip-missing, or --partial")
+		}
+		else if ($0 == "redact") {
+			report(LOG_ERROR, "option '--redact' is not supported")
+		}
+		else if ($0 == "clone") {
+			opt["VERB"] = "clone"
+			report(LOG_ERROR, "option '--clone' will be deprecated; use 'zelta clone'")
+		}
 		# Log modes
 		# Default output mode: BASIC
 		else if (sub(/^z/,"")) MODE = "PIPE"
 		else if (sub(/^p/,"")) MODE = "PROGRESS"
 		# Command modifiers
 		# FRIENDLY_FORCE += gsub(/F/,"")
-		else if ($0 == "i")					INTR_FLAGS = "-i"
-		else if ($0 == "I")					INTR_FLAGS = "-I"
+		else if ($0 == "i")					opt["SEND_INTR"] = "-i"
+		else if ($0 == "I")					opt["SEND_INTR"] = "-I"
 		else if ($0 == "M")					RECV_FLAGS = ""
 		else if ($0 == "n")					DRY_RUN++
 		else if ($0 == "t")					TRANSFER_FROM_SOURCE
@@ -191,14 +158,8 @@ function get_config() {
 	# Load environemnt variables and options and set up zfs send/receive flags
 	SEND_FLAGS		= opt["SEND_DEFAULT"]
 	RECV_FLAGS_TOP		= opt["RECV_FLAGS_TOP"]
-	INTR_FLAGS		= opt["INTR_FLAGS", "-i"]
 	RECEIVE_PREFIX		= opt["RECEIVE_PREFIX"]
 
-	# Replace args with verb processing
-	if (opt["VERB"] == "backup") {
-		# add snapshot-if-needed and maybe some other lbyl options
-		INTR_FLAGS 	= "-I"
-	} else	INTR_FLAGS	= "-i"
 	source = get_endpoint_info("SRC")
 	target = get_endpoint_info("TGT")
 
@@ -210,8 +171,8 @@ function get_config() {
 	load_options()
 	if (DETECT_OPTIONS) detect_send_options()
 
-	#if (TRANSFER_FROM_SOURCE) INITIATOR = prefix[source]
-	#if (TRANSFER_FROM_TARGET) INITIATOR = prefix[target]
+	#if (TRANSFER_FROM_SOURCE) INITIATOR = opt["SRC_PREFIX"]
+	#if (TRANSFER_FROM_TARGET) INITIATOR = opt["TGT_PREFIX"]
 	#if (INITIATOR) report(LOG_INFO, "transferring via: "INITIATOR)
 	if ((MODE == "PIPE") && (opt["LOG_LEVEL"] < 3)) opt["LOG_LEVEL"] = 3
 	if (MODE == "PROGRESS") {
@@ -242,7 +203,7 @@ function get_config() {
 	match_cols = "relname,synccode,match,srcfirst,srclast,tgtlast,info"
 	match_flags = "--time --log-level=2 -Hpo " match_cols DEPTH
 	match_command = "zelta ipc-run match " match_flags ALL_OUT
-	if (CLONE_MODE) {
+	if (opt["VERB"] == "clone") {
 		CLONE_FLAGS_TOP = opt["CLONE_FLAGS"]
 		send_flags = "clone "
 		return 1
@@ -251,18 +212,18 @@ function get_config() {
 	SEND_FLAGS = SEND_FLAGS (DRY_RUN?"n":"") (REPLICATE?"R":"")
 	send_flags = SEND_COMMAND SEND_FLAGS " "
 	recv_flags = RECEIVE_COMMAND RECV_FLAGS " "
-	if (INTR_FLAGS ~ "I") INTR++
+	if (opt["SEND_INTR"] ~ "I") INTR++
 	if (ROTATE) {
 		INTR = 0
-		INTR_FLAGS = "-i"
+		opt["SEND_INTR"] = "-i"
 	}
-	intr_flags = INTR_FLAGS " "
+	intr_flags = opt["SEND_INTR"] " "
 	create_flags = "-up"(DRY_RUN?"n":"")" "
 }
 
 # Exclude default send opitons if they aren't on the source
 function detect_send_options() {
-	cmd = "zelta sendopts " q(prefix[source]) " " q(prefix[target])
+	cmd = "zelta sendopts " q(opt["SRC_PREFIX"]) " " q(opt["TGT_PREFIX"])
 	cmd | getline options; close(cmd)
 	split(options, optlist, "")
 	for (opt in optlist) VALID_SEND_OPT[opt]++
@@ -369,13 +330,14 @@ exit
 }
 
 function run_snapshot() {
-	source_is_written = arr_sum(srcprop, "written")
+	# Shouldn't we know if the source is written or not by now?
+	#source_is_written = arr_sum(srcprop, "written")
 	do_snapshot = (SNAPSHOT_ALL || (SNAPSHOT_WRITTEN && source_is_written))
 	if ((SNAPSHOT_WRITTEN > 1) && !do_snapshot) {
 		report(LOG_NOTICE, "source not written")
 		stop(0)
 	} else if (!do_snapshot) return 0
-	snapshot_command = "zelta snapshot " q(source)
+	snapshot_command = "zelta ipc-run snapshot"
 	if (dry_run(snapshot_command)) return
 	while (snapshot_command | getline snapline) {
 		if (sub(/^snapshot created:[^@]*/,"",snapline)) {
@@ -415,7 +377,7 @@ function replicate(command) {
 		else if (/receiving/ && /stream/) { }
 		else if (/ignoring$/) { }
 		else {
-			report(LOG_WARNING, "unexpected output in replication stream:", $0)
+			report(LOG_WARNING, "unexpected output in replication stream: " $0)
 			error_code = 2
 		}
 
@@ -482,7 +444,7 @@ function name_match_row() {
 	# No match. Was the source renamed?
 	if (check_origin) {
 		sub(/[#@].*/, "", sorigin)
-		sorigin_dataset = (prefix[source] ? prefix[source] ":" : "") sorigin
+		sorigin_dataset = (opt["SRC_PREFIX"] ? opt["SRC_PREFIX"] ":" : "") sorigin
 		clone_match = "zelta match -Hd1 -omatch,sync_code " q(sorigin_dataset) " " q(target dataset)
 		while (clone_match | getline) {
 			if (/^[@#]/) { 
@@ -521,7 +483,7 @@ function plan_clone() {
 	load_properties(source, srcprop)
 	if (NO_DS[source]) stop(1, "source does not exist: "source)
 	load_properties(target, tgtprop)
-	if (CLONE_MODE && !NO_DS[target]) stop(1, "cannot clone; target exists: "target)
+	#if (CLONE_MODE && !NO_DS[target]) stop(1, "cannot clone; target exists: "target)
 	# if no snapshot is given find the latest snapshot with zelta match
 }
 
@@ -530,23 +492,16 @@ BEGIN {
 	STDOUT = "/dev/stdout"
 	ALL_OUT = " 2>&1"
 	get_config()
+
 	received_streams = 0
 	total_bytes = 0
 	total_time = 0
 	error_code = 0
+	time_start = sys_time()
 	
-	# Drop initiator; we'll do pull backups by default unless asked 
-	#if (INITIATOR) {
-	#	if (INITIATOR == prefix[source]) prefix[source] = ""
-	#	if (INITIATOR == prefix[target]) prefix[target] = ""
-	#}
-	#zfs[source] = (prefix[source]?SSH_SEND" "prefix[source]" ":"") "zfs "
-	#zfs[target] = (prefix[target]?SSH_RECEIVE" "prefix[target]" ":"") "zfs "
 
 	zfs_send_command = zfs[source] " " send_flags
 	zfs_receive_command = zfs_cmd("TGT", "RECV") " " recv_flags
-
-	time_start = sys_time()
 
 	# Update in dev, merge this maybe
 	#load_properties(source, srcprop)
@@ -623,7 +578,7 @@ BEGIN {
 		}
 		estimate = ", " h_num(total_transfer_size)
 	}
-	estimate = (CLONE_MODE ? "cloning " : "replicating ") rpl_num " streams" estimate
+	estimate = ((opt["VERB"] == "clone") ? "cloning " : "replicating ") rpl_num " streams" estimate
 	report(LOG_NOTICE, estimate)
 	for (r = 1; r <= rpl_num; r++) {
 		#if (dry_run(send_command[r])) {
@@ -652,10 +607,10 @@ BEGIN {
 	# Negative errors show the number of missed streams, otherwise show error code
 	stream_diff = received_streams - sent_streams
 	error_code = (error_code ? error_code : stream_diff)
-	track_errors("")
+	#track_errors("")
 
 	# Exit if we didn't parse "zfs send"
-	if (CLONE_MODE || !RPL_CMD_SUFFIX) exit error_code
+	if ((opt["VERB"] == "clone") || !RPL_CMD_SUFFIX) exit error_code
 	report(LOG_NOTICE, h_num(total_bytes) " sent, " received_streams "/" sent_streams " streams received in " zfs_replication_time " seconds")
 	stop(error_code, "")
 }

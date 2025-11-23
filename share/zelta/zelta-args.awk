@@ -51,11 +51,6 @@ function add_arg(arg) {
 }
 
 function get_args() {
-	repl_verb["backup"]++
-	repl_verb["replicate"]++
-	repl_verb["sync"]++
-	repl_verb["zpull"]++
-	repl_verb["zpush"]++
 	zfs_short_opts["X"]++
 	zfs_short_opts["d"]++
 	zfs_short_opts["o"]++
