@@ -203,17 +203,17 @@ esac
 zelta_args "$@"
 
 case $zelta_verb in
-	# zelta match
+	# zelta-match.awk
 	list |\
 	zmatch |\
 	match)		zelta_run_awk "match" ;;
-	# zelta replicate
-	backup |\
+	# zelta-backup.awk
 	clone |\
+	replicate |\
 	sync |\
 	zpull |\
 	zpush |\
-	replicate)	zelta_run_awk "replicate" ;;
+	backup)		zelta_run_awk "backup" ;;
 	zp |\
 	policy)		zelta_run_awk "policy" ;;
 	# Utilities

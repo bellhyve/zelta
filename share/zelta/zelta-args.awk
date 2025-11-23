@@ -4,13 +4,13 @@
 
 function get_endpoint(ep_type) {
 	ep_pre = ep_type "_"
-	endpoint = $0
-	if (!(endpoint ~ /^[a-zA-Z0-9_.@:\/ -]+$/)) {
+	endpoint_id = $0
+	if (!(/^[a-zA-Z0-9_.@:\/ -]+$/)) {
 		report(LOG_ERROR, "invalid endpoint: '"$0"'")
 		return
 	}
-	if (endpoint ~ /^[^ :\/]+:/) {
-		split(endpoint, connect_string, ":")
+	if (/^[^ :\/]+:/) {
+		split($0, connect_string, ":")
 		prefix = connect_string[1]
 		if (match(prefix, /@[^@]*$/)) {
 			user = substr(prefix, 1, RSTART - 1)
@@ -21,9 +21,9 @@ function get_endpoint(ep_type) {
 			host = user_host[2]
 		} else host = user_host[1]
 		if (host == "localhost") prefix = ""
-		sub(/^[^:]+:/,"",endpoint)
+		sub(/^[^:]+:/,"")
 	}
-	if (split(endpoint, ds_snap, "@")) {
+	if (split($0, ds_snap, "@")) {
 		dataset = ds_snap[1]
 		snapshot = ds_snap[2]
 	} else dataset = ds_snap[1]
@@ -35,8 +35,8 @@ function get_endpoint(ep_type) {
 		}
 		if (!host) host = "localhost"
 	}
-	endpoint_id = user"_"host"_"dataset
-	gsub(/[^A-Za-z0-9_]/,"-", endpoint_id)
+	#endpoint_id = user"_"host"_"dataset
+	#gsub(/[^A-Za-z0-9_]/,"-", endpoint_id)
 	# Change the ID  back to just the actual endpoint string, I think.
 	newenv[ep_pre "ID"] = endpoint_id
 	newenv[ep_pre "USER"] = user

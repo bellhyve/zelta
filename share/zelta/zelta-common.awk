@@ -23,9 +23,10 @@ function close_all() {
 function q(s) { return "'" s "'" }
 function dq(s) { return "\"" s "\"" }
 
-function str_add(s, n, sep) {
+function str_add(s, v, sep) {
 	if (!sep) sep = " "
-	return s ? s sep n : n
+	if (!v) v = $0
+	return s ? s sep v : v
 }
 
 function str_join(arr, sep,    _str, _idx, _i) {
