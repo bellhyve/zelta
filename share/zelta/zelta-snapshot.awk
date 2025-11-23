@@ -26,7 +26,6 @@ BEGIN {
 	snapshot	= make_snapshot_name(opt["SRC_SNAP"])
 
 	command = zfs "snapshot -r " "'"dataset"@"snapshot"'"
-	print command, opt["SRC_PREFIX"] > "/dev/stderr"
 	last_exit_code = system(command)
 	if (!last_exit_code) print "snapshot created: "dataset"@"snapshot
 	exit_code = last_exit_code?last_exit_code:exit_code
