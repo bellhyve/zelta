@@ -1,4 +1,5 @@
-#!awk -f
+# zelta-common.awk
+#
 
 # Load ZELTA_ environment variables as opt[VAR] shorthand without the prefix
 function zelta_init(_o) {
@@ -15,14 +16,25 @@ function report(mode, message) {
 }
 
 function close_all() {
-	if (log_output_count) close opt["LOG_COMMAND"]
-	if (json_output_count) close opt["JSON_FILE"]
+	if (log_output_count) { close(opt["LOG_COMMAND"]) }
 }
 
 # Simple String Functions
-function q(_s) { return "'" _s "'" }
-function dq(_s) { return "\"" _s "\"" }
-function str_add(_s, _n) { return _s ? _s " " _n : _n }
+function q(s) { return "'" s "'" }
+function dq(s) { return "\"" s "\"" }
+
+function str_add(s, n, sep) {
+	if (!sep) sep = " "
+	return s ? s sep n : n
+}
+
+function str_join(arr, sep,    _str, _idx, _i) {
+	if (!sep) sep = " "
+	for (_idx in arr) {
+		_str = str_add(_str, arr[++_i], sep)
+	}
+	return _str
+}
 
 # systime() doesn't work on a lot of systems despite being in the POSIX spec.
 # This workaround isn't entirely portable either and should be replaced.
@@ -51,4 +63,6 @@ BEGIN {
 	LOG_NOTICE = 2
 	LOG_INFO = 3
 	LOG_DEBUG = 4
+
+	STDERR = "/dev/stderr"
 }
