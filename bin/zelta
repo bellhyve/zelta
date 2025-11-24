@@ -54,11 +54,12 @@ zelta_man() {
 
 
 zelta_init() {
-
-
 	AWK="${ZELTA_AWK:-${AWK:-awk}}"
+	ZELTA_VERB="${zelta_verb}"
+
 	: ${ZELTA_ETC:="/usr/local/etc/zelta"}	# Dir for the default env and policy
 	: ${ZELTA_ENV:="$ZELTA_ETC/zelta.env"}	# Edit this file to change command defaults
+
 	
 	# Read zelta.env prepending ZELTA_ prefix when necessary
 	if [ -r "$ZELTA_ENV" ]; then
@@ -86,37 +87,38 @@ zelta_init() {
 	: ${ZELTA_SH_COMMAND_SUFFIX:="; }"}
 	: ${ZELTA_SNAP_NAME:="date -u +%Y-%m-%d_%H.%M.%S"}
 	: ${ZELTA_SNAP_MODE:="IF_NONE"}
+	: ${ZELTA_LOG_LEVEL:="2"}
 
+	# We're prioritizing ZELTA_AWK over AWK (but use AWK below for clarity)
+
+	# Safety options
+	: ${ZELTA_PROP_CHECK:="yes"}
+	: ${ZELTA_SEND_CHECK:="yes"}
+	: ${ZELTA_RESUME:="yes"}
+
+	# `zfs send` defaults
 	: ${ZELTA_SEND_DEFAULT:="-Lec"}
 	: ${ZELTA_SEND_RAW:="-Lw"}
 	: ${ZELTA_SEND_NEW:="-p"}
-	: ${ZELTA_SEND_INTR:="-i"}
+	: ${ZELTA_SEND_INTR:="-I"}
 	: ${ZELTA_SEND_PARTIAL:="-t"}
 	: ${ZELTA_SEND_REPLICATE:="-Rs"}
 
-	: ${ZELTA_SEND_CHECK:="no"}
-
+	# `zfs recv` defaults
 	: ${ZELTA_RECV_DEFAULT:=""}
 	: ${ZELTA_RECV_TOP:="-o readonly=on"}
 	: ${ZELTA_RECV_FS:="-u -x mountpoint"}
 	: ${ZELTA_RECV_VOL:=""}
 	: ${ZELTA_RECV_PARTIAL:="-s"}
 
-	: ${ZELTA_RESUME:="yes"}
-
+	# `zfs clone` defaults
 	: ${ZELTA_CLONE_DEFAULT:="-po readonly=off"}
 
+	# Remote (ssh) options
 	: ${ZELTA_REMOTE_COMMAND:="ssh"}
 	: ${ZELTA_REMOTE_DEFAULT:="${ZELTA_REMOTE_COMMAND} -n"}
 	: ${ZELTA_REMOTE_SEND:="${ZELTA_REMOTE_DEFAULT}"}
 	: ${ZELTA_REMOTE_RECV:="${ZELTA_REMOTE_COMMAND}"}
-
-	: ${ZELTA_LOG_LEVEL:="2"}
-
-	ZELTA_VERB="${zelta_verb}"
-
-	# We're prioritizing ZELTA_AWK over AWK (but use AWK below for clarity)
-	AWK="${ZELTA_AWK:-${AWK:-awk}}"
 
 	export AWK $(set | $AWK -F= '/^ZELTA_.*=/{print $1}')
 }
@@ -218,8 +220,8 @@ case $zelta_verb in
 	policy)		zelta_run_awk "policy" ;;
 	# Utilities
 	zeport)		zelta_run_awk "report" ;;
-	# Workaround for Linux with no /bin/sh "time -p" and no /usr/bin/time
-	time)		"$@" | bash -c "time -p cat" ;;
+	# Time
+	time)		"$@" | sh -c "time -p cat" ;;
 	# Info
 	-V |\
 	--version |\

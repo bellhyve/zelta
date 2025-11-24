@@ -388,9 +388,10 @@ function summarize() {
 		#count_rel_name = arrlen(rel_name_list)
 		count_rel_name = rel_name_num
 		#if (arrlen(source_latest) == 0) report(LOG_WARNING, "no source snapshots found")
-		if (count_rel_name == count_synced) report(LOG_NOTICE, count_rel_name " datasets synced")
+		if (!count_rel_name) report(LOG_NOTICE, "no datasets on source or target")
+		else if (count_rel_name == count_synced) report(LOG_NOTICE, count_rel_name " datasets synced")
 		else if (count_rel_name == count_ready) report(LOG_NOTICE, count_rel_name " datasets syncable")
-		else if (count_rel_name == count_blocked) report(LOG_WARNING, count_rel_name " datasets unsyncable")
+		else if (count_rel_name == count_blocked) report(LOG_NOTICE, count_rel_name " datasets unsyncable")
 		else {
 			log_msg = count_rel_name " total datasets"
 			log_msg = log_msg (count_synced?", "count_synced" synced":"")

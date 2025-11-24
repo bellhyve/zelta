@@ -15,8 +15,10 @@ function report(mode, message) {
 	log_output_count++
 }
 
-function close_all() {
+# Flush buffers and quit
+function stop(_error_code) {
 	if (log_output_count) { close(opt["LOG_COMMAND"]) }
+	exit _error_code
 }
 
 # Simple String Functions
@@ -25,14 +27,16 @@ function dq(s) { return "\"" s "\"" }
 
 function str_add(s, v, sep) {
 	if (!sep) sep = " "
-	if (!v) v = $0
+	#if (!v) v = $0
 	return s ? s sep v : v
 }
 
 function str_join(arr, sep,    _str, _idx, _i) {
 	if (!sep) sep = " "
 	for (_idx in arr) {
-		_str = str_add(_str, arr[++_i], sep)
+		if (arr[++_i]) {
+			_str = _str ? _str sep arr[_i] : arr[_i]
+		}
 	}
 	return _str
 }
