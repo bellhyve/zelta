@@ -38,46 +38,53 @@ function get_endpoint(ep_type) {
 	#endpoint_id = user"_"host"_"dataset
 	#gsub(/[^A-Za-z0-9_]/,"-", endpoint_id)
 	# Change the ID  back to just the actual endpoint string, I think.
-	newenv[ep_pre "ID"] = endpoint_id
-	newenv[ep_pre "USER"] = user
-	newenv[ep_pre "HOST"] = host
-	newenv[ep_pre "DS"] = dataset
-	newenv[ep_pre "SNAP"] = snapshot
-	newenv[ep_pre "PREFIX"] = prefix
+	NewOpt[ep_pre "ID"] = endpoint_id
+	NewOpt[ep_pre "USER"] = user
+	NewOpt[ep_pre "HOST"] = host
+	NewOpt[ep_pre "DS"] = dataset
+	NewOpt[ep_pre "SNAP"] = snapshot
+	NewOpt[ep_pre "PREFIX"] = prefix
 }
 
 function add_arg(arg) {
 	args = args (args ? "\t" : "") arg
 }
 
+function match_arg(arg, 	_flag) {
+	for (_flag in OptListKey) {
+		if (arg == _flag) return _flag
+	} 
+	report(LOG_ERROR, "invalid option '"arg"'")
+	stop(1)
+}
+
+function set_arg(_flag, subopt) {
+	if (OptListType[_flag] == "arglist")	NewOpt[OptListKey[_flag]] = str_add(NewOpt[OptListKey[_flag]])
+	else if (OptListType[_flag] == "bool")	NewOpt[OptListKey[_flag]] = "yes"
+	else if (OptListType[_flag] == "set")	NewOpt[OptListKey[_flag]] = subopt
+	else if (OptListType[_flag] == "del")	NewOpt[OptListKey[_flag]] = ""
+	else if (OptListType[_flag] == "incr")	NewOpt[OptListKey[_flag]]++
+	else if (OptListType[_flag] == "decr")	NewOpt[OptListKey[_flag]]--
+	if (OptListType[_flag] == "warn")	report(LOG_WARNING, OptListWarn[_flag])
+}
+
 function get_args() {
-	zfs_short_opts["X"]++
-	zfs_short_opts["d"]++
-	zfs_short_opts["o"]++
-	zfs_short_opts["x"]++
 	for (i=1;i<ARGC;i++) {
 		$0 = ARGV[i]
-		if (sub(/^-/,"")) {
-			if (sub(/^-/,"")) {
-				# Double-dash sub options must be --opt=val
-				if (sub(/^log-level=/,"")) newenv["LOG_LEVEL"] = $0
-				else add_arg($0)
-			} else {
-				for (m=1;m<=length($0);m++) {
-					o = substr($0, m, 1)
-					if (o in zfs_short_opts) {
-						subopt = substr($0, m+1)
-						if (!subopt) {
-							i += 1
-							subopt = ARGV[i]
-						}
-						add_arg(o " " subopt)
-						break
-					}
-					else if (o == "v") newenv["LOG_LEVEL"]++
-					else if (o == "q") newenv["LOG_LEVEL"]--
-					else add_arg(o)
-				}
+		if (/^--[^-]/) {
+		       	_flag = match_arg($0)
+			subopt = (OptListType[_flag] == "set") ? ARGV[++i] : ""
+			set_arg(_flag, subopt)
+		} else if (/^-[^-]/) {
+			for (_m=2; _m <= length($0); _m++) {
+				_arg = "-" substr($0, _m, 1)
+				_flag = match_arg(_arg)
+				if ((OptListType[_flag]) == "set") {
+					subopt = substr($0, _m+1)
+					if (!subopt) subopt = ARGV[++i]
+					set_arg(_flag, subopt)
+					break
+				} else set_arg(_flag)
 			}
 		} else if (!source_set) {
 			get_endpoint("SRC")
@@ -90,20 +97,44 @@ function get_args() {
 			exit
 		}
 	}
-	if (args) { newenv["ARGS"] = args }
+}
+
+#
+	#if (args) { NewOpt["ARGS"] = args }
+	#zfs_short_opts["X"]++
+	#zfs_short_opts["d"]++
+	#zfs_short_opts["o"]++
+	#zfs_short_opts["x"]++
+
+function load_option_list(		_tsv, _flag, _idx, _flag_list) {
+	_tsv = Opt["SHARE"]"/zelta-opts.tsv"
+	while (getline<_tsv) {
+		if (index($1, Opt["VERB"]) || ($1 == "all")) {
+			split($2,_flag_list,",")
+			for (_idx in _flag_list) { 
+				_flag			= _flag_list[_idx]
+				OptListKey[_flag]	= $3
+				OptListType[_flag]	= $4
+				OptListValue[_flag]	= $5
+				OptListWarn[_flag]	= $6
+				#print _flag, OptListKey[_flag], OptListType[_flag], OptListValue[_flag], OptListWarn[_flag]
+			}
+		}
+	}
 }
 
 BEGIN {
+	FS="\t"
 	ENV_PREFIX = "ZELTA_"
 
 	# We need to know the LOG_LEVEL default for -v/-q
-	newenv["LOG_LEVEL"] = opt["LOG_LEVEL"]
-
+	NewOpt["LOG_LEVEL"] = Opt["LOG_LEVEL"]
+	load_option_list()
 	get_args()
-	for (e in newenv) {
+	for (e in NewOpt) {
 		# Make sure we're actually changing something
-		if (newenv[e] != opt[e]) {
-			export = export " " (ENV_PREFIX e) "='" newenv[e] "'"
+		if (NewOpt[e] != Opt[e]) {
+			export = export " " (ENV_PREFIX e) "='" NewOpt[e] "'"
 		}
 	}
 	if (export) print export

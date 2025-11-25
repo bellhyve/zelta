@@ -134,12 +134,12 @@ BEGIN {
 
 	MODE			= "CHART"
 
-	source = opt["SRC_ID"]
-	target = opt["TGT_ID"]
-	dataset[source] = opt["SRC_DS"]
-	dataset[target] = opt["TGT_DS"]
-	ds_name_length[source] = length(opt["SRC_DS"]) + 1
-	ds_name_length[target] = length(opt["TGT_DS"]) + 1
+	source = Opt["SRC_ID"]
+	target = Opt["TGT_ID"]
+	dataset[source] = Opt["SRC_DS"]
+	dataset[target] = Opt["TGT_DS"]
+	ds_name_length[source] = length(Opt["SRC_DS"]) + 1
+	ds_name_length[target] = length(Opt["TGT_DS"]) + 1
 
 	exit_code = 0
 	zfs_list_time[source] = 0
@@ -185,16 +185,16 @@ function run_zfs_list() {
 	else if (sub(/^DEPTH:\t/,"")) DEPTH = $0
 	else if (sub(/^TGT_PARENT:\t/,"")) {
 		if ($0 == "no") {
-			report(LOG_ERROR, "parent dataset does not exist: " opt["TGT_DS"])
+			report(LOG_ERROR, "parent dataset does not exist: " Opt["TGT_DS"])
 		}
 	} else if (sub(/^SRC_PARENT:\t/,"")) {
 		if ($0 == "no") {
-			report(LOG_ERROR, "parent dataset does not exist: " opt["SRC_DS"])
+			report(LOG_ERROR, "parent dataset does not exist: " Opt["SRC_DS"])
 		}
 	} else if (sub(/^ZFS_LIST_TGT:\t/,"")) run_zfs_list()
 	else if (sub(/^ZFS_LIST_STREAM:\t/,"")) {
 		# Make sure the environment matches the ID of the incoming stream
-		if ($1 != opt["SRC_ID"]) {
+		if ($1 != Opt["SRC_ID"]) {
 			report(LOG_ERROR, "unexpected zfs list stream")
 		}
 		# Switch to LIST_STREAM mode
@@ -377,7 +377,7 @@ function chart_row(field) {
 }
 
 function summarize() {
-	if (opt["LOG_LEVEL"] >= 0) {
+	if (Opt["LOG_LEVEL"] >= 0) {
 		arr_sort(rel_name_order)
 		for (i=1; i <= rel_name_num; i++) chart_row(rel_name_order[i])
 	}

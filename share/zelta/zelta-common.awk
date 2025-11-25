@@ -1,23 +1,26 @@
 # zelta-common.awk
 #
+# Function common to all Zelta scripts
+#
 
-# Load ZELTA_ environment variables as opt[VAR] shorthand without the prefix
+
+# Load ZELTA_ environment variables as Opt[VAR] shorthand without the prefix
 function zelta_init(_o) {
 	for (_o in ENVIRON) {
 		if (sub(/^ZELTA_/, "", _o)) {
-			opt[_o] = ENVIRON["ZELTA_" _o]
+			Opt[_o] = ENVIRON["ZELTA_" _o]
 		}
 	}
 }
 
 function report(mode, message) {
-	print mode "\t" message | opt["LOG_COMMAND"]
+	print mode "\t" message | Opt["LOG_COMMAND"]
 	log_output_count++
 }
 
 # Flush buffers and quit
 function stop(_error_code) {
-	if (log_output_count) { close(opt["LOG_COMMAND"]) }
+	if (log_output_count) { close(Opt["LOG_COMMAND"]) }
 	exit _error_code
 }
 

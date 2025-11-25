@@ -46,14 +46,14 @@ function pass_flags(flag) {
 function load_options(	i, o) {
 	for (o in ENVIRON) {
 		if (sub(/^ZELTA_/,"",o)) {
-			opt[o] = ENVIRON["ZELTA_"o]
+			Opt[o] = ENVIRON["ZELTA_"o]
 		}
 	}
-	source_defined = (opt["SRC_ID"] && opt["SRC_DS"])
-	target_defined = (opt["TGT_ID"] && opt["TGT_DS"])
+	source_defined = (Opt["SRC_ID"] && Opt["SRC_DS"])
+	target_defined = (Opt["TGT_ID"] && Opt["TGT_DS"])
 	if ((!source_defined) && (!target_defined)) usage("no datasets defined")
 		
-	split(opt["ARGS"],args,"\t")
+	split(Opt["ARGS"],args,"\t")
 	for (i in args) {
 		$0 = args[i]
 		if (sub(/^o /,""))		PROPERTIES = $0
@@ -85,19 +85,19 @@ function join_arr(arr, len,		i, str) {
 }
 
 function zfs_list(endpoint,		p, cmd, cmd_part) {
-	if (! opt[endpoint"_DS"]) return ""
+	if (! Opt[endpoint"_DS"]) return ""
 	p = 1
-	cmd_part[p++]			= opt["SH_COMMAND_PREFIX"]
-	cmd_part[p++]			= opt["TIME_COMMAND"]
-	if (opt[endpoint "_PREFIX"]) {
-		cmd_part[p++]		= opt["REMOTE_DEFAULT"] " " opt[endpoint "_PREFIX"]
+	cmd_part[p++]			= Opt["SH_COMMAND_PREFIX"]
+	cmd_part[p++]			= Opt["TIME_COMMAND"]
+	if (Opt[endpoint "_PREFIX"]) {
+		cmd_part[p++]		= Opt["REMOTE_DEFAULT"] " " Opt[endpoint "_PREFIX"]
 	}
 	cmd_part[p++]			= "zfs"
 	cmd_part[p++]			= "list -Hprt all -Screatetxg"
 	cmd_part[p++]			= "-o name,guid" (WRITTEN ? ",written" : "")
 	if (DEPTH) cmd_part[p++]	= "-d " DEPTH
-	cmd_part[p++]			= "'"opt[endpoint"_DS"]"'"
-	cmd_part[p++]			= opt["SH_COMMAND_SUFFIX"]
+	cmd_part[p++]			= "'"Opt[endpoint"_DS"]"'"
+	cmd_part[p++]			= Opt["SH_COMMAND_SUFFIX"]
 	cmd_part[p]			= ALL_OUT
 	cmd = join_arr(cmd_part, p)
 	if (dryrun) report(LOG_NOTICE, "+ " cmd)
@@ -105,7 +105,7 @@ function zfs_list(endpoint,		p, cmd, cmd_part) {
 }
 
 function check_parent(endpoint,		p, cmd_part, cmd) {
-	ds = opt[endpoint"_DS"]
+	ds = Opt[endpoint"_DS"]
 	if (!ds) return ""
 	# If the dataset is a pool or immediately below it, no need to check for a parent
 	if (gsub(/\//, "/", ds) <= 1) {
@@ -113,15 +113,15 @@ function check_parent(endpoint,		p, cmd_part, cmd) {
 	}
 	sub(/\/[^\/]*$/, "", ds)
 	p = 1
-	#cmd_part[p++]			= opt["SH_COMMAND_PREFIX"]
-	#cmd_part[p++]                   = opt[endpoint"_ZFS"]
-	if (opt[endpoint "_PREFIX"]) {
-		cmd_part[p++]		= opt["REMOTE_DEFAULT"] " " opt[endpoint "_PREFIX"]
+	#cmd_part[p++]			= Opt["SH_COMMAND_PREFIX"]
+	#cmd_part[p++]                   = Opt[endpoint"_ZFS"]
+	if (Opt[endpoint "_PREFIX"]) {
+		cmd_part[p++]		= Opt["REMOTE_DEFAULT"] " " Opt[endpoint "_PREFIX"]
 	}
 	cmd_part[p++]			= "zfs"
 	cmd_part[p++]                   = "list -Ho name"
 	cmd_part[p++]                   = "'"ds"'"
-	#cmd_part[p++]			= opt["SH_COMMAND_SUFFIX"]
+	#cmd_part[p++]			= Opt["SH_COMMAND_SUFFIX"]
 	cmd_part[p]                     = ALL_OUT
 	cmd = join_arr(cmd_part, p)
 	cmd | getline cmd_output
@@ -164,7 +164,7 @@ BEGIN {
 		if (check_parent("SRC")) {
 			report(LOG_INFO, "listing source")
 			report(LOG_DEBUG, "`"ZFS_LIST_SRC"`")
-			print "ZFS_LIST_STREAM:", opt["SRC_ID"]		| MATCH_COMMAND
+			print "ZFS_LIST_STREAM:", Opt["SRC_ID"]		| MATCH_COMMAND
 			while (ZFS_LIST_SRC | getline) print		| MATCH_COMMAND
 			close(ZFS_LIST_SRC)
 		} else print "SRC_PARENT:", no				| MATCH_COMMAND

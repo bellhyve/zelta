@@ -13,10 +13,10 @@ function usage(message) {
 	STDERR = "/dev/stderr"
 	if (message) print message							> STDERR
 	print "usage:"									> STDERR
-	if (opt["VERB"] == "clone") { 
+	if (Opt["VERB"] == "clone") { 
 		print " clone [-d max] source-dataset target-dataset\n"			> STDERR
 	} else {
-		usage_prefix = opt["VERB"] " "
+		usage_prefix = Opt["VERB"] " "
 		print "\t" usage_prefix "[-bcDeeFhhLMpuVw] [-iIjnpqRtTv] [-d max]"	> STDERR
 		printf "\t%*s", length(usage_prefix), ""				> STDERR
 		print "[initiator] source-endpoint target-endpoint\n"			> STDERR
@@ -28,17 +28,17 @@ function usage(message) {
 # Do I even need this?
 function zfs_cmd(endpoint, remote_type,		_ssh, _zfs) {
 	_zfs = "zfs"
-	if (! opt[endpoint "_PREFIX"]) return _zfs
+	if (! Opt[endpoint "_PREFIX"]) return _zfs
 	else {
-		_ssh = remote_type ? opt["REMOTE_" remote_type] : opt["REMOTE_DEFAULT"]
-		_ssh = _ssh " " opt[endpoint "_PREFIX"] " "
+		_ssh = remote_type ? Opt["REMOTE_" remote_type] : Opt["REMOTE_DEFAULT"]
+		_ssh = _ssh " " Opt[endpoint "_PREFIX"] " "
 	}
 	return _ssh _zfs
 }
 
 function command_queue(send_dataset, receive_dataset, match_snapshot,	target_flags) {
 	num_streams++
-	if (!dataset) target_flags = " " opt["RECV_FLAGS_TOP"] " "
+	if (!dataset) target_flags = " " Opt["RECV_FLAGS_TOP"] " "
 	if (torigin_name) target_flags = " -o origin=" q(rotate_name) " " target_flags
 	if (zfs_send_command ~ /ssh/) {
 		gsub(/ /, "\\ ", send_dataset)
@@ -49,7 +49,7 @@ function command_queue(send_dataset, receive_dataset, match_snapshot,	target_fla
 		gsub(/ /, "\\ ", target_flags)
 	}
 	if (receive_dataset) receive_part = zfs_receive_command target_flags q(receive_dataset)
-	if (opt["VERB"] == "clone") {
+	if (Opt["VERB"] == "clone") {
 		if (!dataset) target_flags = " " CLONE_FLAGS_TOP " "
 		send_command[++rpl_num] = zfs_send_command target_flags q(send_dataset) " " q(receive_dataset)
 		source_stream[rpl_num] = send_dataset
@@ -71,51 +71,55 @@ function command_queue(send_dataset, receive_dataset, match_snapshot,	target_fla
 }
 
 function load_verb_defaults() {
-	if (opt["VERB"] == "sync") {
-		opt["SEND_INTR"] 		= "-i"
-		opt["SNAP_MODE"]	= ""
-		opt["SEND_CHECK"]	= ""
+	if (Opt["VERB"] == "sync") {
+		Opt["SEND_INTR"] 		= "-i"
+		Opt["SNAP_MODE"]	= ""
+		Opt["SEND_CHECK"]	= ""
 	}
 }
 
-function load_options(o,args) {
+function load_options(		_o, _f, _i, _args, _permitted_zfs_send_flags, _permitted_zfs_recv_flags) {
 	# Load acceptable zfs send/recv flag override lists
-	split("-b,--backup,-c,--compressed,-D,--dedup,-e,--embed,-h,--holds,-L,--large-block,-p,--parsable,--proctitle,--props,--raw,--skip-missing,-V,-w",_f,",")
-	for (_o in _f) _permitted_zfs_send_flags[_f[_o]]
-	split("-e,-h,-M,-u",_f,",")
-	for (_o in _f) _permitted_zfs_recv_flags[_f[_o]]
+	split("b,backup,c,compressed,D,dedup,e,embed,h,holds,L,largeblock,p,parsable,proctitle,props,raw,skipmissing,V,w",_f,",")
+	for (_o in _f) _permitted_zfs_send_flags[_f[_o]]++
+	split("e,h,M,u",_f,",")
+	for (_o in _f) _permitted_zfs_recv_flags[_f[_o]]++
 
+	arguments > policy > environment > zelta.env > defaults
 	# Handle: -X (pass if using -R otherwise skip if exact match)
 	# Fix: -t for resume
-	split(opt["ARGS"],args,"\t")
-	for (i in args) {
-		$0 = args[i]
-		if ($0 in _permitted_zfs_send_flags)			override_send_flags = str_add(override_send_flags)
-		else if ($0 in _permitted_zfs_recv_flags)		override_recv_flags = str_add(override_recv_flags)
-		else if (sub(/^depth=?/,""))				depth = $0
-		else if (sub(/^d ?/,""))				depth = $0
-	       	else if (sub(/^exclude=/,""))				exclude_ds_list = $0
-	       	else if (sub(/^X ?/,""))				exclude_ds_list = $0
-		else if ($0 == "rotate")				opt["VERB"] = "rotate"
-		else if ($0 == "replicate")				opt["VERB"] = "replicate"
-		else if ($0 == "R")					opt["VERB"] = "replicate"
-		else if ($0 ~ /^dry-?run$/)				opt["DRYRUN"] = "yes"
-		else if ($0 == "n")					opt["DRYRUN"] = "yes"
-		else if ($0 ~ "detect-?options")			opt["SEND_CHECK"] = "yes"
-		else if ($0 ~ "send-?check")				opt["SEND_CHECK"] = "yes"
-		else if ($0 == "i")					opt["SEND_INTR"] = "-i"
-		else if ($0 == "I")					opt["SEND_INTR"] = "-I"
-		else if ($0 ~ "^no-?json$")				opt["JSON"] = ""
-		else if ($0 == "json")					opt["JSON"] = "yes"
-		else if ($0 == "j")					opt["JSON"] = "yes"
-		else if ($0 == "resume")				opt["RESUME"] = "yes"
-		else if ($0 == "no-?resume")				opt["RESUME"] = ""
-		else if ($0 == "snapshot")				opt["SNAP_MODE"] = "IF_NEEDED"
-		else if ($0 == "snapshot")				opt["SNAP_MODE"] = "IF_NEEDED"
-		else if ($0 == "snapshot[-=]?all")			opt["SNAP_MODE"] = "ALWAYS"
-		else if ($0 == "snapshot[-=]?always")			opt["SNAP_MODE"] = "ALWAYS"
-		else if ($0 == "snapshot[-=]?written")			opt["SNAP_MODE"] = "ALWAYS"
-		else if ($0 == "snapshot[-=]?(or-)?skip")		opt["SNAP_MODE"] = "SKIP"
+	split(Opt["ARGS"], args, "\t")
+	for (_i in args) {
+		$0 = args[_i]
+		# ZFS Options
+		if ($0 in _permitted_zfs_send_flags)			OverrideSendFlags = str_add(OverrideSendFlags)
+		else if ($0 in _permitted_zfs_recv_flags)		OverrideRecvFlags = str_add(OverrideRecvFlags)
+		# Zelta Options
+		else if (sub(/^depth=?/,""))				Depth = $0
+		else if (sub(/^d ?/,""))				Depth = $0
+	       	else if (sub(/^exclude=/,""))				ExcludeDSList = $0
+	       	else if (sub(/^X ?/,""))				ExcludeDSList = $0
+		else if ($0 == "rotate")				Opt["VERB"] = "rotate"
+		else if ($0 == "replicate")				Opt["VERB"] = "replicate"
+		else if ($0 == "R")					Opt["VERB"] = "replicate"
+		else if ($0 ~ /^dry-?run$/)				Opt["DRYRUN"] = "yes"
+		else if ($0 == "n")					Opt["DRYRUN"] = "yes"
+		else if ($0 ~ "detect-?options")			Opt["SEND_CHECK"] = "yes"
+		else if ($0 ~ "send-?check")				Opt["SEND_CHECK"] = "yes"
+		else if ($0 == "i")					Opt["SEND_INTR"] = "-i"
+		else if ($0 == "I")					Opt["SEND_INTR"] = "-I"
+		else if ($0 ~ "^no-?json$")				Opt["JSON"] = ""
+		else if ($0 == "json")					Opt["JSON"] = "yes"
+		else if ($0 == "j")					Opt["JSON"] = "yes"
+		else if ($0 == "resume")				Opt["RESUME"] = "yes"
+		else if ($0 == "no-?resume")				Opt["RESUME"] = ""
+		else if ($0 == "snapshot")				Opt["SNAP_MODE"] = "IF_NEEDED"
+		else if ($0 == "snapshot")				Opt["SNAP_MODE"] = "IF_NEEDED"
+		else if ($0 == "snapshot[-=]?all")			Opt["SNAP_MODE"] = "ALWAYS"
+		else if ($0 == "snapshot[-=]?always")			Opt["SNAP_MODE"] = "ALWAYS"
+		else if ($0 == "snapshot[-=]?written")			Opt["SNAP_MODE"] = "ALWAYS"
+		else if ($0 == "snapshot[-=]?(or-)?skip")		Opt["SNAP_MODE"] = "SKIP"
+		# Deprecation warnings
 		else if ($0 == "s"){
 			SNAPSHOT_WRITTEN++
 			report(LOG_WARNING, "interpreting '-s' as --snapshot")
@@ -127,7 +131,7 @@ function load_options(o,args) {
 			report(LOG_WARNING, "option '-S' is ambiguous will be deprecated; use --snapshot-always, --skip-missing, or --partial")
 		}
 		else if ($0 == "clone") {
-			opt["VERB"] = "clone"
+			Opt["VERB"] = "clone"
 			report(LOG_WARNING, "option '--clone' will be deprecated; use 'zelta clone'")
 		}
 		else if ($0 ~ "^(rate-?limit)|progress$") {
@@ -145,10 +149,9 @@ function load_options(o,args) {
 			report(LOG_WARNING, "option '-T' is deprecated; use '--pull' (default)")
 		}
 		else if ($0 == "F") {
-			override_recv_flags = str_add(override_recv_flags)
+			OverrideRecvFlags = str_add(OverrideRecvFlags)
 			report(LOG_WARNING, "destructive option 'F' detected; consider 'zelta rotate' when possible")
 		}
-		# Command modifiers
 		else usage("invalid option '"$0"'")
 	}
 }
@@ -157,7 +160,7 @@ function get_config() {
 	SEND_COMMAND = "send -P "
 	RECEIVE_COMMAND = "receive -v "
 
-	if ((opt["VERB"] == "replicate")) DEPTH = 1
+	if ((Opt["VERB"] == "replicate")) DEPTH = 1
 	else if (DEPTH) {
 		DEPTH = " -d" DEPTH
 		PROP_DEPTH = "-d" (DEPTH-1)
@@ -165,26 +168,26 @@ function get_config() {
 	match_cols = "relname,synccode,match,srcfirst,srclast,tgtlast,info"
 	match_flags = "--time --log-level=2 -Hpo " match_cols DEPTH
 	match_command = "zelta ipc-run match " match_flags CAPTURE_OUTPUT
-	if (opt["VERB"] == "clone") {
-		CLONE_FLAGS_TOP = opt["CLONE_FLAGS"]
+	if (Opt["VERB"] == "clone") {
+		CLONE_FLAGS_TOP = Opt["CLONE_FLAGS"]
 		send_flags = "clone "
 		return 1
 	}
-	if (! opt["TGT_DS"]) usage("target needed for replicaiton plan")
-	opt["SEND_DEFAULT"] = opt["SEND_DEFAULT"] (opt["DRYRUN"]?"n":"") ((opt["VERB"] == "replicate")?"R":"")
-	send_flags = SEND_COMMAND opt["SEND_DEFAULT"] " "
+	if (! Opt["TGT_DS"]) usage("target needed for replicaiton plan")
+	Opt["SEND_DEFAULT"] = Opt["SEND_DEFAULT"] (Opt["DRYRUN"]?"n":"") ((Opt["VERB"] == "replicate")?"R":"")
+	send_flags = SEND_COMMAND Opt["SEND_DEFAULT"] " "
 	recv_flags = RECEIVE_COMMAND RECV_FLAGS " "
-	if (opt["SEND_INTR"] ~ "I") INTR++
-	if (opt["VERB"] == "rotate") {
+	if (Opt["SEND_INTR"] ~ "I") INTR++
+	if (Opt["VERB"] == "rotate") {
 		INTR = 0
-		opt["SEND_INTR"] = "-i"
+		Opt["SEND_INTR"] = "-i"
 	}
-	intr_flags = opt["SEND_INTR"] " "
-	create_flags = "-up"(opt["DRYRUN"]?"n":"")" "
+	intr_flags = Opt["SEND_INTR"] " "
+	create_flags = "-up"(Opt["DRYRUN"]?"n":"")" "
 }
 
 function dryrun(command) {
-	if (opt["DRYRUN"]) {
+	if (Opt["DRYRUN"]) {
 		if (command) print "+ "command
 		return 1
 	} else { return 0 }
@@ -249,14 +252,14 @@ function output_pipe() {
 
 # Load properties for an endpoint
 function load_properties(ep, props,	_ds, _zfs_get_arr, _zfs_get_cmd, _idx) {
-	_ds = opt[ep "_DS"]
+	_ds = Opt[ep "_DS"]
 	_zfs_get_arr[++_idx] = zfs_cmd(ep)
 	_zfs_get_arr[++_idx] = "get -Hpr -s local,none -t filesystem,volume -o name,property,value"
-	if (depth) _zfs_get_arr[++_idx] = "-d" (depth-1)
+	if (Depth) _zfs_get_arr[++_idx] = "-d" (Depth-1)
 	_zfs_get_arr[++_idx] = "all"
 	_zfs_get_arr[++_idx] = q(_ds)
 	_zfs_get_cmd = str_join(_zfs_get_arr)
-	report(LOG_INFO, "checking properties for " opt[ep"_ID"])
+	report(LOG_INFO, "checking properties for " Opt[ep"_ID"])
 	report(LOG_DEBUG, "`"_zfs_get_cmd"`")
 	while (_zfs_get_cmd CAPTURE_OUTPUT | getline) {
 		if (sub("^"_ds,"",$1)) props[$1,$2] = $3
@@ -288,33 +291,40 @@ function zfs_send_options_check() {
 #
 }
 
-function replica_relationship_status() {
-	if (!zm_srclast) return								"NO_SRC_SNAP"
-	else if (taret_does_not_exist) return						"NEW"
-	else if (zm_tgtwritten || !zm_tgtlast || (zm_match != zm_tgtlast)) return	"BLOCKED"
-	else if (zm_match == zm_srclast) return						"SYNCED"
-	else if (zm_match) return							"BEHIND"
-	else return									"ERROR"
+function load_zelta_match_variable() {
+	if ($1 == "SOURCE_LIST_TIME:")		source_list_time += $2
+	else if ($1 == "TARGET_LIST_TIME:")	target_list_time += $2
+	else return 0
+	return 1
+}
+
+function load_dataset_relationship(zm_row) {
+	delete zm_row
+	zm_row["name"]		= $1
+	zm_row["match"]		= $2
+	zm_row["srcfirst"]	= $3
+	zm_row["srclast"]	= Opt["SRC_SNAP"] ? Opt["SRC_SNAP"] : $4
+	zm_row["tgtlast"]	= $5
+	zm_row["status"]	= $6
+	zm_row["tgtwritten"]	= tgtprops[$1,"written"]
 }
 
 function load_snapshot_deltas(_zelta_match_arr, _zelta_match_command, _idx) {
+	FS = "\t"
 	_zelta_match_arr[++_idx]		= "zelta ipc-run match"
 	_zelta_match_arr[++_idx]		= "--time --log-level=2"
-	if (depth) _zelta_match_arr[++_idx]	= "-d" depth
+	if (Depth) _zelta_match_arr[++_idx]	= "-d" Depth
 	_zelta_match_arr[++_idx]		= "-Hpo relname,match,srcfirst,srclast,tgtlast,status"
 	_zelta_match_command			= str_join(_zelta_match_arr)
 	report(LOG_INFO, "checking replica deltas")
 	report(LOG_DEBUG, "`"_zelta_match_command"`")
         while (_zelta_match_command | getline) {
-#		if (/^target_LIST_TIME:/) source_list_time += $2
-		zm_relname	= $1
-		zm_match	= $2
-		zm_srcfirst	= $3
-		zm_srclast	= opt["SRC_SNAP"] ? opt["SRC_SNAP"] : $4
-		zm_tgtlast	= $5
-		zm_status	= $6
-		zm_tgtwritten	= tgtprops[$1,"written"]
-		print zm_status, zm_relname, replica_relationship_status()
+		if (!$6) {
+			load_zelta_match_variable()
+		} else { 
+			load_dataset_relationship(zm_row)
+		}
+	}
 
 #                if (!name_match_row()) {
 #                        if ($1 == "SOURCE_LIST_TIME:") {
@@ -343,7 +353,6 @@ function load_snapshot_deltas(_zelta_match_arr, _zelta_match_command, _idx) {
 #                        report(LOG_INFO, targetds ": "info)
 #                        synced_count++
 #                } else report(LOG_WARNING, targetds": "info)
-        }
 #        close(_zelta_match_command)
 	exit
 }
@@ -439,12 +448,12 @@ function name_match_row() {
 	sync_code	= $2
 	match_snap	= $3
 	sfirst		= $4
-	slast		= (opt["SRC_SNAP"] ? opt["SRC_SNAP"] : $5) 
+	slast		= (Opt["SRC_SNAP"] ? Opt["SRC_SNAP"] : $5) 
 	tlast		= $6
 	info		= $7 (tgtprop[dataset,"written"] ? "; target is written" : "")
 
-	sourceds	= opt["SRC_DS"] dataset 
-	targetds	= opt["TGT_DS"] dataset 
+	sourceds	= Opt["SRC_DS"] dataset 
+	targetds	= Opt["TGT_DS"] dataset 
 	sfirst_full	= sourceds sfirst
 	slast_full	= sourceds slast
 	tlast_full	= targetds tlast
@@ -462,13 +471,13 @@ function name_match_row() {
 	# No match. Was the source renamed?
 	if (check_origin) {
 		sub(/[#@].*/, "", sorigin)
-		sorigin_dataset = (opt["SRC_PREFIX"] ? opt["SRC_PREFIX"] ":" : "") sorigin
-		clone_match = "zelta match -Hd1 -omatch,sync_code " q(sorigin_dataset) " " q(opt["TGT_ID"] dataset)
+		sorigin_dataset = (Opt["SRC_PREFIX"] ? Opt["SRC_PREFIX"] ":" : "") sorigin
+		clone_match = "zelta match -Hd1 -omatch,sync_code " q(sorigin_dataset) " " q(Opt["TGT_ID"] dataset)
 		while (clone_match | getline) {
 			if (/^[@#]/) { 
 				match_snap		= $1
 				source_match		= sorigin match_snap
-				if (opt["VERB"] == "rotate") tgt_behind	= 1
+				if (Opt["VERB"] == "rotate") tgt_behind	= 1
 				else {
 					report(LOG_WARNING, sourceds" is a clone of "source_match"; consider --rotate")
 					return 0
@@ -479,9 +488,9 @@ function name_match_row() {
 	}
 		
 
-	if ((opt["VERB"] == "rotate")) {
+	if ((Opt["VERB"] == "rotate")) {
 		if (tgt_behind && !dataset) {
-			torigin_name = opt["TGT_DS"] match_snap
+			torigin_name = Opt["TGT_DS"] match_snap
 			sub(/[#@]/, "_", torigin_name)
 		}
 		rotate_name = torigin_name dataset match_snap
@@ -491,24 +500,24 @@ function name_match_row() {
 
 function validate_source_dataset() {
 	if (!load_properties("SRC",srcprops)) {
-		report(LOG_ERROR, "source dataset '"opt["SRC_ID"]"' does not exist")
+		report(LOG_ERROR, "source dataset '"Opt["SRC_ID"]"' does not exist")
 		stop(1)
 	}
 }
 
 function plan_clone() {
-	if (opt["SRC_PREFIX"] != opt["TGT_PREFIX"]) {
+	if (Opt["SRC_PREFIX"] != Opt["TGT_PREFIX"]) {
 		report(LOG_ERROR, "clone target endpoint must use the same user, host, and zfs pool as the source")
 		stop(1)
 	}
 	if (load_properties("TGT", tgtprops)) {
-		report(LOG_ERROR, "cannot clone; target dataset '"opt["TGT_ID"]"' exists")
+		report(LOG_ERROR, "cannot clone; target dataset '"Opt["TGT_ID"]"' exists")
 		stop(1)
 	}
 }
 
 function plan_backup() {
-	if (opt["PROP_CHECK"] && !load_properties("TGT", tgtprops)) taret_does_not_exist++
+	if (Opt["PROP_CHECK"] && !load_properties("TGT", tgtprops)) taret_does_not_exist++
 	load_snapshot_deltas()
 
 	#zfs_send_options_check() # do this during dryrun step
@@ -518,7 +527,7 @@ BEGIN {
 	CAPTURE_OUTPUT = " 2>&1"
 	load_options()
 	validate_source_dataset()
-	if (opt["VERB"] == "clone")		plan_clone()
+	if (Opt["VERB"] == "clone")		plan_clone()
 	else					plan_backup()
 
 	get_config()	# Drop this
@@ -565,12 +574,12 @@ BEGIN {
 	}
 	close(match_command)
 	
-	if (opt["VERB"] == "rotate") {
+	if (Opt["VERB"] == "rotate") {
 		if (!torigin_name) {
 			report(LOG_ERROR, "no match available for requested rotation")
 			stop(5)
 		}
-		rename_command = zfs_cmd("TGT","RECV") " rename " q(opt["TGT_DS"]) " " q(torigin_name)
+		rename_command = zfs_cmd("TGT","RECV") " rename " q(Opt["TGT_DS"]) " " q(torigin_name)
 		if (! dryrun(rename_command)) {
 			system(rename_command)
 			report(LOG_NOTICE, "target renamed to " q(torigin_name))
@@ -603,7 +612,7 @@ BEGIN {
 		}
 		estimate = ", " h_num(total_transfer_size)
 	}
-	estimate = ((opt["VERB"] == "clone") ? "cloning " : "replicating ") rpl_num " streams" estimate
+	estimate = ((Opt["VERB"] == "clone") ? "cloning " : "replicating ") rpl_num " streams" estimate
 	report(LOG_NOTICE, estimate)
 	for (r = 1; r <= rpl_num; r++) {
 		#if (dryrun(send_command[r])) {
@@ -621,10 +630,10 @@ BEGIN {
 		if (receive_command[r]) replication_command = send_command[r] "|" receive_command[r]
 		else replication_command = send_command[r]
 		if (dryrun(replication_command)) continue
-#		full_cmd = opt["TIME_COMMAND"] " " opt["SH_COMMAND_PREFIX"] " " replication_command " " opt["SH_COMMAND_SUFFIX"] CAPTURE_OUTPUT
+#		full_cmd = Opt["TIME_COMMAND"] " " Opt["SH_COMMAND_PREFIX"] " " replication_command " " Opt["SH_COMMAND_SUFFIX"] CAPTURE_OUTPUT
 #		print full_cmd
 		#full_cmd = RPL_CMD_PREFIX dq(replication_command) CAPTURE_OUTPUT
-		full_cmd = opt["SH_COMMAND_PREFIX"] " sh -c " dq(replication_command) " " opt["SH_COMMAND_SUFFIX"] " " CAPTURE_OUTPUT
+		full_cmd = Opt["SH_COMMAND_PREFIX"] " sh -c " dq(replication_command) " " Opt["SH_COMMAND_SUFFIX"] " " CAPTURE_OUTPUT
 		report(LOG_DEBUG, "running:" full_cmd)
 		if (stream_size[r]) report(LOG_NOTICE, source_stream[r]": sending " h_num(stream_size[r]))
 		replicate(full_cmd)
@@ -636,7 +645,7 @@ BEGIN {
 	#track_errors("")
 
 	# Exit if we didn't parse "zfs send"
-	if ((opt["VERB"] == "clone") || !CAPTURE_OUTPUT) exit error_code
+	if ((Opt["VERB"] == "clone") || !CAPTURE_OUTPUT) exit error_code
 	report(LOG_NOTICE, h_num(total_bytes) " sent, " received_streams "/" sent_streams " streams received in " zfs_replication_time " seconds")
 	stop(error_code)
 }
