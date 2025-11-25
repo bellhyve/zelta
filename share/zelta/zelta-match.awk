@@ -39,40 +39,15 @@ function usage(message) {
 	exit 1
 }
 
-function pass_flags(flag) {
-	PASS_FLAGS = PASS_FLAGS ? (PASS_FLAGS OFS flag) : flag
-}
-
-function load_options(	i, o) {
-	for (o in ENVIRON) {
-		if (sub(/^ZELTA_/,"",o)) {
-			Opt[o] = ENVIRON["ZELTA_"o]
-		}
-	}
+function validate_options(	i, o) {
+	if (Opt["USAGE"]) usage()
 	source_defined = (Opt["SRC_ID"] && Opt["SRC_DS"])
 	target_defined = (Opt["TGT_ID"] && Opt["TGT_DS"])
 	if ((!source_defined) && (!target_defined)) usage("no datasets defined")
-		
-	split(Opt["ARGS"],args,"\t")
-	for (i in args) {
-		$0 = args[i]
-		if (sub(/^o /,""))		PROPERTIES = $0
-		else if (sub(/^d /,""))		ZELTA_DEPTH = $0
-		else if (/^dry-?run$/)		dryrun++
-		else if (/^n$/)			dryrun++
-		else if (/^h$/)			usage()
-		else if (/^help$/)		usage()
-		else if (/^no-?written$/)	WRITTEN = 0
-		else if (/^no-?target$/)	target_defined = ""
-		else if (/^H$/)			pass_flags("H")
-		else if (/^p$/)			pass_flags("p")
-		else if (/^time$/)		pass_flags("time")
-		#else if (sub(/^j/,""))		pass_flags("j")
-		else usage("unkown option: " $0)
-	}
 	# Skip "written" in scripting mode (-H) if no written summary or properties will be printed.
-	if (WRITTEN && PROPERTIES && (PASS_FLAGS ~ /[H]/) && (PROPERTIES !~ /(all|written|size)/)) {
-		WRITTEN = 0
+		# Switched LIST_WRITTEN to default off
+	if (Opt["LIST_WRITTEN"] && Opt["PROPLIST"] && Opt["PARSABLE"] && (Opt["PROPLIST"] !~ /(all|written|size)/)) {
+		Opt["LIST_WRITTEN"] = 0
 	}
 }
 
@@ -87,20 +62,22 @@ function join_arr(arr, len,		i, str) {
 function zfs_list(endpoint,		p, cmd, cmd_part) {
 	if (! Opt[endpoint"_DS"]) return ""
 	p = 1
-	cmd_part[p++]			= Opt["SH_COMMAND_PREFIX"]
-	cmd_part[p++]			= Opt["TIME_COMMAND"]
+	if (Opt["TIME"]) {
+		cmd_part[p++]			= Opt["SH_COMMAND_PREFIX"]
+		cmd_part[p++]			= Opt["TIME_COMMAND"]
+	}
 	if (Opt[endpoint "_PREFIX"]) {
 		cmd_part[p++]		= Opt["REMOTE_DEFAULT"] " " Opt[endpoint "_PREFIX"]
 	}
 	cmd_part[p++]			= "zfs"
 	cmd_part[p++]			= "list -Hprt all -Screatetxg"
-	cmd_part[p++]			= "-o name,guid" (WRITTEN ? ",written" : "")
-	if (DEPTH) cmd_part[p++]	= "-d " DEPTH
+	cmd_part[p++]			= "-o name,guid" (Opt["LIST_WRITTEN"] ? ",written" : "")
+	if (Opt["DEPTH"]) cmd_part[p++]	= "-d " Opt["DEPTH"]
 	cmd_part[p++]			= "'"Opt[endpoint"_DS"]"'"
-	cmd_part[p++]			= Opt["SH_COMMAND_SUFFIX"]
-	cmd_part[p]			= ALL_OUT
+	if (Opt["TIME"]) cmd_part[p++]	= Opt["SH_COMMAND_SUFFIX"]
+	cmd_part[p]			= CAPTURE_OUTPUT
 	cmd = join_arr(cmd_part, p)
-	if (dryrun) report(LOG_NOTICE, "+ " cmd)
+	if (Opt["DRYRUN"]) report(LOG_NOTICE, "+ " cmd)
 	return cmd
 }
 
@@ -113,16 +90,13 @@ function check_parent(endpoint,		p, cmd_part, cmd) {
 	}
 	sub(/\/[^\/]*$/, "", ds)
 	p = 1
-	#cmd_part[p++]			= Opt["SH_COMMAND_PREFIX"]
-	#cmd_part[p++]                   = Opt[endpoint"_ZFS"]
 	if (Opt[endpoint "_PREFIX"]) {
 		cmd_part[p++]		= Opt["REMOTE_DEFAULT"] " " Opt[endpoint "_PREFIX"]
 	}
 	cmd_part[p++]			= "zfs"
 	cmd_part[p++]                   = "list -Ho name"
 	cmd_part[p++]                   = "'"ds"'"
-	#cmd_part[p++]			= Opt["SH_COMMAND_SUFFIX"]
-	cmd_part[p]                     = ALL_OUT
+	cmd_part[p]                     = CAPTURE_OUTPUT
 	cmd = join_arr(cmd_part, p)
 	cmd | getline cmd_output
 	close(cmd)
@@ -134,41 +108,34 @@ BEGIN {
 	# Constants
 	FS				= "\t"
 	OFS				= "\t"
-	ALL_OUT				= "2>&1"
+	CAPTURE_OUTPUT			= "2>&1"
 
-	# Defaults
-	DEPTH				= 0
-	WRITTEN				= 1
-
-	load_options()
-	MATCH_COMMAND				= "zelta ipc-run match-pipe"
+	validate_options()
+	MatchCommand				= "zelta ipc-run match-pipe"
 	if (source_defined) ZFS_LIST_SRC	= zfs_list("SRC")
 	if (target_defined) ZFS_LIST_TGT	= zfs_list("TGT")
 
-	if (dryrun) stop()
+	if (Opt["DRYRUN"]) stop()
 
-	# MATCH_COMMAND = "cat" # Test stream
+	# MatchCommand = "cat" # Test stream
 
 	# Stream to "zelta-match-pipe.awk"
 	report(LOG_INFO, "comparing datasets")
-	report(LOG_DEBUG, "`"MATCH_COMMAND"`")
-	if (PASS_FLAGS) print "PASS_FLAGS:", PASS_FLAGS			| MATCH_COMMAND
-	if (PROPERTIES) print "PROPERTIES:", PROPERTIES			| MATCH_COMMAND
-	if (DEPTH) print "DEPTH:", DEPTH				| MATCH_COMMAND
+	report(LOG_DEBUG, "`"MatchCommand"`")
 	if (target_defined) {
 		if (check_parent("TGT")) {
-			print "ZFS_LIST_TGT:", ZFS_LIST_TGT 		| MATCH_COMMAND
-		} else print "TGT_PARENT:", "no"			| MATCH_COMMAND
+			print "ZFS_LIST_TGT:", ZFS_LIST_TGT 		| MatchCommand
+		} else print "TGT_PARENT:", "no"			| MatchCommand
 	}
 	if (source_defined) {
 		if (check_parent("SRC")) {
 			report(LOG_INFO, "listing source")
 			report(LOG_DEBUG, "`"ZFS_LIST_SRC"`")
-			print "ZFS_LIST_STREAM:", Opt["SRC_ID"]		| MATCH_COMMAND
-			while (ZFS_LIST_SRC | getline) print		| MATCH_COMMAND
+			print "ZFS_LIST_STREAM:", Opt["SRC_ID"]		| MatchCommand
+			while (ZFS_LIST_SRC | getline) print		| MatchCommand
 			close(ZFS_LIST_SRC)
-		} else print "SRC_PARENT:", no				| MATCH_COMMAND
+		} else print "SRC_PARENT:", no				| MatchCommand
 	}
-	print "ZFS_LIST_STREAM_END"					| MATCH_COMMAND
-	close(MATCH_COMMAND)
+	print "ZFS_LIST_STREAM_END"					| MatchCommand
+	close(MatchCommand)
 }

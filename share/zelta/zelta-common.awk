@@ -44,6 +44,16 @@ function str_join(arr, sep,    _str, _idx, _i) {
 	return _str
 }
 
+function create_dict(dict, def, 		_i, _n, _arr, _pair) {
+	# def format: user_key:key [space]
+	_n = split(def, _arr, " ")
+	for (_i = 1; _i <= _n; _i++) {
+		if (split(_arr[_i], _pair, ":")) dict[_pair[1]] = _pair[2]
+		else report(LOG_ERROR, "errror creating dictionary: " _arr[_1])
+		#print "pair " _arr[_1], _pair[1],_pair[2]
+	}
+}
+
 # systime() doesn't work on a lot of systems despite being in the POSIX spec.
 # This workaround isn't entirely portable either and should be replaced.
 function sys_time() {

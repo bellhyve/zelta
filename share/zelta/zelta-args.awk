@@ -2,6 +2,8 @@
 #
 # zelta-args.awk: serialize common zelta arguments
 
+# Create a set of variables from an scp-like host-dataset argument
+# [[user@]host:]dataset[@snapshot]
 function get_endpoint(ep_type) {
 	ep_pre = ep_type "_"
 	endpoint_id = $0
@@ -35,9 +37,6 @@ function get_endpoint(ep_type) {
 		}
 		if (!host) host = "localhost"
 	}
-	#endpoint_id = user"_"host"_"dataset
-	#gsub(/[^A-Za-z0-9_]/,"-", endpoint_id)
-	# Change the ID  back to just the actual endpoint string, I think.
 	NewOpt[ep_pre "ID"] = endpoint_id
 	NewOpt[ep_pre "USER"] = user
 	NewOpt[ep_pre "HOST"] = host
@@ -51,8 +50,9 @@ function add_arg(arg) {
 }
 
 function match_arg(arg, 	_flag) {
-	for (_flag in OptListKey) {
-		if (arg == _flag) return _flag
+	for (_flag in OptListFlags) {
+		_flags = OptListFlags[_flag]
+		if (arg == _flag) return _flags
 	} 
 	report(LOG_ERROR, "invalid option '"arg"'")
 	stop(1)
@@ -99,26 +99,19 @@ function get_args() {
 	}
 }
 
-#
-	#if (args) { NewOpt["ARGS"] = args }
-	#zfs_short_opts["X"]++
-	#zfs_short_opts["d"]++
-	#zfs_short_opts["o"]++
-	#zfs_short_opts["x"]++
-
-function load_option_list(		_tsv, _flag, _idx, _flag_list) {
+# Load and index option file
+function load_option_list(		_tsv, _flag, _flags, _idx, _flag_arr) {
 	_tsv = Opt["SHARE"]"/zelta-opts.tsv"
 	while (getline<_tsv) {
 		if (index($1, Opt["VERB"]) || ($1 == "all")) {
-			split($2,_flag_list,",")
-			for (_idx in _flag_list) { 
-				_flag			= _flag_list[_idx]
-				OptListKey[_flag]	= $3
-				OptListType[_flag]	= $4
-				OptListValue[_flag]	= $5
-				OptListWarn[_flag]	= $6
-				#print _flag, OptListKey[_flag], OptListType[_flag], OptListValue[_flag], OptListWarn[_flag]
-			}
+			_flags = $2
+			split($2, _flag_arr, ",")
+			# Make an dictionary for flag synonyms
+			for (_idx in _flag_arr) OptListFlags[_flag_arr[_idx]] = _flags
+			OptListKey[_flags]	= $3
+			OptListType[_flags]	= $4
+			OptListValue[_flags]	= $5
+			OptListWarn[_flags]	= $6
 		}
 	}
 }

@@ -5,14 +5,13 @@
 # usage: compares two "zfs list" commands; one "zfs list" is piped for parrallel
 # processing.
 
-function arrlen(array) {
-	element_count = 0
-	for (key in array) element_count++
-	return element_count
+function arrlen(array,		_element_count, _key) {
+	for (_key in array) _element_count++
+	return _element_count
 }
 
 function depth_too_high() {
-	return (DEPTH && (split(rel_name, depth_arr, "/") > DEPTH))
+	return (Opt["DEPTH"] && (split(rel_name, depth_arr, "/") > Opt["DEPTH"]))
 }
 
 function process_dataset(endpoint) {
@@ -43,7 +42,7 @@ function process_savepoint(endpoint) {
 	dataset_id					= (endpoint SUBSEP rel_name)
 	if (!num_snaps[dataset_id]++) {
 		last[dataset_id]			= savepoint
-		last_guid[dataset_id]			= guid
+		LastGUID[dataset_id]			= guid
 	}
 	first[dataset_id]	= savepoint
 	first_guid[dataset_id]	= guid
@@ -51,6 +50,7 @@ function process_savepoint(endpoint) {
 
 # Check for snapshot, bookmark, dataset, or time data
 function parse_stream(endpoint) {
+	if (endpoint == target) report(LOG_INFO, $0)
 	if (/^real[ \t]+[0-9]/) {
 		split($0, time_arr, /[ \t]+/)
 		zfs_list_time[endpoint] += time_arr[2]
@@ -83,43 +83,43 @@ function arr_sort(arr) {
     }
 }
 
-function add_prop_col(prop) {
-	PROP_LIST[++PROP_NUM] = prop
-	PROP_DICT[prop] = PROP_NUM
-}
-	
-function check_prop_col(prop) {
-	prop = tolower(prop)
-	gsub(/_/, "", prop)
-	if (prop ~ /^(relname|name)$/)	add_prop_col("REL_NAME")
-	else if (prop == "status")	add_prop_col("STATUS")
-	else if (prop == "synccode")	add_prop_col("SYNC_CODE")
-	else if (prop == "match")	add_prop_col("MATCH")
-	else if (prop == "xfersize")	add_prop_col("XFER_SIZE")
-	else if (prop == "xfernum")	add_prop_col("XFER_NUM")
-	#else if (prop == "nummatches")	add_prop_col("NUM_MATCHES")
-	else if (prop == "srcname")	add_prop_col("SRC_NAME")
-	else if (prop == "srcfirst")	add_prop_col("SRC_FIRST")
-	else if (prop == "srcnext")	add_prop_col("SRC_NEXT")
-	else if (prop == "srclast")	add_prop_col("SRC_LAST")
-	else if (prop == "srcwritten")	add_prop_col("SRC_WRITTEN")
-	else if (prop == "srcsnaps")	add_prop_col("SRC_SNAPS")
-	else if (prop == "tgtname")	add_prop_col("TGT_NAME")
-	else if (prop == "tgtfirst")	add_prop_col("TGT_FIRST")
-	else if (prop == "tgtnext")	add_prop_col("TGT_NEXT")
-	else if (prop == "tgtlast")	add_prop_col("TGT_LAST")
-	else if (prop == "tgtwritten")	add_prop_col("TGT_WRITTEN")
-	else if (prop == "tgtsnaps")	add_prop_col("TGT_SNAPS")
-	else if (prop == "info")	add_prop_col("INFO")
-	else report(LOG_ERROR, "unknown property " prop)
+
+# Properties can be ordered by the user, so we use the explicit hash order for "all properties"
+function use_all_properties(hash,	_n, _i, _pair, _tmp_dict) {
+	_n = split(hash, _arr, " ")
+	for (_i = 1; _i <= _n; _i++) {
+		split(_arr[_i], _pair, ":")
+		if (!_tmp_dict[_pair[2]]++) {
+			PropList[++PropNum] = _pair[2]
+		}
+	}
 }
 
-function load_property_list(props,	_prop_list, _p, _prop_num) {
-	_prop_num = split(props, _prop_list, /,/)
+function use_custom_properties(prop_dict,	_p, _prop_num, _prop_arr) {
+	_prop_num = split(Opt["PROPLIST"], _prop_arr, /,/)
 	for (_p = 1; _p <= _prop_num; _p++) {
-		if (_prop_list[_p] == "all")		load_property_list(PROPERTIES_ALL)
-		else if (_prop_list[_p] == "list")	load_property_list(PROPERTIES_LIST)
-		else check_prop_col(_prop_list[_p])
+		if (_prop_arr[_p]) {
+			PropList[++PropNum] = prop_dict[_prop_arr[_p]]
+		} else {
+			report(LOG_ERROR, "invalid property '"_prop_arr[_p]"'")
+			stop(1)
+		}
+	}
+}
+
+function load_property_list(	_hash, _prop_dict) {
+	_hash =	"relname:REL_NAME name:REL_NAME status:STATUS synccode:SYNC_CODE " \
+		"match:MATCH xfersize:XFER_SIZE xfernum:XFER_NUM " \
+		"srcname:SRC_NAME srcfirst:SRC_FIRST srcnext:SRC_NEXT srclast:SRC_LAST srcwritten:SRC_WRITTEN srcsnaps:SRC_SNAPS " \
+		"tgtname:TGT_NAME tgtfirst:TGT_FIRST tgtnext:TGT_NEXT tgtlast:TGT_LAST tgtwritten:TGT_WRITTEN tgtsnaps:TGT_SNAPS " \
+		"info:INFO"
+	if (Opt["PROPLIST"] == "all") {
+		use_all_properties(_hash)
+	} else {
+		create_dict(_prop_dict, _hash)
+		if (!Opt["PROPLIST"]) Opt["PROPLIST"] = "relname,match,srclast,tgtlast,info"
+		else gsub(/_/,"",Opt["PROPLIST"])
+		use_custom_properties(_prop_dict)
 	}
 }
 
@@ -127,12 +127,8 @@ BEGIN {
 	FS			= "\t"
 	OFS			= "\t"
 
-	PROPERTIES_ALL		= "relname,xfersize,xfernum,match,srcfirst,srclast,srcsnaps,srcwritten,tgtlast,tgtwritten,tgtsnaps"
-	PROPERTIES_LIST		= "relname,match,srcfirst,srcnext,srclast,tgtlast"
-	PROPERTIES_DEFAULT	= "relname,match,srclast,tgtlast,info"
-	PROPERTIES		= PROPERTIES_DEFAULT
+	load_property_list(Opt["PROPLIST"])
 
-	MODE			= "CHART"
 
 	source = Opt["SRC_ID"]
 	target = Opt["TGT_ID"]
@@ -146,17 +142,6 @@ BEGIN {
 	zfs_list_time[target] = 0
 }
 
-function load_flags() {
-	PASS_FLAGS		= $0
-
-	if (PASS_FLAGS ~ /p/) PARSABLE++
-	if (PASS_FLAGS ~ /time/) SHOW_LIST_TIME++
-	if (PASS_FLAGS ~ /H/) {
-		NOHEADER++
-		MODE = "ONETAB"
-	}
-}
-
 function count_snapshot_diff() {
 	transfer_size += snapshot_written
 	xfersize[rel_name] += snapshot_written
@@ -167,7 +152,6 @@ function run_zfs_list() {
 	SKIP_BOOKMARKS = 1
 	transfer_size = 0
 	zfs_list_tgt = $0;
-	load_property_list(PROPERTIES)
 	if ((source == target)) {
 		report(LOG_WARNING, "warning: identical source and target")
 	} else {
@@ -180,10 +164,7 @@ function run_zfs_list() {
 
 # Load variables from pipe
 !LIST_STREAM {
-	if (sub(/^PASS_FLAGS:\t/,"")) load_flags()
-	else if (sub(/^PROPERTIES:\t/,"")) PROPERTIES = $0
-	else if (sub(/^DEPTH:\t/,"")) DEPTH = $0
-	else if (sub(/^TGT_PARENT:\t/,"")) {
+	if (sub(/^TGT_PARENT:\t/,"")) {
 		if ($0 == "no") {
 			report(LOG_ERROR, "parent dataset does not exist: " Opt["TGT_DS"])
 		}
@@ -218,7 +199,7 @@ LIST_STREAM {
 		if (guid_to_name[target,guid]) num_matches[rel_name]++
 	} else if (guid_to_name[target,guid]) {
 		last_match[rel_name]		= savepoint
-		last_match_guid[rel_name]	= guid
+		LastMatchGUID[rel_name]	= guid
 	} else count_snapshot_diff()
 }
 
@@ -229,22 +210,23 @@ function dataset_is_orphan() {
 }
 
 function get_sync_code() {
-	if (name[source_id]) {
+	if (name[SourceKey]) {
 		s		= 1
-		s		+= last[source_id] ? 2 : 0
-		s		+= written[source_id] ? 4 : 0
+		s		+= last[SourceKey] ? 2 : 0
+		s		+= written[SourceKey] ? 4 : 0
 	} else	s		= 0
-	m			= last_match_guid[rel_name] ? 1 : 0
-	m			+= source_latest_match ? 2 : 0
-	m			+= target_latest_match ? 4 : 0
-	if (name[target_id]) {
+	m			= LastMatchGUID[rel_name] ? 1 : 0
+	m			+= SourceHasLatestMatch ? 2 : 0
+	m			+= TargetHasLatestMatch ? 4 : 0
+	if (name[TargetKey]) {
 		t		= 1
-		t		+= last[target_id] ? 2 : 0
-		t		+= written[target_id] ? 4 : 0
+		t		+= last[TargetKey] ? 2 : 0
+		t		+= written[TargetKey] ? 4 : 0
 	} else	t		= 0
 	return (s m t)
 }
 
+# Provide a simple relationsihip code/
 function get_status() {
 	if (m >= 6)				return	"UP_TO_DATE"
 	else if (!s)				return	"NO_SOURCE"
@@ -257,38 +239,38 @@ function get_status() {
 }
 
 function get_info() {
-	if (!name[target_id] && name[source_id]) { 
+	if (!name[TargetKey] && name[SourceKey]) { 
 		if (dataset_is_orphan())	return	"source parent has no snapshots"
-		else if (last[source_id])	return	"source only; no target dataset"
+		else if (last[SourceKey])	return	"source only; no target dataset"
 		else 				return	"no source snapshots; no target dataset"
-	} else if (!name[source_id] && name[target_id]) {
-		if (last[target_id])		return	"no source dataset; target dataset exists"
+	} else if (!name[SourceKey] && name[TargetKey]) {
+		if (last[TargetKey])		return	"no source dataset; target dataset exists"
 		else 				return	"no source dataset; no target snapshots"
-	} else if (source_latest_match && target_latest_match) {
-		if (written[target_id])		return	"up-to-date but cannot sync: target is written"
-		else if (written[source_id])	return	"up-to-date; source is written"
+	} else if (SourceHasLatestMatch && TargetHasLatestMatch) {
+		if (written[TargetKey])		return	"up-to-date but cannot sync: target is written"
+		else if (written[SourceKey])	return	"up-to-date; source is written"
 		else 				return	"up-to-date"
-	} else if (!source_latest_match && target_latest_match) {
-		if (written[target_id])		return	"target is out-of-date; warning: target is written"
-		if (written[source_id])		return	"target is out-of-date; source is written"
+	} else if (!SourceHasLatestMatch && TargetHasLatestMatch) {
+		if (written[TargetKey])		return	"target is out-of-date; warning: target is written"
+		if (written[SourceKey])		return	"target is out-of-date; source is written"
 		else				return	"target is out-of-date"
-	} else if (source_latest_match && !target_latest_match) {
+	} else if (SourceHasLatestMatch && !TargetHasLatestMatch) {
 						return	"cannot sync: target has newer snapshots than source"
 	} else if (last_match[rel_name]) {
 						return	"cannot sync: source and target have diverged"
-	} else if (!target_latest_match) {	return	"cannot sync: target has no matching snapshots"
+	} else if (!TargetHasLatestMatch) {	return	"cannot sync: target has no matching snapshots"
 	} else					return	"cannot determine sync state"
 }
 
 function get_summary() {
-	target_id				= (target SUBSEP rel_name)
-	source_id				= (source SUBSEP rel_name)
-	if (last_match_guid[rel_name]) {
-		source_latest_match		= (last_match_guid[rel_name] == last_guid[source_id])
-		target_latest_match		= (last_match_guid[rel_name] == last_guid[target_id])
+	TargetKey				= (target SUBSEP rel_name)
+	SourceKey				= (source SUBSEP rel_name)
+	if (LastMatchGUID[rel_name]) {
+		SourceHasLatestMatch		= (LastMatchGUID[rel_name] == LastGUID[SourceKey])
+		TargetHasLatestMatch		= (LastMatchGUID[rel_name] == LastGUID[TargetKey])
 	} else {
-		source_latest_match		= 0
-		target_latest_match		= 0
+		SourceHasLatestMatch		= 0
+		TargetHasLatestMatch		= 0
 	}
 	sync_code[rel_name]			= get_sync_code()
 	status[rel_name]			= get_status()
@@ -301,15 +283,15 @@ function get_summary() {
 function print_row(cols) {
 	num_col = arrlen(cols)
 	for(c=1;c<=num_col;c++) {
-		if (MODE=="ONETAB") printf ((c>1)?"\t":"") cols[c]
-		if (MODE=="CHART") printf ((c>1)?"  ":"") pad[c], cols[c]
+		if (Opt["PARSABLE"]) printf ((c>1)?"\t":"") cols[c]
+		else printf ((c>1)?"  ":"") pad[c], cols[c]
 	}
 	printf "\n"
 }
 
 function make_header_column(title, arr, endpoint) {
-	columns[cnum] = NOHEADER?"  ":toupper(title)
-	if (MODE=="CHART") { 
+	columns[cnum] = Opt["SCRIPTING_MODE"] ? "  " : toupper(title)
+	if (!Opt["PARSABLE"]) { 
 		width = length(title)
 		for (w in arr) {
 			if (!endpoint || index(w, endpoint) == 1) {
@@ -321,8 +303,8 @@ function make_header_column(title, arr, endpoint) {
 }
 
 function chart_header() {
-	for (cnum=1;cnum<=PROP_NUM;cnum++) {
-		col = PROP_LIST[cnum]
+	for (cnum=1;cnum<=PropNum;cnum++) {
+		col = PropList[cnum]
 		if ("REL_NAME" == col) make_header_column(col, rel_name_order)
 		if ("STATUS" == col) make_header_column(col, status)
 		if ("SYNC_CODE" == col) make_header_column(col, sync_code)
@@ -347,11 +329,11 @@ function chart_header() {
 	print_row(columns)
 }
 
-function chart_row(field) {
-	if (!ROW++ && !(MODE == "ONETAB")) chart_header()
+function chart_row(field,	cnum, col) {
+	if (!ROW++ && !(Opt["SCRIPTING_MODE"])) chart_header()
 	delete columns
-	for (cnum=1;cnum<=PROP_NUM;cnum++) {
-		col = PROP_LIST[cnum]
+	for (cnum=1;cnum<=PropNum;cnum++) {
+		col = PropList[cnum]
 		if ("REL_NAME" == col) columns[cnum] = field
 		if ("STATUS" == col) columns[cnum] = status[field]
 		if ("SYNC_CODE" == col) columns[cnum] = sync_code[field]
@@ -381,7 +363,7 @@ function summarize() {
 		arr_sort(rel_name_order)
 		for (i=1; i <= rel_name_num; i++) chart_row(rel_name_order[i])
 	}
-	if (SHOW_LIST_TIME) {
+	if (Opt["CHECK_TIME"]) {
 		print "SOURCE_LIST_TIME:", zfs_list_time[source]
 		print "TARGET_LIST_TIME:", zfs_list_time[target]
 	} else {
@@ -407,6 +389,7 @@ function summarize() {
 
 END {
 	for (rel_name in rel_name_list) get_summary()
+	# Print a chart and a summary of the replica sync state
 	summarize()
-	close(LOGGER)
+	stop()
 }

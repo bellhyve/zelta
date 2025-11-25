@@ -21,9 +21,9 @@ BEGIN {
 	FS = "\t"
 	exit_code = 0
 
-	zfs		= (opt["SRC_PREFIX"] ? "ssh -n " opt["SRC_PREFIX"] " " : "") "zfs "
-	dataset		= opt["SRC_DS"]
-	snapshot	= make_snapshot_name(opt["SRC_SNAP"])
+	zfs		= (Opt["SRC_PREFIX"] ? "ssh -n " Opt["SRC_PREFIX"] " " : "") "zfs "
+	dataset		= Opt["SRC_DS"]
+	snapshot	= make_snapshot_name(Opt["SRC_SNAP"])
 
 	command = zfs "snapshot -r " "'"dataset"@"snapshot"'"
 	last_exit_code = system(command)

@@ -81,13 +81,17 @@ zelta_init() {
 	: ${ZELTA_CONFIG:="$ZELTA_ETC/zelta.conf"}	# YAML for "zelta policy"
 
 	# Zelta defaults:
+	: ${ZELTA_LOG_LEVEL:="2"}
 	: ${ZELTA_LOG_COMMAND:="zelta ipc-log"}
 	: ${ZELTA_TIME_COMMAND:="time -p"}
 	: ${ZELTA_SH_COMMAND_PREFIX:="{"}
 	: ${ZELTA_SH_COMMAND_SUFFIX:="; }"}
 	: ${ZELTA_SNAP_NAME:="date -u +%Y-%m-%d_%H.%M.%S"}
 	: ${ZELTA_SNAP_MODE:="IF_NONE"}
-	: ${ZELTA_LOG_LEVEL:="2"}
+	: ${ZELTA_CHECK_TIME:=""}
+
+	# `zfs list` defaults
+	: ${ZELTA_LIST_WRITTEN:="yes"}
 
 	# We're prioritizing ZELTA_AWK over AWK (but use AWK below for clarity)
 

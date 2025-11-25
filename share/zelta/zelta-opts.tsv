@@ -1,6 +1,6 @@
 # zelta-opts.tsv
 #
-# Format: VERBS (comma sep) | FLAGS (comma sep) | KEY | TYPE | VALUE/MSG
+# Format: VERBS (comma sep) | FLAGS (comma sep) | KEY | TYPE | VALUE | MSG
 # Types:
 #   bool    : Set KEY="yes"
 #   set     : Set KEY="subopt"
@@ -12,17 +12,20 @@
 ## VERBS	FLAGS	KEY	TYPE	VALUE	WARN
 # -------------------------------------------------------------
 # Global/Generic Options
-all	-n,--dryrun	DRYRUN	bool
-all	--dry-run	DRYRUN	bool
-all	-j,--json	JSON	bool
-all	--no-json	JSON	del	
 all	-v	LOG_LEVEL	incr
 all	-q	LOG_LEVEL	decr
 all	--log-level	LOG_LEVEL	set
+all	--help,-h,-?	USAGE	bool
+all	-n,--dryrun,--dry-run	DRYRUN	bool
+all	-j,--json	JSON	bool
+all	--no-json	JSON	del	
 all	-d,--depth	DEPTH	set
 backup,replicate,sync,rotate	-b,--backup,-c,--compressed,-D,--dedup,-e,--embed,-h,--holds,-L,--largeblock,-p,--parsable,--proctitle,--props,--raw,--skipmissing,-V,-w	SEND_OVERRIDE	arglist
 backup,replicate,sync,rotate	-F	SEND_OVERRIDE	arglist	 	destructive option 'F' used; consider 'zelta rotate' when possible
 match	-H	SCRIPTING_MODE	bool
 match	-p	PARSABLE	bool
 match	-o	PROPLIST	set
-
+match	--written	LIST_WRITTEN	bool
+match	--no-written,--nowritten	WRITTEN	del
+match	--no-target,--notarget	TGT_ID	del
+match	--time	CHECK_TIME	bool
