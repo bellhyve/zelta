@@ -70,92 +70,6 @@ function command_queue(send_dataset, receive_dataset, match_snapshot,	target_fla
 	}
 }
 
-function load_verb_defaults() {
-	if (Opt["VERB"] == "sync") {
-		Opt["SEND_INTR"] 		= "-i"
-		Opt["SNAP_MODE"]	= ""
-		Opt["SEND_CHECK"]	= ""
-	}
-}
-
-function load_options(		_o, _f, _i, _args, _permitted_zfs_send_flags, _permitted_zfs_recv_flags) {
-	# Load acceptable zfs send/recv flag override lists
-	split("b,backup,c,compressed,D,dedup,e,embed,h,holds,L,largeblock,p,parsable,proctitle,props,raw,skipmissing,V,w",_f,",")
-	for (_o in _f) _permitted_zfs_send_flags[_f[_o]]++
-	split("e,h,M,u",_f,",")
-	for (_o in _f) _permitted_zfs_recv_flags[_f[_o]]++
-
-	arguments > policy > environment > zelta.env > defaults
-	# Handle: -X (pass if using -R otherwise skip if exact match)
-	# Fix: -t for resume
-	split(Opt["ARGS"], args, "\t")
-	for (_i in args) {
-		$0 = args[_i]
-		# ZFS Options
-		if ($0 in _permitted_zfs_send_flags)			OverrideSendFlags = str_add(OverrideSendFlags)
-		else if ($0 in _permitted_zfs_recv_flags)		OverrideRecvFlags = str_add(OverrideRecvFlags)
-		# Zelta Options
-		else if (sub(/^depth=?/,""))				Depth = $0
-		else if (sub(/^d ?/,""))				Depth = $0
-	       	else if (sub(/^exclude=/,""))				ExcludeDSList = $0
-	       	else if (sub(/^X ?/,""))				ExcludeDSList = $0
-		else if ($0 == "rotate")				Opt["VERB"] = "rotate"
-		else if ($0 == "replicate")				Opt["VERB"] = "replicate"
-		else if ($0 == "R")					Opt["VERB"] = "replicate"
-		else if ($0 ~ /^dry-?run$/)				Opt["DRYRUN"] = "yes"
-		else if ($0 == "n")					Opt["DRYRUN"] = "yes"
-		else if ($0 ~ "detect-?options")			Opt["SEND_CHECK"] = "yes"
-		else if ($0 ~ "send-?check")				Opt["SEND_CHECK"] = "yes"
-		else if ($0 == "i")					Opt["SEND_INTR"] = "-i"
-		else if ($0 == "I")					Opt["SEND_INTR"] = "-I"
-		else if ($0 ~ "^no-?json$")				Opt["JSON"] = ""
-		else if ($0 == "json")					Opt["JSON"] = "yes"
-		else if ($0 == "j")					Opt["JSON"] = "yes"
-		else if ($0 == "resume")				Opt["RESUME"] = "yes"
-		else if ($0 == "no-?resume")				Opt["RESUME"] = ""
-		else if ($0 == "snapshot")				Opt["SNAP_MODE"] = "IF_NEEDED"
-		else if ($0 == "snapshot")				Opt["SNAP_MODE"] = "IF_NEEDED"
-		else if ($0 == "snapshot[-=]?all")			Opt["SNAP_MODE"] = "ALWAYS"
-		else if ($0 == "snapshot[-=]?always")			Opt["SNAP_MODE"] = "ALWAYS"
-		else if ($0 == "snapshot[-=]?written")			Opt["SNAP_MODE"] = "ALWAYS"
-		else if ($0 == "snapshot[-=]?(or-)?skip")		Opt["SNAP_MODE"] = "SKIP"
-		# Deprecation warnings
-		else if ($0 == "s"){
-			SNAPSHOT_WRITTEN++
-			report(LOG_WARNING, "interpreting '-s' as --snapshot")
-			report(LOG_WARNING, "option '-s' is ambiguous and will be deprecated; use --snapshot, --skip-missing, or --partial")
-		}
-		else if ($0 == "S") {
-			SNAPSHOT_ALL++
-			report(LOG_WARNING, "interpreting '-S' as --snapshot-always")
-			report(LOG_WARNING, "option '-S' is ambiguous will be deprecated; use --snapshot-always, --skip-missing, or --partial")
-		}
-		else if ($0 == "clone") {
-			Opt["VERB"] = "clone"
-			report(LOG_WARNING, "option '--clone' will be deprecated; use 'zelta clone'")
-		}
-		else if ($0 ~ "^(rate-?limit)|progress$") {
-			report(LOG_WARNING, "option '--progress' is deprecated; use '--use-recv-pipe'")
-		}
-		else if ($0 == "z") {
-			report(LOG_WARNING, "option 'z' is deprecated'")
-		}
-		else if ($0 == "t") {
-			sync_direction = "push"
-			report(LOG_WARNING, "option '-t' is deprecated; use '--push'")
-		}
-		else if ($0 == "T") {
-			sync_direction = "push"
-			report(LOG_WARNING, "option '-T' is deprecated; use '--pull' (default)")
-		}
-		else if ($0 == "F") {
-			OverrideRecvFlags = str_add(OverrideRecvFlags)
-			report(LOG_WARNING, "destructive option 'F' detected; consider 'zelta rotate' when possible")
-		}
-		else usage("invalid option '"$0"'")
-	}
-}
-	       
 function get_config() {
 	SEND_COMMAND = "send -P "
 	RECEIVE_COMMAND = "receive -v "
@@ -177,12 +91,8 @@ function get_config() {
 	Opt["SEND_DEFAULT"] = Opt["SEND_DEFAULT"] (Opt["DRYRUN"]?"n":"") ((Opt["VERB"] == "replicate")?"R":"")
 	send_flags = SEND_COMMAND Opt["SEND_DEFAULT"] " "
 	recv_flags = RECEIVE_COMMAND RECV_FLAGS " "
-	if (Opt["SEND_INTR"] ~ "I") INTR++
-	if (Opt["VERB"] == "rotate") {
-		INTR = 0
-		Opt["SEND_INTR"] = "-i"
-	}
-	intr_flags = Opt["SEND_INTR"] " "
+
+	intr_flags = Opt["SEND_INTR"] ? "-I" : "-i"
 	create_flags = "-up"(Opt["DRYRUN"]?"n":"")" "
 }
 
@@ -525,7 +435,6 @@ function plan_backup() {
 
 BEGIN {
 	CAPTURE_OUTPUT = " 2>&1"
-	load_options()
 	validate_source_dataset()
 	if (Opt["VERB"] == "clone")		plan_clone()
 	else					plan_backup()
@@ -559,7 +468,7 @@ BEGIN {
 			continue
 		}
 		if (src_only) {
-			if (INTR && !single_snap) {
+			if (Opt["SEND_INTR"] && !single_snap) {
 							command_queue(sfirst_full, targetds)
 							command_queue(slast_full, targetds, sfirst)
 			} else				command_queue(slast_full, targetds)

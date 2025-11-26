@@ -5,10 +5,13 @@
 
 
 # Load ZELTA_ environment variables as Opt[VAR] shorthand without the prefix
-function zelta_init(_o) {
+function zelta_init(	_o, _prefix_re) {
+	_prefix_re = ENV_PREFIX
 	for (_o in ENVIRON) {
-		if (sub(/^ZELTA_/, "", _o)) {
-			Opt[_o] = ENVIRON["ZELTA_" _o]
+		if (sub(_prefix_re, "", _o)) {
+			_val = ENVIRON[ENV_PREFIX _o]
+			_val = (tolower(_val) in Nope) ? "0" : _val
+			Opt[_o] = _val
 		}
 	}
 }
@@ -44,6 +47,13 @@ function str_join(arr, sep,    _str, _idx, _i) {
 	return _str
 }
 
+# Create an associative array from a list
+function create_assoc(list, assoc, sep,		_i, _arr) {
+	sep = sep ? sep : " "
+	split(list, _arr, sep)
+	for (_i in _arr) assoc[_arr[_i]]++
+}
+
 function create_dict(dict, def, 		_i, _n, _arr, _pair) {
 	# def format: user_key:key [space]
 	_n = split(def, _arr, " ")
@@ -73,14 +83,19 @@ function h_num(num,	_suffix, _divisors, _h) {
 }
 
 BEGIN {
-	zelta_init()
-
 	# Constants
+	ENV_PREFIX = "ZELTA_"
+	STDERR = "/dev/stderr"
 	LOG_ERROR = 0
 	LOG_WARNING = 1
 	LOG_NOTICE = 2
 	LOG_INFO = 3
 	LOG_DEBUG = 4
 
-	STDERR = "/dev/stderr"
+	Nope["no"]++
+	Nope["false"]++
+
+	# load user options into Opt[]
+	zelta_init()
+
 }

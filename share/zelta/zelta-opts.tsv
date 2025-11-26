@@ -2,12 +2,13 @@
 #
 # Format: VERBS (comma sep) | FLAGS (comma sep) | KEY | TYPE | VALUE | MSG
 # Types:
-#   bool    : Set KEY="yes"
-#   set     : Set KEY="subopt"
-#   del     : Set KEY=""
-#   arglist : Append argument or value to KEY (space separated)
+#   true    : Set KEY="yes"
+#   false   : Set KEY="no"
+#   set     : Set KEY="VALUE" else KEY="subopt"
+#   arglist : Append argument sent to KEY (space separated)
 #   incr    : Increment
 #   decr    : Decrement
+#   invalid : Report error and quit
 # =============================================================================
 ## VERBS	FLAGS	KEY	TYPE	VALUE	WARN
 # -------------------------------------------------------------
@@ -15,17 +16,45 @@
 all	-v	LOG_LEVEL	incr
 all	-q	LOG_LEVEL	decr
 all	--log-level	LOG_LEVEL	set
-all	--help,-h,-?	USAGE	bool
-all	-n,--dryrun,--dry-run	DRYRUN	bool
-all	-j,--json	JSON	bool
-all	--no-json	JSON	del	
+all	--help,-h,-?	USAGE	true
+all	-n,--dryrun,--dry-run	DRYRUN	true
+all	-j,--json	JSON	true
+all	--no-json	JSON	false	
 all	-d,--depth	DEPTH	set
 backup,replicate,sync,rotate	-b,--backup,-c,--compressed,-D,--dedup,-e,--embed,-h,--holds,-L,--largeblock,-p,--parsable,--proctitle,--props,--raw,--skipmissing,-V,-w	SEND_OVERRIDE	arglist
 backup,replicate,sync,rotate	-F	SEND_OVERRIDE	arglist	 	destructive option 'F' used; consider 'zelta rotate' when possible
-match	-H	SCRIPTING_MODE	bool
-match	-p	PARSABLE	bool
+backup,replicate,sync,rotate	-e,-h,-M,-u	RECV_OVERRIDE	arglist
+backup,replicate,sync,rotate,clone	--exclude,-X	EXCLUDE_LIST	set
+backup,replicate,sync,rotate,clone	--rotate	VERB	true
+backup,replicate,sync,rotate,clone	-R,--replicate	VERB	true
+backup,replicate,sync,rotate	--send-check	VERB	true
+backup,replicate,sync,rotate	-I	SEND_INTR	true
+backup,replicate,sync,rotate	-i	SEND_INTR	false
+backup,replicate,sync,rotate	--resume	RESUME	true
+backup,replicate,sync,rotate	--no-resume	RESUME	false
+backup,replicate,sync,rotate	--snap-mode	SNAP_MODE	set
+backup,replicate,sync,rotate	--snapshot	SNAP_MODE	set	IF_NEEDED
+backup,replicate,sync,rotate	--snapshot-always	SNAP_MODE	set	ALWAYS
+backup,replicate,sync,rotate	--snapshot-skip	SNAP_MODE	set	SKIP
+backup,replicate,sync,rotate	-s	SNAP_MODE	set	IF_NEEDED	option '-s' for '--snapshot' is ambiguous and will be deprecated; use --snapshot, --snapshot-skip, --partial, or --skip-missing (with -R)
+backup,replicate,sync,rotate	-S	SNAP_MODE	set	ALWAYS	option '-S' for '--snapshot-always' is ambiguous will be deprecated; use --snapshot-always or --partial
+backup,replicate,sync,rotate	--snapshot-always	SNAP_MODE	set	ALWAYS
+backup,replicate,sync,rotate	--sync-direction	SYNC_DIREECTION	set
+backup,replicate,sync,rotate	--push	SYNC_DIRECTION	set	PUSH
+backup,replicate,sync,rotate	-t	SYNC_DIRECTION	set	PUSH	option '-t' is deprecated; use '--push'
+backup,replicate,sync,rotate	--pull	SYNC_DIRECTION	set	PULL
+backup,replicate,sync,rotate	-T	SYNC_DIRECTION	set	PULL	option '-T' is deprecated; use '--pull' (default)
+backup,replicate,sync,rotate	--snapshot-always	SNAP_MODE	set	ALWAYS
+backup,replicate,sync,rotate	--progress		invalid		option '--progress' is deprecated; use '--use-recv-pipe'
+backup,replicate,sync,rotate	--rate-limit		invalid		option '--rate-limit' is deprecated; use '--use-recv-pipe'
+backup,replicate,sync,rotate	-z		invalid		option '-z' is deprecated; consider '--json'
+match	-H	SCRIPTING_MODE	true
+match	-p	PARSABLE	true
 match	-o	PROPLIST	set
-match	--written	LIST_WRITTEN	bool
-match	--no-written,--nowritten	WRITTEN	del
-match	--no-target,--notarget	TGT_ID	del
-match	--time	CHECK_TIME	bool
+match	--written	LIST_WRITTEN	true
+match	--no-written,--nowritten	WRITTEN	false
+match	--no-target,--notarget	TGT_ID	false
+match	--time	CHECK_TIME	true
+policy	--retry	RETRY	true
+policy	--no-retry,--noretry	RETRY	false
+

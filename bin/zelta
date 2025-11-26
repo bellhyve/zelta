@@ -77,6 +77,12 @@ zelta_init() {
 		eval "$_env_settings"
 	fi
 
+	# verb-specific defaults
+	case "$zelta_verb" in
+		sync)	: ${ZELTA_SEND_INTR:="0"}
+			;;
+	esac
+
 	: ${ZELTA_SHARE:="/usr/local/share/zelta"}	# Dir for helper scripts
 	: ${ZELTA_CONFIG:="$ZELTA_ETC/zelta.conf"}	# YAML for "zelta policy"
 
@@ -91,21 +97,21 @@ zelta_init() {
 	: ${ZELTA_CHECK_TIME:=""}
 
 	# `zfs list` defaults
-	: ${ZELTA_LIST_WRITTEN:="yes"}
+	: ${ZELTA_LIST_WRITTEN:="1"}
 
 	# We're prioritizing ZELTA_AWK over AWK (but use AWK below for clarity)
 
 	# Safety options
-	: ${ZELTA_PROP_CHECK:="yes"}
-	: ${ZELTA_SEND_CHECK:="yes"}
-	: ${ZELTA_RESUME:="yes"}
+	: ${ZELTA_PROP_CHECK:="1"}
+	: ${ZELTA_SEND_CHECK:="1"}
+	: ${ZELTA_RESUME:="1"}
 
 	# `zfs send` defaults
 	: ${ZELTA_SEND_DEFAULT:="-Lec"}
 	: ${ZELTA_SEND_RAW:="-Lw"}
 	: ${ZELTA_SEND_NEW:="-p"}
-	: ${ZELTA_SEND_INTR:="-I"}
-	: ${ZELTA_SEND_PARTIAL:="-t"}
+	: ${ZELTA_SEND_INTR:="1"}
+	: ${ZELTA_SEND_PARTIAL:="0"}
 	: ${ZELTA_SEND_REPLICATE:="-Rs"}
 
 	# `zfs recv` defaults

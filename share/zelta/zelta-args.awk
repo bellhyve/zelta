@@ -101,7 +101,10 @@ function get_args() {
 
 # Load and index option file
 function load_option_list(		_tsv, _flag, _flags, _idx, _flag_arr) {
+	# We need to know the LOG_LEVEL default for -v/-q
+	NewOpt["LOG_LEVEL"] = Opt["LOG_LEVEL"]
 	_tsv = Opt["SHARE"]"/zelta-opts.tsv"
+	FS="\t"
 	while (getline<_tsv) {
 		if (index($1, Opt["VERB"]) || ($1 == "all")) {
 			_flags = $2
@@ -116,19 +119,22 @@ function load_option_list(		_tsv, _flag, _flags, _idx, _flag_arr) {
 	}
 }
 
-BEGIN {
-	FS="\t"
-	ENV_PREFIX = "ZELTA_"
-
-	# We need to know the LOG_LEVEL default for -v/-q
-	NewOpt["LOG_LEVEL"] = Opt["LOG_LEVEL"]
-	load_option_list()
-	get_args()
-	for (e in NewOpt) {
-		# Make sure we're actually changing something
-		if (NewOpt[e] != Opt[e]) {
-			export = export " " (ENV_PREFIX e) "='" NewOpt[e] "'"
+# Send an override back to 'zelta' when an arg has changed
+function override_options(	_e) {
+	for (_e in NewOpt) {
+		if (NewOpt[_e] != Opt[_e]) {
+			export = export " " (ENV_PREFIX _e) "='" NewOpt[_e] "'"
 		}
 	}
+	# This must be an explicit 'print' for shell input (not 'zelta ipc-log')
 	if (export) print export
+}
+
+
+BEGIN {
+	_no = "no false"
+	create_assoc(_no, Nope)
+	load_option_list()
+	get_args()
+	override_options()
 }

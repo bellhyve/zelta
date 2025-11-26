@@ -127,7 +127,7 @@ BEGIN {
 	FS			= "\t"
 	OFS			= "\t"
 
-	load_property_list(Opt["PROPLIST"])
+	load_property_list()
 
 
 	source = Opt["SRC_ID"]
@@ -153,7 +153,7 @@ function run_zfs_list() {
 	transfer_size = 0
 	zfs_list_tgt = $0;
 	if ((source == target)) {
-		report(LOG_WARNING, "warning: identical source and target")
+		report(LOG_WARNING, "identical source and target")
 	} else {
 		# Load target snapshots
 		ds_trim_length = ds_name_length[target]
