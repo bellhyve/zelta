@@ -45,11 +45,7 @@ function get_endpoint(ep_type) {
 	NewOpt[ep_pre "PREFIX"] = prefix
 }
 
-function add_arg(arg) {
-	args = args (args ? "\t" : "") arg
-}
-
-function match_arg(arg, 	_flag) {
+function match_arg(arg, 	_flag, _flags) {
 	for (_flag in OptListFlags) {
 		_flags = OptListFlags[_flag]
 		if (arg == _flag) return _flags
@@ -58,45 +54,56 @@ function match_arg(arg, 	_flag) {
 	stop(1)
 }
 
-function set_arg(_flag, subopt) {
-	if (OptListType[_flag] == "arglist")	NewOpt[OptListKey[_flag]] = str_add(NewOpt[OptListKey[_flag]])
-	else if (OptListType[_flag] == "true")	NewOpt[OptListKey[_flag]] = "1"
-	else if (OptListType[_flag] == "false")	NewOpt[OptListKey[_flag]] = "0"
-	else if (OptListType[_flag] == "set")	NewOpt[OptListKey[_flag]] = subopt
-	else if (OptListType[_flag] == "incr")	NewOpt[OptListKey[_flag]]++
-	else if (OptListType[_flag] == "decr")	NewOpt[OptListKey[_flag]]--
-	else if (OptListType[_flag] == "invalid") {
-		report(LOG_ERROR, OptListWarn[_flag])
+function set_arg(flag, subopt) {
+	if (OptListType[flag] == "arglist")	NewOpt[OptListKey[flag]] = str_add(NewOpt[OptListKey[flag]])
+	else if (OptListType[flag] == "true")	NewOpt[OptListKey[flag]] = "1"
+	else if (OptListType[flag] == "false")	NewOpt[OptListKey[flag]] = "0"
+	else if (OptListType[flag] == "set")	NewOpt[OptListKey[flag]] = subopt
+	else if (OptListType[flag] == "incr")	NewOpt[OptListKey[flag]]++
+	else if (OptListType[flag] == "decr")	NewOpt[OptListKey[flag]]--
+	else if (OptListType[flag] == "invalid") {
+		report(LOG_ERROR, OptListWarn[flag])
 		stop()
 	}
-	if (OptListType[_flag] == "warn")		report(LOG_WARNING, OptListWarn[_flag])
+	if (OptListType[flag] == "warn")		report(LOG_WARNING, OptListWarn[flag])
 }
 
-function get_subopt(flag, m) {
+# Handle "set" action logic
+function get_subopt(flag, m,	_subopt) {
 	# If a key=value is given out of context, stop
 	if ($2 && ((OptListType[flag] != "set") || OptListValue[flag])) {
 		report(LOG_ERROR, "invalid option assignment '"$0"'")
 		stop(1)
 	}
+	# Not a "set" action
+	else if (OptListType[flag] != "set") return ""
+	# --key=value
 	else if ($2) return $2
-	if (OptListType[flag] != "set") return ""
-	if (OptListValue[flag]) return OptListValue[_flag]
+	# Value is defined upstream
+	else if (OptListValue[flag]) return OptListValue[flag]
+	# Single dash option
 	if (m) {
-		subopt = substr($0, m+1)
-		if (!subopt) return ARGV[++Idx]
+		_subopt = substr($0, m+1)
+		# -k1
+		if (_subopt) return _subopt
 	}
-	else return ARGV[++Idx]
+	# '--key value' or '-k 1', increment the ARGV index
+	_subopt = ARGV[++Idx]
+	if (!_subopt) {
+		report(LOG_ERROR, "option '"$1"' requires an argument")
+		stop(1)
+	} else return _subopt
 }
 
 function get_args(		_i, _flag, _m, _subopt) {
 	FS = "="
 	for (Idx = 1; Idx < ARGC; Idx++) {
 		$0 = ARGV[Idx]
-		print
 		if (/^--[^-]/) {
 		       	_flag = match_arg($1)
 			_subopt = get_subopt(_flag)
-			set_arg(_flag, subopt)
+
+			set_arg(_flag, _subopt)
 		} else if (/^-[^-]/) {
 			# step through basic -opts
 			for (_m=2; _m <= length($0); _m++) {
@@ -120,7 +127,7 @@ function get_args(		_i, _flag, _m, _subopt) {
 }
 
 # Load and index option file
-function load_option_list(		_tsv, _flag, _flags, dx, _flag_arr) {
+function load_option_list(		_tsv, _flag, _flags, _idx, _flag_arr) {
 	# We need to know the LOG_LEVEL default for -v/-q
 	NewOpt["LOG_LEVEL"] = Opt["LOG_LEVEL"]
 	_tsv = Opt["SHARE"]"/zelta-opts.tsv"
@@ -128,9 +135,13 @@ function load_option_list(		_tsv, _flag, _flags, dx, _flag_arr) {
 	while (getline<_tsv) {
 		if (index($1, Opt["VERB"]) || ($1 == "all")) {
 			_flags = $2
+			if (!_flags) {
+				report(LOG_WARNING, "malformed option file line: "$0)
+				continue
+			}
 			split($2, _flag_arr, ",")
 			# Make an dictionary for flag synonyms
-			for (dx in _flag_arr) OptListFlags[_flag_arr[_idx]] = _flags
+			for (_idx in _flag_arr) OptListFlags[_flag_arr[_idx]] = _flags
 			OptListKey[_flags]	= $3
 			OptListType[_flags]	= $4
 			OptListValue[_flags]	= $5
@@ -152,8 +163,6 @@ function override_options(	_e) {
 }
 
 BEGIN {
-	_no = "no false"
-	create_assoc(_no, Nope)
 	load_option_list()
 	get_args()
 	override_options()

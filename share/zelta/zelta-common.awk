@@ -10,7 +10,7 @@ function zelta_init(	_o, _prefix_re) {
 	for (_o in ENVIRON) {
 		if (sub(_prefix_re, "", _o)) {
 			_val = ENVIRON[ENV_PREFIX _o]
-			_val = (tolower(_val) in Nope) ? "0" : _val
+			if (tolower(_val) in Nope) _val = "0"
 			Opt[_o] = _val
 		}
 	}
