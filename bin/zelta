@@ -142,8 +142,11 @@ zelta_run_awk() {
 
 zelta_args() {
 	if [ -n "$1" ]; then
-		_opts=$(zelta_run_awk "args" "$@") || zelta_usage
-		eval export "$_opts"
+		if _opts=$(zelta_run_awk "args" "$@") ; then
+			eval export "$_opts"
+		else
+			export ZELTA_USAGE="1"
+		fi
 	fi
 }
 

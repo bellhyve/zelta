@@ -92,6 +92,7 @@ function get_args(		_i, _flag, _m, _subopt) {
 	FS = "="
 	for (Idx = 1; Idx < ARGC; Idx++) {
 		$0 = ARGV[Idx]
+		print
 		if (/^--[^-]/) {
 		       	_flag = match_arg($1)
 			_subopt = get_subopt(_flag)

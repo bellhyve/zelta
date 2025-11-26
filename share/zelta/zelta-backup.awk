@@ -435,6 +435,7 @@ function plan_backup() {
 
 BEGIN {
 	CAPTURE_OUTPUT = " 2>&1"
+	if (Opt["USAGE"]) usage()
 	validate_source_dataset()
 	if (Opt["VERB"] == "clone")		plan_clone()
 	else					plan_backup()
