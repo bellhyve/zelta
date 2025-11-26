@@ -45,7 +45,6 @@ function validate_options(	i, o) {
 	target_defined = (Opt["TGT_ID"] && Opt["TGT_DS"])
 	if ((!source_defined) && (!target_defined)) usage("no datasets defined")
 	# Skip "written" in scripting mode (-H) if no written summary or properties will be printed.
-		# Switched LIST_WRITTEN to default off
 	if (Opt["LIST_WRITTEN"] && Opt["PROPLIST"] && Opt["PARSABLE"] && (Opt["PROPLIST"] !~ /(all|written|size)/)) {
 		Opt["LIST_WRITTEN"] = 0
 	}
@@ -66,8 +65,8 @@ function zfs_list(endpoint,		p, cmd, cmd_part) {
 		cmd_part[p++]			= Opt["SH_COMMAND_PREFIX"]
 		cmd_part[p++]			= Opt["TIME_COMMAND"]
 	}
-	if (Opt[endpoint "_PREFIX"]) {
-		cmd_part[p++]		= Opt["REMOTE_DEFAULT"] " " Opt[endpoint "_PREFIX"]
+	if (Opt[endpoint "_REMOTE"]) {
+		cmd_part[p++]		= Opt["REMOTE_DEFAULT"] " " Opt[endpoint "_REMOTE"]
 	}
 	cmd_part[p++]			= "zfs"
 	cmd_part[p++]			= "list -Hprt all -Screatetxg"
@@ -90,8 +89,8 @@ function check_parent(endpoint,		p, cmd_part, cmd) {
 	}
 	sub(/\/[^\/]*$/, "", ds)
 	p = 1
-	if (Opt[endpoint "_PREFIX"]) {
-		cmd_part[p++]		= Opt["REMOTE_DEFAULT"] " " Opt[endpoint "_PREFIX"]
+	if (Opt[endpoint "_REMOTE"]) {
+		cmd_part[p++]		= Opt["REMOTE_DEFAULT"] " " Opt[endpoint "_REMOTE"]
 	}
 	cmd_part[p++]			= "zfs"
 	cmd_part[p++]                   = "list -Ho name"

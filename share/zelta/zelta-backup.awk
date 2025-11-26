@@ -28,10 +28,10 @@ function usage(message) {
 # Do I even need this?
 function zfs_cmd(endpoint, remote_type,		_ssh, _zfs) {
 	_zfs = "zfs"
-	if (! Opt[endpoint "_PREFIX"]) return _zfs
+	if (! Opt[endpoint "_REMOTE"]) return _zfs
 	else {
 		_ssh = remote_type ? Opt["REMOTE_" remote_type] : Opt["REMOTE_DEFAULT"]
-		_ssh = _ssh " " Opt[endpoint "_PREFIX"] " "
+		_ssh = _ssh " " Opt[endpoint "_REMOTE"] " "
 	}
 	return _ssh _zfs
 }
@@ -381,7 +381,7 @@ function name_match_row() {
 	# No match. Was the source renamed?
 	if (check_origin) {
 		sub(/[#@].*/, "", sorigin)
-		sorigin_dataset = (Opt["SRC_PREFIX"] ? Opt["SRC_PREFIX"] ":" : "") sorigin
+		sorigin_dataset = (Opt["SRC_REMOTE"] ? Opt["SRC_REMOTE"] ":" : "") sorigin
 		clone_match = "zelta match -Hd1 -omatch,sync_code " q(sorigin_dataset) " " q(Opt["TGT_ID"] dataset)
 		while (clone_match | getline) {
 			if (/^[@#]/) { 
@@ -416,7 +416,7 @@ function validate_source_dataset() {
 }
 
 function plan_clone() {
-	if (Opt["SRC_PREFIX"] != Opt["TGT_PREFIX"]) {
+	if (Opt["SRC_REMOTE"] != Opt["TGT_REMOTE"]) {
 		report(LOG_ERROR, "clone target endpoint must use the same user, host, and zfs pool as the source")
 		stop(1)
 	}

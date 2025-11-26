@@ -50,7 +50,6 @@ function process_savepoint(endpoint) {
 
 # Check for snapshot, bookmark, dataset, or time data
 function parse_stream(endpoint) {
-	if (endpoint == target) report(LOG_INFO, $0)
 	if (/^real[ \t]+[0-9]/) {
 		split($0, time_arr, /[ \t]+/)
 		zfs_list_time[endpoint] += time_arr[2]
@@ -126,7 +125,6 @@ function load_property_list(	_hash, _prop_dict) {
 BEGIN {
 	FS			= "\t"
 	OFS			= "\t"
-
 	load_property_list()
 
 

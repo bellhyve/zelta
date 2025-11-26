@@ -2,7 +2,12 @@
 #
 # Function common to all Zelta scripts
 #
-
+# Awk variable styles:
+# - GLOBAL_CONSTANT
+# - GlobalVariable
+# - received_function_variable
+# - _local_function_variables
+# - ["ARRAY_KEY"] (when upstream or hard-coded)
 
 # Load ZELTA_ environment variables as Opt[VAR] shorthand without the prefix
 function zelta_init(	_o, _prefix_re) {
@@ -22,13 +27,15 @@ function report(mode, message) {
 }
 
 # Flush buffers and quit
-function stop(_error_code) {
+function stop(_error_code, _error_msg) {
+	if (_error_msg) report(LOG_ERROR, _error_msg)
 	if (log_output_count) { close(Opt["LOG_COMMAND"]) }
 	exit _error_code
 }
 
 # Simple String Functions
 function q(s) { return "'" s "'" }
+
 function dq(s) { return "\"" s "\"" }
 
 function str_add(s, v, sep) {
@@ -47,6 +54,7 @@ function str_join(arr, sep,    _str, _idx, _i) {
 	return _str
 }
 
+
 # Create an associative array from a list
 function create_assoc(list, assoc, sep,		_i, _arr) {
 	sep = sep ? sep : " "
@@ -59,13 +67,12 @@ function create_dict(dict, def, 		_i, _n, _arr, _pair) {
 	_n = split(def, _arr, " ")
 	for (_i = 1; _i <= _n; _i++) {
 		if (split(_arr[_i], _pair, ":")) dict[_pair[1]] = _pair[2]
-		else report(LOG_ERROR, "errror creating dictionary: " _arr[_1])
-		#print "pair " _arr[_1], _pair[1],_pair[2]
+		else report(LOG_ERROR, "error creating dictionary: " _arr[_1])
 	}
 }
 
 # systime() doesn't work on a lot of systems despite being in the POSIX spec.
-# This workaround isn't entirely portable either and should be replaced.
+# This workaround might not be entirely portable either; needs QA or replacement
 function sys_time() {
 	srand();
 	return srand();
@@ -92,8 +99,7 @@ BEGIN {
 	LOG_INFO = 3
 	LOG_DEBUG = 4
 
-	Nope["no"]++
-	Nope["false"]++
+	create_assoc("no false", Nope)
 
 	# load user options into Opt[]
 	zelta_init()
