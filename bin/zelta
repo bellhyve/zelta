@@ -142,7 +142,7 @@ zelta_run_awk() {
 
 zelta_args() {
 	if [ -n "$1" ]; then
-		_opts=$(zelta_run_awk "args" "$@")
+		_opts=$(zelta_run_awk "args" "$@") || exit
 		eval export "$_opts"
 	fi
 }

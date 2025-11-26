@@ -6,7 +6,7 @@
 # [[user@]host:]dataset[@snapshot]
 function get_endpoint(ep_type) {
 	ep_pre = ep_type "_"
-	endpoint_id = $0
+	endpointd = $0
 	if (!(/^[a-zA-Z0-9_.@:\/ -]+$/)) {
 		report(LOG_ERROR, "invalid endpoint: '"$0"'")
 		return
@@ -37,7 +37,7 @@ function get_endpoint(ep_type) {
 		}
 		if (!host) host = "localhost"
 	}
-	NewOpt[ep_pre "ID"] = endpoint_id
+	NewOpt[ep_pre "ID"] = endpointd
 	NewOpt[ep_pre "USER"] = user
 	NewOpt[ep_pre "HOST"] = host
 	NewOpt[ep_pre "DS"] = dataset
@@ -60,31 +60,50 @@ function match_arg(arg, 	_flag) {
 
 function set_arg(_flag, subopt) {
 	if (OptListType[_flag] == "arglist")	NewOpt[OptListKey[_flag]] = str_add(NewOpt[OptListKey[_flag]])
-	else if (OptListType[_flag] == "bool")	NewOpt[OptListKey[_flag]] = "yes"
+	else if (OptListType[_flag] == "true")	NewOpt[OptListKey[_flag]] = "1"
+	else if (OptListType[_flag] == "false")	NewOpt[OptListKey[_flag]] = "0"
 	else if (OptListType[_flag] == "set")	NewOpt[OptListKey[_flag]] = subopt
-	else if (OptListType[_flag] == "del")	NewOpt[OptListKey[_flag]] = ""
 	else if (OptListType[_flag] == "incr")	NewOpt[OptListKey[_flag]]++
 	else if (OptListType[_flag] == "decr")	NewOpt[OptListKey[_flag]]--
-	if (OptListType[_flag] == "warn")	report(LOG_WARNING, OptListWarn[_flag])
+	else if (OptListType[_flag] == "invalid") {
+		report(LOG_ERROR, OptListWarn[_flag])
+		stop()
+	}
+	if (OptListType[_flag] == "warn")		report(LOG_WARNING, OptListWarn[_flag])
 }
 
-function get_args() {
-	for (i=1;i<ARGC;i++) {
-		$0 = ARGV[i]
+function get_subopt(flag, m) {
+	# If a key=value is given out of context, stop
+	if ($2 && ((OptListType[flag] != "set") || OptListValue[flag])) {
+		report(LOG_ERROR, "invalid option assignment '"$0"'")
+		stop(1)
+	}
+	else if ($2) return $2
+	if (OptListType[flag] != "set") return ""
+	if (OptListValue[flag]) return OptListValue[_flag]
+	if (m) {
+		subopt = substr($0, m+1)
+		if (!subopt) return ARGV[++Idx]
+	}
+	else return ARGV[++Idx]
+}
+
+function get_args(		_i, _flag, _m, _subopt) {
+	FS = "="
+	for (Idx = 1; Idx < ARGC; Idx++) {
+		$0 = ARGV[Idx]
 		if (/^--[^-]/) {
-		       	_flag = match_arg($0)
-			subopt = (OptListType[_flag] == "set") ? ARGV[++i] : ""
+		       	_flag = match_arg($1)
+			_subopt = get_subopt(_flag)
 			set_arg(_flag, subopt)
 		} else if (/^-[^-]/) {
+			# step through basic -opts
 			for (_m=2; _m <= length($0); _m++) {
 				_arg = "-" substr($0, _m, 1)
 				_flag = match_arg(_arg)
-				if ((OptListType[_flag]) == "set") {
-					subopt = substr($0, _m+1)
-					if (!subopt) subopt = ARGV[++i]
-					set_arg(_flag, subopt)
-					break
-				} else set_arg(_flag)
+				_subopt = get_subopt(_flag, _m)
+				set_arg(_flag, _subopt)
+				if (_subopt && !OptListValue[_flag]) break
 			}
 		} else if (!source_set) {
 			get_endpoint("SRC")
@@ -100,7 +119,7 @@ function get_args() {
 }
 
 # Load and index option file
-function load_option_list(		_tsv, _flag, _flags, _idx, _flag_arr) {
+function load_option_list(		_tsv, _flag, _flags, dx, _flag_arr) {
 	# We need to know the LOG_LEVEL default for -v/-q
 	NewOpt["LOG_LEVEL"] = Opt["LOG_LEVEL"]
 	_tsv = Opt["SHARE"]"/zelta-opts.tsv"
@@ -110,13 +129,14 @@ function load_option_list(		_tsv, _flag, _flags, _idx, _flag_arr) {
 			_flags = $2
 			split($2, _flag_arr, ",")
 			# Make an dictionary for flag synonyms
-			for (_idx in _flag_arr) OptListFlags[_flag_arr[_idx]] = _flags
+			for (dx in _flag_arr) OptListFlags[_flag_arr[_idx]] = _flags
 			OptListKey[_flags]	= $3
 			OptListType[_flags]	= $4
 			OptListValue[_flags]	= $5
 			OptListWarn[_flags]	= $6
 		}
 	}
+	close(_tsv)
 }
 
 # Send an override back to 'zelta' when an arg has changed
@@ -129,7 +149,6 @@ function override_options(	_e) {
 	# This must be an explicit 'print' for shell input (not 'zelta ipc-log')
 	if (export) print export
 }
-
 
 BEGIN {
 	_no = "no false"
