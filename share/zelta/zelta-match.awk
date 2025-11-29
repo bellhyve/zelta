@@ -80,26 +80,26 @@ function zfs_list(endpoint,		p, cmd, cmd_part) {
 	return cmd
 }
 
-function check_parent(endpoint,		p, cmd_part, cmd) {
-	ds = Opt[endpoint"_DS"]
-	if (!ds) return ""
+function check_parent(endpoint,		_ds, _p, _cmd_part, _cmd, _cmd_output) {
+	_ds = Opt[endpoint"_DS"]
+	if (!_ds) return ""
 	# If the dataset is a pool or immediately below it, no need to check for a parent
-	if (gsub(/\//, "/", ds) <= 1) {
+	if (gsub(/\//, "/", _ds) <= 1) {
 		return 1
 	}
-	sub(/\/[^\/]*$/, "", ds)
-	p = 1
+	sub(/\/[^\/]*$/, "", _ds)
+	_p = 1
 	if (Opt[endpoint "_REMOTE"]) {
-		cmd_part[p++]		= Opt["REMOTE_DEFAULT"] " " Opt[endpoint "_REMOTE"]
+		_cmd_part[_p++]		= Opt["REMOTE_DEFAULT"] " " Opt[endpoint "_REMOTE"]
 	}
-	cmd_part[p++]			= "zfs"
-	cmd_part[p++]                   = "list -Ho name"
-	cmd_part[p++]                   = "'"ds"'"
-	cmd_part[p]                     = CAPTURE_OUTPUT
-	cmd = join_arr(cmd_part, p)
-	cmd | getline cmd_output
-	close(cmd)
-	if (cmd_output==ds) return 1
+	_cmd_part[_p++]			= "zfs"
+	_cmd_part[_p++]                   = "list -Ho name"
+	_cmd_part[_p++]                   = "'"_ds"'"
+	_cmd_part[_p]                     = CAPTURE_OUTPUT
+	_cmd = join_arr(_cmd_part, _p)
+	_cmd | getline _cmd_output
+	close(_cmd)
+	if (_cmd_output == _ds) return 1
 	else return 0
 }
 
@@ -107,7 +107,6 @@ BEGIN {
 	# Constants
 	FS				= "\t"
 	OFS				= "\t"
-	CAPTURE_OUTPUT			= "2>&1"
 
 	validate_options()
 	MatchCommand				= "zelta ipc-run match-pipe"

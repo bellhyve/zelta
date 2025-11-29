@@ -80,6 +80,7 @@ zelta_init() {
 	# verb-specific defaults
 	case "$zelta_verb" in
 		sync)	: ${ZELTA_SEND_INTR:="0"}
+			: ${ZELTA_CREATE_PARENT:="0"}
 			;;
 	esac
 
@@ -92,7 +93,8 @@ zelta_init() {
 	: ${ZELTA_TIME_COMMAND:="time -p"}
 	: ${ZELTA_SH_COMMAND_PREFIX:="{"}
 	: ${ZELTA_SH_COMMAND_SUFFIX:="; }"}
-	: ${ZELTA_SNAP_NAME:="date -u +%Y-%m-%d_%H.%M.%S"}
+	: ${ZELTA_SNAP_COMMAND:="date -u +%Y-%m-%d_%H.%M.%S"}
+	: ${ZELTA_SNAP_NAME:="$($ZELTA_SNAP_COMMAND)"}
 	: ${ZELTA_SNAP_MODE:="IF_NONE"}
 	: ${ZELTA_CHECK_TIME:=""}
 
@@ -104,20 +106,21 @@ zelta_init() {
 	# Safety options
 	: ${ZELTA_PROP_CHECK:="1"}
 	: ${ZELTA_SEND_CHECK:="1"}
+	: ${ZELTA_CREATE_PARENT:="1"}
 	: ${ZELTA_RESUME:="1"}
 
 	# `zfs send` defaults
-	: ${ZELTA_SEND_DEFAULT:="-Lec"}
+	: ${ZELTA_SEND_DEFAULT:="-Lce"}
 	: ${ZELTA_SEND_RAW:="-Lw"}
 	: ${ZELTA_SEND_NEW:="-p"}
 	: ${ZELTA_SEND_INTR:="1"}
-	: ${ZELTA_SEND_PARTIAL:="0"}
-	: ${ZELTA_SEND_REPLICATE:="-Rs"}
+	: ${ZELTA_SEND_PARTIAL:="1"}
+	: ${ZELTA_SEND_REPLICATE:="-LsRw"}
 
 	# `zfs recv` defaults
 	: ${ZELTA_RECV_DEFAULT:=""}
 	: ${ZELTA_RECV_TOP:="-o readonly=on"}
-	: ${ZELTA_RECV_FS:="-u -x mountpoint"}
+	: ${ZELTA_RECV_FS:="-u -x mountpoint -o canmount=noauto"}
 	: ${ZELTA_RECV_VOL:=""}
 	: ${ZELTA_RECV_PARTIAL:="-s"}
 
@@ -152,10 +155,26 @@ zelta_args() {
 
 zelta_log() {
 	: ${max_log_level:=${ZELTA_LOG_LEVEL:-2}}
+	# Bourne handles stderr/stdout reporting more reliably and portably than some awks, so
+	# this function is used for the default LOG_MODE. STDERR messages are retained even when
+	# selecting another, like LOG_MODE=json. To disable STDERR noise, use `zelta VERB -qq ...`
+	_fd=3
+	_fd_term=4
+	if [ -n "$ZELTA_LOG_FILE" ] ; then
+		#_fd=" >> '${ZELTA_LOG_FILE}'"
+		exec 3>>"$ZELTA_LOG_FILE"
+		exec 4>&3
+	else
+		exec 3>&2
+		exec 4>&1
+		if [ "${ZELTA_LOG_MODE:-text}" = "text" ]; then
+			_term="1"
+		fi
+	fi
 	while IFS="	" read log_level log_message; do
 		: ${log_level:=${log_level:-2}}
 		# If no log_level is given, treat it as a "notice"
-		case $log_level in
+		case "$log_level" in
 		*[!0-9]*)	log_message="${log_level}${log_message:+ }${log_message}"
 				log_level=2
 				;;
@@ -164,24 +183,21 @@ zelta_log() {
 		if [ "$log_level" -gt "$max_log_level" ] ; then
 			# Log level hasn't been met, skip
 			continue
-		elif [ "$log_level" -lt "0" ] ; then
-			# Force log output if log_level < 1
-			echo "critical: ${log_message}" >&2 
-		elif [ -t 2 ] && [ "$log_level" = 2 ] ; then
+		elif [ -n "$_term" ] && [ "$log_level" = 2 ] ; then
 			# "Notice" is regular stdout on a term
-			echo $log_message
-		elif [ -t 2 ] && [ "$log_level" = 3 ] ; then
+			echo $log_message >&${_fd_term}
+		elif [ -n "$_term" ] && [ "$log_level" = 3 ] ; then
 			# "Info" is regular stderr on a term
-			echo $log_message >&2
+			echo $log_message >&${_fd}
 		else
 			case "$log_level" in
-			0)	log_prefix="error: " ;;
 			1)	log_prefix="warning: " ;;
 			2)	log_prefix="notice: " ;;
 			3)	log_prefix="info: " ;;
-			*)	log_prefix="debug: " ;;
+			4)	log_prefix="debug: " ;;
+			*)	log_prefix="error: " ;;
 			esac
-			echo "${log_prefix}${log_message}" >&2 
+			echo "${log_prefix}${log_message}" >&${_fd}
 		fi
 	done
 	exit

@@ -332,6 +332,7 @@ function chart_row(field,	cnum, col) {
 	delete columns
 	for (cnum=1;cnum<=PropNum;cnum++) {
 		col = PropList[cnum]
+		# TO-DO: We should print [last_ds_element] if the relname is the top and not in Opt["SCRIPTING_MODE"]
 		if ("REL_NAME" == col) columns[cnum] = field
 		if ("STATUS" == col) columns[cnum] = status[field]
 		if ("SYNC_CODE" == col) columns[cnum] = sync_code[field]

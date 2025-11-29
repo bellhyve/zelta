@@ -16,17 +16,17 @@
 all	-v	LOG_LEVEL	incr
 all	-q	LOG_LEVEL	decr
 all	--log-level	LOG_LEVEL	set
+all	--log-mode	LOG_MODE	set	
+all	-j,--json	LOG_MODE	set	json
 all	--help,-h,-?	USAGE	true
 all	-n,--dryrun,--dry-run	DRYRUN	true
-all	-j,--json	JSON	true
-all	--no-json	JSON	false	
 all	-d,--depth	DEPTH	set
 backup,replicate,sync,rotate	-b,--backup,-c,--compressed,-D,--dedup,-e,--embed,-h,--holds,-L,--largeblock,-p,--parsable,--proctitle,--props,--raw,--skipmissing,-V,-w	SEND_OVERRIDE	arglist
 backup,replicate,sync,rotate	-F	SEND_OVERRIDE	arglist	 	destructive option 'F' used; consider 'zelta rotate' when possible
 backup,replicate,sync,rotate	-e,-h,-M,-u	RECV_OVERRIDE	arglist
 backup,replicate,sync,rotate,clone	--exclude,-X	EXCLUDE_LIST	set
-backup,replicate,sync,rotate,clone	--rotate	VERB	true
-backup,replicate,sync,rotate,clone	-R,--replicate	VERB	true
+backup,replicate,sync,rotate,clone	--rotate	VERB	set	rotate
+backup,replicate,sync,rotate,clone	-R,--replicate	VERB	set	replicate
 backup,replicate,sync,rotate	--send-check	VERB	true
 backup,replicate,sync,rotate	-I	SEND_INTR	true
 backup,replicate,sync,rotate	-i	SEND_INTR	false
