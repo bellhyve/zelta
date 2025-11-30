@@ -39,6 +39,9 @@ function usage(message) {
 	exit 1
 }
 
+## Command builder
+##################
+
 function load_build_commands(		_action) {
         _tsv = Opt["SHARE"]"/zelta-cmds.tsv"
         FS="\t"
@@ -148,24 +151,9 @@ function load_properties(ep,		_ds, _cmd_arr, _cmd, _idx, _seen) {
 	return 1
 }
 
+## Load snapshot information from `zelta match`
+###############################################
 	
-#	_zfs_send_check_command = zfs_cmd("SRC") " " send " " CAPTURE_OUTPUT
-#	while (_zfs_send_check_command | getline)
-#		if (/usage:/) _in_usage = 1
-#		else if (!/^[[:space:]]) _in_usage = 0
-#		else if (_in_usage) {
-#			# Look for [-Something]
-#			if (match($0, /\[-[a-zA-Z0-9]+\]/)) {
-#				# Strip the leading "[-" (2 chars) and trailing "]" (1 char)
-#				flags = substr($0, RSTART+2, RLENGTH-3)
-#				print flags
-#				found=1
-#				exit 0
-#			}
-#		}
-#
-#}
-
 function parse_zelta_match_row(		_src_idx, _tgt_idx) {
 	if (NF == 5) {
 		# Indexes
@@ -243,23 +231,23 @@ function update_snapshot_relationship() {
 			RelProps[_relname, "replication_style"] = "NONE"
 			RelProps[_relname, "status_message"] = "source does not exist"
 		}
-		else if (!DSProps[_src_idx, "most_recent_snapshot"]) {
+		else if (!DSProps[_src_idx, "latest_snapshot"]) {
 			RelProps[_relname, "replication_style"] = "NONE"
 			RelProps[_relname, "status_message"] = "source has no snapshots"
 		}
-		else if (DSProps[_src_idx, "most_recent_snapshot"] == DSProps[_src_idx, "common_snapshot"]) {
+		else if (DSProps[_src_idx, "latest_snapshot"] == DSProps[_src_idx, "common_snapshot"]) {
 			RelProps[_relname, "replication_style"] = "NONE"
 			RelProps[_relname, "status_message"] = "up-to-date"
 		}
 
 		# States that require 'zelta rotate', 'zfs rollback', or 'zfs rename'
-		else if (DSProps[_tgt_idx, "exists"] && !DSProps[_tgt_idx, "most_recent_snapshot"])
+		else if (DSProps[_tgt_idx, "exists"] && !DSProps[_tgt_idx, "latest_snapshot"])
 			RelProps[_relname, "blocked"] = "target has no snapshots; consider 'zelta rotate'"
 		else if (!DSProps[_tgt_idx, "common_snapshot"])
 			RelProps[_relname, "blocked"] = "endpoints have no common snapshots; consider 'zelta rotate'"
 		else if (RelProps[_relname, "target_is_written"])
 			RelProps[_relname, "blocked"] = "target is written; consider 'zelta rotate' or 'zfs rollback'"
-		else if (DSProps[_tgt_idx, "most_recent_snapshot"] == RelProps[_relname, "common_snapshot"])
+		else if (DSProps[_tgt_idx, "latest_snapshot"] == RelProps[_relname, "common_snapshot"])
 			RelProps[_relname, "blocked"] = "target is written; consider 'zelta rotate' or 'zfs rollback'"
 
 		# If there are no exceptions, describe the replication style
@@ -269,6 +257,9 @@ function update_snapshot_relationship() {
 	}
 }
 
+
+## Create snapshot with `zfs snapshot`
+######################################
 
 function create_snapshot(	_snap_name, _cmd_arr, _cmd, _snap_failed) {
 	if (!SnapshotIsNeeded) return
@@ -310,18 +301,6 @@ function create_snapshot(	_snap_name, _cmd_arr, _cmd, _snap_failed) {
 #		} else if (/Warning/) {
 #			report(LOG_NOTICE, $0)
 #		} else if ($1 == "real") zfs_replication_time += $2
-#		else if (/^(sys|user)[ \t]+[0-9]/) { }
-#		else if (/ records (in|out)$/) { }
-#		else if (/bytes.*transferred/) { }
-#		else if (/receiving/ && /stream/) { }
-#		else if (/ignoring$/) { }
-#		else {
-#			report(LOG_WARNING, "unexpected output in replication stream: " $0)
-#			error_code = 2
-#		}
-#	}
-#	close(command)
-#}
 #
 #	# Compute update path
 #	get_update_option()
@@ -355,6 +334,9 @@ function create_snapshot(	_snap_name, _cmd_arr, _cmd, _snap_failed) {
 #	}
 #	return 1
 #}
+
+## Dataset and properties validation
+####################################
 
 function validate_dataset(ep, ds,		_cmd_arr, _cmd, _ds_exists) {
 	_cmd_arr["endpoint"]	= ep
@@ -435,6 +417,10 @@ function validate_target_dataset(		_idx, _written_sum) {
 	}
 }
 
+
+## Assemble `zfs send` command
+##############################
+
 function get_send_command_flags(idx,		_f, _idx, _flags, _flag_list) {
 	if (Opt["VERB"] == "replicate")
 		_flag_list[++_f]	= Opt["SEND_REPLICATE"]
@@ -447,23 +433,23 @@ function get_send_command_flags(idx,		_f, _idx, _flags, _flag_list) {
 	return _flags
 }
 
+function get_send_command_incr_snap(relname, idx,	 _intr_snap) {
+	# Add the -I/-i argument if we can do perform an incremental/intermediate sync
+	if (!DSProps["TGT", relname, "exists"]) return ""
+	_intr_snap = Opt["SEND_INTR"] ? "-I" : "-i"
+	_intr_snap = str_add(_intr_snap, dq(Opt["SRC_DS"] RelProps[relname, "common_snapshot"]))
+	return _intr_snap
+}
+
 function get_send_command_ds_snap(relname, _ds_snap) {
 	# On a new replication in intermediate mode, we send the first snapshot
 	# so we can get the entire history in two steps.
 	if (!DSProps["TGT", relname, "exists"] && Opt["SEND_INTR"])
 		_ds_snap = RelProps[relname, "first_snapshot"]
 	# For any other replication, the final argument is the dataset's final snapshot
-	else _ds_snap = RelProps[_relname, "final_snapshot"]
-	_ds_snap = dq(DSProps["SRC_DS"] _relname _ds_snap)
+	else _ds_snap = RelProps[relname, "final_snapshot"]
+	_ds_snap = dq(Opt["SRC_DS"] relname _ds_snap)
 	return _ds_snap
-}
-
-function get_send_command_incr_snap(relname, idx,	 _intr_snap) {
-	# Add the -I/-i argument if we can do perform an incremental/intermediate sync
-	if (!DSProps["TGT", relname, "exists"]) return ""
-	_intr_snap = Opt["SEND_INTR"] ? "-I" : "-i"
-	_intr_snap = str_add(_incr_snap, dq(Opt["SRC_DS"] RelProps[relname, "common_snapshot"]))
-	return _intr_snap
 }
 
 function create_send_command(ds_num, remote_ep, 	_cmd_arr, _cmd) {
@@ -471,60 +457,14 @@ function create_send_command(ds_num, remote_ep, 	_cmd_arr, _cmd) {
 	_idx			= "SRC" SUBSEP _relname
 	_cmd_arr["endpoint"]	= remote_ep
 	_cmd_arr["flags"]	= get_send_command_flags(_idx)
-	_cmd_arr["intr_snap"]	= get_sync_command_incr_snap(_relname, _idx)
-	_cmd_arr["ds_snap"]	= get_new_source_snapshot_name(_relname)
+	_cmd_arr["intr_snap"]	= get_send_command_incr_snap(_relname, _idx)
+	_cmd_arr["ds_snap"]	= get_send_command_ds_snap(_relname)
 	_cmd = build_command("SEND", _cmd_arr)
 	return _cmd
 }
 
-function recv_flags(ds_num, 	_flag_arr, _flags, _relname, _i) {
-	_relname		= DSList[ds_num]
-	_idx                    = "TGT" SUBSEP _relname
-	if (ds_num == 1)
-		_flag_arr[++_i]	= Opt["RECV_TOP"]
-	if (DSProps[_idx, "type"] == "volume")
-		_flag_arr[++_i]	= Opt["RECV_VOL"]
-	if (DSProps[_idx, "filesystem"] == "filesystem")
-		_flag_arr[++_i]	= Opt["RECV_FS"]
-	if (Opt["RESUME"])
-		_flag_arr[++_i]	= Opt["RECV_PARTIAL"]
-	_flags = arr_join(_flag_arr)
-	return (_flags)
-}
-
-function action_recv(ds_num, remote_ep,		_cmd_arr) {
-	_relname		= DSList[ds_num]
-	_ds			= Opt["TGT_DS"] _relname
-	_idx                    = "TGT" SUBSEP _relname
-	_cmd_arr["endpoint"]	= remote_ep
-	_cmd_arr["flags"]	= recv_flags(ds_num)
-	_cmd_arr["ds"]		= dq(_ds)
-	_cmd = build_command("RECV", _cmd_arr)
-	return _cmd
-}
-
-# Gathers `zfs send` output in an array
-function get_zfs_send_output(command, output) {
-	IGNORE_ZFS_SEND_OUTPUT = "^(sys|user)[ \t]+[0-9]|( records (in|out)$|bytes.*transferred|receiving.*stream|ignoring$"
-	cmd = cmd CAPTURE_OUTPUT
-	while (cmd | getline) {
-		if ($0 ~ IGNORE_ZFS_SEND_OUTPUT) {}
-		else print
-	}
-	close(cmd)
-}
-
-function create_sync_command(ds_num, remote_ep, extra_flag,	_cmd_arr) {
-	_idx			= "SRC" SUBSEP DSList[ds_num]
-	_relname		= DSList[ds_num]
-	_cmd_arr["endpoint"]	= remote_ep
-	_cmd_arr["flags"]	= str_add(get_send_flags(_idx), Opt["SEND_NEW"])
-	_cmd_arr["flags"]	= str_add(_cmd_arr["flags"], extra_flag)
-	_ds			= DSProps[_idx, "dataset"]
-	_cmd_arr["ds_snap"]	= get_new_source_snapshot_name(_relname)
-	_cmd = build_command("SEND", _cmd_arr)
-	return _cmd
-}
+## Assemble `zfs recv` command
+##############################
 
 function recv_flags(ds_num, 	_flag_arr, _flags, _relname, _i) {
 	_relname		= DSList[ds_num]
@@ -566,31 +506,31 @@ function get_zfs_send_output(command, output) {
 function get_sync_command(ds_num,	_zfs_send, _zfs_recv) {
 	if (Opt["SYNC_DIRECTION"] == "PULL" && Opt["TGT_REMOTE"]) {
 		_cmd_arr["endpoint"]	= "TGT"
-		_cmd_arr["zfs_send"]	= action_sync_new(ds_num, "SRC")
+		_cmd_arr["zfs_send"]	= create_send_command(ds_num, "SRC")
 		_cmd_arr["zfs_recv"]	= "|" action_recv(ds_num)
 		_cmd			= build_command("SYNC", _cmd_arr)
 	}
 	else if (Opt["SYNC_DIRECTION"] == "PUSH" && Opt["SRC_REMOTE"]) {
 		_cmd_arr["endpoint"]	= "SRC"
-		_cmd_arr["zfs_send"]	= action_sync_new(ds_num)
+		_cmd_arr["zfs_send"]	= create_send_command(ds_num)
 		_cmd_arr["zfs_recv"]	= "|" action_recv(ds_num, "TGT")
 		_cmd			= build_command("SYNC", _cmd_arr)
 	}
 	else {
 		if (Opt["SRC_REMOTE"] && Opt["TGT_REMOTE"])
 			report_once(LOG_WARNING, "syncing remote endpoints through the local network; consider --push or --pull")
-		_zfs_send 		= action_sync_new(ds_num, "SRC")
+		_zfs_send 		= create_send_command(ds_num, "SRC")
 		_zfs_recv		= action_recv(ds_num, "TGT")
 		_cmd			= _zfs_send "|" _zfs_recv
 	}	
 	return _cmd
 }
 
-function create_command_queue(_cmd, _i) {
+function create_command_queue(_cmd, _i, _output) {
 	for (_i = 1; _i <= NumDS; _i++) {
 		_cmd = get_sync_command(_i)
 		report(LOG_DEBUG, "`"_cmd"`")
-		sync(_cmd)
+		get_zfs_send_output(_cmd, _output)
 	}
 }
 
@@ -604,12 +544,7 @@ function plan_backup(		_i, _relname) {
 	update_snapshot_relationship()
 
 	create_command_queue()
-
-	#tgt_written	= (tgt_written || tgtprop[dataset,"written"])
-	#src_only	= (src_has_snap && !tgt_exists)
-	#tgt_behind	= (tgt_latest_match && !src_latest_match)
-	#tgt_blocked	= (!tgt_latest_match || tgt_written)
-	#up_to_date	= (src_latest_match && tgt_latest_match)
+}
 	#check_origin	= (src_has_snap && !trees_match && tgt_has_snap && sorigin)
 #                        } else if (sub(/^parent dataset does not exist: +/,"")) {
 #                                send_command[++rpl_num] = zfs_cmd("TGT", "RECV") " create " create_flags q($0)
@@ -629,10 +564,6 @@ function plan_backup(		_i, _relname) {
 #                } else if (up_to_date) {
 #                        report(LOG_INFO, targetds ": "info)
 #                        synced_count++
-#                } else report(LOG_WARNING, targetds": "info)
-#
-	#zfs_send_options_check() # do this during dryrun step
-}
 
 
 
@@ -642,23 +573,14 @@ BEGIN {
 	load_build_commands()
 	if (Opt["VERB"] == "clone")	plan_clone()
 	else				plan_backup()
-	
-#		if (src_only) {
-#			if (Opt["SEND_INTR"] && !single_snap) {
-#							command_queue(sfirst_full, targetds)
-#							command_queue(slast_full, targetds, sfirst)
-#			} else				command_queue(slast_full, targetds)
-#		} else if (tgt_behind && !tgt_written) {
-#							command_queue(slast_full, targetds, source_match)
+}
 #		} else if (torigin_name && match_snap) {
 #							command_queue(slast_full, targetds, source_match)
 #		} else if (up_to_date) {
 #			report(LOG_INFO, targetds ": "info)
 #			synced_count++
 #		} else report(LOG_WARNING, targetds": "info)
-#	}
-#	close(match_command)
-#	
+##	
 #	if (Opt["VERB"] == "rotate") {
 #		if (!torigin_name) {
 #			report(LOG_ERROR, "no match available for requested rotation")
@@ -670,59 +592,9 @@ BEGIN {
 #			report(LOG_NOTICE, "target renamed to " q(torigin_name))
 #		}
 #	}
-#
-#	if (!num_streams) {
-#		if (synced_count) report(LOG_NOTICE, "nothing to replicate")
-#		else {
-#			error_code = 5
-#			report(LOG_NOTICE, "match error")
-#		}
-#		stop(error_code)
-#	}
-#	
-#	FS = "[ \t]+"
+##
 #	received_streams = 0
 #	total_bytes = 0
-#	if (LOG_MODE == "PROGRESS") {
-#		report(LOG_INFO, "calculating transfer size")
-#		for (r = 1; r <= rpl_num; r++) {
-#			if (full_cmd) close(full_cmd)
-#			full_cmd = RPL_CMD_PREFIX dq(est_cmd[r]) CAPTURE_OUTPUT
-#			while (full_cmd | getline) {
-#				if ($1 == "size") {
-#					stream_size[r] = $2
-#					total_transfer_size += $2
-#				}
-#			}
-#		}
-#		estimate = ", " h_num(total_transfer_size)
-#	}
-#	estimate = ((Opt["VERB"] == "clone") ? "cloning " : "replicating ") rpl_num " streams" estimate
-#	report(LOG_NOTICE, estimate)
-#	for (r = 1; r <= rpl_num; r++) {
-#		#if (dryrun(send_command[r])) {
-#		#	if (CLONE_MODE) continue
-#		#	sub(/ \| .*/, "", send_command[r])
-#		if (send_command[r] ~ "zfs create") {
-#			if (dryrun(send_command[r])) continue
-#			if (system(send_command[r])) {
-#				report(LOG_ERROR, "failed to create parent dataset: " create_dataset[r])
-#				stop(4)
-#			}
-#			continue
-#		}
-#		if (full_cmd) close(full_cmd)
-#		if (receive_command[r]) replication_command = send_command[r] "|" receive_command[r]
-#		else replication_command = send_command[r]
-#		if (dryrun(replication_command)) continue
-##		full_cmd = Opt["TIME_COMMAND"] " " Opt["SH_COMMAND_PREFIX"] " " replication_command " " Opt["SH_COMMAND_SUFFIX"] CAPTURE_OUTPUT
-##		print full_cmd
-#		#full_cmd = RPL_CMD_PREFIX dq(replication_command) CAPTURE_OUTPUT
-#		full_cmd = Opt["SH_COMMAND_PREFIX"] " sh -c " dq(replication_command) " " Opt["SH_COMMAND_SUFFIX"] " " CAPTURE_OUTPUT
-#		report(LOG_DEBUG, "running:" full_cmd)
-#		if (stream_size[r]) report(LOG_NOTICE, source_stream[r]": sending " h_num(stream_size[r]))
-#		replicate(full_cmd)
-#	}
 #
 #	# Negative errors show the number of missed streams, otherwise show error code
 #	stream_diff = received_streams - sent_streams
@@ -733,4 +605,3 @@ BEGIN {
 #	if ((Opt["VERB"] == "clone") || !CAPTURE_OUTPUT) exit error_code
 #	report(LOG_NOTICE, h_num(total_bytes) " sent, " received_streams "/" sent_streams " streams received in " zfs_replication_time " seconds")
 #	stop(error_code)
-}
