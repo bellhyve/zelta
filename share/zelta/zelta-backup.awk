@@ -9,12 +9,18 @@
 # feature, and instead uses a "rotate" feature to rename and clone the diverged replica.
 #
 # CONCEPTS
-# relname: 
+# endpoint or ep: "SRC" or "TGT"
+# dataset or ds: A specific dataset
+# snap_ds: A specific snapshot, such as a replication source
+# relname: The relative child element in a dataset tree
 #
 # GLOBALS
+# Opt: User settings
 # DSList: List of "relname" elements in replication order
-# DSProps: Properties unique to each dataset, indexed by ("ENDPOINT", relname, element)
-# RelProps: 
+# NumDS: Number of elements in DSList
+# DSProps: Properties of each dataset, indexed by: ("ENDPOINT", relname, element)
+# RelProps: Derived properties comparing a dataset and its replica: (relname, element)
+# Summary: Totals and other summary information
 
 # We follow zfs's standard of only showing short options when available
 function usage(message) {
@@ -42,12 +48,13 @@ function load_build_commands(		_action) {
 		CommandRemote[_action]      = $2
 		CommandLine[_action]     = str_add($3, $4)
 		CommandVars[_action]    = $5
+		CommandSuffix[_action]    = $6
         }
         close(_tsv)
 }
 
 function build_command(action, vars,		_remote, _cmd, _num_vars, _var_list, _val, _remote_cmd, _remote_ep) {
-	if (CommandRemote[action]) {
+	if (CommandRemote[action]&& vars["endpoint"]) {
 		_remote_cmd = "REMOTE_" CommandRemote[action]
 		_remote_ep = vars["endpoint"] "_REMOTE"
 		_cmd = str_add(Opt[_remote_cmd], Opt[_remote_ep])
@@ -59,6 +66,7 @@ function build_command(action, vars,		_remote, _cmd, _num_vars, _var_list, _val,
 		_val = vars[_var_list[_v]]
 		_cmd = str_add(_cmd, _val)
 	}
+	_cmd = str_add(_cmd, CommandSuffix[action])
 	if (vars["command_prefix"]) _cmd = str_add(vars["command_prefix"], _cmd)
 	return _cmd
 }
@@ -96,34 +104,8 @@ function build_command(action, vars,		_remote, _cmd, _num_vars, _var_list, _val,
 #		#stream_size[rpl_num] = xfersize
 #	}
 #}
-#
-#function get_config() {
-#	SEND_COMMAND = "send -P "
-#	RECEIVE_COMMAND = "receive -v "
-#
-#	if ((Opt["VERB"] == "replicate")) DEPTH = 1
-#	else if (DEPTH) {
-#		DEPTH = " -d" DEPTH
-#		PROP_DEPTH = "-d" (DEPTH-1)
-#	}
-#	match_cols = "relname,synccode,match,srcfirst,srclast,tgtlast,info"
-#	match_flags = "--time --log-level=2 -Hpo " match_cols DEPTH
-#	match_command = "zelta ipc-run match " match_flags CAPTURE_OUTPUT
-#	if (Opt["VERB"] == "clone") {
-#		CLONE_FLAGS_TOP = Opt["CLONE_FLAGS"]
-#		send_flags = "clone "
-#		return 1
-#	}
-#	if (! Opt["TGT_DS"]) usage("target needed for replicaiton plan")
-#	Opt["SEND_DEFAULT"] = Opt["SEND_DEFAULT"] (Opt["DRYRUN"]?"n":"") ((Opt["VERB"] == "replicate")?"R":"")
-#	send_flags = SEND_COMMAND Opt["SEND_DEFAULT"] " "
-#	recv_flags = RECEIVE_COMMAND RECV_FLAGS " "
-#
-#	intr_flags = Opt["SEND_INTR"] ? "-I" : "-i"
-#	create_flags = "-up"(Opt["DRYRUN"]?"n":"")" "
-#}
 
-# Load properties for an endpoint
+# Load zfs properties for an endpoint
 function load_properties(ep,		_ds, _cmd_arr, _cmd, _idx, _seen) {
 	if (!Opt["PROP_CHECK"]) {
 		report(LOG_INFO, "skipping `zfs get` step; will not detect properties")
@@ -166,8 +148,7 @@ function load_properties(ep,		_ds, _cmd_arr, _cmd, _idx, _seen) {
 	return 1
 }
 
-# Do this right before sending using a no-op
-#function zfs_send_options_check() {
+	
 #	_zfs_send_check_command = zfs_cmd("SRC") " " send " " CAPTURE_OUTPUT
 #	while (_zfs_send_check_command | getline)
 #		if (/usage:/) _in_usage = 1
@@ -454,37 +435,49 @@ function validate_target_dataset(		_idx, _written_sum) {
 	}
 }
 
-function get_send_flags(idx,		_f, _idx, _flag_list) {
-print idx, DSProps[idx,"encryption"]
+function get_send_command_flags(idx,		_f, _idx, _flags, _flag_list) {
 	if (Opt["VERB"] == "replicate")
 		_flag_list[++_f]	= Opt["SEND_REPLICATE"]
 	else if (DSProps[idx,"encryption"])
      	     _flag_list[++_f]		= Opt["SEND_RAW"]
 	else _flag_list[++_f]		= Opt["SEND_DEFAULT"]
-	return arr_join(_flag_list)
+	if (NoOpMode)
+		_flag_list[++_f]	= "-n"
+	_flags = arr_join(_flag_list)
+	return _flags
 }
 
-function get_new_source_snapshot_name(relname, _ds_snap) {
-	if (Opt["SEND_INTR"]) {
-		 _ds_snap = RelProps[relname, "first_snapshot"]
-	}
+function get_send_command_ds_snap(relname, _ds_snap) {
+	# On a new replication in intermediate mode, we send the first snapshot
+	# so we can get the entire history in two steps.
+	if (!DSProps["TGT", relname, "exists"] && Opt["SEND_INTR"])
+		_ds_snap = RelProps[relname, "first_snapshot"]
+	# For any other replication, the final argument is the dataset's final snapshot
 	else _ds_snap = RelProps[_relname, "final_snapshot"]
-	return q(Opt["SRC_DS"] _relname _ds_snap)
+	_ds_snap = dq(DSProps["SRC_DS"] _relname _ds_snap)
+	return _ds_snap
 }
 
+function get_send_command_incr_snap(relname, idx,	 _intr_snap) {
+	# Add the -I/-i argument if we can do perform an incremental/intermediate sync
+	if (!DSProps["TGT", relname, "exists"]) return ""
+	_intr_snap = Opt["SEND_INTR"] ? "-I" : "-i"
+	_intr_snap = str_add(_incr_snap, dq(Opt["SRC_DS"] RelProps[relname, "common_snapshot"]))
+	return _intr_snap
+}
 
-function action_sync_new(ds_num,	_cmd_arr) {
-	_idx			= "SRC" SUBSEP DSList[ds_num]
+function create_send_command(ds_num, remote_ep, 	_cmd_arr, _cmd) {
 	_relname		= DSList[ds_num]
-	_cmd_arr["endpoint"]	= "SRC"
-	_cmd_arr["flags"]	= str_add(get_send_flags(_idx), Opt["SEND_NEW"])
-	_ds			= DSProps[_idx, "dataset"]
+	_idx			= "SRC" SUBSEP _relname
+	_cmd_arr["endpoint"]	= remote_ep
+	_cmd_arr["flags"]	= get_send_command_flags(_idx)
+	_cmd_arr["intr_snap"]	= get_sync_command_incr_snap(_relname, _idx)
 	_cmd_arr["ds_snap"]	= get_new_source_snapshot_name(_relname)
 	_cmd = build_command("SEND", _cmd_arr)
 	return _cmd
 }
 
-function recv_flags(ds_num, _flag_arr, _flags, _relname, _i) {
+function recv_flags(ds_num, 	_flag_arr, _flags, _relname, _i) {
 	_relname		= DSList[ds_num]
 	_idx                    = "TGT" SUBSEP _relname
 	if (ds_num == 1)
@@ -499,54 +492,105 @@ function recv_flags(ds_num, _flag_arr, _flags, _relname, _i) {
 	return (_flags)
 }
 
-function action_recv(ds_num,	_cmd_arr) {
+function action_recv(ds_num, remote_ep,		_cmd_arr) {
 	_relname		= DSList[ds_num]
 	_ds			= Opt["TGT_DS"] _relname
 	_idx                    = "TGT" SUBSEP _relname
-	_cmd_arr["endpoint"]	= "TGT"
+	_cmd_arr["endpoint"]	= remote_ep
 	_cmd_arr["flags"]	= recv_flags(ds_num)
-	_cmd_arr["ds"]		= _ds
+	_cmd_arr["ds"]		= dq(_ds)
 	_cmd = build_command("RECV", _cmd_arr)
 	return _cmd
 }
 
-function plan_clone() {
-	if (Opt["SRC_REMOTE"] != Opt["TGT_REMOTE"]) {
-		report(LOG_ERROR, "clone target endpoint must use the same user, host, and zfs pool as the source")
-		stop(1)
-	}
-
-	validate_source_dataset()
-	validate_target_dataset()
-	if (!TargetDoesNotExist) {
-		report(LOG_ERROR, "cannot clone; target dataset '"Opt["TGT_ID"]"' exists")
-		stop(1)
-	}
-}
-
-function sync(cmd) {
+# Gathers `zfs send` output in an array
+function get_zfs_send_output(command, output) {
+	IGNORE_ZFS_SEND_OUTPUT = "^(sys|user)[ \t]+[0-9]|( records (in|out)$|bytes.*transferred|receiving.*stream|ignoring$"
 	cmd = cmd CAPTURE_OUTPUT
 	while (cmd | getline) {
-		print
+		if ($0 ~ IGNORE_ZFS_SEND_OUTPUT) {}
+		else print
 	}
 	close(cmd)
 }
 
-function get_sync_command(ds_num,	_cmd_arr, _cmd, _c) {
-	_cmd_arr[++_c]	= Opt["SH_COMMAND_PREFIX"]
-	_cmd_arr[++_c]	= action_sync_new(ds_num)
-	_cmd_arr[++_c]	= "|"
-	_cmd_arr[++_c]	= action_recv(ds_num)
-	_cmd_arr[++_c]	= Opt["SH_COMMAND_SUFFIX"]
-	_cmd		= arr_join(_cmd_arr)
+function create_sync_command(ds_num, remote_ep, extra_flag,	_cmd_arr) {
+	_idx			= "SRC" SUBSEP DSList[ds_num]
+	_relname		= DSList[ds_num]
+	_cmd_arr["endpoint"]	= remote_ep
+	_cmd_arr["flags"]	= str_add(get_send_flags(_idx), Opt["SEND_NEW"])
+	_cmd_arr["flags"]	= str_add(_cmd_arr["flags"], extra_flag)
+	_ds			= DSProps[_idx, "dataset"]
+	_cmd_arr["ds_snap"]	= get_new_source_snapshot_name(_relname)
+	_cmd = build_command("SEND", _cmd_arr)
+	return _cmd
+}
+
+function recv_flags(ds_num, 	_flag_arr, _flags, _relname, _i) {
+	_relname		= DSList[ds_num]
+	_idx                    = "TGT" SUBSEP _relname
+	if (ds_num == 1)
+		_flag_arr[++_i]	= Opt["RECV_TOP"]
+	if (DSProps[_idx, "type"] == "volume")
+		_flag_arr[++_i]	= Opt["RECV_VOL"]
+	if (DSProps[_idx, "filesystem"] == "filesystem")
+		_flag_arr[++_i]	= Opt["RECV_FS"]
+	if (Opt["RESUME"])
+		_flag_arr[++_i]	= Opt["RECV_PARTIAL"]
+	_flags = arr_join(_flag_arr)
+	return (_flags)
+}
+
+function action_recv(ds_num, remote_ep,		_cmd_arr) {
+	_relname		= DSList[ds_num]
+	_ds			= Opt["TGT_DS"] _relname
+	_idx                    = "TGT" SUBSEP _relname
+	_cmd_arr["endpoint"]	= remote_ep
+	_cmd_arr["flags"]	= recv_flags(ds_num)
+	_cmd_arr["ds"]		= dq(_ds)
+	_cmd = build_command("RECV", _cmd_arr)
+	return _cmd
+}
+
+# Gathers `zfs send` output in an array
+function get_zfs_send_output(command, output) {
+	IGNORE_ZFS_SEND_OUTPUT = "^(sys|user)[ \t]+[0-9]|( records (in|out)$|bytes.*transferred|receiving.*stream|ignoring$"
+	cmd = cmd CAPTURE_OUTPUT
+	while (cmd | getline) {
+		if ($0 ~ IGNORE_ZFS_SEND_OUTPUT) {}
+		else print
+	}
+	close(cmd)
+}
+
+function get_sync_command(ds_num,	_zfs_send, _zfs_recv) {
+	if (Opt["SYNC_DIRECTION"] == "PULL" && Opt["TGT_REMOTE"]) {
+		_cmd_arr["endpoint"]	= "TGT"
+		_cmd_arr["zfs_send"]	= action_sync_new(ds_num, "SRC")
+		_cmd_arr["zfs_recv"]	= "|" action_recv(ds_num)
+		_cmd			= build_command("SYNC", _cmd_arr)
+	}
+	else if (Opt["SYNC_DIRECTION"] == "PUSH" && Opt["SRC_REMOTE"]) {
+		_cmd_arr["endpoint"]	= "SRC"
+		_cmd_arr["zfs_send"]	= action_sync_new(ds_num)
+		_cmd_arr["zfs_recv"]	= "|" action_recv(ds_num, "TGT")
+		_cmd			= build_command("SYNC", _cmd_arr)
+	}
+	else {
+		if (Opt["SRC_REMOTE"] && Opt["TGT_REMOTE"])
+			report_once(LOG_WARNING, "syncing remote endpoints through the local network; consider --push or --pull")
+		_zfs_send 		= action_sync_new(ds_num, "SRC")
+		_zfs_recv		= action_recv(ds_num, "TGT")
+		_cmd			= _zfs_send "|" _zfs_recv
+	}	
 	return _cmd
 }
 
 function create_command_queue(_cmd, _i) {
 	for (_i = 1; _i <= NumDS; _i++) {
 		_cmd = get_sync_command(_i)
-		report(LOG_DEBUG, DSList[_i]"`"_cmd"`")
-		#sync(_cmd)
+		report(LOG_DEBUG, "`"_cmd"`")
+		sync(_cmd)
 	}
 }
 

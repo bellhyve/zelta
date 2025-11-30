@@ -29,6 +29,11 @@ function report(mode, message) {
 	log_output_count++
 }
 
+function report_once(mode, message) {
+	if (!SuppressedMessage[message]++)
+		report(mode, message)
+}
+
 function json_write(_j, _depth, _fs, _rs, _val, _next_val) {
 	_fs = "  "
 	_rs = "\n"
