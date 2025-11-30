@@ -483,15 +483,19 @@ function create_recv_command(rel_name, src_idx, remote_ep,		 _cmd_arr, _cmd) {
 	#RelProps[relname, "zfs_send"] = build_command("REV", _cmd_arr)
 }
 
-# Gathers `zfs send` output in an array
-function get_zfs_send_output(command, output, _cmd) {
+#
+## Planning and performing sync
+###############################
+
+# Runs a sync, collecting "zfs send" output
+function run_zfs_sync(command, _cmd) {
 	IGNORE_ZFS_SEND_OUTPUT = "(incremental|full)| records (in|out)$|bytes.*transferred|receiving.*stream|ignoring$"
 	report(LOG_DEBUG, "`"command"`")
 	_cmd = command CAPTURE_OUTPUT
 	FS="[[:space:]]*"
 	while (_cmd | getline) {
 		if ($1 == "size") {
-			report(LOG_INFO, "	syncing: " h_num($2))
+			report(LOG_INFO, "syncing: " h_num($2))
 			Summary["total_bytes_send"] += $2
 		}
 		else if ($1 == "received")
@@ -514,31 +518,7 @@ function get_zfs_send_output(command, output, _cmd) {
 	}
 	close(_cmd)
 }
-# Old `zfs send` parsing logic
-#		if ($1 == "incremental" || $1 == "full") sent_streams++
-#		else if ($1 == "received") {
-#			report(LOG_INFO, source_stream[r]": "$0)
-#			received_streams++
-#		} else if ($1 == "size") {
-#			report(LOG_INFO, source_stream[r]": sending " h_num($2))
-#			total_bytes += $2
-#		} else if ($1 ~ /:/ && $2 ~ /^[0-9]+$/) {
-#			# Is this still working?
-#			siginfo(source_stream[r]": "h_num($2) " received")
-#		} else if (/cannot receive (mountpoint|canmount)/) {
-#			report(LOG_WARNING, $0)
-#		} else if (/failed to create mountpoint/) {
-#			# This is expected with restricted access
-#			report(LOG_DEBUG, $0)
-#		} else if (/Warning/ && /mountpoint/) {
-#			report(LOG_INFO, $0)
-#		} else if (/Warning/) {
-#			report(LOG_NOTICE, $0)
-#		} else if ($1 == "real") zfs_replication_time += $2
 
-
-## Planning and performing sync
-###############################
 
 ## Construct replication commands
 function get_sync_command(rel_name, src_idx, tgt_idx,	_zfs_send, _zfs_recv) {
@@ -582,7 +562,7 @@ function determine_next_sync_action(	_i, _rel_name, _src_idx, _tgt_idx, _cmd) {
 
 		if (RelProps[_rel_name, "sync_action"] == "SYNC") {
 			_cmd = get_sync_command(_rel_name, _src_idx, _tgt_idx)
-			get_zfs_send_output(_cmd)
+			run_zfs_sync(_cmd)
 		}
 		else if (RelProps[_rel_name, "sync_action"] == "BLOCKED")
 			plan_rotate(_rel_name)
