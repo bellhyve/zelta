@@ -29,11 +29,6 @@ function report(mode, message) {
 	log_output_count++
 }
 
-function report_once(mode, message) {
-	if (!SuppressedMessage[message]++)
-		report(mode, message)
-}
-
 function json_write(_j, _depth, _fs, _rs, _val, _next_val) {
 	_fs = "  "
 	_rs = "\n"
@@ -55,58 +50,67 @@ function json_write(_j, _depth, _fs, _rs, _val, _next_val) {
 	}
 }
 
+# Return a json value of null, num, or string
 function json_val(val) {
 	if (val == "") val = "null"
 	else if (val !~ /^-?[0-9\.]+$/) val = dq(val)
 	return val
 }
 
-function json_new_object() { JsonOutput[++JsonNum] = "{" }
+# Basic json contructors
+function json_new_object(name) { JsonOutput[++JsonNum] = (name ? dq(name) ": " : "") "{" }
 function json_close_object() { JsonOutput[++JsonNum] = "}" }
 function json_new_array(name) { JsonOutput[++JsonNum] = (name ? dq(name) ": " : "") "[" }
 function json_close_array() { JsonOutput[++JsonNum] = "]" }
 function json_member(name, val) { JsonOutput[++JsonNum] = dq(name) ": " json_val(val) }
 function json_element(val) { JsonOutput[++JsonNum] = json_val(val) }
 
-function json_array(name, msg_list) {
-	printf "  \""name"\": ["
-	list_len = 0
-	for (n in msg_list) list_len++
-	if (list_len) {
-		print ""
-		for (n=1;n<=list_len;n++) {
-			gsub(/^[ \t\r\n]+|[ \t\r\n]+$/, "", msg_list[n])
-			gsub(/\n/, "; ", msg_list[n])
-			gsub(/"/, "'", msg_list[n])
-			printf "    \""msg_list[n]"\""
-			if (n<list_len) print ","
+# Lod global Summary for special output modes
+function load_summary_data(	_sum_data, _sum_arr, _sum_num, _s) {
+	_summary_data="# MAP_KEY	VAR_SOURCE	VAR_KEY	MAP_KEY	NULL_MODE\n\
+# MAP_KEY: The name of the summary field\n\
+# VAR_SOURCE: The source of the key\n\
+# VAR_KEY: The key\n\
+# NULL_MODE: null, 0, or empty to suppress the field if not found\n\
+\n\
+sourceUser	Opt	SRC_USER	\n\
+sourceHost	Opt	SRC_HOST	\n\
+sourceDataset	Opt	SRC_DS	\n\
+sourceSnapshot	Opt	SRC_SNAP	\n\
+sourceEndpoint	Opt	SRC_ID	\n\
+targetUser	Opt	TGT_USER	\n\
+targetHost	Opt	TGT_HOST	\n\
+targetDataset	Opt	TGT_DS	\n\
+targetSnapshot	Opt	TGT_SNAP	\n\
+targetEndpoint	Opt	TGT_ID\n\
+"
+	_sum_num = split(_summary_data, _sum_arr, "\n")
+	for (_s = 1; _s <= _sum_num; _s++) {
+		$0 = _sum_arr[_s]
+		_key = $1
+		if ($2 == "Opt") _val = Opt[$3]
+		else continue
+		if (!_val) {
+			if (!$4) continue
+			else if ($4 == "0") _val = "0"
+			else if ($4 == "null") _val = ""
+			else _val = ""
 		}
-		printf "\n  "
+		Summary[_key] = _val
 	}
-	printf "]"
-	return ",\n"
 }
 
-function output_json() {
-	print "{"
-	print jpair("startTime",time_start)
-	print jpair("endTime",time_end)
-	print jpair("sourceUser",user[source])
-	print jpair("sourceHost",host[source])
-	print jpair("sourceDataset",ds[source])
-	print jpair("sourceListTime",source_zfs_list_time)
-	print jpair("targetUser",user[target])
-	print jpair("targetHost",host[target])
-	print jpair("targetDataset",ds[target])
-	print jpair("targetListTime",target_zfs_list_time)
-	print jpair("replicationSize",total_bytes)
-	print jpair("replicationStreamsSent",sent_streams)
-	print jpair("replicationStreamsReceived",received_streams)
-	print jpair("replicationErrorCode",error_code)
-	print jpair("replicationTime",zfs_replication_time)
-	printf jlist("sentStreams", source_stream)
-	jlist("errorMessages", error_list)
-	print "\n}"
+function load_summary_vars() {
+        if (Opt["LOG_MODE"] == "json") {
+                json_new_object()
+                json_new_object("output_version")
+                json_member("command", "zelta "Opt["VERB"])
+                json_member("vers_major", GlobalState["vers_major"])
+                json_member("vers_minor", GlobalState["vers_minor"])
+                json_close_object()
+                for (_j in Summary) json_member(_j, Summary[_j])
+                json_close_object()
+	}
 }
 
 # Flush buffers and quit
@@ -202,4 +206,5 @@ BEGIN {
 
 	# load user options into Opt[]
 	zelta_init()
+
 }

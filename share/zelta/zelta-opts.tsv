@@ -18,6 +18,7 @@ all	-q	LOG_LEVEL	decr
 all	--log-level	LOG_LEVEL	set
 all	--log-mode	LOG_MODE	set	
 all	-j,--json	LOG_MODE	set	json
+all	--text	LOG_MODE	set	text
 all	--help,-h,-?	USAGE	true
 all	-n,--dryrun,--dry-run	DRYRUN	true
 all	-d,--depth	DEPTH	set

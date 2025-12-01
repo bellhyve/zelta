@@ -13,7 +13,7 @@ CHECK	DEFAULT	zfs list	-Ho name	ds
 PROPS	DEFAULT	zfs get	-Hpr -s local,none -t filesystem,volume -o name,property,value all	flags ds
 CREATE	DEFAULT	zfs create	-vupo canmount=noauto	ds
 SNAP	DEFAULT	zfs snapshot	-r	flags ds_snap
-MATCH		zelta ipc-run match	--time --log-mode=text --log-level=2 -Hpo relname,match,srcfirst,srclast,tgtlast	flags
+MATCH		zelta ipc-run match	--time --log-mode=text --text --log-level=2 -Hpo relname,match,srcfirst,srclast,tgtlast	flags
 SEND	SEND	zfs send	-Pv	flags intr_snap ds_snap
 RECV	RECV	zfs recv	-v	flags origin ds
 SYNC	DEFAULT		'	zfs_send zfs_recv	'

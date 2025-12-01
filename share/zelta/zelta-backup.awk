@@ -170,8 +170,8 @@ function parse_zelta_match_row(		_src_idx, _tgt_idx) {
 		DSProps[_tgt_idx, "latest_snapshot"]	= $5
 	}
 	else {
-		if ($1 == "SOURCE_LIST_TIME:")		source_list_time += $2
-		else if ($1 == "TARGET_LIST_TIME:")	target_list_time += $2
+		if ($1 == "SOURCE_LIST_TIME:")		Summary["sourceListTime"] += $2
+		else if ($1 == "TARGET_LIST_TIME:")	Summary["targetListTime"] += $2
 		else report(LOG_WARNING, "unexpected `zelta match` output: "$0)
 		return
 	}
@@ -474,10 +474,13 @@ function run_zfs_sync(command, _cmd) {
 	while (_cmd | getline) {
 		if ($1 == "size") {
 			report(LOG_INFO, "syncing: " h_num($2))
-			Summary["total_bytes_send"] += $2
+			Summary["total_bytes_sent"] += $2
 		}
-		else if ($1 == "received")
+		else if ($1 == "received") {
 			report(LOG_INFO, "  success: "$0)
+			Summary["total_sync_seconds"] += $5
+			Summary["successful_sync_jobs"]++
+		}
 		else if ($1 ~ /:/ && $2 ~ /^[0-9]+$/)
 			# SIGINFO: Is this still working?
 			report(LOG_INFO, $0)
@@ -575,6 +578,7 @@ function plan_rotate(rel_name) {
 # Loops through the dataset tree and assembles the sync commands
 # Currently we run the sync here, but this will likely be moved to a separate control loop
 function determine_next_sync_action(	_i, _rel_name, _src_idx, _tgt_idx, _cmd) {
+	report(LOG_INFO, "determining sync actions for " Opt["SRC_ID"])
 	for (_i = 1; _i <= NumDS; _i++) {
 		_rel_name	= DSList[_i]
 		_src_idx	= "SRC" SUBSEP _rel_name
@@ -585,15 +589,18 @@ function determine_next_sync_action(	_i, _rel_name, _src_idx, _tgt_idx, _cmd) {
 
 		if (RelProps[_rel_name, "sync_action"] == "SYNC") {
 			_cmd = get_sync_command(_rel_name, _src_idx, _tgt_idx)
-			run_zfs_sync(_cmd)
+			CommandQueue[++NumJobs] = _cmd
 		}
 		else if (RelProps[_rel_name, "sync_action"] == "BLOCKED")
 			plan_rotate(_rel_name)
 		else if (RelProps[_rel_name, "sync_action"] == "NONE")
-			report(LOG_INFO, _rel_name": " RelProps[_rel_name, "status_message"])
+			report(LOG_INFO, RelProps[_rel_name, "status_message"]": " RelProps[_rel_name, "target_ds"])
 		else 
 			report(LOG_ERROR, "'"_rel_name"': could not determine sync action " RelProps[_rel_name, "sync_action"])
 	}
+	if (NumJobs) report(LOG_NOTICE, "syncing " NumDS " datasets")
+		else  report(LOG_NOTICE, "nothing to sync")
+	for (_i = 1; _i <= NumJobs; _i++) run_zfs_sync(CommandQueue[_i])
 }
 
 # Overall sync planning function
@@ -607,23 +614,49 @@ function run_backup(		_i, _rel_name, _src_idx, _tgt_idx) {
 	determine_next_sync_action()
 	#create_command_queue()
 }
+		#Old
+		#print jpair("replicationSize",total_bytes)
+		#print jpair("replicationStreamsSent",sent_streams)
+		#print jpair("replicationStreamsReceived",received_streams)
+		#print jpair("replicationErrorCode",error_code)
+		#print jpair("replicationTime",zfs_replication_time)
+		#printf jlist("sentStreams", source_stream)
+		#jlist("errorMessages", error_list)
+			#command":"zfs list","vers_major":0,"vers_minor":1},"datasets":{"ssd07":{"name":"ssd07","type":"FILESYSTEM","pool":"ssd07","createtxg":"1","properties":{"used":{"value":"525G","source":{"type":"NONE","data":"-"}},"available":{"value":"397G","source":{"type":"NONE","data":"-"}},"referenced":{"value":"272K","source":{"type":"NONE","data":"-"}},"mountpoint":{"value":"/ssd07","source":{"type":"DEFAULT","data":"-"}}}}}}
+
+function print_summary() {
+	_bytes_sent	= h_num(Summary["total_bytes_sent"])
+	_streams	= Summary["successful_sync_jobs"] "/" NumJobs
+#	_seconds	= Summary["zelta_sync_runtime"]
+	_seconds	= Summary["total_sync_seconds"]
+	if (NumJobs) report(_bytes_sent " sent, "_streams" received in "_seconds" seconds")
+}
 
 # Main planning function
 BEGIN {
 	if (Opt["USAGE"]) usage()
 	
 	# Glboals and overrides
-	Summary["start_time"]		= sys_time()
+	GlobalState["vers_major"] = 1
+	GlobalState["vers_minor"] = 1
 	GlobalState["snapshot_needed"]	= (Opt["SNAP_MODE"] == "ALWAYS")
 	GlobalState["final_snapshot"]	= Opt["SRC_SNAP"]
 	GlobalState["target_exists"]	= 0
 	GlobalState["sync_passes"]	= 0
+	Summary["start_time"]		= sys_time()
 
 	load_build_commands()
 	if (Opt["VERB"] == "clone")	run_clone()
 	else				run_backup()
 
-	# summarize()
+	Summary["end_time"]		= sys_time()
+	Summary["zelta_sync_runtime"]	= Summary["end_time"] - Summary["start_time"]
+
+	load_summary_data()
+	load_summary_vars()
+	print_summary()
+
+	stop()
 }
 
 # Old code for summary
