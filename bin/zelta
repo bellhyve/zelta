@@ -102,11 +102,7 @@ zelta_init() {
 	# `zfs list` defaults
 	: ${ZELTA_LIST_WRITTEN:="1"}
 
-	# We're prioritizing ZELTA_AWK over AWK (but use AWK below for clarity)
-
 	# Safety options
-	: ${ZELTA_PROP_CHECK:="1"}
-	: ${ZELTA_SEND_CHECK:="1"}
 	: ${ZELTA_CREATE_PARENT:="1"}
 	: ${ZELTA_RESUME:="1"}
 

@@ -34,6 +34,7 @@ backup,replicate,sync,rotate	-i	SEND_INTR	false
 backup,replicate,sync,rotate	--resume	RESUME	true
 backup,replicate,sync,rotate	--no-resume	RESUME	false
 backup,replicate,sync,rotate	--snap-mode	SNAP_MODE	set
+backup,replicate,sync,rotate	--no-snapshot	SNAP_MODE	false
 backup,replicate,sync,rotate	--snapshot	SNAP_MODE	set	IF_NEEDED
 backup,replicate,sync,rotate	--snapshot-always	SNAP_MODE	set	ALWAYS
 backup,replicate,sync,rotate	--snapshot-skip	SNAP_MODE	set	SKIP

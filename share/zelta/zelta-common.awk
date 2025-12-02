@@ -8,6 +8,11 @@
 # - received_function_variable
 # - _local_function_variables
 # - ["ARRAY_KEY"] (when upstream or hard-coded)
+#
+# Common functions:
+# report(log_level, message)
+# str_add(a, b, sep): Join by " " or sep
+# str_must_join(a, b, sep): Join by "" or sep but return "" either are missing
 
 # Load ZELTA_ environment variables as Opt[VAR] shorthand without the prefix
 function zelta_init(	_o, _prefix_re) {
@@ -33,6 +38,7 @@ function json_write(_j, _depth, _fs, _rs, _val, _next_val) {
 	_fs = "  "
 	_rs = "\n"
 	_depth = 0
+	if (LoadSummaryVars) json_close_object()
 	for (_j = 1; _j <= JsonNum; _j++) {
 		_val = JsonOutput[_j]
 		_next_val = JsonOutput[_j+1]
@@ -109,7 +115,7 @@ function load_summary_vars() {
                 json_member("vers_minor", GlobalState["vers_minor"])
                 json_close_object()
                 for (_j in Summary) json_member(_j, Summary[_j])
-                json_close_object()
+		LoadSummaryVars++
 	}
 }
 
@@ -131,6 +137,12 @@ function str_add(s, v, sep) {
 	if (!s || !v) return s v
 	if (!sep) sep = " "
 	return s ? s sep v : v
+}
+
+function str_must_join(one, two, sep) {
+    if (one == "" || two == "")
+        return ""
+    return one sep two
 }
 
 function str_rep(str, num,    _out, _i) {
