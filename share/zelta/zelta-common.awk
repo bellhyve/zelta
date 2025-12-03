@@ -129,6 +129,11 @@ function stop(_error_code, _error_msg) {
 }
 
 # Simple String Functions
+function qq(_s) {
+	gsub(/ /, "\\ ", _s)
+	return "'"_s"'"
+}
+
 function q(s) { return "'" s "'" }
 
 function dq(s) { return "\"" s "\"" }
@@ -137,12 +142,6 @@ function str_add(s, v, sep) {
 	if (!s || !v) return s v
 	if (!sep) sep = " "
 	return s ? s sep v : v
-}
-
-function str_must_join(one, two, sep) {
-    if (one == "" || two == "")
-        return ""
-    return one sep two
 }
 
 function str_rep(str, num,    _out, _i) {

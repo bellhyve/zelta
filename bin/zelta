@@ -107,12 +107,12 @@ zelta_init() {
 	: ${ZELTA_RESUME:="1"}
 
 	# `zfs send` defaults
-	: ${ZELTA_SEND_DEFAULT:="-Lce"}
-	: ${ZELTA_SEND_RAW:="-Lw"}
+	: ${ZELTA_SEND_DEFAULT:="-L -c -e"}
+	: ${ZELTA_SEND_RAW:="-L -w"}
 	: ${ZELTA_SEND_NEW:="-p"}
 	: ${ZELTA_SEND_INTR:="1"}
 	: ${ZELTA_SEND_PARTIAL:="1"}
-	: ${ZELTA_SEND_REPLICATE:="-LsRw"}
+	: ${ZELTA_SEND_REPLICATE:="-L -s -R -w"}
 
 	# `zfs recv` defaults
 	: ${ZELTA_RECV_DEFAULT:=""}
