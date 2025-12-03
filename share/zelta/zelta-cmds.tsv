@@ -17,4 +17,4 @@ MATCH		zelta ipc-run match	--time --log-mode=text --text --log-level=2 -Hpo reln
 SEND	SEND	zfs send	-P	flags intr_snap ds_snap
 RECV	RECV	zfs recv	-v	flags origin ds
 SYNC	DEFAULT			zfs_send zfs_recv
-CLONE	DEFAULT	zfs clone	-p -o readonly=off	flags src_ds tgt_ds
+CLONE	DEFAULT	zfs clone	-p -o readonly=off	flags src_ds_snap tgt_ds

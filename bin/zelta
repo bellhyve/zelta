@@ -77,10 +77,13 @@ zelta_init() {
 		eval "$_env_settings"
 	fi
 
-	# verb-specific defaults
+	# Verb-specific defaults
 	case "$zelta_verb" in
 		sync)	: ${ZELTA_SEND_INTR:="0"}
 			: ${ZELTA_CREATE_PARENT:="0"}
+			;;
+		clone)	: ${ZELTA_SNAP_MODE:="0"}
+			: ${ZELTA_SEND_INTR:="0"}
 			;;
 	esac
 
