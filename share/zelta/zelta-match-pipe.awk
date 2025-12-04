@@ -69,17 +69,17 @@ function parse_stream(endpoint) {
 }
 
 function arr_sort(arr) {
-    n = arrlen(arr);
-    for (i = 2; i <= n; i++) {
-        # Store the current value and its key
-        value = arr[i];
-        j = i - 1;
-        while (j >= 1 && arr[j] > value) {
-            arr[j + 1] = arr[j];
-            j--;
-        }
-        arr[j + 1] = value;
-    }
+	n = arrlen(arr);
+	for (i = 2; i <= n; i++) {
+		# Store the current value and its key
+		value = arr[i];
+		j = i - 1;
+		while (j >= 1 && arr[j] > value) {
+			arr[j + 1] = arr[j];
+			j--;
+		}
+		arr[j + 1] = value;
+	}
 }
 
 
@@ -185,7 +185,6 @@ function run_zfs_list() {
 
 # Load "zfs list" output (and "time -p" data) from pipe
 LIST_STREAM {
-	# Load ZFS
 	# Check for EOF of the current stream
 	if (/^ZFS_LIST_STREAM_END$/) {
 		LIST_STREAM = 0
@@ -193,12 +192,23 @@ LIST_STREAM {
 	}
 	parse_stream(source)
 	if (!(is_snapshot || is_bookmark)) next
-	if (rel_name in last_match) {
-		if (guid_to_name[target,guid]) num_matches[rel_name]++
-	} else if (guid_to_name[target,guid]) {
-		last_match[rel_name]		= savepoint
-		LastMatchGUID[rel_name]	= guid
-	} else count_snapshot_diff()
+
+	# This snapshot/bookmark GUID matches a target's snapshot
+	if (guid_to_name[target, guid]) {
+		# Update the latest known match
+		if (!last_match[rel_name]){
+			last_match[rel_name]	= savepoint
+			LastMatchGUID[rel_name]	= guid
+		}
+		if (rel_name in last_match) num_matches[rel_name]++ 
+	}
+	# No match; src_next will be the closest incremental or earliest full point
+	else if (is_snapshot) {
+		if (!last_match[rel_name]) {
+			src_next[rel_name] = savepoint
+		}
+		count_snapshot_diff()
+	}
 }
 
 function dataset_is_orphan() {

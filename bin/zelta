@@ -79,11 +79,13 @@ zelta_init() {
 
 	# Verb-specific defaults
 	case "$zelta_verb" in
-		sync)	: ${ZELTA_SEND_INTR:="0"}
-			: ${ZELTA_CREATE_PARENT:="0"}
-			;;
 		clone)	: ${ZELTA_SNAP_MODE:="0"}
 			: ${ZELTA_SEND_INTR:="0"}
+			;;
+		rotate)	: ${ZELTA_SEND_INTR:="0"}
+			;;
+		sync)	: ${ZELTA_SEND_INTR:="0"}
+			: ${ZELTA_CREATE_PARENT:="0"}
 			;;
 	esac
 
@@ -242,6 +244,7 @@ case $zelta_verb in
 	# zelta-backup.awk
 	clone |\
 	replicate |\
+	rotate |\
 	sync |\
 	zpull |\
 	zpush |\
