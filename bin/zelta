@@ -79,8 +79,7 @@ zelta_init() {
 
 	# Verb-specific defaults
 	case "$zelta_verb" in
-		clone)	: ${ZELTA_SNAP_MODE:="0"}
-			: ${ZELTA_SEND_INTR:="0"}
+		clone)	: ${ZELTA_SEND_INTR:="0"}
 			;;
 		rotate)	: ${ZELTA_SEND_INTR:="0"}
 			;;

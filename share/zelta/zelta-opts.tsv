@@ -17,11 +17,11 @@ all	-v	LOG_LEVEL	incr
 all	-q	LOG_LEVEL	decr
 all	--log-level	LOG_LEVEL	set
 all	--log-mode	LOG_MODE	set	
-all	-j,--json	LOG_MODE	set	json
 all	--text	LOG_MODE	set	text
 all	--help,-h,-?	USAGE	true
 all	-n,--dryrun,--dry-run	DRYRUN	true
 all	-d,--depth	DEPTH	set
+backup,replicate,sync,rotate	-j,--json	LOG_MODE	set	json
 backup,replicate,sync,rotate	-b,--backup,-c,--compressed,-D,--dedup,-e,--embed,-h,--holds,-L,--largeblock,-p,--parsable,--proctitle,--props,--raw,--skipmissing,-V,-w	SEND_OVERRIDE	arglist
 backup,replicate,sync,rotate	-F	SEND_OVERRIDE	arglist	 	destructive option 'F' used; consider 'zelta rotate' when possible
 backup,replicate,sync,rotate	-e,-h,-M,-u	RECV_OVERRIDE	arglist
@@ -33,14 +33,14 @@ backup,replicate,sync,rotate	-I	SEND_INTR	true
 backup,replicate,sync,rotate	-i	SEND_INTR	false
 backup,replicate,sync,rotate	--resume	RESUME	true
 backup,replicate,sync,rotate	--no-resume	RESUME	false
-backup,replicate,sync,rotate	--snap-mode	SNAP_MODE	set
-backup,replicate,sync,rotate	--no-snapshot	SNAP_MODE	false
-backup,replicate,sync,rotate	--snapshot	SNAP_MODE	set	IF_NEEDED
-backup,replicate,sync,rotate	--snapshot-always	SNAP_MODE	set	ALWAYS
-backup,replicate,sync,rotate	--snapshot-skip	SNAP_MODE	set	SKIP
-backup,replicate,sync,rotate	-s	SNAP_MODE	set	IF_NEEDED	option '-s' for '--snapshot' is ambiguous and will be deprecated; use --snapshot, --snapshot-skip, --partial, or --skip-missing (with -R)
-backup,replicate,sync,rotate	-S	SNAP_MODE	set	ALWAYS	option '-S' for '--snapshot-always' is ambiguous will be deprecated; use --snapshot-always or --partial
-backup,replicate,sync,rotate	--snapshot-always	SNAP_MODE	set	ALWAYS
+backup,replicate,sync,rotate,clone	--snap-mode	SNAP_MODE	set
+backup,replicate,sync,rotate,clone	--no-snapshot	SNAP_MODE	false
+backup,replicate,sync,rotate,clone	--snapshot	SNAP_MODE	set	IF_NEEDED
+backup,replicate,sync,rotate,clone	--snapshot-always	SNAP_MODE	set	ALWAYS
+backup,replicate,sync,rotate,clone	--snapshot-skip	SNAP_MODE	set	SKIP
+backup,replicate,sync,rotate,clone	-s	SNAP_MODE	set	IF_NEEDED	option '-s' for '--snapshot' is ambiguous and will be deprecated; use --snapshot, --snapshot-skip, --partial, or --skip-missing (with -R)
+backup,replicate,sync,rotate,clone	-S	SNAP_MODE	set	ALWAYS	option '-S' for '--snapshot-always' is ambiguous will be deprecated; use --snapshot-always or --partial
+backup,replicate,sync,rotate,clone	--snapshot-always	SNAP_MODE	set	ALWAYS
 backup,replicate,sync,rotate	--sync-direction	SYNC_DIRECTION	set
 backup,replicate,sync,rotate	--push	SYNC_DIRECTION	set	PUSH
 backup,replicate,sync,rotate	-t	SYNC_DIRECTION	set	PUSH	option '-t' is deprecated; use '--push'
