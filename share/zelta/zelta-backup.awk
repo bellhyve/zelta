@@ -338,6 +338,9 @@ function validate_snapshots() {
 			RelProps[_rel_name, "blocked"] = 1
 		if (DSProps[_tgt_idx, "exists"] && !RelProps[_rel_name, "match"])
 			RelProps[_rel_name, "blocked"] = 1
+		if (DSProps["TGT", _rel_name, "receive_resume_token"])
+			RelProps[_rel_name, "blocked"] = 0
+
 	}
 	# Double-check to make sure the source has no missing snapshots
 	if (!GlobalState["validated_snapshots"]++) create_source_snapshot()
@@ -504,12 +507,17 @@ function validate_target_dataset() {
 ##############################
 
 # Detect and configure send flags
-function get_send_command_flags(idx,		_f, _idx, _flags, _flag_list) {
+function get_send_command_flags(rel_name, idx,		_f, _idx, _flags, _flag_list) {
+	if (DSProps["TGT", rel_name, "receive_resume_token"]) {
+		_flags = "-t " DSProps["TGT", rel_name, "receive_resume_token"]
+		return _flags
+	}
 	if (Opt["VERB"] == "replicate")
 		_flag_list[++_f]	= Opt["SEND_REPLICATE"]
 	else if (DSProps[idx,"encryption"])
      	     _flag_list[++_f]		= Opt["SEND_RAW"]
 	else _flag_list[++_f]		= Opt["SEND_DEFAULT"]
+	# TO-DO: Hmm.
 	if (NoOpMode)
 		_flag_list[++_f]	= "-n"
 	_flags = arr_join(_flag_list)
@@ -519,7 +527,7 @@ function get_send_command_flags(idx,		_f, _idx, _flags, _flag_list) {
 # Detect and configure the '-i/-I ds@snap' phrase
 function get_send_command_incr_snap(rel_name, idx, remote_ep,	 _flag, _ds_snap, _intr_snap) {
 	# Add the -I/-i argument if we can do perform an incremental/intermediate sync
-	if (!RelProps[rel_name, "match"]) return ""
+	if (!RelProps[rel_name, "match"] || DSProps["TGT", rel_name, "receive_resume_token"]) return ""
 	_flag		= Opt["SEND_INTR"] ? "-I" : "-i"
 	_ds_snap	= Opt["SRC_DS"] rel_name RelProps[rel_name, "source_start"]
 	_ds_snap	= remote_ep ? qq(_ds_snap) : q(_ds_snap)
@@ -527,16 +535,22 @@ function get_send_command_incr_snap(rel_name, idx, remote_ep,	 _flag, _ds_snap, 
 	return _intr_snap
 }
 
+function get_send_command_dataset(rel_name, remote_ep,		_ds_snap) {
+	if (!DSProps["TGT", rel_name, "receive_resume_token"]) {
+		_ds_snap = Opt["SRC_DS"] rel_name RelProps[rel_name, "source_end"]
+		_ds_snap = remote_ep ? qq(_ds_snap) : q(_ds_snap)
+		return _ds_snap
+	}
+}
+
 # Assemble a 'zfs send' command with the helpers above
 function create_send_command(rel_name, idx, remote_ep, 		_cmd_arr, _cmd, _ds_snap) {
-	_ds_snap		= Opt["SRC_DS"] rel_name RelProps[rel_name, "source_end"]
 	_cmd_arr["endpoint"]	= remote_ep
-	_cmd_arr["flags"]	= get_send_command_flags(idx)
+	_cmd_arr["flags"]	= get_send_command_flags(rel_name, idx)
 	_cmd_arr["intr_snap"]	= get_send_command_incr_snap(rel_name, idx, remote_ep)
-	_cmd_arr["ds_snap"]	= remote_ep ? qq(_ds_snap) : q(_ds_snap)
+	_cmd_arr["ds_snap"]	= get_send_command_dataset(rel_name, remote_ep)
 	_cmd			= build_command("SEND", _cmd_arr)
 	return _cmd
-
 }
 
 
@@ -582,6 +596,7 @@ function run_zfs_sync(rel_name,		_cmd, _stream_info, _message, _ds_snap, _size, 
 	# TO-DO: Make 'rotate' logic more explicit
 	if (RelProps[rel_name,"blocked"] && !GlobalState["target_origin"]) return
 	IGNORE_ZFS_SEND_OUTPUT = "(incremental|full)| records (in|out)$|bytes.*transferred|receiving.*stream|create mountpoint|ignoring$"
+	IGNORE_RESUME_OUTPUT = "^nvlist version|^\t(fromguid|object|offset|bytes|toguid|toname|embedok|compressok)"
 	_message	= RelProps[rel_name, "source_start"] ? RelProps[rel_name, "source_start"]"::" : ""
 	_message	= _message RelProps[rel_name, "source_end"]
 	_ds_snap	= Opt["SRC_DS"] rel_name RelProps[rel_name, "source_end"]
@@ -607,10 +622,18 @@ function run_zfs_sync(rel_name,		_cmd, _stream_info, _message, _ds_snap, _size, 
 		}
 		else if (/using provided clone origin/)
 			Summary["targetsCloned"]++
+		else if (/resume token contents/) {
+			# Clear the token
+			DSProps["TGT", rel_name, "receive_resume_token"] = ""
+			Summary["targetsResumed"]++
+			report(LOG_BASIC, "resuming transfer for: " _ds_snap)
+			report(LOG_INFO, "to abort a failed resume, run: 'zfs receive -A " Opt["SRC_DS"] rel_name"'")
+		}
 		else if ($1 ~ /:/ && $2 ~ /^[0-9]+$/)
 			# SIGINFO: Is this still working?
 			report(LOG_INFO, $0)
 		else if ($0 ~ IGNORE_ZFS_SEND_OUTPUT) {}
+		else if ($0 ~ IGNORE_RESUME_OUTPUT) {}
 		else if (/cannot receive (mountpoint|canmount)/)
 			report(LOG_DEBUG, $0)
 		else if (/Warning/ && /mountpoint/)
@@ -796,7 +819,7 @@ function print_summary(		_i) {
 	_bytes_sent	= h_num(Summary["replicationSize"])
 	_streams	= Summary["replicationStreamsReceived"]
 	_seconds	= Summary["replicationTime"]
-	if (_streams) report(LOG_NOTICE, _bytes_sent " sent, "_streams" received in "_seconds" seconds")
+	if (_streams) report(LOG_NOTICE, _bytes_sent " sent, "_streams" streams received in "_seconds" seconds")
 	if (_streams && (Opt["LOG_MODE"] == "json")) {
 		json_new_array("sentStreams")
 		for (_i = 1; _i <= NumStreamsSent; _i++) json_element(SentStreamsList[_i])
