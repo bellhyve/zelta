@@ -46,13 +46,15 @@ function usage(message) {
 	STDERR = "/dev/stderr"
 	if (message) print message							> STDERR
 	print "usage:"									> STDERR
-	if (Opt["VERB"] == "clone") { 
-		print " clone [-d max] source-dataset target-dataset\n"			> STDERR
-	} else {
+	if (Opt["VERB"] == "clone")
+		print " clone [-d max] [-vq] source-dataset target-dataset\n"		> STDERR
+	else if (Opt["VERB"] == "revert")
+		print " revert [-vq] dataset\n"						> STDERR
+	else {
 		usage_prefix = Opt["VERB"] " "
 		print "\t" usage_prefix "[-bcDeeFhhLMpuVw] [-iIjnpqRtTv] [-d max]"	> STDERR
 		printf "\t%*s", length(usage_prefix), ""				> STDERR
-		print "[initiator] source-endpoint target-endpoint\n"			> STDERR
+		print "source-endpoint target-endpoint\n"				> STDERR
 	}
 	
 	exit 1
@@ -489,7 +491,16 @@ function validate_source_dataset() {
 # We always need a parent target dataset, but not always a target
 function validate_target_dataset() {
 	# If the target is given, load properties
-	if (Opt["TGT_ID"] && load_properties("TGT")) {
+	if (Opt["VERB"] == "revert") {
+		if (Opt["TGT_ID"]) usage()
+	}
+	else if (!Opt["TGT_ID"]) {
+		report(LOG_ERROR, "target endpoint required")
+		if ((Opt["VERB"] == "clone") || (Opt["VERB"] == "rotate"))
+			report(LOG_NOTICE, "did you mean 'zelta revert '" Opt["SRC_ID"]"' ?")
+		usage()
+	}
+	else if (load_properties("TGT")) {
 		if (Opt["VERB"] == "clone")
 			stop(1, "cannot clone: target dataset exists")
 		GlobalState["target_exists"] = 1
@@ -768,15 +779,6 @@ function run_rotate(		_i, _rel_name, _tgt_idx) {
 #	}
 
 function create_recursive_clone(		_i, _rel_name, _cmd_arr, _cmd) {
-	if (!Opt["TGT_ID"]) {
-		# The rename() script names based on the matching name, this should be passed
-		RelProps["","match"]	= RelProps[_rel_name,"source_end"]
-		Opt["TGT_DS"]		= Opt["SRC_DS"]
-		Opt["TGT_REMOTE"]	= Opt["SRC_REMOTE"]
-		rename_target()
-		Opt["SRC_DS"]		= GlobalState["target_origin"]
-	}
-
 	for (_i = 1; _i <= NumDS; _i++) {
 		_rel_name		= DSList[_i]
 		_last_snap		= RelProps[_rel_name,"source_end"]
@@ -805,6 +807,17 @@ function create_recursive_clone(		_i, _rel_name, _cmd_arr, _cmd) {
 		report(LOG_NOTICE, "cloned " _cloned_dataset_count "/" NumDS " datasets to " Opt["TGT_DS"])
 	else 
 		report(LOG_NOTICE, "no source snapshots to clone")
+}
+
+function run_revert() {
+	# The rename() script names based on the match name
+	# TO-DO: Fix this
+	RelProps["","match"]	= RelProps[_rel_name,"source_end"]
+	Opt["TGT_DS"]		= Opt["SRC_DS"]
+	Opt["TGT_REMOTE"]	= Opt["SRC_REMOTE"]
+	rename_target()
+	Opt["SRC_DS"]		= GlobalState["target_origin"]
+	create_recursive_clone()
 }
 
 # 'zelta backup' and 'zelta sync' orchestration
@@ -870,6 +883,7 @@ BEGIN {
 	validate_target_dataset()
 	validate_snapshots()
 	if (Opt["VERB"] == "clone")		create_recursive_clone()
+	else if (Opt["VERB"] == "revert")	run_revert()
 	else if (Opt["VERB"] == "rotate")	run_rotate()
 	else					run_backup()
 

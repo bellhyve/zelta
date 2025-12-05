@@ -243,6 +243,7 @@ case $zelta_verb in
 	# zelta-backup.awk
 	clone |\
 	replicate |\
+	revert |\
 	rotate |\
 	sync |\
 	zpull |\
