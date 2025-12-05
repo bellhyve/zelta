@@ -266,59 +266,45 @@ function compute_send_range(		_rel_name, _src_idx, _final_ds_snap) {
 }
 
 # Describe possible actions
-function validate_sync(rel_name, explain,		_src_idx, _tgt_idx, _src_ds, _tgt_ds) {
-	src_idx	= "SRC" SUBSEP rel_name
-	tgt_idx	= "TGT" SUBSEP rel_name
+function explain_sync_status(rel_name, 		_src_idx, _tgt_idx, _src_ds, _tgt_ds) {
+	_src_idx	= "SRC" SUBSEP rel_name
+	_tgt_idx	= "TGT" SUBSEP rel_name
 	_src_ds		= Opt["SRC_DS"] rel_name
 	_tgt_ds		= Opt["TGT_DS"] rel_name
 
 	# Replication states; if called with "explain
-	if (DSProps[src_idx, "next_snapshot"] && !DSProps[tgt_idx, "written"]) {
-		if (!DSProps[tgt_idx, "exists"]) {
-			if (explain) report(LOG_INFO, "full backup pending or incomplete: " _tgt_ds)
-		}
-		else {
-			if (explain) report(LOG_INFO, "incremental/intermediate backup pending or incomplete: " _tgt_ds)
-		}
+	if (!RelProps[rel_name, "blocked"]) {
+		if (!DSProps[_tgt_idx, "exists"])
+			report(LOG_NOTICE, "full backup pending or incomplete: " _tgt_ds)
+		else
+			report(LOG_NOTICE, "incremental/intermediate backup pending or incomplete: " _tgt_ds)
 		return 1
 	}
 	# States that can't be resolved with a sync or rotate
-	else if (!DSProps[src_idx, "exists"]) {
-		if (explain) report(LOG_INFO, "missing source, cannot sync: " _tgt_ds)
-	}
-	else if (!DSProps[src_idx, "latest_snapshot"]) {
-		if (explain) report(LOG_INFO, "missing source snapshot, cannot sync: " _tgt_ds)
-	}
-	else if (DSProps[src_idx, "latest_snapshot"] == DSProps[tgt_idx, "latest_snapshot"]) {
-		if (explain) report(LOG_INFO, "up-to-date: " _tgt_ds)
-	}
-
+	else if (!DSProps[_src_idx, "exists"])
+		report(LOG_NOTICE, "missing source, cannot sync: " _tgt_ds)
+	else if (!DSProps[_src_idx, "latest_snapshot"])
+		report(LOG_NOTICE, "missing source snapshot, cannot sync: " _tgt_ds)
+	else if (DSProps[_src_idx, "latest_snapshot"] == DSProps[_tgt_idx, "latest_snapshot"])
+		report(LOG_INFO, "up-to-date: " _tgt_ds)
 	# States that require 'zelta rotate', 'zfs rollback', or 'zfs rename'
-	else if (DSProps[tgt_idx, "exists"] && !DSProps[tgt_idx, "latest_snapshot"]) {
-		if (explain) {
-			report(LOG_INFO, "sync blocked; target exists with no snapsots: " _tgt_ds)
-			report(LOG_INFO, "- full backup is required; try 'zelta rotate' or 'zfs rename'")
-		}
+	else if (DSProps[_tgt_idx, "exists"] && !DSProps[_tgt_idx, "latest_snapshot"]) {
+		report(LOG_NOTICE, "sync blocked; target exists with no snapsots: " _tgt_ds)
+		report(LOG_NOTICE, "- full backup is required; try 'zelta rotate' or 'zfs rename'")
 	}
-	else if (DSProps[tgt_idx, "exists"] && !RelProps[rel_name, "match"]) {
-		if (explain) {
-			report(LOG_INFO, "sync blocked; target has no matching snapshots: " _tgt_ds)
-			if (DSProps[tgt_idx, "origin"])
-				report(LOG_INFO, "- source is a clone; try 'zelta rotate' to recover or")
-			report(LOG_INFO, "- create a new full backup using 'zelta rotate' or 'zfs rename'")
-		}
+	else if (DSProps[_tgt_idx, "exists"] && !RelProps[rel_name, "match"]) {
+		report(LOG_NOTICE, "sync blocked; target has no matching snapshots: " _tgt_ds)
+		if (DSProps[_tgt_idx, "origin"])
+			report(LOG_NOTICE, "- source is a clone; try 'zelta rotate' to recover or")
+		report(LOG_NOTICE, "- create a new full backup using 'zelta rotate' or 'zfs rename'")
 	}
-	else if ((DSProps[tgt_idx, "latest_snapshot"] != RelProps[rel_name, "match"]) || \
+	else if ((DSProps[_tgt_idx, "latest_snapshot"] != RelProps[rel_name, "match"]) || \
 			(RelProps[rel_name, "target_is_written"] && RelProps[rel_name, "match"])) {
-		if (explain) {
-			report(LOG_INFO, "sync blocked; target diverged: " _tgt_ds)
-			report(LOG_INFO, "- backup history can be retained with 'zelta rotate'")
-			report(LOG_INFO, "- or destroy divergent dataset with: zfs rollback " _tgt_ds RelProps[rel_name, "match"])
-		}
+		report(LOG_NOTICE, "sync blocked; target diverged: " _tgt_ds)
+		report(LOG_NOTICE, "- backup history can be retained with 'zelta rotate'")
+		report(LOG_NOTICE, "- or destroy divergent dataset with: zfs rollback " _tgt_ds RelProps[rel_name, "match"])
 	}
-	else {
-		return 1
-	}
+	else report(LOG_WARNING, "unknown sync state for " _tgt_ds)
 }
 
 function validate_snapshots() {
@@ -339,10 +325,19 @@ function validate_snapshots() {
 		# If there's an empty source dataset with no snapshots, we snaphot
 		if (DSProps[_src_idx, "exists"] && !DSProps[_src_idx, "latest_snapshot"])
 			GlobalState["snapshot_needed"] = SNAP_MISSING
-		if (RelProps[_relname, "match"])		GlobalState["matches"]++
+		if (RelProps[_rel_name, "match"])		GlobalState["matches"]++
 		if (DSProps[_src_idx, "next_snapshot"])		GlobalState["syncable"]++
 		if (DSProps[_src_idx, "latest_snapshot"])	GlobalState["source_snap_num"]++
 		if (DSProps[_tgt_idx, "latest_snapshot"])	GlobalState["target_snap_num"]++
+		# Blocked states where we cannot sync:
+		# 	No sync candidate (next_snapshot), the target is written, or there's no target match
+		RelProps[_rel_name, "blocked"] = 0
+		if (!DSProps[_src_idx, "next_snapshot"])
+			RelProps[_rel_name, "blocked"] = 1
+		if (DSProps[_tgt_idx, "written"])
+			RelProps[_rel_name, "blocked"] = 1
+		if (DSProps[_tgt_idx, "exists"] && !RelProps[_rel_name, "match"])
+			RelProps[_rel_name, "blocked"] = 1
 	}
 	# Double-check to make sure the source has no missing snapshots
 	if (!GlobalState["validated_snapshots"]++) create_source_snapshot()
@@ -584,6 +579,8 @@ function create_recv_command(rel_name, src_idx, remote_ep,		 _cmd_arr, _cmd, _tg
 
 # Runs a sync, collecting "zfs send" output
 function run_zfs_sync(rel_name,		_cmd, _stream_info, _message, _ds_snap, _size, _time, _streams) {
+	# TO-DO: Make 'rotate' logic more explicit
+	if (RelProps[rel_name,"blocked"] && !GlobalState["target_origin"]) return
 	IGNORE_ZFS_SEND_OUTPUT = "(incremental|full)| records (in|out)$|bytes.*transferred|receiving.*stream|create mountpoint|ignoring$"
 	_message	= RelProps[rel_name, "source_start"] ? RelProps[rel_name, "source_start"]"::" : ""
 	_message	= _message RelProps[rel_name, "source_end"]
@@ -696,16 +693,22 @@ function rename_target(		_new_ds, _cmd_arr, _cmd) {
 
 # 'zelta rotate' renames a divergent dataset out of the way
 function run_rotate(		_i, _rel_name, _tgt_idx) {
-	compute_action_plan()
+	validate_snapshots()
 	# Validate the target for rotation
 	_safe_rotate		= 1
 	for (_i = 1; _i <= NumDS; _i++) {
 		_rel_name	= DSList[_i]
 		_tgt_idx	= "TGT" SUBSEP _rel_name
+		_src_idx	= "SRC" SUBSEP _rel_name
 		_tgt_ds		= Opt["TGT_DS"] _rel_name
 		#	 if (DSProps[_tgt_idx, "exists"]) {
-		if (RelProps[_rel_name, "ready_to_clone"]) 
+		if (DSProps[_src_idx, "next_snapshot"])
 			CommandQueue[++NumJobs] = _rel_name
+		else if (RelProps[rel_name, "match"] == DSProps[_src_idx, "latest_snapshot"]) {
+			_safe_rotate = 0
+			# TO-DO: Make this a snapshot "IF_NEEDED" case
+			report(LOG_WARNING, "new source snapshot needed to rotate: "_tgt_ds)
+		}
 		else if (DSProps[_tgt_idx, "exists"]) {
 			_safe_rotate = 0
 			report(LOG_WARNING, "origin clone is not available, full backup required for: "_tgt_ds)
@@ -715,6 +718,8 @@ function run_rotate(		_i, _rel_name, _tgt_idx) {
 		rename_target()
 		for (_i = 1; _i <= NumJobs; _i++) run_zfs_sync(CommandQueue[_i])
 	}
+#run_zfs_sync(_rel_name)
+#explain_sync_status(_rel_name)
 	#if (GlobalState["sync_needed"])
 	# TODO: Add a reminder to sync the old copy 
 	#	report(LOG_WARNING, "'rotate' command requested but " GlobalState["sync_needed"] " datasets can be updated")
@@ -773,25 +778,26 @@ function create_recursive_clone(		_i, _rel_name, _cmd_arr, _cmd) {
 function run_backup(		_i, _rel_name, _syncable) {
 	if (GlobalState["syncable"])
 		report(LOG_NOTICE, "syncing " NumDS " datasets")
-	else
-		report(LOG_NOTICE, "nothing to sync")
-
 	for (_i = 1; _i <= NumDS; _i++) {
 		_rel_name = DSList[_i]
-		if (validate_sync(_rel_name)) run_zfs_sync(_rel_name)
+		# Run first pass sync
+		run_zfs_sync(_rel_name)
 		validate_snapshots()
-		if (validate_sync(_rel_name)) run_zfs_sync(_rel_name)
+		# Run second pass sync (complete new intermediate syncs)
+		run_zfs_sync(_rel_name)
 		validate_snapshots()
-		validate_sync(_rel_name, 1)
+		explain_sync_status(_rel_name)
 	}
+	if (!Summary["replicationStreamsSent"])
+		report(LOG_NOTICE, "nothing to sync")
 }
 
 function print_summary(		_i) {
 	_bytes_sent	= h_num(Summary["replicationSize"])
 	_streams	= Summary["replicationStreamsReceived"]
 	_seconds	= Summary["replicationTime"]
-	if (NumStreamsSent) report(LOG_NOTICE, _bytes_sent " sent, "_streams" received in "_seconds" seconds")
-	if (NumStreamsSent && (Opt["LOG_MODE"] == "json")) {
+	if (_streams) report(LOG_NOTICE, _bytes_sent " sent, "_streams" received in "_seconds" seconds")
+	if (_streams && (Opt["LOG_MODE"] == "json")) {
 		json_new_array("sentStreams")
 		for (_i = 1; _i <= NumStreamsSent; _i++) json_element(SentStreamsList[_i])
 		json_close_array()
