@@ -478,7 +478,7 @@ function validate_target_parent_dataset(		_parent, _cmd, _cmd_arr, _depth, _i, _
 # Validate the source dataset
 function validate_source_dataset() {
 	# Clones must occcur on the same pool
-	if (Opt["VERB"] == "clone")
+	if ((Opt["VERB"] == "clone") && Opt["TGT_ID"])
 		if (GlobalState["source_pool"] != GlobalState["target_pool"])
 			stop(1, "cannot clone: target pool doesn't match source")
 	# A valid source is required to continue any subcommand
@@ -488,7 +488,8 @@ function validate_source_dataset() {
 
 # We always need a parent target dataset, but not always a target
 function validate_target_dataset() {
-	if (load_properties("TGT")) {
+	# If the target is given, load properties
+	if (Opt["TGT_ID"] && load_properties("TGT")) {
 		if (Opt["VERB"] == "clone")
 			stop(1, "cannot clone: target dataset exists")
 		GlobalState["target_exists"] = 1
@@ -767,6 +768,15 @@ function run_rotate(		_i, _rel_name, _tgt_idx) {
 #	}
 
 function create_recursive_clone(		_i, _rel_name, _cmd_arr, _cmd) {
+	if (!Opt["TGT_ID"]) {
+		# The rename() script names based on the matching name, this should be passed
+		RelProps["","match"]	= RelProps[_rel_name,"source_end"]
+		Opt["TGT_DS"]		= Opt["SRC_DS"]
+		Opt["TGT_REMOTE"]	= Opt["SRC_REMOTE"]
+		rename_target()
+		Opt["SRC_DS"]		= GlobalState["target_origin"]
+	}
+
 	for (_i = 1; _i <= NumDS; _i++) {
 		_rel_name		= DSList[_i]
 		_last_snap		= RelProps[_rel_name,"source_end"]
