@@ -47,14 +47,14 @@ function usage(message) {
 	if (message) print message							> STDERR
 	print "usage:"									> STDERR
 	if (Opt["VERB"] == "clone")
-		print " clone [-d max] [-vq] source-dataset target-dataset\n"		> STDERR
+		printf " clone [-d max] [-vq] source-dataset target-dataset\n"		> STDERR
 	else if (Opt["VERB"] == "revert")
-		print " revert [-vq] dataset\n"						> STDERR
+		printf " revert [-vq] dataset\n"						> STDERR
 	else {
 		usage_prefix = Opt["VERB"] " "
-		print "\t" usage_prefix "[-bcDeeFhhLMpuVw] [-iIjnpqRtTv] [-d max]"	> STDERR
+		printf "\t" usage_prefix "[-bcDeeFhhLMpuVw] [-iIjnpqRtTv] [-d max]\n"	> STDERR
 		printf "\t%*s", length(usage_prefix), ""				> STDERR
-		print "source-endpoint target-endpoint\n"				> STDERR
+		printf "source-endpoint target-endpoint\n"				> STDERR
 	}
 	
 	exit 1
@@ -296,7 +296,7 @@ function explain_sync_status(rel_name, 		_src_idx, _tgt_idx, _src_ds, _tgt_ds) {
 	}
 	else if (DSProps[_tgt_idx, "exists"] && !RelProps[rel_name, "match"]) {
 		report(LOG_NOTICE, "sync blocked; target has no matching snapshots: " _tgt_ds)
-		if (DSProps[_tgt_idx, "origin"])
+		if (DSProps[_src_idx, "origin"])
 			report(LOG_NOTICE, "- source is a clone; try 'zelta rotate' to recover or")
 		report(LOG_NOTICE, "- create a new full backup using 'zelta rotate' or 'zfs rename'")
 	}
@@ -361,7 +361,7 @@ function should_snapshot() {
 	# Only attempt a snapshot once
         if (GlobalState["snapshot_attempted"]) return
 	# Snapshot mode is "ALWAYS" or provide a reason
-	else if (GlobalState["snapshot_needed"] == SNAP_ALWAYS)
+	else if (Opt["SNAP_MODE"] == "ALWAYS")
 		return "snapshotting: "
 	else if (Opt["SNAP_MODE"] != "IF_NEEDED")
 		return 0
@@ -479,6 +479,10 @@ function validate_target_parent_dataset(		_parent, _cmd, _cmd_arr, _depth, _i, _
 
 # Validate the source dataset
 function validate_source_dataset() {
+	if (!Opt["SRC_ID"]) {
+		report(LOG_ERROR, "missing endpoint argument")
+		usage()
+	}
 	# Clones must occcur on the same pool
 	if ((Opt["VERB"] == "clone") && Opt["TGT_ID"])
 		if (GlobalState["source_pool"] != GlobalState["target_pool"])
@@ -495,9 +499,9 @@ function validate_target_dataset() {
 		if (Opt["TGT_ID"]) usage()
 	}
 	else if (!Opt["TGT_ID"]) {
-		report(LOG_ERROR, "target endpoint required")
+		report(LOG_ERROR, "missing target endpoint argument")
 		if ((Opt["VERB"] == "clone") || (Opt["VERB"] == "rotate"))
-			report(LOG_NOTICE, "did you mean 'zelta revert '" Opt["SRC_ID"]"' ?")
+			report(LOG_ERROR, "did you mean 'zelta revert '" Opt["SRC_ID"]"' ?")
 		usage()
 	}
 	else if (load_properties("TGT")) {
@@ -539,11 +543,17 @@ function get_send_command_flags(rel_name, idx,		_f, _idx, _flags, _flag_list) {
 # Detect and configure the '-i/-I ds@snap' phrase
 function get_send_command_incr_snap(rel_name, idx, remote_ep,	 _flag, _ds_snap, _intr_snap) {
 	# Add the -I/-i argument if we can do perform an incremental/intermediate sync
-	if (!RelProps[rel_name, "match"] || DSProps["TGT", rel_name, "receive_resume_token"]) return ""
+	if (RelProps[rel_name, "source_origin_match"])
+		_ds_snap = RelProps[rel_name, "source_origin_match"]
+	else if (DSProps["TGT", rel_name, "receive_resume_token"])
+		return
+	else if (RelProps[rel_name, "match"])
+		_ds_snap = Opt["SRC_DS"] rel_name RelProps[rel_name, "source_start"]
+	else
+		return
 	_flag		= Opt["SEND_INTR"] ? "-I" : "-i"
-	_ds_snap	= Opt["SRC_DS"] rel_name RelProps[rel_name, "source_start"]
 	_ds_snap	= remote_ep ? qq(_ds_snap) : q(_ds_snap)
-	_intr_snap = str_add(_flag, _ds_snap)
+	_intr_snap	= str_add(_flag, _ds_snap)
 	return _intr_snap
 }
 
@@ -606,7 +616,7 @@ function create_recv_command(rel_name, src_idx, remote_ep,		 _cmd_arr, _cmd, _tg
 # Runs a sync, collecting "zfs send" output
 function run_zfs_sync(rel_name,		_cmd, _stream_info, _message, _ds_snap, _size, _time, _streams) {
 	# TO-DO: Make 'rotate' logic more explicit
-	if (RelProps[rel_name,"blocked"] && !GlobalState["target_origin"]) return
+	if (RelProps[rel_name,"blocked"] && !(Opt["VERB"] == "rotate")) return
 	IGNORE_ZFS_SEND_OUTPUT = "(incremental|full)| records (in|out)$|bytes.*transferred|receiving.*stream|create mountpoint|ignoring$"
 	IGNORE_RESUME_OUTPUT = "^nvlist version|^\t(fromguid|object|offset|bytes|toguid|toname|embedok|compressok)"
 	_message	= RelProps[rel_name, "source_start"] ? RelProps[rel_name, "source_start"]"::" : ""
@@ -710,7 +720,7 @@ function compute_action_plan(		_i, _rel_name, _src_idx, _tgt_idx, _cmd) {
 #################
 
 function rename_target(		_new_ds, _cmd_arr, _cmd) {
-	_new_ds				= RelProps["","match"]
+	_new_ds				= RelProps["","match"] ? RelProps["","match"] : RelProps["", "source_origin_match"]
 	gsub(/@/,"_",_new_ds)
 	_new_ds				= Opt["TGT_DS"] _new_ds
 	GlobalState["target_origin"]	= _new_ds
@@ -718,10 +728,32 @@ function rename_target(		_new_ds, _cmd_arr, _cmd) {
 	_cmd_arr["tgt_ds"]		= Opt["TGT_DS"]
 	_cmd_arr["new_ds"]		= _new_ds
 	_cmd				= build_command("RENAME", _cmd_arr)
+	report(LOG_NOTICE, "renaming '" Opt["TGT_DS"] "' to '" _new_ds)
 	report(LOG_DEBUG, "`"_cmd"`")
 	_cmd = _cmd CAPTURE_OUTPUT
 	while (_cmd | getline) {
 		report(LOG_ERROR, "unexpected 'zfs rename' output: " $0)
+	}
+	close(_cmd)
+}
+
+function find_origin_match(	_cmd_arr, _cmd) {
+	split(DSProps["SRC","","origin"], _src_ds_snap, "@")
+	_src_ds = _src_ds_snap[1]
+	print _src_ds
+	FS = "\t"
+	# Why doesn't DEPTH work?
+	if (Opt["DEPTH"])
+		_cmd_arr["flags"]	= "-d" Opt["DEPTH"]
+	_cmd_arr["command_prefix"]	= "ZELTA_SRC_DS='" _src_ds "'"
+	_cmd				= build_command("MATCH_ORIGIN", _cmd_arr)
+	report(LOG_INFO, "checking source origin deltas")
+	report(LOG_DEBUG, "`"_cmd"`")
+	#_cmd 					= _cmd CAPTURE_OUTPUT
+	while (_cmd | getline){
+		RelProps[$1, "source_origin_match"] = _src_ds $1 $2
+		RelProps[$1, "match"] = $2
+#print $1, RelProps[$1, "match"], RelProps[$1, "source_origin_match"]
 	}
 	close(_cmd)
 }
@@ -736,47 +768,37 @@ function run_rotate(		_i, _rel_name, _tgt_idx) {
 		_tgt_idx	= "TGT" SUBSEP _rel_name
 		_src_idx	= "SRC" SUBSEP _rel_name
 		_tgt_ds		= Opt["TGT_DS"] _rel_name
-		#	 if (DSProps[_tgt_idx, "exists"]) {
-		if (DSProps[_src_idx, "next_snapshot"])
-			CommandQueue[++NumJobs] = _rel_name
-		else if (RelProps[rel_name, "match"] == DSProps[_src_idx, "latest_snapshot"]) {
+		#if (DSProps[_src_idx, "next_snapshot"])
+		#	CommandQueue[++NumJobs] = _rel_name
+		if (RelProps[rel_name, "match"] == DSProps[_src_idx, "latest_snapshot"]) {
 			_safe_rotate = 0
+			GlobalState["snapshot_needed"] = NO_SOURCE_SNAP
 			# TO-DO: Make this a snapshot "IF_NEEDED" case
 			report(LOG_WARNING, "new source snapshot needed to rotate: "_tgt_ds)
 		}
 		else if (DSProps[_tgt_idx, "exists"]) {
 			_safe_rotate = 0
-			report(LOG_WARNING, "origin clone is not available, full backup required for: "_tgt_ds)
+			#report(LOG_WARNING, "origin clone is not available, full backup required for: "_tgt_ds)
 		}
 	}
-	if (_safe_rotate) {
-		rename_target()
-		for (_i = 1; _i <= NumJobs; _i++) run_zfs_sync(CommandQueue[_i])
+	create_source_snapshot()
+	if (!_safe_rotate && DSProps["SRC","","origin"]) find_origin_match()
+#for (_i = 1; _i <= NumDS; _i++) print DSList[_i], RelProps["","source_origin_match"]
+
+	# We need more thorough validation
+	if (!(RelProps["", "match"] || RelProps["","source_origin_match"])) {
+		stop(1, "origin clone is not available, full backup required for: "_tgt_ds)
+		# Should we add a pause or confirmation?
 	}
-#run_zfs_sync(_rel_name)
-#explain_sync_status(_rel_name)
-	#if (GlobalState["sync_needed"])
+	rename_target()
+	for (_i = 1; _i <= NumDS; _i++) run_zfs_sync(DSList[_i])
+
+	validate_snapshots()
+	explain_sync_status(_rel_name)
+
 	# TODO: Add a reminder to sync the old copy 
 	#	report(LOG_WARNING, "'rotate' command requested but " GlobalState["sync_needed"] " datasets can be updated")
 }
-
-# Old code related to the 'rotate' function yet to be refactored.
-#		sub(/[#@].*/, "", sorigin)
-#		sorigin_dataset = (Opt["SRC_REMOTE"] ? Opt["SRC_REMOTE"] ":" : "") sorigin
-#		clone_match = "zelta match -Hd1 -omatch,sync_code " q(sorigin_dataset) " " q(Opt["TGT_ID"] dataset)
-#		while (clone_match | getline) {
-#			if (/^[@#]/) { 
-#				match_snap		= $1
-#				source_match		= sorigin match_snap
-#				if (Opt["VERB"] == "rotate") tgt_behind	= 1
-#				else {
-#					report(LOG_WARNING, sourceds" is a clone of "source_match"; consider --rotate")
-#					return 0
-#				}
-#			}
-#		}
-#		close(clone_match)
-#	}
 
 function create_recursive_clone(		_i, _rel_name, _cmd_arr, _cmd) {
 	for (_i = 1; _i <= NumDS; _i++) {

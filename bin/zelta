@@ -99,7 +99,7 @@ zelta_init() {
 	: ${ZELTA_SH_COMMAND_SUFFIX:="; }"}
 	: ${ZELTA_SNAP_COMMAND:="date -u +%Y-%m-%d_%H.%M.%S"}
 	: ${ZELTA_SNAP_NAME:="$($ZELTA_SNAP_COMMAND)"}
-	: ${ZELTA_SNAP_MODE:="IF_NONE"}
+	: ${ZELTA_SNAP_MODE:="IF_NEEDED"}
 	: ${ZELTA_SYNC_DIRECTION:="PULL"}
 	: ${ZELTA_CHECK_TIME:=""}
 
