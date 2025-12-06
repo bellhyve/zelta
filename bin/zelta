@@ -84,7 +84,6 @@ zelta_init() {
 		rotate)	: ${ZELTA_SEND_INTR:="0"}
 			;;
 		sync)	: ${ZELTA_SEND_INTR:="0"}
-			: ${ZELTA_CREATE_PARENT:="0"}
 			;;
 	esac
 

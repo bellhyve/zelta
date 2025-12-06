@@ -274,8 +274,7 @@ function explain_sync_status(rel_name, 		_src_idx, _tgt_idx, _src_ds, _tgt_ds) {
 	_src_ds		= Opt["SRC_DS"] rel_name
 	_tgt_ds		= Opt["TGT_DS"] rel_name
 
-	# Replication states; if called with "explain
-	if (!RelProps[rel_name, "blocked"]) {
+	if (!RelProps[rel_name, "sync_blocked"]) {
 		if (!DSProps[_tgt_idx, "exists"])
 			report(LOG_NOTICE, "full backup pending or incomplete: " _tgt_ds)
 		else
@@ -309,11 +308,17 @@ function explain_sync_status(rel_name, 		_src_idx, _tgt_idx, _src_ds, _tgt_ds) {
 	else report(LOG_WARNING, "unknown sync state for " _tgt_ds)
 }
 
-function validate_snapshots() {
+function validate_snapshots(		_i) {
 	if (!GlobalState["validated_snapshots"]) {
 		create_source_snapshot()
 		load_snapshot_deltas()
+		for (_i = 1; _i <= NumDS; _i++)
+			if (DSProps[_src_idx, "exists"] && !DSProps[_src_idx, "latest_snapshot"])
+				GlobalState["snapshot_needed"] = SNAP_MISSING
+		create_source_snapshot()
+		GlobalState["validated_snapshots"]++
 	}
+
 	# Reset counters
 	GlobalState["matches"]		= 0
 	GlobalState["syncable"]		= 0
@@ -324,28 +329,29 @@ function validate_snapshots() {
 		_rel_name	= DSList[_i]
 		_src_idx	= "SRC" SUBSEP _rel_name
 		_tgt_idx	= "TGT" SUBSEP _rel_name
-		# If there's an empty source dataset with no snapshots, we snaphot
-		if (DSProps[_src_idx, "exists"] && !DSProps[_src_idx, "latest_snapshot"])
-			GlobalState["snapshot_needed"] = SNAP_MISSING
+		# TO-DO: See if global counters could be useful
 		if (RelProps[_rel_name, "match"])		GlobalState["matches"]++
-		if (DSProps[_src_idx, "next_snapshot"])		GlobalState["syncable"]++
+		#if (DSProps[_src_idx, "next_snapshot"])		GlobalState["syncable"]++
 		if (DSProps[_src_idx, "latest_snapshot"])	GlobalState["source_snap_num"]++
 		if (DSProps[_tgt_idx, "latest_snapshot"])	GlobalState["target_snap_num"]++
-		# Blocked states where we cannot sync:
-		# 	No sync candidate (next_snapshot), the target is written, or there's no target match
-		RelProps[_rel_name, "blocked"] = 0
+		# No sync or rotate candidate if there's no next snapshot or no common snapshot
+		RelProps[_rel_name, "rotate_blocked"] = 0
 		if (!DSProps[_src_idx, "next_snapshot"])
-			RelProps[_rel_name, "blocked"] = 1
-		if (DSProps[_tgt_idx, "written"])
-			RelProps[_rel_name, "blocked"] = 1
+			RelProps[_rel_name, "rotate_blocked"] = 1
 		if (DSProps[_tgt_idx, "exists"] && !RelProps[_rel_name, "match"])
-			RelProps[_rel_name, "blocked"] = 1
+			RelProps[_rel_name, "rotate_blocked"] = 1
+		if (RelProps[_rel_name, "match"] && (RelProps[_rel_name, "match"] == DSProps[_src_idx, "latest_snapshot"]))
+			RelProps[_rel_name, "rotate_blocked"] = 1
+		# Sync is also blocked if rotate is blocked, if the target is written, and if the target's latest is not the match
+		RelProps[_rel_name, "sync_blocked"] = RelProps[_rel_name, "rotate_blocked"]
+		if (DSProps[_tgt_idx, "written"])
+			RelProps[_rel_name, "sync_blocked"] = 1
+		if (RelProps[_rel_name, "match"] && (RelProps[_rel_name, "match"] != DSProps[_tgt_idx, "latest_snapshot"]))
+			RelProps[_rel_name, "sync_blocked"] = 1
 		if (DSProps["TGT", _rel_name, "receive_resume_token"])
-			RelProps[_rel_name, "blocked"] = 0
-
+			RelProps[_rel_name, "sync_blocked"] = 0
 	}
 	# Double-check to make sure the source has no missing snapshots
-	if (!GlobalState["validated_snapshots"]++) create_source_snapshot()
 	if (!GlobalState["source_snap_num"])
 		stop(1, "source has no snapshots")
 	# Wait until final snapshot is taken before computing synacble snapshots
@@ -533,9 +539,6 @@ function get_send_command_flags(rel_name, idx,		_f, _idx, _flags, _flag_list) {
 	else if (DSProps[idx,"encryption"])
      	     _flag_list[++_f]		= Opt["SEND_RAW"]
 	else _flag_list[++_f]		= Opt["SEND_DEFAULT"]
-	# TO-DO: Hmm.
-	if (NoOpMode)
-		_flag_list[++_f]	= "-n"
 	_flags = arr_join(_flag_list)
 	return _flags
 }
@@ -616,7 +619,8 @@ function create_recv_command(rel_name, src_idx, remote_ep,		 _cmd_arr, _cmd, _tg
 # Runs a sync, collecting "zfs send" output
 function run_zfs_sync(rel_name,		_cmd, _stream_info, _message, _ds_snap, _size, _time, _streams) {
 	# TO-DO: Make 'rotate' logic more explicit
-	if (RelProps[rel_name,"blocked"] && !(Opt["VERB"] == "rotate")) return
+	# TO-DO: Dryrun mode probably goes here
+	if (RelProps[rel_name,"sync_blocked"] && !(Opt["VERB"] == "rotate")) return
 	IGNORE_ZFS_SEND_OUTPUT = "(incremental|full)| records (in|out)$|bytes.*transferred|receiving.*stream|create mountpoint|ignoring$"
 	IGNORE_RESUME_OUTPUT = "^nvlist version|^\t(fromguid|object|offset|bytes|toguid|toname|embedok|compressok)"
 	_message	= RelProps[rel_name, "source_start"] ? RelProps[rel_name, "source_start"]"::" : ""
@@ -728,7 +732,7 @@ function rename_target(		_new_ds, _cmd_arr, _cmd) {
 	_cmd_arr["tgt_ds"]		= Opt["TGT_DS"]
 	_cmd_arr["new_ds"]		= _new_ds
 	_cmd				= build_command("RENAME", _cmd_arr)
-	report(LOG_NOTICE, "renaming '" Opt["TGT_DS"] "' to '" _new_ds)
+	report(LOG_NOTICE, "renaming '" Opt["TGT_DS"] "' to '" _new_ds"'")
 	report(LOG_DEBUG, "`"_cmd"`")
 	_cmd = _cmd CAPTURE_OUTPUT
 	while (_cmd | getline) {
@@ -737,9 +741,9 @@ function rename_target(		_new_ds, _cmd_arr, _cmd) {
 	close(_cmd)
 }
 
-function find_origin_match(	_cmd_arr, _cmd) {
-	split(DSProps["SRC","","origin"], _src_ds_snap, "@")
-	_src_ds = _src_ds_snap[1]
+function find_origin_match(	_cmd_arr, _cmd, _origin_arr) {
+	split(DSProps["SRC","","origin"], _origin_arr, "@")
+	_src_ds = _origin_arr[1]
 	print _src_ds
 	FS = "\t"
 	# Why doesn't DEPTH work?
@@ -761,40 +765,29 @@ function find_origin_match(	_cmd_arr, _cmd) {
 # 'zelta rotate' renames a divergent dataset out of the way
 function run_rotate(		_i, _rel_name, _tgt_idx) {
 	validate_snapshots()
+	if (GlobalState["snapshot_needed"])
+		stop(1, "source snapshot required to complete sync")
+
 	# Validate the target for rotation
 	_safe_rotate		= 1
-	for (_i = 1; _i <= NumDS; _i++) {
-		_rel_name	= DSList[_i]
-		_tgt_idx	= "TGT" SUBSEP _rel_name
-		_src_idx	= "SRC" SUBSEP _rel_name
-		_tgt_ds		= Opt["TGT_DS"] _rel_name
-		#if (DSProps[_src_idx, "next_snapshot"])
-		#	CommandQueue[++NumJobs] = _rel_name
-		if (RelProps[rel_name, "match"] == DSProps[_src_idx, "latest_snapshot"]) {
-			_safe_rotate = 0
-			GlobalState["snapshot_needed"] = NO_SOURCE_SNAP
-			# TO-DO: Make this a snapshot "IF_NEEDED" case
-			report(LOG_WARNING, "new source snapshot needed to rotate: "_tgt_ds)
-		}
-		else if (DSProps[_tgt_idx, "exists"]) {
-			_safe_rotate = 0
-			#report(LOG_WARNING, "origin clone is not available, full backup required for: "_tgt_ds)
-		}
-	}
-	create_source_snapshot()
-	if (!_safe_rotate && DSProps["SRC","","origin"]) find_origin_match()
-#for (_i = 1; _i <= NumDS; _i++) print DSList[_i], RelProps["","source_origin_match"]
+	for (_i = 1; _i <= NumDS; _i++)
+		if (RelProps[DSList[_i], "rotate_blocked"]) _safe_rotate = 0
 
-	# We need more thorough validation
-	if (!(RelProps["", "match"] || RelProps["","source_origin_match"])) {
-		stop(1, "origin clone is not available, full backup required for: "_tgt_ds)
-		# Should we add a pause or confirmation?
+	# TO-DO: This doesn't work correctly if matches are split between the clone and its origin
+	if (!_safe_rotate && DSProps["SRC","","origin"]){
+	       	find_origin_match()
+		# We need more thorough validation
+		if (!(RelProps["", "match"] || RelProps["","source_origin_match"])) {
+			stop(1, "origin clone is not available, full backup required for: "_tgt_ds)
+		}
+		rename_target()
 	}
-	rename_target()
+#for (_i = 1; _i <= NumDS; _i++) print DSList[_i], " origin: " DSProps["SRC",DSList[_i],"origin"], " source match: " RelProps[DSList[_i],"source_origin_match"], " match:" RelProps[DSList[_i],"match"]
+
 	for (_i = 1; _i <= NumDS; _i++) run_zfs_sync(DSList[_i])
 
-	validate_snapshots()
-	explain_sync_status(_rel_name)
+	#validate_snapshots()
+	explain_sync_status("")
 
 	# TODO: Add a reminder to sync the old copy 
 	#	report(LOG_WARNING, "'rotate' command requested but " GlobalState["sync_needed"] " datasets can be updated")
@@ -854,7 +847,8 @@ function run_backup(		_i, _rel_name, _syncable) {
 		# Run second pass sync (complete new intermediate syncs)
 		run_zfs_sync(_rel_name)
 		validate_snapshots()
-		explain_sync_status(_rel_name)
+		# How do I make this a little less verbose for trees of snapshots?
+		if (!_rel_name || (LOG_LEVEL >= 3)) explain_sync_status(_rel_name)
 	}
 	if (!Summary["replicationStreamsSent"])
 		report(LOG_NOTICE, "nothing to sync")
