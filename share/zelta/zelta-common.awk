@@ -149,6 +149,12 @@ function str_rep(str, num,    _out, _i) {
 	return _out
 }
 
+# For remote-conditional quoting; if _r is present, escape spaces
+function rq(_r, _s) {
+	_s = _r ? qq(_s) : q(_s)
+	return _s
+}
+
 # DELETE ME
 function str_join(arr, sep) {
 	report(LOG_WARNING, "deprecated common function 'str_join()'")
@@ -164,7 +170,6 @@ function arr_join(arr, sep,    _str, _idx, _i) {
 	}
 	return _str
 }
-
 
 # Create an associative array from a list
 function create_assoc(list, assoc, sep,		_i, _arr) {

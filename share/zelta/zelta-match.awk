@@ -72,7 +72,7 @@ function zfs_list(endpoint,		p, cmd, cmd_part) {
 	cmd_part[p++]			= "list -Hprt all -Screatetxg"
 	cmd_part[p++]			= "-o name,guid" (Opt["LIST_WRITTEN"] ? ",written" : "")
 	if (Opt["DEPTH"]) cmd_part[p++]	= "-d " Opt["DEPTH"]
-	cmd_part[p++]			= "'"Opt[endpoint"_DS"]"'"
+	cmd_part[p++]			= Opt[endpoint"_REMOTE"] ? qq(Opt[endpoint"_DS"]) : q(Opt[endpoint"_DS"])
 	if (Opt["TIME"]) cmd_part[p++]	= Opt["SH_COMMAND_SUFFIX"]
 	cmd_part[p]			= CAPTURE_OUTPUT
 	cmd = join_arr(cmd_part, p)
@@ -94,7 +94,7 @@ function check_parent(endpoint,		_ds, _p, _cmd_part, _cmd, _cmd_output) {
 	}
 	_cmd_part[_p++]			= "zfs"
 	_cmd_part[_p++]                   = "list -Ho name"
-	_cmd_part[_p++]                   = "'"_ds"'"
+	_cmd_part[_p++]                   = rq(Opt[endpoint "_REMOTE"], _ds)
 	_cmd_part[_p]                     = CAPTURE_OUTPUT
 	_cmd = join_arr(_cmd_part, _p)
 	_cmd | getline _cmd_output
