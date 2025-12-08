@@ -28,19 +28,6 @@
 # other commmands such as other replication tools, logging, replications setup
 # functions, or any arbitrary command.
 
-function report(level, message) {
-	if (level <= LOG_WARNING) {
-		print "error: " message > STDERR
-		if (level <= LOG_ERROR) exit 1
-	} else if ((level <= LOG_DEFAULT ) && (MODE == "ACTIVE")) { printf message }
-	else if ((level <= LOG_DEFAULT) || (MODE == "VERBOSE")) {
-		if (message == "") {
-			printf buffer_delay
-			buffer_delay = ""
-		} else { buffer_delay = buffer_delay message }
-	}
-}
-
 function usage(message) {
 	if (message) print message							> STDERR
 	print "usage:"									> STDERR
@@ -50,6 +37,19 @@ function usage(message) {
 	exit(1)
 }
 
+# TO-DO: Move this to zelta-common.awk
+function log_buffer(level, message) {
+	if ((level <= LOG_NOTICE) || (MODE == "VERBOSE")) {
+		if (message == "") {
+			printf buffer_delay
+			buffer_delay = ""
+		} else { buffer_delay = buffer_delay message }
+	} else {
+		report(level, message)
+	}
+}
+
+# Move to zelta (sh script)
 function get_hostname() {
 	hostname = ENVIRON["HOST"] ? ENVIRON["HOST"] : ENVIRON["HOSTNAME"]
 	if (!hostname) {
@@ -239,7 +239,7 @@ function load_config() {
 			source = $3
 			target = resolve_target(source, $4)
 			if (!target) {
-				report(LOG_WARNING,"no target defined for " source)
+				log_buffer(LOG_WARNING,"no target defined for " source)
 			} else target = resolve_target(source, target)
 			if (!should_replicate()) continue
 			total_datasets++
@@ -252,10 +252,6 @@ function load_config() {
 	if (!total_datasets) usage("no datasets defined in " Opt["CONFIG"])
 	for (key in cli_options) global_conf[key] = cli_options[key]
 	FS = "[ \t]+";
-	LOG_ERROR = -2
-	LOG_WARNING = -1
-	LOG_DEFAULT = 0
-	LOG_VERBOSE = 1
 }
 
 function sub_keys(key_pair, key1, key2_list, key2_subset) {
@@ -276,19 +272,7 @@ function should_replicate() {
 	} else { return 0 }
 }
 
-function q(s) { return "'" s "'" }
-
-function h_num(num) {
-	suffix = "B"
-	divisors = "KMGTPE"
-	for (i = 1; i <= length(divisors) && num >= 1024; i++) {
-		num /= 1024
-		suffix = substr(divisors, i, 1)
-	}
-	return int(num) suffix
-}
-
-function zelta_replicate() {
+function zelta_backup() {
 	sync_cmd = backup_command[site,host,source]
 	sync_status = 1
 	if (MODE == "LIST") {
@@ -298,32 +282,32 @@ function zelta_replicate() {
 	} else if (MODE == "DRY_RUN") {
 		print "+ " sync_cmd
 		return 1
-	} else if (MODE == "ACTIVE") report(LOG_DEFAULT, source": ")
-	else if ((MODE == "DEFAULT") || (MODE == "VERBOSE")) report(LOG_DEFAULT, host":"source": ")
+	} else if (MODE == "ACTIVE") log_buffer(LOG_NOTICE, source": ")
+	else if ((MODE == "DEFAULT") || (MODE == "VERBOSE")) log_buffer(LOG_NOTICE, host":"source": ")
 	while (sync_cmd|getline) {
 		# Provide a one-line sync summary
 		# received_streams, total_bytes, time, error
 		if (/[0-9]+ [0-9]+ [0-9]+\.*[0-9]* -?[0-9]+/) {
-			if ($2) report(LOG_DEFAULT, h_num($2) ": ")
+			if ($2) log_buffer(LOG_NOTICE, h_num($2) ": ")
 			if ($4) {
-				#report(LOG_DEFAULT, "failed: ")
+				#log_buffer(LOG_NOTICE, "failed: ")
 				sync_status = 0
-				if ($4 == 1) report(LOG_DEFAULT, "error matching snapshots")
-				else if ($4 == 2) report(LOG_DEFAULT, "replication error")
-				else if ($4 == 3) report(LOG_DEFAULT, "target is ahead of source")
-				else if ($4 == 4) report(LOG_DEFAULT, "error creating parent dataset")
-				else if ($4 == 5) report(LOG_DEFAULT, "match error")
-				else if ($4 < 0) report(LOG_DEFAULT, (0-$4) " missing streams")
-				else report(LOG_DEFAULT, "error: " $0)
-			} else if ($1) { report(LOG_DEFAULT, "replicated in " $3 "s") }
-			else report(LOG_DEFAULT, "up-to-date")
+				if ($4 == 1) log_buffer(LOG_NOTICE, "error matching snapshots")
+				else if ($4 == 2) log_buffer(LOG_NOTICE, "replication error")
+				else if ($4 == 3) log_buffer(LOG_NOTICE, "target is ahead of source")
+				else if ($4 == 4) log_buffer(LOG_NOTICE, "error creating parent dataset")
+				else if ($4 == 5) log_buffer(LOG_NOTICE, "match error")
+				else if ($4 < 0) log_buffer(LOG_NOTICE, (0-$4) " missing streams")
+				else log_buffer(LOG_NOTICE, "error: " $0)
+			} else if ($1) { log_buffer(LOG_NOTICE, "replicated in " $3 "s") }
+			else log_buffer(LOG_NOTICE, "up-to-date")
 		} else {
-			report(LOG_DEFAULT, $0)
+			log_buffer(LOG_NOTICE, $0)
 			if (/replicationErrorCode/ && !/0,/) sync_status = 0
 		}
-		report(LOG_DEFAULT, "\n")
+		log_buffer(LOG_NOTICE, "\n")
 	}
-	report(LOG_DEFAULT, "")
+	log_buffer(LOG_NOTICE, "")
 	close(sync_cmd)
 	return sync_status
 }
@@ -342,16 +326,16 @@ BEGIN {
 	load_config()
 	if (AUTO && (global_conf["threads"] > 1)) xargs()
 	for (site in sites) {
-		if (MODE == "ACTIVE") report(LOG_DEFAULT, site "\n")
+		if (MODE == "ACTIVE") log_buffer(LOG_NOTICE, site "\n")
 		sub_keys(hosts_by_site, site, hosts, site_hosts)
 		for (host in site_hosts) {
-			if (MODE == "ACTIVE") report(LOG_DEFAULT, "  " host "\n")
+			if (MODE == "ACTIVE") log_buffer(LOG_NOTICE, "  " host "\n")
 			sub_keys(datasets, host, dataset_count, host_datasets)
 			for (source in host_datasets) {
 				target = datasets[host,source]
 				if (!AUTO && !should_replicate()) continue
-				if (MODE == "ACTIVE") report(LOG_DEFAULT,"    ")
-				if (! zelta_replicate()) {
+				if (MODE == "ACTIVE") log_buffer(LOG_NOTICE,"    ")
+				if (! zelta_backup()) {
 					failed_num++
 					failed_list[site"\t"host"\t"source"\t"target]++
 				}
@@ -362,8 +346,8 @@ BEGIN {
 		for (failed_sync in failed_list) {
 			$0 = failed_sync
 			site = $1; host = $2; source = $3; target = $4
-			if (MODE != "JSON") report(LOG_DEFAULT, "retry: " )
-			if (zelta_replicate()) {
+			if (MODE != "JSON") log_buffer(LOG_NOTICE, "retry: " )
+			if (zelta_backup()) {
 				delete failed_list[failed_sync]
 			}
 		}
