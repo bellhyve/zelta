@@ -72,6 +72,9 @@ copy_file bin/zelta "$ZELTA"
 find share/zelta -name '*.awk' -o -name '*.sh' | while read -r file; do
     copy_file "$file" "${ZELTA_SHARE}/$(basename "$file")"
 done
+find share/zelta -name '*.tsv' -o -name '*.sh' | while read -r file; do
+    copy_file "$file" "${ZELTA_SHARE}/$(basename "$file")"
+done
 
 if [ -x "$ZELTA_MAN8" ] ; then
 	find doc -name '*.8' | while read -r file; do
