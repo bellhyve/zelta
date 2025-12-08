@@ -2,109 +2,176 @@
 #
 # zelta-args.awk: serialize common zelta arguments
 
-function get_endpoint(ep_type) {
-	ep_pre = ep_type "_"
-	endpoint_id = $0
-	if (!(/^[a-zA-Z0-9_.@:\/ -]+$/)) {
-		report(LOG_ERROR, "invalid endpoint: '"$0"'")
-		return
-	}
-	if (/^[^ :\/]+:/) {
-		split($0, connect_string, ":")
-		prefix = connect_string[1]
-		if (match(prefix, /@[^@]*$/)) {
-			user = substr(prefix, 1, RSTART - 1)
-			host = substr(prefix, RSTART + 1)
-		} else host = prefix
-		if (split(prefix, user_host, "@")==2) {
-			user = user_host[1]
-			host = user_host[2]
-		} else host = user_host[1]
-		if (host == "localhost") prefix = ""
-		sub(/^[^:]+:/,"")
-	}
-	if (split($0, ds_snap, "@")) {
-		dataset = ds_snap[1]
-		snapshot = ds_snap[2]
-	} else dataset = ds_snap[1]
-	if (!user) { user = ENVIRON["USER"] }
-	if (!host) {
+# Try to get a hostname for logging
+function validate_host(host,		_hostname_cmd) {
+	if (!host || (host == "localhost")) {
 		host = ENVIRON["HOST"] ? ENVIRON["HOST"] : ENVIRON["HOSTNAME"]
 		if (!host) {
-			"hostname" | getline host; close("hostname")
+			_hostname_cmd = "hostname 2> /dev/null"
+			_hostname_cmd | getline host 
+			close(_hostname_cmd)
 		}
-		if (!host) host = "localhost"
+		else host = "localhost"
 	}
-	#endpoint_id = user"_"host"_"dataset
-	#gsub(/[^A-Za-z0-9_]/,"-", endpoint_id)
-	# Change the ID  back to just the actual endpoint string, I think.
-	newenv[ep_pre "ID"] = endpoint_id
-	newenv[ep_pre "USER"] = user
-	newenv[ep_pre "HOST"] = host
-	newenv[ep_pre "DS"] = dataset
-	newenv[ep_pre "SNAP"] = snapshot
-	newenv[ep_pre "PREFIX"] = prefix
+	return host
 }
 
-function add_arg(arg) {
-	args = args (args ? "\t" : "") arg
+# Create a set of variables from an scp-like host-dataset argument
+# [[user@]host:]dataset[@snapshot]
+function get_endpoint(		ep_type, _str_parts, _id, _remote ,_user, _host, _ds, _snap) {
+	# Load two endpoints, the source and target, sequentially 
+	
+	if (!NewOpt["SRC_ID"]) ep_type = "SRC_"
+	else if (!NewOpt["TGT_ID"]) ep_type = "TGT_"
+	else stop(1, "too many options: '"$0"'")
+
+	_id = $0				# ID is the user's endpoint string
+
+	# Find the connection info for ssh, '[user@]host'
+	if (/^[^ :\/]+:/) {
+		_remote = $0
+		sub(/:.*/, "", _remote)		# REMOTE is '[user@]host'
+		sub(/^[^ :\/]+:/,i "")		# Don't split(), $0 may have ':'
+		if (split(_remote, _str_parts, "@")==2) {
+			_user = _str_parts[1]	# USER from 'user@host'
+			_host = _str_parts[2]	# HOST
+		} else _host = _str_parts[1]	# HOST only
+		# Special case: If the DS or SNAP contains a ':' and our target is local, we
+		# have a work around: 'localhost:' _remote (with no user) gets cleared (so no ssh).
+		if (!_user && (_host == "localhost")) _remote = ""
+	}
+	if (split($0, _str_parts, "@") == 2) {
+		_snap = "@" _str_parts[2]
+	}
+	_ds = _str_parts[1]
+	if (!_user) { _user = ENVIRON["USER"] }	# USER may be useful for logging
+
+	# Validate and define the endpoint
+	if (! _ds) stop(1, "invalid endpoint '"_id"'")
+	NewOpt[ep_type "ID"]		= _id
+	NewOpt[ep_type "REMOTE"]	= _remote
+	NewOpt[ep_type "USER"]		= _user
+	NewOpt[ep_type "HOST"]		= validate_host(_host)
+	NewOpt[ep_type "DS"]		= _ds
+	NewOpt[ep_type "SNAP"]		= _snap
 }
 
-function get_args() {
-	zfs_short_opts["X"]++
-	zfs_short_opts["d"]++
-	zfs_short_opts["o"]++
-	zfs_short_opts["x"]++
-	for (i=1;i<ARGC;i++) {
-		$0 = ARGV[i]
-		if (sub(/^-/,"")) {
-			if (sub(/^-/,"")) {
-				# Double-dash sub options must be --opt=val
-				if (sub(/^log-level=/,"")) newenv["LOG_LEVEL"] = $0
-				else add_arg($0)
-			} else {
-				for (m=1;m<=length($0);m++) {
-					o = substr($0, m, 1)
-					if (o in zfs_short_opts) {
-						subopt = substr($0, m+1)
-						if (!subopt) {
-							i += 1
-							subopt = ARGV[i]
-						}
-						add_arg(o " " subopt)
-						break
-					}
-					else if (o == "v") newenv["LOG_LEVEL"]++
-					else if (o == "q") newenv["LOG_LEVEL"]--
-					else add_arg(o)
-				}
+function match_arg(arg, 	_flag) {
+	for (_flag in OptListFlags) {
+		if (arg == _flag) return OptListFlags[_flag]
+	} 
+	stop(1, "invalid option '"arg"'")
+}
+
+function set_arg(flag, subopt) {
+	if (OptListType[flag] == "arglist")	NewOpt[OptListKey[flag]] = str_add(NewOpt[OptListKey[flag]])
+	else if (OptListType[flag] == "true")	NewOpt[OptListKey[flag]] = "1"
+	else if (OptListType[flag] == "false")	NewOpt[OptListKey[flag]] = "0"
+	else if (OptListType[flag] == "set")	NewOpt[OptListKey[flag]] = subopt
+	else if (OptListType[flag] == "incr")	NewOpt[OptListKey[flag]]++
+	else if (OptListType[flag] == "decr")	NewOpt[OptListKey[flag]]--
+	else if (OptListType[flag] == "invalid") stop(1, OptListWarn[flag])
+	if (OptListType[flag] == "warn")	report(LOG_WARNING, OptListWarn[flag])
+}
+
+# Handle "set" action logic
+function get_subopt(flag, m,	_subopt) {
+	# If a key=value is given out of context, stop
+	if ($2 && ((OptListType[flag] != "set") || OptListValue[flag])) {
+		stop(1, "invalid option assignment '"$0"'")
+	}
+	# Not a "set" action
+	else if (OptListType[flag] != "set") return ""
+	# --key=value
+	else if ($2) return $2
+	# Value is defined upstream
+	else if (OptListValue[flag]) return OptListValue[flag]
+	# Single dash option
+	if (m) {
+		_subopt = substr($0, m+1)
+		# -k1
+		if (_subopt) return _subopt
+	}
+	# Note, we're modifying ARGV's 'Idx' as a global because the logic to reconcile
+	# this otherwise would be gnarly and inefficient.
+	# Find '--key value' or '-k 1'
+	_subopt = ARGV[++Idx]
+	if (!_subopt) {
+		stop(1, "option '"$1"' requires an argument")
+	} else return _subopt
+}
+
+function get_args(		_i, _flag, _arg, _m, _subopt, _opts_done) {
+	FS = "="
+	for (Idx = 1; Idx < ARGC; Idx++) {
+		$0 = ARGV[Idx]
+
+		if ($0 == "--") _opts_done++
+		else if (_opts_done || /^[^-]/) {
+			_opts_done++
+			get_endpoint()
+		}
+		else if (/^--[^-]/) {
+			_flag = match_arg($1)
+			_subopt = get_subopt(_flag)
+			set_arg(_flag, _subopt)
+		}
+		else if (/^-[^-]/) {
+			# step through basic -opts
+			for (_m=2; _m <= length($0); _m++) {
+				_arg = "-" substr($0, _m, 1)
+				_flag = match_arg(_arg)
+				_subopt = get_subopt(_flag, _m)
+				set_arg(_flag, _subopt)
+				# If our _subopt was an argument, skip to the next word
+				if (_subopt && !OptListValue[_flag]) break
 			}
-		} else if (!source_set) {
-			get_endpoint("SRC")
-			source_set++
-		} else if (!target_set) {
-			get_endpoint("TGT")
-			target_set++
-		} else {
-			report(LOG_ERROR, "too many options: '"$0"'")
-			exit
+		} else stop(1, "invalid option: '"$0"'")
+	}
+}
+
+# Load and index option file
+function load_option_list(		_tsv, _flag, _flags, _idx, _flag_arr) {
+	_tsv = Opt["SHARE"]"/zelta-opts.tsv"
+	FS="\t"
+	while (getline<_tsv) {
+		if (index($1, Opt["VERB"]) || ($1 == "all")) {
+			_flags = $2
+			if (!_flags) {
+				report(LOG_WARNING, "malformed option file line: "$0)
+				continue
+			}
+			split($2, _flag_arr, ",")
+			# Make an dictionary for flag synonyms
+			for (_idx in _flag_arr) OptListFlags[_flag_arr[_idx]] = _flags
+			OptListKey[_flags]	= $3
+			OptListType[_flags]	= $4
+			OptListValue[_flags]	= $5
+			OptListWarn[_flags]	= $6
+			# We need to know the default of 'incr'/'decr' action items
+			if ((OptListType[_flags] == "incr") || (OptListType[_flags] == "decr")) {
+				_incr_decr_key = OptListKey[_flags]
+				NewOpt[_incr_decr_key] = Opt[_incr_decr_key]
+			}
 		}
 	}
-	if (args) { newenv["ARGS"] = args }
+	close(_tsv)
+}
+
+# Send an override back to 'zelta' when an arg has changed
+function override_options(	_e) {
+	for (_e in NewOpt) {
+		if (NewOpt[_e] != Opt[_e]) {
+			export = export " " (ENV_PREFIX _e) "='" NewOpt[_e] "'"
+		}
+	}
+	# This must be an explicit 'print' for shell input (not 'zelta ipc-log')
+	if (export) print export
 }
 
 BEGIN {
-	ENV_PREFIX = "ZELTA_"
-
-	# We need to know the LOG_LEVEL default for -v/-q
-	newenv["LOG_LEVEL"] = opt["LOG_LEVEL"]
-
+	load_option_list()
 	get_args()
-	for (e in newenv) {
-		# Make sure we're actually changing something
-		if (newenv[e] != opt[e]) {
-			export = export " " (ENV_PREFIX e) "='" newenv[e] "'"
-		}
-	}
-	if (export) print export
+	override_options()
+	stop()
 }
