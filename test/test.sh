@@ -7,7 +7,7 @@ src="$tgt_ep:$apool/treetop"
 tgt="$tgt_ep:$bpool/bleetop"
 which zelta
 echo $ZELTA_SHARE
-export ZELTA_LOG_LEVEL=2
+export ZELTA_LOG_LEVEL=4
 export AWK="gawk"
 clear
 

@@ -134,7 +134,8 @@ function get_args(		_i, _flag, _arg, _m, _subopt, _opts_done) {
 function load_option_list(		_tsv, _flag, _flags, _idx, _flag_arr) {
 	_tsv = Opt["SHARE"]"/zelta-opts.tsv"
 	FS="\t"
-	while (getline<_tsv) {
+	# TO-DO: Complain if TSV doesn't load
+	while ((getline<_tsv)>0) {
 		if (index($1, Opt["VERB"]) || ($1 == "all")) {
 			_flags = $2
 			if (!_flags) {
