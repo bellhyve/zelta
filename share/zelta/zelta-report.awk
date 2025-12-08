@@ -8,7 +8,7 @@
 function init(	  o) {
 	for (o in ENVIRON) {
 		if (sub(/^ZELTA_/,"",o)) {
-			opt[o] = ENVIRON["ZELTA_" o]
+			Opt[o] = ENVIRON["ZELTA_" o]
 		}
 	}
 }
@@ -19,7 +19,7 @@ function err(msg) {
 }
 
 BEGIN {
-	get_backup_root_command = "awk '/^BACKUP_ROOT: /{print $2}' " opt["CONFIG"]
+	get_backup_root_command = "awk '/^BACKUP_ROOT: /{print $2}' " Opt["CONFIG"]
 	get_backup_root_command | getline BACKUP_ROOT
 	HOOK_FILE = ENVIRON["HOME"] "/.zeport-hook"
 	getline SLACK_HOOK < HOOK_FILE

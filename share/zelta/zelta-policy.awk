@@ -195,7 +195,7 @@ function load_config() {
 	conf_context = "global"
 	global_conf["backup_command"] = BACKUP_COMMAND
 
-	while ((getline < opt["CONFIG"])>0) {
+	while ((getline < Opt["CONFIG"])>0) {
 		CONF_LINE++
 
 		# Clean up comments:
@@ -248,8 +248,8 @@ function load_config() {
 			backup_command[host, source] = create_backup_command()
 		} else usage(CONF_ERR CONF_LINE)
 	}
-	close(opt["CONFIG"])
-	if (!total_datasets) usage("no datasets defined in " opt["CONFIG"])
+	close(Opt["CONFIG"])
+	if (!total_datasets) usage("no datasets defined in " Opt["CONFIG"])
 	for (key in cli_options) global_conf[key] = cli_options[key]
 	FS = "[ \t]+";
 	LOG_ERROR = -2

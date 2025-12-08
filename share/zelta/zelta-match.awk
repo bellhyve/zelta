@@ -39,35 +39,14 @@ function usage(message) {
 	exit 1
 }
 
-function pass_flags(flag) {
-	PASS_FLAGS = PASS_FLAGS ? (PASS_FLAGS OFS flag) : flag
-}
-
-function load_options(	i, o) {
-	for (o in ENVIRON) {
-		if (sub(/^ZELTA_/,"",o)) {
-			opt[o] = ENVIRON["ZELTA_"o]
-		}
-	}
-	split(opt["ARGS"],args,"\t")
-	for (i in args) {
-		$0 = args[i]
-		if (sub(/^o /,""))		PROPERTIES = $0
-		else if (sub(/^d /,""))		ZELTA_DEPTH = $0
-		else if (/^dry-?run$/)		DRY_RUN++
-		else if (/^n$/)			DRY_RUN++
-		else if (/^h$/)			usage()
-		else if (/^help$/)		usage()
-		else if (/^no-?written$/)	WRITTEN = 0
-		else if (/^H$/)			pass_flags("H")
-		else if (/^p$/)			pass_flags("p")
-		else if (/^time$/)		pass_flags("time")
-		#else if (sub(/^j/,""))		pass_flags("j")
-		else usage("unkown option: " $0)
-	}
+function validate_options(	i, o) {
+	if (Opt["USAGE"]) usage()
+	source_defined = (Opt["SRC_ID"] && Opt["SRC_DS"])
+	target_defined = (Opt["TGT_ID"] && Opt["TGT_DS"])
+	if ((!source_defined) && (!target_defined)) usage("no datasets defined")
 	# Skip "written" in scripting mode (-H) if no written summary or properties will be printed.
-	if (WRITTEN && PROPERTIES && (PASS_FLAGS ~ /[H]/) && (PROPERTIES !~ /(all|written|size)/)) {
-		WRITTEN = 0
+	if (Opt["LIST_WRITTEN"] && Opt["PROPLIST"] && Opt["PARSABLE"] && (Opt["PROPLIST"] !~ /(all|written|size)/)) {
+		Opt["LIST_WRITTEN"] = 0
 	}
 }
 
@@ -80,47 +59,47 @@ function join_arr(arr, len,		i, str) {
 }
 
 function zfs_list(endpoint,		p, cmd, cmd_part) {
-	if (! opt[endpoint"_DS"]) return ""
+	if (! Opt[endpoint"_DS"]) return ""
 	p = 1
-	cmd_part[p++]			= opt["SH_COMMAND_PREFIX"]
-	cmd_part[p++]			= opt["TIME_COMMAND"]
-	if (opt[endpoint "_PREFIX"]) {
-		cmd_part[p++]		= opt["REMOTE_DEFAULT"] " " opt[endpoint "_PREFIX"]
+	if (Opt["TIME"]) {
+		cmd_part[p++]			= Opt["SH_COMMAND_PREFIX"]
+		cmd_part[p++]			= Opt["TIME_COMMAND"]
+	}
+	if (Opt[endpoint "_REMOTE"]) {
+		cmd_part[p++]		= Opt["REMOTE_DEFAULT"] " " Opt[endpoint "_REMOTE"]
 	}
 	cmd_part[p++]			= "zfs"
 	cmd_part[p++]			= "list -Hprt all -Screatetxg"
-	cmd_part[p++]			= "-o name,guid" (WRITTEN ? ",written" : "")
-	if (DEPTH) cmd_part[p++]	= "-d " DEPTH
-	cmd_part[p++]			= "'"opt[endpoint"_DS"]"'"
-	cmd_part[p++]			= opt["SH_COMMAND_SUFFIX"]
-	cmd_part[p]			= ALL_OUT
+	cmd_part[p++]			= "-o name,guid" (Opt["LIST_WRITTEN"] ? ",written" : "")
+	if (Opt["DEPTH"]) cmd_part[p++]	= "-d " Opt["DEPTH"]
+	cmd_part[p++]			= Opt[endpoint"_REMOTE"] ? qq(Opt[endpoint"_DS"]) : q(Opt[endpoint"_DS"])
+	if (Opt["TIME"]) cmd_part[p++]	= Opt["SH_COMMAND_SUFFIX"]
+	cmd_part[p]			= CAPTURE_OUTPUT
 	cmd = join_arr(cmd_part, p)
+	if (Opt["DRYRUN"]) report(LOG_NOTICE, "+ " cmd)
 	return cmd
 }
 
-function check_parent(endpoint,		p, cmd_part, cmd) {
-	ds = opt[endpoint"_DS"]
-	if (!ds) return ""
+function check_parent(endpoint,		_ds, _p, _cmd_part, _cmd, _cmd_output) {
+	_ds = Opt[endpoint"_DS"]
+	if (!_ds) return ""
 	# If the dataset is a pool or immediately below it, no need to check for a parent
-	if (gsub(/\//, "/", ds) <= 1) {
+	if (gsub(/\//, "/", _ds) <= 1) {
 		return 1
 	}
-	sub(/\/[^\/]*$/, "", ds)
-	p = 1
-	#cmd_part[p++]			= opt["SH_COMMAND_PREFIX"]
-	#cmd_part[p++]                   = opt[endpoint"_ZFS"]
-	if (opt[endpoint "_PREFIX"]) {
-		cmd_part[p++]		= opt["REMOTE_DEFAULT"] " " opt[endpoint "_PREFIX"]
+	sub(/\/[^\/]*$/, "", _ds)
+	_p = 1
+	if (Opt[endpoint "_REMOTE"]) {
+		_cmd_part[_p++]		= Opt["REMOTE_DEFAULT"] " " Opt[endpoint "_REMOTE"]
 	}
-	cmd_part[p++]			= "zfs"
-	cmd_part[p++]                   = "list -Ho name"
-	cmd_part[p++]                   = "'"ds"'"
-	#cmd_part[p++]			= opt["SH_COMMAND_SUFFIX"]
-	cmd_part[p]                     = ALL_OUT
-	cmd = join_arr(cmd_part, p)
-	cmd | getline cmd_output
-	close(cmd)
-	if (cmd_output==ds) return 1
+	_cmd_part[_p++]			= "zfs"
+	_cmd_part[_p++]                   = "list -Ho name"
+	_cmd_part[_p++]                   = rq(Opt[endpoint "_REMOTE"], _ds)
+	_cmd_part[_p]                     = CAPTURE_OUTPUT
+	_cmd = join_arr(_cmd_part, _p)
+	_cmd | getline _cmd_output
+	close(_cmd)
+	if (_cmd_output == _ds) return 1
 	else return 0
 }
 
@@ -128,42 +107,33 @@ BEGIN {
 	# Constants
 	FS				= "\t"
 	OFS				= "\t"
-	ALL_OUT				= "2>&1"
 
-	# Defaults
-	DEPTH				= 0
-	WRITTEN				= 1
+	validate_options()
+	MatchCommand				= "zelta ipc-run match-pipe"
+	if (source_defined) ZFS_LIST_SRC	= zfs_list("SRC")
+	if (target_defined) ZFS_LIST_TGT	= zfs_list("TGT")
 
-	load_options()
-	MATCH_COMMAND			= ENVIRON["AWK"] " -f " opt["SHARE"] "/zelta-match-pipe.awk"
-	MATCH_COMMAND			= "zelta ipc-run match-pipe"
-	ZFS_LIST_SRC			= zfs_list("SRC")
-	ZFS_LIST_TGT			= zfs_list("TGT")
+	if (Opt["DRYRUN"]) stop()
 
-	if (DRY_RUN) {
-		print "+ " ZFS_LIST_SRC
-		if (ZFS_LIST_TGT) print "+ " ZFS_LIST_TGT
-		exit 1
-	}
-
-	# MATCH_COMMAND = "cat" # Test stream
+	# MatchCommand = "cat" # Test stream
 
 	# Stream to "zelta-match-pipe.awk"
-	if (PASS_FLAGS) print "PASS_FLAGS:", PASS_FLAGS			| MATCH_COMMAND
-	if (PROPERTIES) print "PROPERTIES:", PROPERTIES			| MATCH_COMMAND
-	if (DEPTH) print "DEPTH:", DEPTH				| MATCH_COMMAND
-	if (opt["TGT_DS"]) {
+	report(LOG_INFO, "comparing datasets")
+	report(LOG_DEBUG, "`"MatchCommand"`")
+	if (target_defined) {
 		if (check_parent("TGT")) {
-			print "ZFS_LIST_TGT:", ZFS_LIST_TGT 		| MATCH_COMMAND
-		} else print "TGT_PARENT:", "no"			| MATCH_COMMAND
+			print "ZFS_LIST_TGT:", ZFS_LIST_TGT 		| MatchCommand
+		} else print "TGT_PARENT:", "no"			| MatchCommand
 	}
-	if (opt["SRC_DS"]) {
+	if (source_defined) {
 		if (check_parent("SRC")) {
-			print "ZFS_LIST_STREAM:", opt["SRC_ID"]	| MATCH_COMMAND
-			while (ZFS_LIST_SRC | getline) print		| MATCH_COMMAND
+			report(LOG_INFO, "listing source")
+			report(LOG_DEBUG, "`"ZFS_LIST_SRC"`")
+			print "ZFS_LIST_STREAM:", Opt["SRC_ID"]		| MatchCommand
+			while (ZFS_LIST_SRC | getline) print		| MatchCommand
 			close(ZFS_LIST_SRC)
-		} else print "SRC_PARENT:", no				| MATCH_COMMAND
+		} else print "SRC_PARENT:", no				| MatchCommand
 	}
-	print "ZFS_LIST_STREAM_END"					| MATCH_COMMAND
-	close(MATCH_COMMAND)
+	print "ZFS_LIST_STREAM_END"					| MatchCommand
+	close(MatchCommand)
 }
