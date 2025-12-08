@@ -549,8 +549,9 @@ function validate_target_parent_dataset(		_parent, _cmd, _cmd_arr, _depth, _i, _
 			else if (/create ancestors/)
 				report(LOG_DEBUG, "attempted to create ancestor(s)")
 			else if ($0 ~ "^create "_parent) {
-				report(LOG_INFO, "successfully created target parent '"_parent"'")
-				_success = 1
+				# This reports even if it fails
+				#report(LOG_INFO, "successfully created target parent '"_parent"'")
+				#_success = 1
 			}
 			else if (/^[[:space:]].*=/)
 				report(LOG_DEBUG, "property info: '"$0"'")
