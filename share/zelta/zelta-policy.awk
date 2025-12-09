@@ -189,7 +189,7 @@ function load_config() {
 	OFS=","
 	CONF_ERR = "configuration parse error at line: "
 	POLICY_COMMAND = "zelta policy"
-	BACKUP_COMMAND = "zelta replicate"
+	BACKUP_COMMAND = "zelta backup"
 
 	get_options()
 	set_mode()

@@ -466,10 +466,14 @@ function create_source_snapshot(	_snap_name, _ds_snap, _cmd_arr, _cmd, _snap_fai
 	_cmd_arr["endpoint"] = "SRC"
 	_cmd_arr["ds_snap"] = _ds_snap
 	_cmd = build_command("SNAP", _cmd_arr)
-
+	_cmd = _cmd CAPTURE_OUTPUT
 	report(LOG_DEBUG, "`"_cmd"`")
 	while (_cmd | getline) {
-		if (/./) {
+		if (/permission denied/) {
+			_snap_failed++
+			report(LOG_WARNING, "permission denied snapshotting: " Opt["SRC_DS"])
+			break
+		} else {
 			_snap_failed++
 			report(LOG_WARNING, "unexpected `zfs snapshot` output: "$0)
 		}
@@ -692,7 +696,7 @@ function get_recv_command_flags(ds_suffix, src_idx, remote_ep,	_flag_arr, _flags
 		_flag_arr[++_i]	= "-o origin=" _origin
 	}
 	_flags = arr_join(_flag_arr)
-	return (_flags)
+	return _flags
 }
 
 # Assemble a 'zfs recv' command with the help of the flag builder above
@@ -715,8 +719,10 @@ function run_zfs_sync(ds_suffix,		_cmd, _stream_info, _message, _ds_snap, _size,
 	# TO-DO: Dryrun mode probably goes here
 	if (Opt["VERB"] == "rotate" && !Action[ds_suffix, "can_rotate"]) return
 	if (Opt["VERB"] != "rotate" && !Action[ds_suffix, "can_sync"]) return
-	IGNORE_ZFS_SEND_OUTPUT = "^(incremental|full)| records (in|out)$|bytes.*transferred|create mountpoint|ignoring$"
+	IGNORE_ZFS_SEND_OUTPUT = "^(incremental|full)| records (in|out)$|bytes.*transferred|(create|receive) mountpoint|ignoring$"
 	IGNORE_RESUME_OUTPUT = "^nvlist version|^\t(fromguid|object|offset|bytes|toguid|toname|embedok|compressok)"
+	WARN_ZFS_RECV_OUTPUT = "cannot receive (readonly|canmount) property"
+	FAIL_ZFS_SEND_RECV_OUTPUT = "^(Host key verification failed|cannot receive .* stream|cannot send)"
 	_message	= DSPair[ds_suffix, "source_start"] ? DSPair[ds_suffix, "source_start"]"::" : ""
 	_message	= _message DSPair[ds_suffix, "source_end"]
 	_ds_snap	= Opt["SRC_DS"] ds_suffix DSPair[ds_suffix, "source_end"]
@@ -752,19 +758,19 @@ function run_zfs_sync(ds_suffix,		_cmd, _stream_info, _message, _ds_snap, _size,
 			report(LOG_BASIC, "resuming transfer for: " _ds_snap)
 			report(LOG_INFO, "to abort a failed resume, run: 'zfs receive -A " Opt["SRC_DS"] ds_suffix"'")
 		}
+		else if ($0 ~ FAIL_ZFS_SEND_RECV_OUTPUT) {
+			report(LOG_ERROR, $0)
+			break
+		}
 		else if ($1 ~ /:/ && $2 ~ /^[0-9]+$/)
 			# SIGINFO: Is this still working?
 			report(LOG_INFO, $0)
 		else if ($0 ~ IGNORE_ZFS_SEND_OUTPUT) {}
 		else if ($0 ~ IGNORE_RESUME_OUTPUT) {}
-		else if (/cannot receive (mountpoint|canmount)/)
-			report(LOG_DEBUG, $0)
-		else if (/Warning/ && /mountpoint/)
-			report(LOG_INFO, $0)
-		else if (/Warning/)
-			report(LOG_NOTICE, $0)
+		else if ($0 ~ WARN_ZFS_RECV_OUTPUT)
+			report(LOG_WARNING, $0)
 		else
-			report(LOG_WARNING, "unexpected output: " $0)
+			report(LOG_WARNING, $0)
 	}
 	close(_cmd)
 	if (_streams) {
