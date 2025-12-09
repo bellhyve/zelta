@@ -171,6 +171,11 @@ function arr_join(arr, sep,    _str, _idx, _i) {
 	return _str
 }
 
+function arr_copy(src_arr, tgt_arr,		_key) {
+        delete tgt_arr
+        for (_key in src_arr) tgt_arr[_key] = src_arr[_key]
+}
+
 # Create an associative array from a list
 function create_assoc(list, assoc, sep,		_i, _arr) {
 	sep = sep ? sep : " "
