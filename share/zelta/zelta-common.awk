@@ -205,6 +205,54 @@ function h_num(num,	_suffix, _divisors, _h) {
 	return int(num) _suffix
 }
 
+# Constructs a remote command string
+function remote_str(endpoint, type,     _cmd) {
+        type = type ? type : "DEFAULT"
+        _cmd = Opt["REMOTE_" type]" "Opt[endpoint "_" "REMOTE"]
+        return _cmd
+}
+
+## Command builder
+##################
+
+# Loads zelta-cmds.tsv which format external 'zelta' and 'zfs' commmands
+function load_build_commands(           _action) {
+	LOAD_BUILD_COMMANDS++
+        _tsv = Opt["SHARE"]"/zelta-cmds.tsv"
+        FS="\t"
+        while (getline < _tsv) {
+                if (/^$|^#/) continue
+                _action= $1
+                CommandRemote[_action]      = $2
+                CommandLine[_action]     = str_add($3, $4)
+                CommandVars[_action]    = $5
+                CommandSuffix[_action]    = $6
+        }
+        close(_tsv)
+}
+
+# Constructs a command using an action and the passed array
+# Special variables:
+#   "endpoint": Expands a remote prefix if given
+#   "command_prefix": Inserts before command name for an additional pipe or environment variable
+function build_command(action, vars,            _remote_prefix, _cmd, _num_vars, _var_list, _val) {
+	if (!LOAD_BUILD_COMMANDS) load_build_commands()
+        if (CommandRemote[action] && vars["endpoint"]) {
+                _remote_prefix = remote_str(vars["endpoint"], CommandRemote[action])
+        }
+        _cmd = CommandLine[action]
+        _num_vars = split(CommandVars[action], _var_list, " ")
+        for (_v = 1; _v <= _num_vars; _v++) {
+                _val = vars[_var_list[_v]]
+                _cmd = str_add(_cmd, _val)
+        }
+        _cmd = str_add(_cmd, CommandSuffix[action])
+        if (_remote_prefix && vars["dq"]) _cmd = dq(_cmd)
+        _cmd = str_add(_remote_prefix, _cmd)
+        if (vars["command_prefix"]) _cmd = str_add(vars["command_prefix"], _cmd)
+        return _cmd
+}
+
 BEGIN {
 	# Constants
 	ENV_PREFIX	= "ZELTA_"
