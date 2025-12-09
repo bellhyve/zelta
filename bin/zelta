@@ -60,6 +60,8 @@ zelta_init() {
 	: ${ZELTA_ETC:="/usr/local/etc/zelta"}	# Dir for the default env and policy
 	: ${ZELTA_ENV:="$ZELTA_ETC/zelta.env"}	# Edit this file to change command defaults
 
+	ZELTA_HOSTNAME="${HOSTNAME:-$(hostname)}"
+	: "${ZELTA_HOSTNAME:=localhost}"
 	
 	# Read zelta.env prepending ZELTA_ prefix when necessary
 	if [ -r "$ZELTA_ENV" ]; then
@@ -133,6 +135,11 @@ zelta_init() {
 	: ${ZELTA_REMOTE_SEND:="${ZELTA_REMOTE_DEFAULT}"}
 	: ${ZELTA_REMOTE_RECV:="${ZELTA_REMOTE_COMMAND}"}
 
+	export AWK ZELTA_VERSION ZELTA_HOSTNAME ZELTA_VERB ZELTA_SHARE ZELTA_ETC ZELTA_ENV ZELTA_CONFIG
+	# ZELTA_LOG_MODE ZELTA_LOG_LEVEL ZELTA_LOG_COMMAND
+}
+
+zelta_export() {
 	export AWK $(set | $AWK -F= '/^ZELTA_.*=/{print $1}')
 }
 
@@ -225,9 +232,13 @@ ipc-run)
 		zelta_verb="$1"
 		shift
 		;;
+policy)		# Don't export defaults or zelta.env so we can override them with policy
+		zelta_init "$@"
+		;;
 *)
 		# Standard public-facing command; load defaults.
 		zelta_init "$@"
+		zelta_export
 		;;
 esac
 

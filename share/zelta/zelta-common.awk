@@ -20,7 +20,7 @@ function zelta_init(	_o, _prefix_re) {
 	for (_o in ENVIRON) {
 		if (sub(_prefix_re, "", _o)) {
 			_val = ENVIRON[ENV_PREFIX _o]
-			if (tolower(_val) in Nope) _val = "0"
+			if (tolower(_val) in False) _val = "0"
 			Opt[_o] = _val
 		}
 	}
@@ -30,7 +30,7 @@ function zelta_init(	_o, _prefix_re) {
 
 # Logging
 function report(mode, message) {
-	print mode "\t" message | Opt["LOG_COMMAND"]
+	print mode "\t" message | LOG_COMMAND
 	log_output_count++
 }
 
@@ -266,9 +266,12 @@ BEGIN {
 	LOG_DEBUG	= 4
 	LOG_JSON	= LOG_NOTICE
 
-	create_assoc("no false", Nope)
+	create_assoc("no false 0", False)
+	create_assoc("yes true 1", True)
 
 	# load user options into Opt[]
 	zelta_init()
 
+	# Derived globals
+	LOG_COMMAND	= Opt["LOG_COMMAND"] ? Opt["LOG_COMMAND"] : "zelta ipc-log"
 }

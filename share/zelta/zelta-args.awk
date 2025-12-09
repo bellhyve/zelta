@@ -2,18 +2,12 @@
 #
 # zelta-args.awk: serialize common zelta arguments
 
-# Try to get a hostname for logging
+# Choose a hostname for logging
 function validate_host(host,		_hostname_cmd) {
-	if (!host || (host == "localhost")) {
-		host = ENVIRON["HOST"] ? ENVIRON["HOST"] : ENVIRON["HOSTNAME"]
-		if (!host) {
-			_hostname_cmd = "hostname 2> /dev/null"
-			_hostname_cmd | getline host 
-			close(_hostname_cmd)
-		}
-		else host = "localhost"
-	}
-	return host
+	if (!host || (host == "localhost"))
+		return Opt["HOSTNAME"]
+	else
+		return host
 }
 
 # Create a set of variables from an scp-like host-dataset argument
