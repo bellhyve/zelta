@@ -66,108 +66,19 @@ function resolve_target(src, tgt) {
 
 function create_backup_command(		_cmd_arr, _i, _src, _tgt) {
 	for (_key in host_conf) {
-		print _key, host_conf[_key]
-		if (host_conf[_key])
+		# Don't forward 'zelta policy' options
+		if (PolicyOptScope[_key]) continue
+		else if (host_conf[_key])
 			_cmd_arr[++_i] = ENV_PREFIX _key "=" q(host_conf[_key])
 	}
 	# Construct the endpoint strings
+	# Switch to use the command_builder
 	_src = q((host in LOCALHOST) ? source : (host":"source))
 	_tgt = q(datasets[host, source])
-	_cmd_arr[++_i] = host_conf["backup_command"]
+	_cmd_arr[++_i] = host_conf["BACKUP_COMMAND"]
 	_cmd_arr[++_i] = _src
 	_cmd_arr[++_i] = _tgt
-	# Do we ever pass flags directly? Probably not with zelta-args.awk
-	#backup_command[site,host,source] = host_conf["backup_command"] " " flags " " cmd_src " " cmd_tgt
 	backup_command[site,host,source] = arr_join(_cmd_arr)
-	print backup_command[site,host,source]
-}
-
-# Removed because of zelta-args.awk
-#function var_name(var) {
-#	gsub(/-/,"_",var)
-#	return tolower(var)
-#}
-#
-#function long_option() {
-#	if ($0 in OPTIONS_BOOLEAN) cli_options[var_name($0)]++
-#	else {
-#		split($0, opt_pair, "=")
-#		opt_name = var_name(opt_pair[1])
-#		opt_val = opt_pair[2]
-#		if (opt_name in OPTIONS) {
-#			if (!(opt_val ~ /./)) opt_val = ARGV[++i]
-#			cli_options[opt_name] = opt_val
-#			PASS_FLAGS = PASS_FLAGS "=" opt_val
-#		} else usage("unknown option: " opt_name)
-#	}
-#	$0 = ""
-#}
-
-#function get_options() {
-#	# Policy Options
-#	OPTIONS["archive_root"]++
-#	OPTIONS["backup_root"]++
-#	OPTIONS["depth"]++
-#	OPTIONS["host_prefix"]++
-#	OPTIONS["initiator"]++
-#	OPTIONS["intermediate"]++
-#	OPTIONS["output_mode"]++
-#	OPTIONS["prefix"]++
-#	OPTIONS["push_to"]++
-#	OPTIONS["replicate"]++
-#	OPTIONS["retry"]++
-#	OPTIONS["snapshot"]++
-#	OPTIONS["threads"]++
-#	OPTIONS_BOOLEAN["list"]++
-#	OPTIONS_BOOLEAN["dry-run"]++
-#	OPTIONS_BOOLEAN["json"]++
-#	OPTIONS_BOOLEAN["quiet"]++
-#	OPTIONS_BOOLEAN["verbose"]++
-#
-#	AUTO = 1
-#	for (i=1;i<ARGC;i++) {
-#		$0 = ARGV[i]
-#		if (gsub(/^-/,"")) {
-#			PASS_FLAGS = PASS_FLAGS (PASS_FLAGS ? " " ARGV[i] : ARGV[i])
-#			while (/./) {
-#				if (sub(/^-/,"")) long_option()
-#				# Deprecate after adding long options to zelta replicate
-#				else if (sub(/^[h?]/,"")) usage()
-#				else if (sub(/^j/,"")) cli_options["output_mode"] = "JSON"
-#				else if (sub(/^q/,"")) cli_options["output_mode"] = "QUIET"
-#				else if (sub(/^n/,"")) cli_options["output_mode"] = "DRY_RUN"
-#				else if (sub(/^v/,"")) cli_options["output_mode"] = "VERBOSE"
-#				else if (sub(/^z/,"")) cli_options["output_mode"] = "DEFAULT"
-#				else usage("unknown option: " $0)
-#			}
-#		} else {
-#			AUTO = 0
-#			LIMIT_PATTERN[$0]++
-#		}
-#	}
-#}
-
-# Removed because of centralized logging
-#function set_mode() {
-#	if (cli_options["output_mode"]) MODE = toupper(cli_options["output_mode"])
-#	else if (cli_options["list"]) MODE = "LIST"
-#	else if (cli_options["json"]) MODE = "JSON"
-#	else if (cli_options["quiet"]) MODE = "QUIET"
-#	else if (cli_options["dry_run"]) MODE = "DRY_RUN"
-#	else if (cli_options["verbose"]) MODE = "VERBOSE"
-#	else if (AUTO) MODE = "ACTIVE"
-#	else MODE = "DEFAULT"
-#	if (MODE == "JSON") MODE_FLAGS = "j"
-#	else if (MODE == "VERBOSE") MODE_FLAGS = "v"
-#	else if (MODE == "QUIET") MODE_FLAGS = "q"
-#	#else MODE_FLAGS = "z"
-#	else MODE_FLAGS = "v"
-#}
-
-function copy_array(src, tgt) {
-	delete tgt
-	for (key in src) tgt[key] = src[key]
-	for (key in cli_options) tgt[key] = cli_options[key]
 }
 
 function set_var(option_list, var, val) {
@@ -204,6 +115,7 @@ function load_option_list(	_tsv, _idx, _flags, _flag_arr) {
 		if (index($1, "policy") || ($1 == "all")) {
 			if (!$3) continue
 			_key = $3
+			PolicyOptScope[_key]	= ($1 == "policy")
 			PolicyOpt[_key]		= 1
 			PolicyOptType[_key]	= $4
 			split($7, _legacy_arr, ",")
@@ -223,7 +135,7 @@ function load_config(		_context) {
 	#get_options()
 	#set_mode()
 	_context = "global"
-	ConfGlobal["backup_command"] = BACKUP_COMMAND
+	ConfGlobal["BACKUP_COMMAND"] = BACKUP_COMMAND
 
 	while ((getline < Opt["CONFIG"])>0) {
 		CONF_LINE++
@@ -245,7 +157,7 @@ function load_config(		_context) {
 			_context = "site"
 			site = $1
 			sites[site]++
-			copy_array(ConfGlobal, site_conf)
+			arr_copy(ConfGlobal, site_conf)
 		} else if (/^  [^ ]+: +[^ ]/) {
 			set_var(site_conf, $2, $3)
 
@@ -256,7 +168,7 @@ function load_config(		_context) {
 			host = $2
 			hosts[host] = 1
 			hosts_by_site[site,host] = 1
-			copy_array(site_conf, host_conf)
+			arr_copy(site_conf, host_conf)
 		} else if ($2 == "options") {
 			_context = "options"
 		} else if ($2 == "datasets") {
@@ -280,7 +192,7 @@ function load_config(		_context) {
 	}
 	close(Opt["CONFIG"])
 	if (!total_datasets) usage("no datasets defined in " Opt["CONFIG"])
-	for (key in cli_options) ConfGlobal[key] = cli_options[key]
+	#for (key in cli_options) ConfGlobal[key] = cli_options[key]
 	FS = "[ \t]+";
 }
 
