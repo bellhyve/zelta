@@ -39,12 +39,12 @@ function usage(message) {
 
 function resolve_target(src, tgt, host,		_n, _i, _segments) {
 	if (tgt) { return tgt }
-	tgt = host_conf["BACKUP_ROOT"]
-	if (host_conf["HOST_PREFIX"] && host) {
+	tgt = Host["BACKUP_ROOT"]
+	if (Host["HOST_PREFIX"] && host) {
 		tgt = tgt "/" host
 	}
 	_n = split(src, _segments, "/")
-	for (_i = _n - host_conf["host_prefix"]; _i <= _n; _i++) {
+	for (_i = _n - Host["host_prefix"]; _i <= _n; _i++) {
 		if (_segments[_i]) {
 			tgt = tgt "/" _segments[_i]
 		}
@@ -53,17 +53,17 @@ function resolve_target(src, tgt, host,		_n, _i, _segments) {
 }
 
 function create_backup_command(		_cmd_arr, _i, _src, _tgt) {
-	for (_key in host_conf) {
+	for (_key in Host) {
 		# Don't forward 'zelta policy' options
 		if (PolicyOptScope[_key]) continue
-		else if (host_conf[_key])
-			_cmd_arr[++_i] = ENV_PREFIX _key "=" q(host_conf[_key])
+		else if (Host[_key])
+			_cmd_arr[++_i] = ENV_PREFIX _key "=" q(Host[_key])
 	}
 	# Construct the endpoint strings
 	# Switch to use the command_builder
 	_src = q((host in LOCALHOST) ? source : (host":"source))
 	_tgt = q(datasets[host, source])
-	_cmd_arr[++_i] = host_conf["BACKUP_COMMAND"]
+	_cmd_arr[++_i] = Host["BACKUP_COMMAND"]
 	_cmd_arr[++_i] = _src
 	_cmd_arr[++_i] = _tgt
 	backup_command[site,host,source] = arr_join(_cmd_arr)
@@ -176,14 +176,14 @@ function load_config(		_context) {
 			host = $2
 			Hosts[host] = 1
 			HostsBySite[site,host] = 1
-			arr_copy(site_conf, host_conf)
+			arr_copy(site_conf, Host)
 		} else if ($2 == "options") {
 			_context = "options"
 		} else if ($2 == "datasets") {
 			_context = "datasets"
 		} else if (/^      [^ ]+: +[^ ]/) {
 			if (_context != "options") usage(_conf_error _line_num)
-			set_var(host_conf, $2, $3)
+			set_var(Host, $2, $3)
 		} else if ((/^  - [^ ]/) || (/^    - [^ ]/)) {
 			if (!(_context ~ /^(datasets|host)$/)) usage(_conf_error _line_num)
 			source = $3
@@ -196,6 +196,7 @@ function load_config(		_context) {
 			total_datasets++
 			datasets[host, source] = target
 			dataset_count[source]++
+			Host["LOG_PREFIX"] = host":"source": "
 			backup_command[host, source] = create_backup_command()
 		} else usage(_conf_error _line_num)
 	}
@@ -215,7 +216,8 @@ function sub_keys(key_pair, key1, key2_list, key2_subset) {
 }
 
 function should_xargs() {
-	return (!Opt["SRC_ID"] && (Global["JOBS"] > 1) && (NumSites > 1))
+	print NumOperands, Opt["OPERANDS"]
+	return ((Global["JOBS"] > 1) && (NumOperands > 1) && (NumSites > 1))
 }
 
 # Provided endpoint arguments will filter the backup job to a specific matched keyword 

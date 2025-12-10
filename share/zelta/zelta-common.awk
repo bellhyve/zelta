@@ -24,6 +24,45 @@ function zelta_init(	_o, _prefix_re) {
 			Opt[_o] = _val
 		}
 	}
+	NumOperands	= split(Opt["OPERANDS"], Operands, SUBSEP)
+}
+
+function load_endpoint(ep, ep_arr,	_str_parts, _id, _remote ,_user, _host, _ds, _snap) {
+	if (!ep) return
+	_id	= ep				# ID is the user's endpoint string
+
+	# Find the connection info for ssh, '[user@]host'
+	if (ep ~ /^[^ :\/]+:/) {
+		_remote	= ep
+		sub(/:.*/, "", _remote)		# REMOTE is '[user@]host'
+		sub(/^[^ :\/]+:/,i "", ep)		# Don't split(), ep may have ':'
+		if (split(_remote, _str_parts, "@")==2) {
+			_user = _str_parts[1]	# USER from 'user@host'
+			_host = _str_parts[2]	# HOST
+		} else _host = _str_parts[1]	# HOST only
+		# Special case: If the DS or SNAP contains a ':' and our target is local, we
+		# have a work around: 'localhost:' _remote (with no user) gets cleared (so no ssh).
+		if (!_user && (_host == "localhost")) _remote = ""
+	}
+	# Try get a suitable hostname for logging
+	if (!_host || (_host == "localhost"))
+		_host = Opt["HOSTNAME"]
+	# TO-DO: Review snapshot-only endpoint policy:
+	# ZFS supports bookmarks for incremental source, but not Zelta only needs a target snapshot
+	if (split($0, _str_parts, "@") == 2) {
+		_snap = "@" _str_parts[2]
+	}
+	_ds = _str_parts[1]
+	if (!_user) { _user = ENVIRON["USER"] }	# USER may be useful for logging
+
+	# Validate and define the endpoint
+	#if (! _ds) stop(1, "invalid endpoint '"_id"'")
+	ep_arr["ID"]		= _id
+	ep_arr["REMOTE"]	= _remote
+	ep_arr["USER"]		= _user
+	ep_arr["HOST"]		= _host
+	ep_arr["DS"]		= _ds
+	ep_arr["SNAP"]		= _snap
 }
 
 # OUTPUT FUNCTIONS
@@ -180,7 +219,8 @@ function arr_copy(src_arr, tgt_arr,		_key) {
 function create_assoc(list, assoc, sep,		_i, _arr) {
 	sep = sep ? sep : " "
 	split(list, _arr, sep)
-	for (_i in _arr) assoc[_arr[_i]]++
+	for (_i in _arr)
+		assoc[_arr[_i]] = 1
 }
 
 function create_dict(dict, def, 		_i, _n, _arr, _pair) {
@@ -275,6 +315,6 @@ BEGIN {
 	create_assoc("no false 0", False)
 	create_assoc("yes true 1", True)
 
-	# load user options into Opt[]
+	# load user options into Opt[] and create global lists
 	zelta_init()
 }

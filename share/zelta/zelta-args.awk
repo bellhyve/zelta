@@ -10,14 +10,15 @@ function validate_host(host,		_hostname_cmd) {
 		return host
 }
 
+# TO-DO: Move to 'zelta-common.awk' as a generic endpoint calculator
+# Load and parse two endpoints, the source and target, sequentially 
 # Create a set of variables from an scp-like host-dataset argument
 # [[user@]host:]dataset[@snapshot]
 function get_endpoint(		ep_type, _str_parts, _id, _remote ,_user, _host, _ds, _snap) {
-	# Load two endpoints, the source and target, sequentially 
-	
+
 	if (!NewOpt["SRC_ID"]) ep_type = "SRC_"
 	else if (!NewOpt["TGT_ID"]) ep_type = "TGT_"
-	else stop(1, "too many options: '"$0"'")
+	else return
 
 	_id = $0				# ID is the user's endpoint string
 
@@ -103,7 +104,9 @@ function get_args(		_i, _flag, _arg, _m, _subopt, _opts_done) {
 		if ($0 == "--") _opts_done++
 		else if (_opts_done || /^[^-]/) {
 			_opts_done++
+			NewOpt["OPERANDS"] = str_add(NewOpt["OPERANDS"], $0, SUBSEP)
 			get_endpoint()
+			# Push to the list of operands
 		}
 		else if (/^--[^-]/) {
 			_flag = match_arg($1)
