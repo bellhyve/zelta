@@ -37,31 +37,19 @@ function usage(message) {
 	exit(1)
 }
 
-# TO-DO: Move this to zelta-common.awk
-function log_buffer(level, message) {
-	if ((level <= LOG_NOTICE) || (MODE == "VERBOSE")) {
-		if (message == "") {
-			printf buffer_delay
-			buffer_delay = ""
-		} else { buffer_delay = buffer_delay message }
-	} else {
-		report(level, message)
-	}
-}
-
-function resolve_target(src, tgt) {
+function resolve_target(src, tgt, host,		_n, _i, _segments) {
 	if (tgt) { return tgt }
 	tgt = host_conf["BACKUP_ROOT"]
 	if (host_conf["HOST_PREFIX"] && host) {
 		tgt = tgt "/" host
 	}
-	n = split(src, segments, "/")
-	for (i = n - host_conf["host_prefix"]; i <= n; i++) {
-		if (segments[i]) {
-			tgt = tgt "/" segments[i]
+	_n = split(src, _segments, "/")
+	for (_i = _n - host_conf["host_prefix"]; _i <= _n; _i++) {
+		if (_segments[_i]) {
+			tgt = tgt "/" _segments[_i]
 		}
 	}
-	return (host_conf["push_to"] ? host_conf["push_to"] ":" : "") tgt
+	return tgt
 }
 
 function create_backup_command(		_cmd_arr, _i, _src, _tgt) {
@@ -106,7 +94,7 @@ function set_var(option_list, var, val) {
 	option_list[var] = val
 }
 
-# Use the same option list as args, but just load the keys and legacy synonyms
+# Use the option list keys to create hierarchical config for the backup policy
 function load_option_list(	_tsv, _idx, _flags, _flag_arr) {
 	_tsv = Opt["SHARE"]"/zelta-opts.tsv"
 	# TO-DO: Complain if TSV doesn't load
@@ -125,20 +113,34 @@ function load_option_list(	_tsv, _idx, _flags, _flag_arr) {
 	close(_tsv)
 }
 
+# Differentiate between backup and policy options
+function get_global_overrides(		_key) {
+	for (_key in Opt)
+		if (PolicyOptScope[_key])
+			Global[_key]	= Opt[_key]
+	# The following are set because they're required for bootstrap,
+	# so these are restored after the script starts.
+	if (Opt["POLICY_LOG_MODE"])
+		Opt["LOG_MODE"]		= Opt["POLICY_LOG_MODE"]
+	if (Opt["POLICY_LOG_LEVEL"] != "")
+		Opt["LOG_LEVEL"]	= Opt["POLICY_LOG_LEVEL"]
+	if (Opt["POLICY_LOG_COMMAND"])
+		Opt["LOG_COMMAND"]	= Opt["POLICY_LOG_COMMAND"]
+}
+
 function load_config(		_context) {
 	FS = "(:?[ \t]+)|(:$)"
 	OFS=","
-	CONF_ERR = "configuration parse error at line: "
-	POLICY_COMMAND = "zelta policy"
+	_conf_error = "configuration parse error at line: "
 	BACKUP_COMMAND = "zelta backup"
 
 	#get_options()
 	#set_mode()
 	_context = "global"
-	ConfGlobal["BACKUP_COMMAND"] = BACKUP_COMMAND
+	Global["BACKUP_COMMAND"] = BACKUP_COMMAND
 
 	while ((getline < Opt["CONFIG"])>0) {
-		CONF_LINE++
+		_line_num++
 
 		# Clean up comments:
 		if (split($0, arr, "#")) {
@@ -149,50 +151,52 @@ function load_config(		_context) {
 
 		# Global options
 		if (/^[^ ]+: +[^ ]/) {
-			if (!_context == "global") usage(CONF_ERR CONF_LINE)
-			set_var(ConfGlobal, $1, $2)
+			if (!_context == "global") usage(_conf_error _line_num)
+			set_var(Global, $1, $2)
 
 		# Sites:
 		} else if (/^[^ ]+:$/) {
 			_context = "site"
 			site = $1
-			sites[site]++
-			arr_copy(ConfGlobal, site_conf)
+			Sites[site]++
+			NumSites++
+			arr_copy(Global, site_conf)
 		} else if (/^  [^ ]+: +[^ ]/) {
 			set_var(site_conf, $2, $3)
 
 		# Hosts:
 		} else if (/^  [^ ]+:$/) {
-			if (_context == "global") usage(CONF_ERR CONF_LINE)
+			if (_context == "global") usage(_conf_error _line_num)
 			_context = "host"
 			host = $2
-			hosts[host] = 1
-			hosts_by_site[site,host] = 1
+			Hosts[host] = 1
+			HostsBySite[site,host] = 1
 			arr_copy(site_conf, host_conf)
 		} else if ($2 == "options") {
 			_context = "options"
 		} else if ($2 == "datasets") {
 			_context = "datasets"
 		} else if (/^      [^ ]+: +[^ ]/) {
-			if (_context != "options") usage(CONF_ERR CONF_LINE)
+			if (_context != "options") usage(_conf_error _line_num)
 			set_var(host_conf, $2, $3)
 		} else if ((/^  - [^ ]/) || (/^    - [^ ]/)) {
-			if (!(_context ~ /^(datasets|host)$/)) usage(CONF_ERR CONF_LINE)
+			if (!(_context ~ /^(datasets|host)$/)) usage(_conf_error _line_num)
 			source = $3
-			target = resolve_target(source, $4)
+			target = resolve_target(source, $4, host)
 			if (!target) {
-				log_buffer(LOG_WARNING,"no target defined for " source)
-			} else target = resolve_target(source, target)
-			if (!should_backup()) continue
+				report(LOG_WARNING,"no target defined for " source)
+			} else target = resolve_target(source, target, host)
+
+			if (!should_backup(site, host, source, target)) continue
 			total_datasets++
 			datasets[host, source] = target
 			dataset_count[source]++
 			backup_command[host, source] = create_backup_command()
-		} else usage(CONF_ERR CONF_LINE)
+		} else usage(_conf_error _line_num)
 	}
 	close(Opt["CONFIG"])
 	if (!total_datasets) usage("no datasets defined in " Opt["CONFIG"])
-	#for (key in cli_options) ConfGlobal[key] = cli_options[key]
+	#for (key in cli_options) Global[key] = cli_options[key]
 	FS = "[ \t]+";
 }
 
@@ -205,107 +209,89 @@ function sub_keys(key_pair, key1, key2_list, key2_subset) {
 	}
 }
 
+function should_xargs() {
+	return (!Opt["SRC_ID"] && (Global["JOBS"] > 1) && (NumSites > 1))
+}
+
 # Provided endpoint arguments will filter the backup job to a specific matched keyword 
 function get_backup_selection_pattern() {
 	# zelta-args.awk needs to be updated to create arg lists for limiting here
 	delete LIMIT_PATTERN
 	LIMIT_PATTERN[Opt["SRC_ID"]]++
-	LIMIT_PATTERN[Opt["TGT_ID"]]++
 }
 
-function should_backup() {
-	# AUTO means backup everything (I think); we'll check for a parameter instead
-	#if (AUTO) return 1
-	
-	# If no endpoint arguments were given, accept any backup job
-	# See get_backup_selection_pattern() above, this should be broader
+# If a parameter is given
+function should_backup(site, host, source, target,	_host_source, _target_stub) {
 	if (!Opt["SRC_ID"]) return 1
-	
-	target_stub = target
-	sub(/.*\//,"",target_stub)
-	if (site in LIMIT_PATTERN || host in LIMIT_PATTERN || source in LIMIT_PATTERN ||target in LIMIT_PATTERN || host":"source in LIMIT_PATTERN || target_stub in LIMIT_PATTERN) {
+	_host_source = host":"source
+	_target_stub = target
+	sub(/.*\//,"",_target_stub)
+	if (site in LIMIT_PATTERN || host in LIMIT_PATTERN || source in LIMIT_PATTERN)
 		return 1
-	} else { return 0 }
+	if (target in LIMIT_PATTERN || host":"source in LIMIT_PATTERN || _target_stub in LIMIT_PATTERN)
+		return 1
+	return 0
 }
 
-function zelta_backup() {
-	sync_cmd = backup_command[site,host,source]
-	sync_status = 1
-	if (MODE == "LIST") {
-		print host":"source
-		return 1
-	} else if (MODE == "DRY_RUN") {
-		print "+ " sync_cmd
-		return 1
-	} else if (MODE == "ACTIVE") log_buffer(LOG_NOTICE, source": ")
-	else if ((MODE == "DEFAULT") || (MODE == "VERBOSE")) log_buffer(LOG_NOTICE, host":"source": ")
-	while (sync_cmd|getline) {
-		# Provide a one-line sync summary
-		# received_streams, total_bytes, time, error
-		if (/[0-9]+ [0-9]+ [0-9]+\.*[0-9]* -?[0-9]+/) {
-			if ($2) log_buffer(LOG_NOTICE, h_num($2) ": ")
-			if ($4) {
-				#log_buffer(LOG_NOTICE, "failed: ")
-				sync_status = 0
-				if ($4 == 1) log_buffer(LOG_NOTICE, "error matching snapshots")
-				else if ($4 == 2) log_buffer(LOG_NOTICE, "replication error")
-				else if ($4 == 3) log_buffer(LOG_NOTICE, "target is ahead of source")
-				else if ($4 == 4) log_buffer(LOG_NOTICE, "error creating parent dataset")
-				else if ($4 == 5) log_buffer(LOG_NOTICE, "match error")
-				else if ($4 < 0) log_buffer(LOG_NOTICE, (0-$4) " missing streams")
-				else log_buffer(LOG_NOTICE, "error: " $0)
-			} else if ($1) { log_buffer(LOG_NOTICE, "replicated in " $3 "s") }
-			else log_buffer(LOG_NOTICE, "up-to-date")
-		} else {
-			log_buffer(LOG_NOTICE, $0)
-			if (/replicationErrorCode/ && !/0,/) sync_status = 0
-		}
-		log_buffer(LOG_NOTICE, "\n")
+function zelta_backup(endpoint_key,		_cmd, _return_code) {
+	# Removed explicit output modes: LIST, ACTIVE, DEFAULT, VERBOSE
+	# LIST is undocumented
+	# ACTIVE creates a simplified indented print style
+	#_cmd = backup_command[site,host,source]
+	_cmd = backup_command[endpoint_key]
+	if (Opt["DRYRUN"]) {
+		report(LOG_NOTICE, "+ " _cmd)
+		return
 	}
-	log_buffer(LOG_NOTICE, "")
-	close(sync_cmd)
-	return sync_status
+	_return_code = system(_cmd)
+	close(_cmd)
+	# TO-DO: Use error codes to deduce if it seems to be retryable or not.
+	return !!_return_code
 }
 
-function xargs() {
-	for (site in sites) site_list = site_list " "site
-	xargs_command = "echo" site_list " | xargs -n1 -P" ConfGlobal["threads"] " " POLICY_COMMAND " " PASS_FLAGS
-	while (xargs_command | getline) { print }
-	close(xargs_command)
-	exit 0
+function xargs(		_xargs_cmd, _site, _echo_sites, _return_code) {
+	_policy_cmd = "zelta policy"
+	_echo_sites = "echo"
+	for (_site in Sites) _echo_sites = str_add(_echo_sites, q(_site))
+	report(LOG_DEBUG, "launching " Global["JOBS"] " 'zelta policy' jobs")
+	_xargs_cmd = _echo_sites " | xargs -n1 -P" Global["JOBS"] " " _policy_cmd
+	system(_xargs_cmd)
+	return _return_code
+}
+
+function backup_loop(		_site, _host, _hosts_arr, _job_status, _endpoint_key, _site_hosts, _num_failed, _failed_arr) {
+	for (_site in Sites) {
+		sub_keys(HostsBySite, _site, Hosts, _site_hosts)
+		for (_host in _site_hosts) {
+			sub_keys(datasets, _host, dataset_count, host_datasets)
+			for (source in host_datasets) {
+				target = datasets[_host,source]
+				_endpoint_key = _site SUBSEP _host SUBSEP source
+				# The backup job should already be excluded before this point
+				if (!should_backup()) continue
+				if (zelta_backup(_endpoint_key)) {
+					_num_failed++
+					_failed_arr[_endpoint_key] = _host ":" source
+				}
+			}
+		}
+	}
+	while ((Global["RETRY"]-- > 0) && _num_failed) {
+		for (_endpoint_key in _failed_arr) {
+			report(LOG_WARNING, "retrying: " _failed_arr[_endpoint_key])
+			if (zelta_backup(_endpoint_key))
+				delete _failed_arr[_endpoint_key]
+		}
+	}
 }
 
 BEGIN {
 	STDERR = "/dev/stderr"
 	load_option_list()
+	get_global_overrides()
+	get_backup_selection_pattern()
 	load_config()
-	if (AUTO && (ConfGlobal["threads"] > 1)) xargs()
-	for (site in sites) {
-		if (MODE == "ACTIVE") log_buffer(LOG_NOTICE, site "\n")
-		sub_keys(hosts_by_site, site, hosts, site_hosts)
-		for (host in site_hosts) {
-			if (MODE == "ACTIVE") log_buffer(LOG_NOTICE, "  " host "\n")
-			sub_keys(datasets, host, dataset_count, host_datasets)
-			for (source in host_datasets) {
-				target = datasets[host,source]
-				# The backup job should already be excluded before this point
-				if (!AUTO && !should_backup()) continue
-				if (MODE == "ACTIVE") log_buffer(LOG_NOTICE,"    ")
-				if (! zelta_backup()) {
-					failed_num++
-					failed_list[site"\t"host"\t"source"\t"target]++
-				}
-			}
-		}
-	}
-	while ((ConfGlobal["retry"]-- > 0) && failed_num) {
-		for (failed_sync in failed_list) {
-			$0 = failed_sync
-			site = $1; host = $2; source = $3; target = $4
-			if (MODE != "JSON") log_buffer(LOG_NOTICE, "retry: " )
-			if (zelta_backup()) {
-				delete failed_list[failed_sync]
-			}
-		}
-	}
+	if (should_xargs()) xargs()
+	else backup_loop()
+	stop(0)
 }

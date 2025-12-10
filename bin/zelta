@@ -136,7 +136,7 @@ zelta_init() {
 	: ${ZELTA_REMOTE_RECV:="${ZELTA_REMOTE_COMMAND}"}
 
 	export AWK ZELTA_VERSION ZELTA_HOSTNAME ZELTA_VERB ZELTA_SHARE ZELTA_ETC ZELTA_ENV ZELTA_CONFIG
-	# ZELTA_LOG_MODE ZELTA_LOG_LEVEL ZELTA_LOG_COMMAND
+	export ZELTA_LOG_MODE ZELTA_LOG_LEVEL ZELTA_LOG_COMMAND
 }
 
 zelta_export() {
@@ -192,10 +192,10 @@ zelta_log() {
 			continue
 		elif [ -n "$_term" ] && [ "$log_level" = 2 ] ; then
 			# "Notice" is regular stdout on a term
-			echo $log_message >&${_fd_term}
+			echo "$log_message" >&${_fd_term}
 		elif [ -n "$_term" ] && [ "$log_level" = 3 ] ; then
 			# "Info" is regular stderr on a term
-			echo $log_message >&${_fd}
+			echo "$log_message" >&${_fd}
 		else
 			case "$log_level" in
 			1)	log_prefix="warning: " ;;
@@ -233,6 +233,9 @@ ipc-run)
 		shift
 		;;
 policy)		# Don't export defaults or zelta.env so we can override them with policy
+		export ZELTA_POLICY_LOG_MODE="$ZELTA_LOG_MODE"
+		export ZELTA_POLICY_LOG_COMMAND="$ZELTA_LOG_COMMAND"
+		export ZELTA_POLICY_LOG_LEVEL="$ZELTA_LOG_LEVEL"
 		zelta_init "$@"
 		;;
 *)
