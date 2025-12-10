@@ -212,6 +212,7 @@ function h_num(num,	_suffix, _divisors, _h) {
 
 # Constructs a remote command string
 function remote_str(endpoint, type,     _cmd) {
+	if (!Opt[endpoint "_REMOTE"]) return ""
         type = type ? type : "DEFAULT"
         _cmd = Opt["REMOTE_" type]" "Opt[endpoint "_" "REMOTE"]
         return _cmd
