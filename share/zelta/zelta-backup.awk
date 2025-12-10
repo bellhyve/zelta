@@ -365,7 +365,8 @@ function compute_eligibility(           _i, _ds_suffix, _src_idx, _tgt_idx,
 				Action[_ds_suffix, "block_reason"] = "target has local writes"
 				continue
 			}
-			Action[_ds_suffix, "block_reason"] = "up-to-date"
+			# TO-DO: Imrpove verbose output
+			#Action[_ds_suffix, "block_reason"] = "up-to-date"
 			DSTree["up_to_date"]++
 			continue
 		}
@@ -449,9 +450,8 @@ function create_source_snapshot(	_snap_name, _ds_snap, _cmd_arr, _cmd, _snap_fai
 ## Dataset and properties validation
 ####################################
 
-# This isn't currently used, but it provides the lightest weight way to make sure
-# a dataset exists.
-function validate_dataset(ep, ds,		_cmd_arr, _cmd, _ds_exists, _remote) {
+# 
+function dataset_exists(ep, ds,		_cmd_arr, _cmd, _ds_exists, _remote) {
 	_remote = Opt[ep"_REMOTE"]
 	_cmd_arr["endpoint"]	= ep
 	_cmd_arr["ds"]		= rq(_remote, ds)
@@ -476,7 +476,7 @@ function validate_target_parent_dataset(		_parent, _cmd, _cmd_arr, _depth, _i, _
 	if (!Opt["CREATE_PARENT"]) {
 		_parent = Opt["TGT_DS"]
 		sub(/\/[^\/]*$/, "", _parent) # Strip last child element
-		_ds_exists = validate_dataset("TGT", _parent)
+		_ds_exists = dataset_exists("TGT", _parent)
 		if (!_ds_exists)
 			stop(1, "target has no parent dataset: '"_parent"'")
 		else
@@ -528,7 +528,7 @@ function validate_target_parent_dataset(		_parent, _cmd, _cmd_arr, _depth, _i, _
 
 # Validate the source dataset
 function validate_source_dataset() {
-	if (!Opt["SRC_ID"]) {
+	if (!Source["ID"]) {
 		report(LOG_ERROR, "missing endpoint argument")
 		usage()
 	}
@@ -543,23 +543,6 @@ function validate_source_dataset() {
 
 # Ensure the target state is correct
 function validate_target_dataset() {
-	# 'revert' should NOT have a target
-	if (Opt["VERB"] == "revert") {
-		if (Opt["TGT_ID"]) {
-			report(LOG_ERROR, "revert does not take a target argument")
-			usage("did you mean 'zelta rotate '" Opt["SRC_ID"]" " Opt["TGT_ID"]"' ?")
-		}
-		return 1
-	}
-
-	# Everything else requires a target
-	if (!Opt["TGT_ID"]) {
-		report(LOG_ERROR, "missing target endpoint argument")
-		if ((Opt["VERB"] == "clone") || (Opt["VERB"] == "rotate"))
-			report(LOG_ERROR, "did you mean 'zelta revert '" Opt["SRC_ID"]"' ?")
-		usage()
-	}
-
 	# Load target properties and validate based on verb
 	if (load_properties("TGT")) {
 		# Target exists
@@ -573,6 +556,34 @@ function validate_target_dataset() {
 
 	# Now validate the parent exists
 	validate_target_parent_dataset()
+}
+
+function validate_datasets(	_verb, _src_only, _cloners) {
+	_verb			= Opt["VERB"]
+	_cloners["rotate"]	= 1
+	_cloners["clone"]	= 1
+	_src_only["revert"]	= 1
+	load_endpoint(Operands[1], Source)
+	load_endpoint(Operands[2], Target)
+
+	# Check command line
+	if (!NumOperands)
+		usage("no endpoints given")
+	else if (NumOperands > 2)
+		usage("too many operands: " Operands[3])
+	else if (NumOperands == 1 && !(_verb in _src_only)) {
+                if (_verb in _cloners)
+                        report(LOG_ERROR, "did you mean 'zelta revert '" Source["ID"] "' ?")
+		usage("missing target endpoint argument")
+	}
+	else if (NumOperands != 1 && (_verb in _src_only)) {
+		report(LOG_ERROR, "did you mean 'zelta rotate' " Source["ID"] " " Target["ID"]" ?")
+		usage("'" _verb "' does not take a target argument")
+	}
+
+	validate_source_dataset()
+	if (!(_verb in _src_only))
+		validate_target_dataset()
 }
 
 
@@ -990,8 +1001,7 @@ BEGIN {
 	if (Opt["SNAP_MODE"] == "ALWAYS")
 		DSTree["snapshot_needed"]	= SNAP_ALWAYS
 
-	validate_source_dataset()
-	validate_target_dataset()
+	validate_datasets()
 	validate_snapshots()
 	compute_eligibility()
 

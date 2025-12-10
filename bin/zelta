@@ -186,7 +186,11 @@ zelta_log() {
 				log_level=2
 				;;
 		esac
-		: ${log_message:="missing log message"}
+		if [ -z "$log_message" ] ; then
+			log_message="missing log message"
+		else
+			log_message="${ZELTA_LOG_PREFIX}${log_message}"
+		fi
 		if [ "$log_level" -gt "$max_log_level" ] ; then
 			# Log level hasn't been met, skip
 			continue
