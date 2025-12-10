@@ -73,6 +73,11 @@ function set_var(option_list, var, val) {
 	gsub(/-/,"_",var)
 	gsub(/^ +/,"",var)
 	var = toupper(var)
+	if (var in PolicyLegacy) {
+		# TO-DO: Legacy warning
+		report(LOG_DEBUG, "reassigning option '"var"' to '"PolicyLegacy[var]"'")
+		var = PolicyLegacy[var]
+	}
 	if (!(var in PolicyOpt)) usage("unknown option: "var)
 	if (var in Opt) {
 		# Var is overriden by envorinment
@@ -107,7 +112,7 @@ function load_option_list(	_tsv, _idx, _flags, _flag_arr) {
 			PolicyOpt[_key]		= 1
 			PolicyOptType[_key]	= $4
 			split($7, _legacy_arr, ",")
-			for (_idx in _legacy_arr) PolicyLegacy[_flag_arr[_idx]] = _flags
+			for (_idx in _legacy_arr) PolicyLegacy[_legacy_arr[_idx]] = _key
 		}
 	}
 	close(_tsv)
