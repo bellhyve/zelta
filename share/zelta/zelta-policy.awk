@@ -131,6 +131,8 @@ function get_global_overrides(		_key) {
 		Opt["LOG_LEVEL"]	= Opt["POLICY_LOG_LEVEL"]
 	if (Opt["POLICY_LOG_COMMAND"])
 		Opt["LOG_COMMAND"]	= Opt["POLICY_LOG_COMMAND"]
+	# Load Operands into an associative array for pattern matching
+	create_assoc(Opt["OPERANDS"], Patterns, SUBSEP)
 }
 
 function load_config(		_context) {
@@ -216,27 +218,28 @@ function sub_keys(key_pair, key1, key2_list, key2_subset) {
 }
 
 function should_xargs() {
-	print NumOperands, Opt["OPERANDS"]
 	return ((Global["JOBS"] > 1) && (NumOperands > 1) && (NumSites > 1))
 }
 
-# Provided endpoint arguments will filter the backup job to a specific matched keyword 
-function get_backup_selection_pattern() {
-	# zelta-args.awk needs to be updated to create arg lists for limiting here
-	delete LIMIT_PATTERN
-	LIMIT_PATTERN[Opt["SRC_ID"]]++
-}
-
 # If a parameter is given
-function should_backup(site, host, source, target,	_host_source, _target_stub) {
-	if (!Opt["SRC_ID"]) return 1
+function should_backup(site, host, source, target,	_host_source, _target_stub, _list_, _match_arr, _i) {
+	if (!NumOperands) return 1
 	_host_source = host":"source
 	_target_stub = target
 	sub(/.*\//,"",_target_stub)
-	if (site in LIMIT_PATTERN || host in LIMIT_PATTERN || source in LIMIT_PATTERN)
-		return 1
-	if (target in LIMIT_PATTERN || host":"source in LIMIT_PATTERN || _target_stub in LIMIT_PATTERN)
-		return 1
+
+	# Assemble possible match criteria; str_add() discards blank criteria
+	_list = str_add(site, host, SUBSEP)
+	_list = str_add(_list, source, SUBSEP)
+	_list = str_add(_list, target, SUBSEP)
+	_list = str_add(_list, _host_source, SUBSEP)
+	_list = str_add(_list, _target_stub, SUBSEP)
+	create_assoc(_list, _match_arr, SUBSEP)
+
+	# Match the operands to any of the above
+	for (_i in Patterns)
+		if (_i in _match_arr)
+			return 1
 	return 0
 }
 
@@ -259,7 +262,11 @@ function zelta_backup(endpoint_key,		_cmd, _return_code) {
 function xargs(		_xargs_cmd, _site, _echo_sites, _return_code) {
 	_policy_cmd = "zelta policy"
 	_echo_sites = "echo"
-	for (_site in Sites) _echo_sites = str_add(_echo_sites, q(_site))
+	if (NumOperands)
+		_echo_sites = str_add(_echo_sites, arr_join(Operands))
+	else
+		for (_site in Sites)
+			_echo_sites = str_add(_echo_sites, q(_site))
 	report(LOG_DEBUG, "launching " Global["JOBS"] " 'zelta policy' jobs")
 	_xargs_cmd = _echo_sites " | xargs -n1 -P" Global["JOBS"] " " _policy_cmd
 	system(_xargs_cmd)
@@ -275,7 +282,7 @@ function backup_loop(		_site, _host, _hosts_arr, _job_status, _endpoint_key, _si
 				target = datasets[_host,source]
 				_endpoint_key = _site SUBSEP _host SUBSEP source
 				# The backup job should already be excluded before this point
-				if (!should_backup()) continue
+				if (!should_backup(_site, _host, source, target)) continue
 				if (zelta_backup(_endpoint_key)) {
 					_num_failed++
 					_failed_arr[_endpoint_key] = _host ":" source
@@ -296,7 +303,6 @@ BEGIN {
 	STDERR = "/dev/stderr"
 	load_option_list()
 	get_global_overrides()
-	get_backup_selection_pattern()
 	load_config()
 	if (should_xargs()) xargs()
 	else backup_loop()
