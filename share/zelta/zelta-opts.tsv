@@ -29,11 +29,11 @@ policy,backup,replicate,sync,rotate	-e,-h,-M,-u	RECV_OVERRIDE	arglist
 policy,backup,replicate,sync,rotate	--rotate	VERB	set	rotate
 policy,backup,replicate,sync,rotate	-R,--replicate	VERB	set	replicate
 policy,backup,replicate,sync,rotate	-I	SEND_INTR	true
-policy,backup,replicate,sync,rotate	-i	SEND_INTR	false
+policy,backup,replicate,sync,rotate	-i	SEND_INTR	falseA			INTERMEDIATE
 policy,backup,replicate,sync,rotate	--resume	RESUME	true
 policy,backup,replicate,sync,rotate	--no-resume	RESUME	false
 policy,backup,replicate,sync,rotate,clone	--exclude,-X	EXCLUDE_LIST	set
-policy,backup,replicate,sync,revert,rotate,clone	--snap-mode	SNAP_MODE	set
+policy,backup,replicate,sync,revert,rotate,clone	--snap-mode	SNAP_MODE	set			SNAPSHOT
 policy,backup,replicate,sync,revert,rotate,clone	--no-snapshot	SNAP_MODE	false
 policy,backup,replicate,sync,revert,rotate,clone	--snapshot	SNAP_MODE	set	IF_NEEDED
 policy,backup,replicate,sync,revert,rotate,clone	--snapshot-always	SNAP_MODE	set	ALWAYS
