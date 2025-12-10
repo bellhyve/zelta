@@ -29,7 +29,7 @@ policy,backup,replicate,sync,rotate	-e,-h,-M,-u	RECV_OVERRIDE	arglist
 policy,backup,replicate,sync,rotate	--rotate	VERB	set	rotate
 policy,backup,replicate,sync,rotate	-R,--replicate	VERB	set	replicate
 policy,backup,replicate,sync,rotate	-I	SEND_INTR	true
-policy,backup,replicate,sync,rotate	-i	SEND_INTR	falseA			INTERMEDIATE
+policy,backup,replicate,sync,rotate	-i	SEND_INTR	false			INTERMEDIATE
 policy,backup,replicate,sync,rotate	--resume	RESUME	true
 policy,backup,replicate,sync,rotate	--no-resume	RESUME	false
 policy,backup,replicate,sync,rotate,clone	--exclude,-X	EXCLUDE_LIST	set
