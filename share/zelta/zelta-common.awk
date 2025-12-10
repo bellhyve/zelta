@@ -223,6 +223,7 @@ function create_assoc(list, assoc, sep,		_i, _arr) {
 		assoc[_arr[_i]] = 1
 }
 
+# I think this is just for 'zelta match' and could be retired
 function create_dict(dict, def, 		_i, _n, _arr, _pair) {
 	# def format: user_key:key [space]
 	_n = split(def, _arr, " ")
