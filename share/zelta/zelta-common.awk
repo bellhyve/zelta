@@ -30,7 +30,7 @@ function zelta_init(	_o, _prefix_re) {
 
 # Logging
 function report(mode, message) {
-	print mode "\t" message | LOG_COMMAND
+	print mode "\t" message | Opt["LOG_COMMAND"]
 	log_output_count++
 }
 
@@ -276,7 +276,4 @@ BEGIN {
 
 	# load user options into Opt[]
 	zelta_init()
-
-	# Derived globals
-	LOG_COMMAND	= Opt["LOG_COMMAND"] ? Opt["LOG_COMMAND"] : "zelta ipc-log"
 }
