@@ -30,12 +30,11 @@ function zelta_init(	_o, _prefix_re) {
 function load_endpoint(ep, ep_arr,	_str_parts, _id, _remote ,_user, _host, _ds, _snap) {
 	if (!ep) return
 	_id	= ep				# ID is the user's endpoint string
-
 	# Find the connection info for ssh, '[user@]host'
 	if (ep ~ /^[^ :\/]+:/) {
 		_remote	= ep
 		sub(/:.*/, "", _remote)		# REMOTE is '[user@]host'
-		sub(/^[^ :\/]+:/,i "", ep)		# Don't split(), ep may have ':'
+		sub(/^[^ :\/]+:/,"", ep)	# Don't split(), ep may have ':'
 		if (split(_remote, _str_parts, "@")==2) {
 			_user = _str_parts[1]	# USER from 'user@host'
 			_host = _str_parts[2]	# HOST
@@ -49,7 +48,7 @@ function load_endpoint(ep, ep_arr,	_str_parts, _id, _remote ,_user, _host, _ds, 
 		_host = Opt["HOSTNAME"]
 	# TO-DO: Review snapshot-only endpoint policy:
 	# ZFS supports bookmarks for incremental source, but not Zelta only needs a target snapshot
-	if (split($0, _str_parts, "@") == 2) {
+	if (split(ep, _str_parts, "@") == 2) {
 		_snap = "@" _str_parts[2]
 	}
 	_ds = _str_parts[1]
