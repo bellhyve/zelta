@@ -39,14 +39,14 @@ function usage(message) {
 	exit 1
 }
 
-function validate_options(	i, o) {
-	if (Opt["USAGE"]) usage()
-	source_defined = (Opt["SRC_ID"] && Opt["SRC_DS"])
-	target_defined = (Opt["TGT_ID"] && Opt["TGT_DS"])
-	if ((!source_defined) && (!target_defined)) usage("no datasets defined")
-	# Skip "written" in scripting mode (-H) if no written summary or properties will be printed.
-	if (Opt["LIST_WRITTEN"] && Opt["PROPLIST"] && Opt["PARSABLE"] && (Opt["PROPLIST"] !~ /(all|written|size)/)) {
-		Opt["LIST_WRITTEN"] = 0
+function validate_options() {
+	load_endpoint(Operands[1], Source)
+	load_endpoint(Operands[2], Target)
+	if (Opt["USAGE"]) { usage() }
+	if (!Source["DS"] && !Target["DS"]) { usage("no datasets defined") }
+	if (Opt["LIST_WRITTEN"] && Opt["PROPLIST"]) {
+		if (Opt["PARSABLE"] && (Opt["PROPLIST"] !~ /(all|written|size)/))
+			Opt["LIST_WRITTEN"] = 0
 	}
 }
 
@@ -93,9 +93,9 @@ function check_parent(endpoint,		_ds, _p, _cmd_part, _cmd, _cmd_output) {
 		_cmd_part[_p++]		= Opt["REMOTE_DEFAULT"] " " Opt[endpoint "_REMOTE"]
 	}
 	_cmd_part[_p++]			= "zfs"
-	_cmd_part[_p++]                   = "list -Ho name"
-	_cmd_part[_p++]                   = rq(Opt[endpoint "_REMOTE"], _ds)
-	_cmd_part[_p]                     = CAPTURE_OUTPUT
+	_cmd_part[_p++]		   = "list -Ho name"
+	_cmd_part[_p++]		   = rq(Opt[endpoint "_REMOTE"], _ds)
+	_cmd_part[_p]		     = CAPTURE_OUTPUT
 	_cmd = join_arr(_cmd_part, _p)
 	_cmd | getline _cmd_output
 	close(_cmd)
@@ -104,11 +104,10 @@ function check_parent(endpoint,		_ds, _p, _cmd_part, _cmd, _cmd_output) {
 }
 
 BEGIN {
+	validate_options()
 	# Constants
 	FS				= "\t"
 	OFS				= "\t"
-
-	validate_options()
 	MatchCommand				= "zelta ipc-run match-pipe"
 	if (source_defined) ZFS_LIST_SRC	= zfs_list("SRC")
 	if (target_defined) ZFS_LIST_TGT	= zfs_list("TGT")
