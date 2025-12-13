@@ -89,8 +89,8 @@ function update_latest_snapshot(endpoint, ds_suffix, snap_name,		_idx, _src_late
 			Action[ds_suffix, "blocked_reason"] = "up-to-date"
 			Action[ds_suffix, "can_sync"] = 0
 		}
+		# If the snapshot transferred isn't the latest, this is a 2-pass intermediate sync
 		else
-			# If the snapshot transferred isn't the latest, this is a 2-pass intermediate sync
 			compute_send_range(ds_suffix)
 	}
 }
@@ -199,17 +199,18 @@ function compute_send_range(ds_suffix,		_ds_suffix, _src_idx, _final_ds_snap) {
 	_final_ds_snap	= ""
 
 	# Calculate the single or "incremental/intermediate target" 'zfs send' snapshot
+
+	# Use the overriden value from a snapshot or parameter
 	if (DSTree["final_snapshot"])
-		# Use the overriden value from a snapshot or parameter
 		_final_ds_snap	= DSTree["final_snapshot"]
+	# In intermediate '-I' mode, use the earliest snapshot for a full pass
 	else if (Opt["SEND_INTR"] && !DSPair[_ds_suffix, "match"])
-		# In intermediate '-I' mode, use the earliest snapshot for a full pass
 		_final_ds_snap	= Dataset[_src_idx, "next_snapshot"]
+	# 'zelta rotate' wants the next-available snapshot
 	else if (Opt["VERB"] == "rotate") 
-		# 'zelta rotate' wants the next-available snapshot
 		_final_ds_snap	= Dataset[_src_idx, "next_snapshot"]
+	# For second pass or -i incremental mode, get up-to-date
 	else
-		# For second pass or -i incremental mode, get up-to-date
 		_final_ds_snap	= Dataset[_src_idx, "latest_snapshot"]
 
 	# 'zfs send' arguments: [-[Ii] source_start] source_end
@@ -406,13 +407,30 @@ function should_snapshot() {
 		return "action requires a target delta; snapshotting: "
 	else return 0
 }
+
+function get_snap_name(		_snap_name, _snap_cmd) {
+	_snap_name = Opt["SNAP_NAME"]
+	if (_snap_name ~ /[[:space:]]/)  {
+		report(LOG_WARNING, "to define dynamic snapshot names, use this format: \"$(" _snap_name ")\"")
+		_snap_cmd = _snap_name
+		_snap_cmd | getline _snap_name
+		close(_snap_cmd)
+	}
+	if (!_snap_name)
+		_snap_name = Summary["startTime"]
+	if (_snap_name !~ "^@")
+		_snap_name = "@" _snap_name
+	return _snap_name
+}
+
 # This function replaces the original 'zelta snapshot' command
 function create_source_snapshot(	_snap_name, _ds_snap, _cmd_arr, _cmd, _snap_failed, _should_snap) {
-	_snap_name = "@" (Opt["SNAP_NAME"] ? Opt["SNAP_NAME"] : Summary["startTime"])
 
 	_should_snap = should_snapshot()
-	if (_should_snap) report(LOG_NOTICE, _should_snap _snap_name)
-	else return
+	if (_should_snap) {
+		_snap_name = get_snap_name()
+		report(LOG_NOTICE, _should_snap _snap_name)
+	} else return
 
         DSTree["snapshot_needed"] = 0
         DSTree["snapshot_attempted"] = 1
