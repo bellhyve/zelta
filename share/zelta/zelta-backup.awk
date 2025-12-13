@@ -476,10 +476,12 @@ function dataset_exists(ep, ds,		_cmd_arr, _cmd, _ds_exists, _remote) {
 	_cmd = build_command("CHECK", _cmd_arr)
 	report(LOG_INFO, "checking for existence of "ep" dataset: "ds)
 	report(LOG_DEBUG, "`"_cmd"`")
-	while (_cmd CAPTURE_OUTPUT | getline) {
+	_cmd = _cmd CAPTURE_OUTPUT
+	while (_cmd | getline) {
 		if ($0 == ds) _ds_exists++
 		else return
 	}
+	close(_cmd)
 	return _ds_exists
 }
 
