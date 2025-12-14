@@ -1,13 +1,6 @@
 #!/bin/bash
 
-SRC_POOL='apool'
-TGT_POOL='bpool'
-TREETOP_DSN='treetop'
-BACKUPS_DSN='backups'
 
-SRC_TREE="$SRC_POOL/$TREETOP_DSN"
-TGT_TREE="$TGT_POOL/$BACKUPS_DSN/$TREETOP_DSN"
-ALL_DATASETS="one/two/three"
 
 
 DATASETS=(
@@ -37,9 +30,11 @@ create_tree_via_zfs() {
 
 create_tree_via_zelta() {
     #zelta backup $SRC_POOL $TGT_POOL/treetop/one/two/three
+    set -x
     zelta backup $SRC_POOL $TGT_POOL/$TREETOP_DSN/$ALL_DATASETS
     zelta revert $TGT_POOL/$TREETOP_DSN
     zelta backup $TGT_POOL/$TREETOP_DSN  $SRC_POOL/$TREETOP_DSN
+    set +x
 }
 
 rm_test_datasets() {
@@ -55,8 +50,8 @@ rm_test_datasets() {
 
 echo "Make a fresh test tree"
 rm_test_datasets
-create_tree_via_zfs
-#create_tree_via_zelta
+#create_tree_via_zfs
+create_tree_via_zelta
 
 
 #zfs destroy -vR "$SRCTREE"
