@@ -3,7 +3,6 @@
 # Set test environment variables
 --env-from spec/initialize/test_env.sh
 
-
 ## Default kcov (coverage) options
 # --kcov-options "--include-path=. --path-strip-level=1"
 # --kcov-options "--include-pattern=.sh"

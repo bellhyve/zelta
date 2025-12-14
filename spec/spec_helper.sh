@@ -40,6 +40,8 @@ start_all() {
   curdir=$(pwd)
   echo "spec_helper.sh start_all curdir:$curdir"
   #./spec/initialize/create_file_backed_zfs_test_pools.sh
+  #./spec/initialize/initialize_testing_setup.sh
+
 
   #echo "staring all"
   #. ./spec/initialize/initialize_testing_setup

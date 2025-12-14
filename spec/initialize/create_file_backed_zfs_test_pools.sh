@@ -12,7 +12,7 @@ BPOOL_NAME=bpool
 check_pool_exists() {
     pool_name="$1"
     if [ -z "$pool_name" ]; then
-        echo "Error: Pool name required" >&2
+        echo "** Error: Pool name required" >&2
         return 1
     fi
     sudo zpool list "$pool_name" > /dev/null 2>&1
@@ -24,17 +24,17 @@ destroy_pool_if_exists() {
     if check_pool_exists "$pool_name"; then
         echo "Destroying pool '$pool_name'..."
         sudo zpool list "$pool_name"
-        sudo zpool export "$pool_name"
-        sudo zpool import "$pool_name"
+        #sudo zpool export "$pool_name"
+        #sudo zpool import "$pool_name"
 
          #sudo zpool destroy "$pool_name"
          #sudo zfs umount -a "$pool_name"
         sudo zpool destroy -f "$pool_name"
-        sudo zpool list "$pool_name"
+        #sudo zpool list "$pool_name"
         return $?
     else
         echo "Pool '$pool_name' does not exist., no need to destroy"
-        return 1
+        #return 0
     fi
     #set +x
     #true
@@ -43,7 +43,10 @@ destroy_pool_if_exists() {
 create_test_pool() {
     #set -x
     pool_name="$1"
-    destroy_pool_if_exists "${pool_name}"
+    if ! destroy_pool_if_exists "${pool_name}"; then
+      echo "** Error: Can't delete pool {$pool_name}" >&2
+      return 1
+    fi
 
     pool_file_img="${ZELTA_ZFS_STORE_TEST_DIR}/${pool_name}.img"
     echo "Creating ${ZELTA_ZFS_TEST_POOL_SIZE}" "${pool_file_img}"
@@ -78,11 +81,16 @@ create_pools() {
     echo ""
     echo "=== create pool ${APOOL_NAME} ==="
     create_test_pool ${APOOL_NAME}
-
+    APOOL_STATUS=$?
     echo ""
     echo "=== create pool ${BPOOL_NAME} ==="
     create_test_pool ${BPOOL_NAME}
+    BPOOL_STATUS=$?
+
+    echo "APOOL_STATUS:{$APOOL_STATUS}"
+    echo "BPOOL_STATUS:{$BPOOL_STATUS}"
 #
+    return $(( APOOL_STATUS || BPOOL_STATUS ))
 #  echo ""
 #  echo "=== pools created ==="
 #  sudo zpool list "${APOOL_NAME}" "${BPOOL_NAME}"
@@ -104,7 +112,7 @@ create_pools() {
 #      echo "CRITICAL ERROR: One or more pools failed to create properly."
 #      exit 1
 #  fi
-   true
+#   true
 }
 
 #set -x
