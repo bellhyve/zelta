@@ -3,3 +3,7 @@
 .zeport-hook
 .vscode
 .DS_Store
+.idea
+tmp
+hide.*
+spec/tmp
