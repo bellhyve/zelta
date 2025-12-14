@@ -1,14 +1,5 @@
 #!/bin/sh
 
-ZELTA_ZFS_STORE_TEST_DIR="$HOME/zelta-zfs-store-test"
-ZELTA_ZFS_TEST_POOL_SIZE="20G"
-
-APOOL_NAME=apool
-BPOOL_NAME=bpool
-
-#APOOL_IMG=${ZELTA_ZFS_STORE_TEST_DIR}/apool.img
-#BPOOL_IMG=${ZELTA_ZFS_STORE_TEST_DIR}/bpool.img
-
 check_pool_exists() {
     pool_name="$1"
     if [ -z "$pool_name" ]; then
@@ -19,25 +10,18 @@ check_pool_exists() {
 }
 
 destroy_pool_if_exists() {
-    #set -x
     pool_name="$1"
     if check_pool_exists "$pool_name"; then
         echo "Destroying pool '$pool_name'..."
         sudo zpool list "$pool_name"
-        #sudo zpool export "$pool_name"
-        #sudo zpool import "$pool_name"
-
-         #sudo zpool destroy "$pool_name"
-         #sudo zfs umount -a "$pool_name"
-        sudo zpool destroy -f "$pool_name"
-        #sudo zpool list "$pool_name"
-        return $?
+        if ! sudo zpool destroy -f "$pool_name"; then
+            echo "Destroy for pool '$pool_name' failed, trying export then destroy"
+            # Export is only needed when the pool is busy/imported but destroy can't complete
+            sudo zpool export -f "$pool_name" && sudo zpool destroy -f "$pool_name"
+        fi
     else
-        echo "Pool '$pool_name' does not exist., no need to destroy"
-        #return 0
+        echo "Pool '$pool_name' does not exist, no need to destroy"
     fi
-    #set +x
-    #true
 }
 
 create_test_pool() {
@@ -55,7 +39,7 @@ create_test_pool() {
     echo "Creating zfs pool $pool_name "
 
     sudo zpool create -f -m "/${pool_name}" "${pool_name}" "${pool_file_img}"
-    #echo zpool create -f -m "/${pool_name}" "${pool_name}" "${pool_file_img}"
+
     echo "Created ${pool_name}"
     sudo zpool list "${pool_name}"
     #  set +x
@@ -77,50 +61,22 @@ verify_pool_creation() {
 
 
 create_pools() {
-    #set -x
     echo ""
-    echo "=== create pool ${APOOL_NAME} ==="
-    create_test_pool ${APOOL_NAME}
-    APOOL_STATUS=$?
+    echo "=== create pool ${SRC_POOL} ==="
+    create_test_pool ${SRC_POOL}
+    SRC_STATUS=$?
     echo ""
-    echo "=== create pool ${BPOOL_NAME} ==="
-    create_test_pool ${BPOOL_NAME}
-    BPOOL_STATUS=$?
+    echo "=== create pool ${TGT_POOL} ==="
+    create_test_pool ${TGT_POOL}
+    TGT_STATUS=$?
 
-    echo "APOOL_STATUS:{$APOOL_STATUS}"
-    echo "BPOOL_STATUS:{$BPOOL_STATUS}"
-#
-    return $(( APOOL_STATUS || BPOOL_STATUS ))
-#  echo ""
-#  echo "=== pools created ==="
-#  sudo zpool list "${APOOL_NAME}" "${BPOOL_NAME}"
-#
-#  echo ""
-#  echo "=== Disk Usage on ${ZELTA_ZFS_STORE_TEST_DIR} ==="
-#  df -h "${ZELTA_ZFS_STORE_TEST_DIR}"
-#
-#  echo ""
-#  echo "=== Verifying Creation ==="
-#  verify_pool_creation ${APOOL_NAME} ${ZELTA_ZFS_TEST_POOL_SIZE}
-#  apool_status=$?
-#
-#  verify_pool_creation ${BPOOL_NAME} ${ZELTA_ZFS_TEST_POOL_SIZE}
-#  bpool_status=$?
-#  set +x
-#
-#  if [ "$apool_status" -ne 0 ] || [ "$bpool_status" -ne 0 ]; then
-#      echo "CRITICAL ERROR: One or more pools failed to create properly."
-#      exit 1
-#  fi
-#   true
+    echo "SRC_STATUS:{$SRC_STATUS}"
+    echo "TGT_STATUS:{$TGT_STATUS}"
+
+    return $(( SRC_STATUS || TGT_STATUS ))
 }
 
-#set -x
-#echo "hello: create_file_backed_zfs_test_pools.sh"
-#return 0
+mkdir -p ${ZELTA_ZFS_STORE_TEST_DIR}
 create_pools
-#return 0
-#set +x
-#true
-#return 0
+
 
