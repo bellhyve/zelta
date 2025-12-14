@@ -199,13 +199,12 @@ function str_join(arr, sep) {
 	return arr_join(arr, sep)
 }
 
+# Joins non-blank elements of an array
 function arr_join(arr, sep,    _str, _idx, _i) {
 	if (!sep) sep = " "
-	for (_idx in arr) {
-		if (arr[++_i]) {
+	for (_idx in arr)
+		if (arr[++_i])
 			_str = _str ? _str sep arr[_i] : arr[_i]
-		}
-	}
 	return _str
 }
 

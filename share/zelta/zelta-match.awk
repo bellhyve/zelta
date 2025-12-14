@@ -8,6 +8,11 @@
 # arguments and runs a "zfs list" command on the source endpoint, then passes
 # the output and instructions to zfs-match-pipe.awk to compare the lists
 # (which allows for parallel processing with only AWK calls).
+#
+# Global: Settings and global telemetry
+# Row: 'zfs list' output
+# Dataset: A list of dataset rows
+# Snap: A list of snapshots and bookmarks for each dataset
 
 function usage(message) {
 	STDERR = "/dev/stderr"
@@ -52,81 +57,21 @@ function add_written() {
 	return Opt["LIST_WRITTEN"] ? ",written" : ""
 }
 
-#function check_parent(endpoint,		_ds, _p, _cmd_part, _cmd, _cmd_output) {
-#	_ds = Opt[endpoint"_DS"]
-#	if (!_ds) return ""
-#	# If the dataset is a pool or immediately below it, no need to check for a parent
-#	if (gsub(/\//, "/", _ds) <= 1) {
-#		return 1
-#	}
-#	sub(/\/[^\/]*$/, "", _ds)
-#	_p = 1
-#	if (Opt[endpoint "_REMOTE"]) {
-#		_cmd_part[_p++]		= Opt["REMOTE_DEFAULT"] " " Opt[endpoint "_REMOTE"]
-#	}
-#	_cmd_part[_p++]			= "zfs"
-#	_cmd_part[_p++]		   = "list -Ho name"
-#	_cmd_part[_p++]		   = rq(Opt[endpoint "_REMOTE"], _ds)
-#	_cmd_part[_p]		     = CAPTURE_OUTPUT
-#	_cmd = join_arr(_cmd_part, _p)
-#	_cmd | getline _cmd_output
-#	close(_cmd)
-#	if (_cmd_output == _ds) return 1
-#	else return 0
-#}
-
 ## Row parsing
 ##############
-
-function depth_too_high() {
-	return (Opt["DEPTH"] && (split(rel_name, depth_arr, "/") > Opt["DEPTH"]))
-}
-
-function process_dataset(ep,	_ds_suffix, _id) {
-	_ds_suffix				= (ep["DS"] == $1) ? "" : substr($1, ep["ds_name_length"])
-	if (depth_too_high()) return 0
-	_id					= (_ds_suffix SUBSEP rel_name)
-	Row["name"]				= $1
-	Row["written"]				= $3
-	if (!rel_name_list[rel_name]++) {
-		rel_name_order[++rel_name_num]	= rel_name
-	}
-	if (!num_snaps[endpoint_id]) {
-		num_snaps[endpoint_id]		= 0
-	}
-}
-
-function process_savepoint(endpoint) {
-	savepoint_rel_name				= substr($1, ds_name_length[endpoint])
-	savepoint_id					= (endpoint SUBSEP savepoint_rel_name)
-	guid						= $2
-	guid_to_name[endpoint,guid]			= savepoint_rel_name
-	name_to_guid[savepoint_id]			= guid
-	written[savepoint_id]				= $3
-	match(savepoint_rel_name,/[@#]/)
-	rel_name					= substr(savepoint_rel_name, 1, RSTART - 1)
-	savepoint					= substr(savepoint_rel_name, RSTART)
-	dataset_id					= (endpoint SUBSEP rel_name)
-	if (!num_snaps[dataset_id]++) {
-		last[dataset_id]			= savepoint
-		LastGUID[dataset_id]			= guid
-	}
-	first[dataset_id]	= savepoint
-	first_guid[dataset_id]	= guid
-}
-
-function should_process_row(ep) {
-}
 
 function object_type(symbol) {
 	if (symbol == "")	return IS_DATASET
 	else if (symbol == "@")	return IS_SNAPSHOT
 	else if (symbol == "#")	return IS_BOOKMARK
-	else report(LOG_WARNING, "unexpected row: " symbol)
+	else {
+		report(LOG_WARNING, "unexpected row: " symbol)
+		return IS_UNKNOWN
+	}
 }
 
 function process_row(ep,		_name, _guid, _written, _name_suffix, _ds_suffix, _savepoint,
-		     			_type, _id, _ds_id, _ds_snap, _row_id) {
+		     			_type, _ep_id, _ds_id, _ds_snap, _row_id) {
 	# Read the row data
 	_name			= $1
 	_guid			= $2
@@ -141,31 +86,36 @@ function process_row(ep,		_name, _guid, _written, _name_suffix, _ds_suffix, _sav
 		_type			= substr(_savepoint, 1, 1)
 	} else 	_ds_suffix		= _name_suffix
 
-	_id			= ep["ID"]
-	_ds_id			= _id SUBSEP _ds_suffix				# Unique dataset
-	_ds_snap		= _ds_suffix SUBSEP _savepoint			# Unique to endpoint
-	_row_id			= _id SUBSEP _ds_suffix SUBSEP _savepoint	# Unique
+	_ep_id			= ep["ID"]
+	_ds_id			= _ep_id S _ds_suffix S ""
+	_row_id			= _ep_id S _ds_suffix S _savepoint
+	_type			= object_type(_type)
 	
+	Row[_row_id, "exists"] 	= 1
 	Row[_row_id, "guid"] 	= _guid
 	Row[_row_id, "written"]	= _written
 	Row[_row_id, "name"]	= _name
-	Row[_row_id, "type"]	= object_type(_type)
-	Guid[_id, _guid]	= _ds_snap
+	Row[_row_id, "type"]	= _type
+	
+	# Snapshots will be used for match GUID over bookmarks
+	if (!Guid[_ds_id, _guid] || (_type == IS_SNAPSHOT))
+		Guid[_ds_id, _guid]	= _row_id
 
-	if (Row[_row_id, "type"] == "dataset") {
-		ep["num_datasets"]++
-		Dataset[_ds_id, "name"]	= _name
-		Dataset[_id, _ds_suffix, "guid"]	= _guid
-		Dataset[_id, _ds_suffix, "written"]	= _written
-		Guid[_id, _guid]			= _ds_suffix
-		Global["written"]	+= $3
-	} else {
-		_num_items = ++Dataset[_id, _ds_suffix, "num_savepoints"]
-		DSSnap[_ds_id, _num_items] = _savepoint
-		Dataset[_ds_id, "snap_written"] += _written
+	# Dataset
+	if (_type == IS_DATASET) {
+		# Ordering by '-S createtxg' gives us a reverse view of datasets;
+		# this doesn't actually matter but it's a bit weird for debugging
+		_num_ds				= ++ep["num_ds"]
+		Dataset[_ep_id, _num_ds]	= _row_id
+		Global["written"]		+= $3
+	# Snapshot or bookmark
+	} else if (_type != IS_UNKOWN) {
+		_num_snaps			= ++NumSnaps[_ds_id]
+		Snap[_ds_id, _num_snaps]	= _row_id
 	}
 }
 
+# Check for exceptions or time(1) output, then 'process_row()'
 function load_zfs_list_row(ep) {
 	IGNORE_ZFS_LIST_OUTPUT="(sys|user)[ \t]+[0-9]|/dataset does not exist/"
 	if ($0 ~ IGNORE_ZFS_LIST_OUTPUT) return
@@ -174,11 +124,69 @@ function load_zfs_list_row(ep) {
 		ep["list_time"] += time_arr[2]
 	}
 	else if ($2 ~ /^[0-9]+$/) {
-		process_row()
+		process_row(ep)
 	} else {
 		report(LOG_WARNING, "stream output unexpected: "$0)
 		exit_code = 1
 	}
+}
+
+## Identifying Replica Relationships
+####################################
+
+function compare_datasets(src_ds_id,		_row_arr) {
+	split(src_ds_id, _row_arr, S)
+	_ds_suffix = _row_arr[2]
+	_tgt_ds_id = Target["ID"] S _ds_suffix S ""
+	if (Row[_tgt_ds_id, "exists"]) {
+		DSPair[_ds_suffix, "status"] = PAIR_EXISTS
+		return 1
+	} else {
+		DSPair[_ds_suffix, "status"] = PAIR_SRC_ONLY
+		return 0
+	}
+}
+function compare_snapshots(src_row_id,	_row_arr) {
+	split(src_row_id, _row_arr, S)
+	_ds_suffix = _row_arr[2]
+	# Look for a name guid mismatch
+	_tgt_row_id = Target["ID"] S _ds_suffix S _row_arr[3]
+	_src_ds_id = Source["ID"] S _ds_suffix S ""
+	_tgt_ds_id = Target["ID"] S _ds_suffix S ""
+	# Match guid with lookup also
+	_src_guid = Row[src_row_id, "guid"]
+	_tgt_guid = Row[_tgt_row_id, "guid"]
+	#print (_src_guid == _tgt_guid), Guid[_src_ds_id, _src_guid]
+}
+
+function process_datasets(		_src_id, _tgt_id, _num_src_ds, _num_tgt_ds, _d) {
+	_src_id		= Source["ID"]
+	_tgt_id		= Target["ID"]
+	_num_src_ds	= Source["num_ds"]
+	_num_tgt_ds	= Target["num_ds"]
+	for (_d = 1; _d <= _num_src_ds; _d++) {
+		_src_ds_id = Dataset[_src_id, _d]
+		if (compare_datasets(_src_ds_id)) {
+			_num_snaps = NumSnaps[_src_ds_id]
+			for (_s = 1; _s <= _num_snaps; _s++)
+				compare_snapshots(Snap[_src_ds_id,_s])
+
+		#if (Row[_tgt_ds_id, "exists")
+		#	DSPair[
+		#_src_ds_guid = Row[_src_ds_id, "guid"]
+		#_tgt_ds_guid = Row[_tgt_ds_id, "guid"]
+		#_num_snaps = Dataset[_tgt_ds_id, "num_snaps"]
+		#print _src_ds_id, _tgt_ds_id, _src_ds_guid, _tgt_ds_guid
+		#for (_s = 1; _s <= _num_snaps; _s++) {
+		#	_row_id	= Snap[_ds_id, _s]
+		#	_guid	= Row[_row_id, "guid"]
+		#	_match_row_id = get_match_row(Target, _row_id)
+			#print _match_row_id
+			#print _match_row_id
+			#if (Guid[_tgt_id 
+		}
+	}
+		
 }
 
 ## Command building functions
@@ -232,22 +240,36 @@ function run_zfs_list_target(		_src_list_cmd) {
 		return
 	}
 	# Load target snapshots
+	_tgt_list_cmd = zfs_list_cmd(Target)
 	report(LOG_INFO, "listing target: " Target["ID"])
-	_tgt_list_cmd	= zfs_list_cmd(Target)
+	report(LOG_DEBUG, "`" _tgt_list_cmd "`")
+	_tgt_list_cmd = str_add(_tgt_list_cmd, CAPTURE_OUTPUT)
 	while  (_tgt_list_cmd | getline) 
 		load_zfs_list_row(Target)
 	close(_tgt_list_cmd)
 }
 
 BEGIN {
-	IS_DATASET		= 0
-	IS_SNAPSHOT		= 1
-	IS_BOOKMARK		= 2
-	FS			= "\t"
-	OFS			= "\t"
+	# Row types
+	IS_UNKNOWN	= 0
+	IS_DATASET	= 1
+	IS_SNAPSHOT	= 2
+	IS_BOOKMARK	= 3
+
+	# DSPair types
+	PAIR_UNKNOWN	= 0
+	PAIR_EXISTS	= 1
+	PAIR_SRC_ONLY	= 2
+	PAIR_TGT_ONLY	= 3
+
+	S		= SUBSEP
+	FS		= "\t"
+	OFS		= "\t"
+
 	load_endpoint(Operands[1], Source)
 	load_endpoint(Operands[2], Target)
 	validate_datasets()
+
 	if (Opt["MATCH_PIPE"]) {
 		Target["match_bookmarks"]	= 1
 		Target["ds_length"]		= length(Target["DS"]) + 1
@@ -255,6 +277,7 @@ BEGIN {
 		Source["list_time"] 		= 0
 		Target["list_name"] 		= 0
 		run_zfs_list_target()
+		# Continues to process the incoming pipes 'pipe_zfs_list_source()'
 	}
 	else {
 		pipe_zfs_list_source()
@@ -262,12 +285,15 @@ BEGIN {
 	}
 }
 
-{
+# The first piped 'zfs list' row could lock execution of the above, so ignore it.
+# Could use 'NR == 1' for a header row. 
+
+NR > 1 {
 	load_zfs_list_row(Source)
 }
 
 END {
 	if (Opt["MATCH_PIPE"]) {
-		print "do end stuff"
+		process_datasets()
 	}
-}
+} 
