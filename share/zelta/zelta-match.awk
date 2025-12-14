@@ -1,18 +1,22 @@
 #!/usr/bin/awk -f
-
 #
 # zelta-match.awk
 #
-# Called via "zelta match", "zelta list", or "zmatch", describes the
-# relationship between two trees of ZFS datasets. This script processes
-# arguments and runs a "zfs list" command on the source endpoint, then passes
-# the output and instructions to zfs-match-pipe.awk to compare the lists
-# (which allows for parallel processing with only AWK calls).
+# Describes the relationship between two trees of ZFS datasets. Run a "zfs list"
+# command on the source endpoint piping to itself for concurrency, run a second
+# target endpoint zfs list via 'getline', and comapre the results.
 #
 # Global: Settings and global telemetry
+# Source: The source endpoint
+# Target: The target endpoint
 # Row: 'zfs list' output
-# Dataset: A list of dataset rows
+# Dataset: A list of datasets
 # Snap: A list of snapshots and bookmarks for each dataset
+# NumSnaps: The ordered reference for Snap for each Dataset
+
+
+## Usage
+########
 
 function usage(message) {
 	STDERR = "/dev/stderr"
@@ -44,11 +48,11 @@ function usage(message) {
 	exit 1
 }
 
-function validate_datasets() {
-	if (Opt["USAGE"]) { usage() }
-	if (!Source["DS"] && !Target["DS"]) { usage("no datasets defined") }
-}
 
+## Command Building
+###################
+
+# Default to 'zfs list ... -o written', but implicitly avoid since it's slow
 function add_written() {
 	if (Opt["LIST_WRITTEN"] && Opt["PROPLIST"]) {
 		if (Opt["PARSABLE"] && (Opt["PROPLIST"] !~ /(all|written|size)/))
@@ -57,9 +61,73 @@ function add_written() {
 	return Opt["LIST_WRITTEN"] ? ",written" : ""
 }
 
+# TO-DO: Add this feature to build_command()
+function wrap_time_cmd(cmd, _cmd_part, _p) {
+	cmd_part[p++]	= Opt["SH_COMMAND_PREFIX"]
+	cmd_part[p++]	= Opt["TIME_COMMAND"]
+	cmd_part[p++]	= cmd
+	cmd_part[p++]	= Opt["SH_COMMAND_SUFFIX"]
+	cmd		= arr_join(_cmd_part)
+	return cmd
+}
+
+# Generate the 'zfs list' command using build_command()
+function zfs_list_cmd(endpoint,		_ep, _ds, _remote, _cmd) {
+	if (!endpoint["DS"]) return
+	_ep			= endpoint["ID"]
+	_ds			= endpoint["DS"]
+	_remote			= endpoint["REMOTE"]
+	_cmd_arr["props"]	= "name,guid" add_written()
+	_cmd_arr["ds"]		= rq(_remote, _ds)
+	_cmd			= build_command("LIST", _cmd_arr, endpoint)
+	if (Opt["DRYRUN"]) _cmd	= report(LOG_NOTICE, "+ " _cmd)
+	if (Opt["TIME"]) _cmd	= wrap_time_cmd(_cmd)
+	_cmd			= str_add(_cmd, CAPTURE_OUTPUT)
+	return _cmd
+}
+
+#  Send the Source 'zfs list' to a second process for concurrency
+#  (Our biggest bottleneck is waiting for the lists to complete and buffer)
+function pipe_zfs_list_source(		_match_cmd, _src_list_cmd) {
+	_match_cmd	= "ZELTA_MATCH_PIPE=yes zelta ipc-run match"
+	_src_list_cmd	= zfs_list_cmd(Source)
+	if (Opt["DRYRUN"]) {
+		zfs_list_cmd(Target)
+		stop()
+	}
+	report(LOG_DEBUG, "`"_match_cmd"`")
+	report(LOG_INFO, "listing source: " Source["ID"])
+	report(LOG_DEBUG, "`" _src_list_cmd "`")
+
+	# The blank line piped below allows the target awk stream to run its 
+	# BEGIN block without waiting for first line of 'zfs list' output.
+	print "" | _match_cmd
+	while (_src_list_cmd | getline) print | _match_cmd
+	close(_src_list_cmd)
+	close(_match_cmd)
+}
+
+# After the triggering the pipe phase, fire the Target 'zfs list' and parse the rows
+function run_zfs_list_target(		_src_list_cmd) {
+	if ((Source["ID"] == Target["ID"])) {
+		report(LOG_WARNING, "identical source and target; skipping 'zfs list' for target")
+		return
+	}
+	# Load target snapshots
+	_tgt_list_cmd = zfs_list_cmd(Target)
+	report(LOG_INFO, "listing target: " Target["ID"])
+	report(LOG_DEBUG, "`" _tgt_list_cmd "`")
+	_tgt_list_cmd = str_add(_tgt_list_cmd, CAPTURE_OUTPUT)
+	while  (_tgt_list_cmd | getline) 
+		load_zfs_list_row(Target)
+	close(_tgt_list_cmd)
+}
+
+
 ## Row parsing
 ##############
 
+# Identify if the row refers to a dataset, snapshot, or bookmark
 function object_type(symbol) {
 	if (symbol == "")	return IS_DATASET
 	else if (symbol == "@")	return IS_SNAPSHOT
@@ -70,6 +138,7 @@ function object_type(symbol) {
 	}
 }
 
+# Load each row into memory
 function process_row(ep,		_name, _guid, _written, _name_suffix, _ds_suffix, _savepoint,
 		     			_type, _ep_id, _ds_id, _ds_snap, _row_id) {
 	# Read the row data
@@ -99,7 +168,7 @@ function process_row(ep,		_name, _guid, _written, _name_suffix, _ds_suffix, _sav
 	
 	# Snapshots will be used for match GUID over bookmarks
 	if (!Guid[_ds_id, _guid] || (_type == IS_SNAPSHOT))
-		Guid[_ds_id, _guid]	= _row_id
+		Guid[_ds_id, _guid] = _row_id
 
 	# Dataset
 	if (_type == IS_DATASET) {
@@ -115,7 +184,7 @@ function process_row(ep,		_name, _guid, _written, _name_suffix, _ds_suffix, _sav
 	}
 }
 
-# Check for exceptions or time(1) output, then 'process_row()'
+# Check for exceptions or time(1) output, or process the row
 function load_zfs_list_row(ep) {
 	IGNORE_ZFS_LIST_OUTPUT="(sys|user)[ \t]+[0-9]|/dataset does not exist/"
 	if ($0 ~ IGNORE_ZFS_LIST_OUTPUT) return
@@ -130,6 +199,7 @@ function load_zfs_list_row(ep) {
 		exit_code = 1
 	}
 }
+
 
 ## Identifying Replica Relationships
 ####################################
@@ -146,20 +216,35 @@ function compare_datasets(src_ds_id,		_row_arr) {
 		return 0
 	}
 }
-function compare_snapshots(src_row_id,	_row_arr) {
-	split(src_row_id, _row_arr, S)
-	_ds_suffix = _row_arr[2]
-	# Look for a name guid mismatch
-	_tgt_row_id = Target["ID"] S _ds_suffix S _row_arr[3]
-	_src_ds_id = Source["ID"] S _ds_suffix S ""
-	_tgt_ds_id = Target["ID"] S _ds_suffix S ""
-	# Match guid with lookup also
-	_src_guid = Row[src_row_id, "guid"]
-	_tgt_guid = Row[_tgt_row_id, "guid"]
-	#print (_src_guid == _tgt_guid), Guid[_src_ds_id, _src_guid]
+
+function validate_match(src_row, tgt_row, ds_suffix, savepoint) {
+	# Exclude if the target isn't a snapshot
+	if (Row[tgt_row, "type"] != IS_SNAPSHOT)
+		return
+	if (!DSPair[ds_suffix, "num_matches"]++) {
+		# TO-DO: Validate by filter
+		DSPair[ds_suffix, "match"] = savepoint
+		print savepoint
+	}
 }
 
-function process_datasets(		_src_id, _tgt_id, _num_src_ds, _num_tgt_ds, _d) {
+function compare_snapshots(src_row,	_src_row_arr, _ds_suffix, _savepoint, _src_guid, _tgt_ds_id, _tgt_match) {
+	# Identify a match candidate by GUID
+	split(src_row, _src_row_arr, S)
+	_ds_suffix	= _src_row_arr[2]
+	_savepoint	= _src_row_arr[3]
+	_src_guid	= Row[src_row, "guid"]
+	_tgt_ds_id	= Target["ID"] S _ds_suffix S ""
+	_tgt_match	= Guid[_tgt_ds_id, _src_guid]
+	if (_tgt_match)
+		validate_match(src_row, _tgt_match, _ds_suffix, _savepoint)
+	else {
+		if (!DSPair[_ds_suffix, "match"])
+			DSPair[_ds_suffix, "next"] = _savepoint
+	}
+}
+
+function process_datasets(		_src_id, _tgt_id, _num_src_ds, _num_tgt_ds, _d, _s) {
 	_src_id		= Source["ID"]
 	_tgt_id		= Target["ID"]
 	_num_src_ds	= Source["num_ds"]
@@ -170,85 +255,16 @@ function process_datasets(		_src_id, _tgt_id, _num_src_ds, _num_tgt_ds, _d) {
 			_num_snaps = NumSnaps[_src_ds_id]
 			for (_s = 1; _s <= _num_snaps; _s++)
 				compare_snapshots(Snap[_src_ds_id,_s])
-
-		#if (Row[_tgt_ds_id, "exists")
-		#	DSPair[
-		#_src_ds_guid = Row[_src_ds_id, "guid"]
-		#_tgt_ds_guid = Row[_tgt_ds_id, "guid"]
-		#_num_snaps = Dataset[_tgt_ds_id, "num_snaps"]
-		#print _src_ds_id, _tgt_ds_id, _src_ds_guid, _tgt_ds_guid
-		#for (_s = 1; _s <= _num_snaps; _s++) {
-		#	_row_id	= Snap[_ds_id, _s]
-		#	_guid	= Row[_row_id, "guid"]
-		#	_match_row_id = get_match_row(Target, _row_id)
-			#print _match_row_id
-			#print _match_row_id
-			#if (Guid[_tgt_id 
 		}
 	}
 		
 }
 
-## Command building functions
-#############################
 
-function wrap_time_cmd(cmd, _cmd_part, _p) {
-	cmd_part[p++]	= Opt["SH_COMMAND_PREFIX"]
-	cmd_part[p++]	= Opt["TIME_COMMAND"]
-	cmd_part[p++]	= cmd
-	cmd_part[p++]	= Opt["SH_COMMAND_SUFFIX"]
-	cmd		= arr_join(_cmd_part)
-	return cmd
-}
-	
-function zfs_list_cmd(endpoint,		_ep, _ds, _remote, _cmd) {
-	if (!endpoint["DS"]) return
-	_ep			= endpoint["ID"]
-	_ds			= endpoint["DS"]
-	_remote			= endpoint["REMOTE"]
-	_cmd_arr["props"]	= "name,guid" add_written()
-	_cmd_arr["ds"]		= rq(_remote, _ds)
-	_cmd			= build_command("LIST", _cmd_arr, endpoint)
-	if (Opt["DRYRUN"]) _cmd	= report(LOG_NOTICE, "+ " _cmd)
-	if (Opt["TIME"]) _cmd	= wrap_time_cmd(_cmd)
-	_cmd			= str_add(_cmd, CAPTURE_OUTPUT)
-	return _cmd
-}
+## Main Workflow Rules
+######################
 
-function pipe_zfs_list_source(		_match_cmd, _src_list_cmd) {
-	_match_cmd	= "ZELTA_MATCH_PIPE=yes zelta ipc-run match"
-	_src_list_cmd	= zfs_list_cmd(Source)
-	if (Opt["DRYRUN"]) {
-		zfs_list_cmd(Target)
-		stop()
-	}
-	report(LOG_DEBUG, "`"_match_cmd"`")
-	report(LOG_INFO, "listing source: " Source["ID"])
-	report(LOG_DEBUG, "`" _src_list_cmd "`")
-
-	# The blank line piped below allows the target awk stream to run its 
-	# BEGIN block without waiting for first line of 'zfs list' output.
-	print "" | _match_cmd
-	while (_src_list_cmd | getline) print | _match_cmd
-	close(_src_list_cmd)
-	close(_match_cmd)
-}
-
-function run_zfs_list_target(		_src_list_cmd) {
-	if ((Source["ID"] == Target["ID"])) {
-		report(LOG_WARNING, "identical source and target; skipping 'zfs list' for target")
-		return
-	}
-	# Load target snapshots
-	_tgt_list_cmd = zfs_list_cmd(Target)
-	report(LOG_INFO, "listing target: " Target["ID"])
-	report(LOG_DEBUG, "`" _tgt_list_cmd "`")
-	_tgt_list_cmd = str_add(_tgt_list_cmd, CAPTURE_OUTPUT)
-	while  (_tgt_list_cmd | getline) 
-		load_zfs_list_row(Target)
-	close(_tgt_list_cmd)
-}
-
+# Constant setup, validation, and fire concurrent 'zfs list' commands
 BEGIN {
 	# Row types
 	IS_UNKNOWN	= 0
@@ -268,7 +284,8 @@ BEGIN {
 
 	load_endpoint(Operands[1], Source)
 	load_endpoint(Operands[2], Target)
-	validate_datasets()
+	if (Opt["USAGE"]) { usage() }
+	if (!Source["DS"] && !Target["DS"]) { usage("no datasets defined") }
 
 	if (Opt["MATCH_PIPE"]) {
 		Target["match_bookmarks"]	= 1
@@ -285,9 +302,8 @@ BEGIN {
 	}
 }
 
+# Process inbound pipe from pipe_zfs_list_source()
 # The first piped 'zfs list' row could lock execution of the above, so ignore it.
-# Could use 'NR == 1' for a header row. 
-
 NR > 1 {
 	load_zfs_list_row(Source)
 }
