@@ -4,7 +4,13 @@ Describe 'confirm zfs setup'
         spec/initialize/initialize_testing_setup.sh
     }
 
+    create_marker_file() {
+        #%logger "-- creating marker file {$INITIALIZATION_COMPLETE_MARKER_FILE}"
+        touch "${INITIALIZATION_COMPLETE_MARKER_FILE}"
+    }
+
     BeforeAll setup
+    AfterAll  create_marker_file
 
     It "has good initial SRC_POOL:{$SRC_POOL} simple snap tree"
         When call zfs list -r "$SRC_POOL"

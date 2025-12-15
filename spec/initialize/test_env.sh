@@ -29,6 +29,7 @@ CUR_DIR=$(pwd)
 export INITIALIZE_DIR="${CUR_DIR}/spec/initialize"
 
 export LOCAL_TMP="${CUR_DIR}/spec/tmp"
+export INITIALIZATION_COMPLETE_MARKER_FILE="$LOCAL_TMP/.initialize_testing_setup_complete"
 export TEST_INSTALL="${LOCAL_TMP}/test_install"
 # allow for custom zfs installation
 # OpenZFS builds are typically installed in "/usr/local/sbin" for testing
