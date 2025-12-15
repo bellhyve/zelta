@@ -15,7 +15,8 @@
 the following links are helpful:
 - https://github.com/shellspec/shellspec
 - https://shellspec.info/
-> [!NOTE] :star: https://deepwiki.com/shellspec/shellspec
+> [!NOTE]
+> :star: https://deepwiki.com/shellspec/shellspec
 
 ### Installing ShellSpec
 
@@ -30,9 +31,12 @@ shellspec -f d spec/bin/hello_spec.sh
 ```
 
 ## Testing `zelta`
-To configure your environment for zelta testing fun the following command.
-> [!NOTE] zfs must be installed on your system.
-> [!WARNING] This command requires root privileges because is sets up zfs file backed pools. 
+To configure your environment for zelta testing run the following command.
+> [!NOTE]
+> zfs must be installed on your system.
+
+> [!WARNING]
+> This command requires root privileges because is sets up zfs file backed pools. 
 ```shell
 sudo -E env "PATH=$PATH" shellspec -f d spec/bin/zelta_test_setup_spec.sh
 ```
