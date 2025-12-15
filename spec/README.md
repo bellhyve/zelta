@@ -15,15 +15,13 @@
 the following links are helpful:
 - https://github.com/shellspec/shellspec
 - https://shellspec.info/
-> [!NOTE]
-> :star: https://deepwiki.com/shellspec/shellspec
+- :star: https://deepwiki.com/shellspec/shellspec :heart:
 
 ### Installing ShellSpec
 
 See the [ShellSpec installation guide](https://github.com/shellspec/shellspec#installation) for instructions.
 
-
-### Making your first test - a simple Example
+#### 🔰 Making your first test - a simple Example
 Use the hello_spec.sh file as a template for your first test.
 - [hello_example.sh](./bin/hello_example.sh)
 ```shell
@@ -31,33 +29,31 @@ shellspec -f d spec/bin/hello_example.sh
 ```
 
 ## Testing `zelta`
-To configure your environment for zelta testing, run the following command.
-
-> [!NOTE]
-> zfs must be installed on your system.
-
-> [!WARNING]
-> The command requires root privileges because is sets up zfs file backed pools. 
-
-
-### To setup a zelta standard test 
-- [zelta_standard_test_spec.sh](./bin/zelta_standard_test_spec.sh)
-NOTE: this test will create a standard setup via [initialize_testing_setup.sh](initialize/initialize_testing_setup.sh) 
-    ```shell
-    sudo -E env "PATH=$PATH" shellspec -f d spec/bin/zelta_standard_test_spec.sh
-    ```
-
-### To run all tests
-> [!NOTE] 
-> tests will run in the order they are listed in the spec directory
-> use -P, --pattern PATTERN to filter tests by pattern
-> the default pattern is "*_spec.sh"
+> 🔑 zfs must be installed on your system.
+>
+> ℹ️ sudo is required because root privilege is needed for zfs and zelta commands
+>
+> ⛑️ Only temporary file backed zfs pools are used during testing
+>
+> 🦺 Install are local to a temporary directory
+* * *
+### :zap: To run the standard Zelta test 
+[zelta_standard_test_spec.sh](./bin/zelta_standard_test_spec.sh) 
+  ```
+  sudo -E env "PATH=$PATH" shellspec -f d spec/bin/zelta_standard_test_spec.sh
+  ```
+  🔎 This test will create a standard setup via [initialize_testing_setup.sh](initialize/initialize_testing_setup.sh)
+* * *    
+### :zap: To run all tests
+> ℹ️ Tests will run in the order they are listed in the spec directory
+> use `-P, --pattern PATTERN` to filter tests by pattern
+> the default pattern is `"*_spec.sh"`
 ```shell
 sudo -E env "PATH=$PATH" shellspec -f d
 ```
 
-
-### shellspec examples
+* * *
+### 🔰 shellspec examples
 - Run all files matching a pattern [default: "*_spec.sh"]
 `sudo -E env "PATH=$PATH" shellspec -f d -P "*_setup_*"`
 - List all Groups (`Describe`) and Examples (`It`)
