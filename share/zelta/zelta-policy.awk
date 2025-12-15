@@ -52,7 +52,7 @@ function resolve_target(src, tgt, host,		_n, _i, _segments) {
 	return tgt
 }
 
-function create_backup_command(		_cmd_arr, _i, _src, _tgt) {
+function create_backup_command(site, host, source,		_key, _cmd_arr, _i, _src, _tgt) {
 	for (_key in Host) {
 		# Don't forward 'zelta policy' options
 		if (PolicyOptScope[_key]) continue
@@ -61,7 +61,9 @@ function create_backup_command(		_cmd_arr, _i, _src, _tgt) {
 	}
 	# Construct the endpoint strings
 	# Switch to use the command_builder
-	_src = q((host in LOCALHOST) ? source : (host":"source))
+	_src = q(host":"source)
+	# I think we can drop the following
+	#_src = q((host in LOCALHOST) ? source : (host":"source))
 	_tgt = q(datasets[host, source])
 	_cmd_arr[++_i] = Host["BACKUP_COMMAND"]
 	_cmd_arr[++_i] = _src
@@ -100,7 +102,7 @@ function set_var(option_list, var, val) {
 }
 
 # Use the option list keys to create hierarchical config for the backup policy
-function load_option_list(	_tsv, _idx, _flags, _flag_arr) {
+function load_option_list(	_tsv, _key, _idx, _flags, _flag_arr) {
 	_tsv = Opt["SHARE"]"/zelta-opts.tsv"
 	# TO-DO: Complain if TSV doesn't load
 	FS="\t"
@@ -135,7 +137,9 @@ function get_global_overrides(		_key) {
 	create_assoc(Opt["OPERANDS"], Patterns, SUBSEP)
 }
 
-function load_config(		_context) {
+function load_config(		_conf_error, _arr, _context,
+		     		host, site, source, target) {
+	# TO-DO: Fix _local _var _style for the above
 	FS = "(:?[ \t]+)|(:$)"
 	OFS=","
 	_conf_error = "configuration parse error at line: "
@@ -150,8 +154,8 @@ function load_config(		_context) {
 		_line_num++
 
 		# Clean up comments:
-		if (split($0, arr, "#")) {
-			$0 = arr[1]
+		if (split($0, _arr, "#")) {
+			$0 = _arr[1]
 		}
 		gsub(/[ \t]+$/, "", $0)
 		if (! $0) { continue }
@@ -199,7 +203,7 @@ function load_config(		_context) {
 			datasets[host, source] = target
 			dataset_count[source]++
 			Host["LOG_PREFIX"] = host":"source": "
-			backup_command[host, source] = create_backup_command()
+			backup_command[host, source] = create_backup_command(site, host, source)
 		} else usage(_conf_error _line_num)
 	}
 	close(Opt["CONFIG"])
@@ -273,19 +277,20 @@ function xargs(		_xargs_cmd, _site, _echo_sites, _return_code) {
 	return _return_code
 }
 
-function backup_loop(		_site, _host, _hosts_arr, _job_status, _endpoint_key, _site_hosts, _num_failed, _failed_arr) {
+function backup_loop(		_site, _host, _hosts_arr, _job_status, _endpoint_key, 
+		     		_site_hosts, _num_failed, _failed_arr, _source, _target) {
 	for (_site in Sites) {
 		sub_keys(HostsBySite, _site, Hosts, _site_hosts)
 		for (_host in _site_hosts) {
 			sub_keys(datasets, _host, dataset_count, host_datasets)
-			for (source in host_datasets) {
-				target = datasets[_host,source]
-				_endpoint_key = _site SUBSEP _host SUBSEP source
+			for (_source in host_datasets) {
+				_target = datasets[_host,_source]
+				_endpoint_key = _site SUBSEP _host SUBSEP _source
 				# The backup job should already be excluded before this point
-				if (!should_backup(_site, _host, source, target)) continue
+				if (!should_backup(_site, _host, _source, _target)) continue
 				if (zelta_backup(_endpoint_key)) {
 					_num_failed++
-					_failed_arr[_endpoint_key] = _host ":" source
+					_failed_arr[_endpoint_key] = _host ":" _source
 				}
 			}
 		}

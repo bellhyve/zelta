@@ -15,7 +15,7 @@
 # str_must_join(a, b, sep): Join by "" or sep but return "" either are missing
 
 # Load ZELTA_ environment variables as Opt[VAR] shorthand without the prefix
-function zelta_init(	_o, _prefix_re) {
+function zelta_init(	_o, _prefix_re, _val) {
 	_prefix_re = ENV_PREFIX
 	for (_o in ENVIRON) {
 		if (sub(_prefix_re, "", _o)) {
@@ -117,27 +117,10 @@ function json_member(name, val) { JsonOutput[++JsonNum] = dq(name) ": " json_val
 function json_element(val) { JsonOutput[++JsonNum] = json_val(val) }
 
 # Lod global Summary for special output modes
-function load_summary_data(	_sum_data, _sum_arr, _sum_num, _s) {
-	_summary_data="# MAP_KEY	VAR_SOURCE	VAR_KEY	MAP_KEY	NULL_MODE\n\
-# MAP_KEY: The name of the summary field\n\
-# VAR_SOURCE: The source of the key\n\
-# VAR_KEY: The key\n\
-# NULL_MODE: null, 0, or empty to suppress the field if not found\n\
-\n\
-sourceUser	Opt	SRC_USER	\n\
-sourceHost	Opt	SRC_HOST	\n\
-sourceDataset	Opt	SRC_DS	\n\
-sourceSnapshot	Opt	SRC_SNAP	\n\
-sourceEndpoint	Opt	SRC_ID	\n\
-targetUser	Opt	TGT_USER	\n\
-targetHost	Opt	TGT_HOST	\n\
-targetDataset	Opt	TGT_DS	\n\
-targetSnapshot	Opt	TGT_SNAP	\n\
-targetEndpoint	Opt	TGT_ID\n\
-"
-	_sum_num = split(_summary_data, _sum_arr, "\n")
-	for (_s = 1; _s <= _sum_num; _s++) {
-		$0 = _sum_arr[_s]
+function load_summary_data(	_tsv, _key, _val) {
+        _tsv = Opt["SHARE"]"/zelta-json.tsv"
+        FS="\t"
+        while (getline < _tsv) {
 		_key = $1
 		if ($2 == "Opt") _val = Opt[$3]
 		else continue
@@ -149,9 +132,10 @@ targetEndpoint	Opt	TGT_ID\n\
 		}
 		Summary[_key] = _val
 	}
+	close(_tsv)
 }
 
-function load_summary_vars() {
+function load_summary_vars(	_j) {
         if (Opt["LOG_MODE"] == "json") {
                 json_new_object()
                 json_new_object("output_version")
@@ -298,7 +282,7 @@ function get_remote_cmd(ep, type,	_cmd) {
 ##################
 
 # Loads zelta-cmds.tsv which format external 'zelta' and 'zfs' commmands
-function load_build_commands(           _action) {
+function load_build_commands(           _tsv, _action) {
 	LOAD_BUILD_COMMANDS++
         _tsv = Opt["SHARE"]"/zelta-cmds.tsv"
         FS="\t"
