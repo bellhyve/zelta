@@ -25,7 +25,7 @@ See the [ShellSpec installation guide](https://github.com/shellspec/shellspec#in
 
 ### Making your first test - a simple Example
 Use the hello_spec.sh file as a template for your first test.
-- [hello_spec.sh](./spec/bin/hello_spec.sh)
+- [hello_spec.sh](./bin/hello_spec.sh)
 ```shell
 shellspec -f d spec/bin/hello_spec.sh
 ```
