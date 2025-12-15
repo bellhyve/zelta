@@ -37,7 +37,7 @@ shellspec -f d spec/bin/hello_example.sh
 >
 > ⛑️ Only temporary file backed zfs pools are used during testing
 >
-> 🦺 Install are local to a temporary directory
+> 🦺 Installs are local to a temporary directory
 * * *
 ### :zap: To run the standard Zelta test 
 [zelta_standard_test_spec.sh](./bin/zelta_standard_test_spec.sh) 
@@ -67,11 +67,11 @@ sudo -E env "PATH=$PATH" shellspec -f d
     spec/bin/zelta_standard_test_spec.sh:@2-1
     spec/bin/zelta_standard_test_spec.sh:@2-2
     ```
-- Run all examples in group @1
+- `:@1` 🟰 Run all examples in group @1
     ```shell
     sudo -E env "PATH=$PATH" shellspec -f d spec/bin/zelta_standard_test_spec.sh:@1
     ```
-- Run all examples 1 in group @1
+- `:@-1` 🟰 Run only example #1 in group @1
     ```shell
     sudo -E env "PATH=$PATH" shellspec -f d spec/bin/zelta_standard_test_spec.sh:@1-1
     ```
