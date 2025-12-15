@@ -11,8 +11,9 @@ Describe 'Zelta backup'
 
     It 'backs up the initial tree'
         When call zelta backup $SRC_POOL/$TREETOP_DSN $TGT_POOL/$BACKUPS_DSN
-        The stderr should match pattern "* 230: shift: can't shift that many"
-        The status should eq 141
+        The stdout should not equal ""
+        The stderr should match pattern "* cannot open '$TGT_POOL/backups': dataset does not exist"
+        The status should eq 0
     End
 
     It 'has valid backup'
