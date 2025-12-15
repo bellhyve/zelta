@@ -63,11 +63,11 @@ verify_pool_creation() {
 create_pools() {
     echo ""
     echo "=== create pool ${SRC_POOL} ==="
-    create_test_pool ${SRC_POOL}
+    create_test_pool "${SRC_POOL}"
     SRC_STATUS=$?
     echo ""
     echo "=== create pool ${TGT_POOL} ==="
-    create_test_pool ${TGT_POOL}
+    create_test_pool "${TGT_POOL}"
     TGT_STATUS=$?
 
     echo "SRC_STATUS:{$SRC_STATUS}"
@@ -76,7 +76,5 @@ create_pools() {
     return $(( SRC_STATUS || TGT_STATUS ))
 }
 
-mkdir -p ${ZELTA_ZFS_STORE_TEST_DIR}
+mkdir -p "${ZELTA_ZFS_STORE_TEST_DIR}"
 create_pools
-
-
