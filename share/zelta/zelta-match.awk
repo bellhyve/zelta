@@ -188,7 +188,7 @@ function process_row(ep,		_name, _guid, _written, _name_suffix, _ds_suffix, _sav
 
 # Check for exceptions or time(1) output, or process the row
 function load_zfs_list_row(ep) {
-	IGNORE_ZFS_LIST_OUTPUT="(sys|user)[ \t]+[0-9]|/dataset does not exist/"
+	IGNORE_ZFS_LIST_OUTPUT="(sys|user)[ \t]+[0-9]|dataset does not exist"
 	if ($0 ~ IGNORE_ZFS_LIST_OUTPUT) return
 	if (/^real[ \t]+[0-9]/) {
 		split($0, time_arr, /[ \t]+/)
@@ -298,21 +298,20 @@ function review_target_datasets(tgt_id,		_tgt_arr, _row_arr, _num_snaps, _tgt_ro
 	}
 }
 
-function process_datasets(		_src_id, _tgt_id, _num_src_ds, _num_tgt_ds, _d, _s) {
+function process_datasets(		_src_id, _tgt_id, _num_src_ds, _num_tgt_ds, _d, _s, _match) {
 	_src_id		= Source["ID"]
 	_tgt_id		= Target["ID"]
 	_num_src_ds	= Source["num_ds"]
 	_num_tgt_ds	= Target["num_ds"]
 
-	# Step through soruce objects
+	# Step through source objects
 	for (_d = 1; _d <= _num_src_ds; _d++) {
 		_src_ds_id = Dataset[_src_id, _d]
 		create_ds_pair(_src_ds_id)
-		if (compare_datasets(_src_ds_id)) {
-			_num_snaps = NumSnaps[_src_ds_id]
-			for (_s = 1; _s <= _num_snaps; _s++)
-				compare_snapshots(Snap[_src_ds_id,_s])
-		}
+		_match = compare_datasets(_src_ds_id)
+		_num_snaps = NumSnaps[_src_ds_id]
+		for (_s = 1; _s <= _num_snaps; _s++)
+			compare_snapshots(Snap[_src_ds_id,_s])
 	}
 
 	# Step through target objects
