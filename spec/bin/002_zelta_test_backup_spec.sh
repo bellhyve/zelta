@@ -18,10 +18,10 @@ Describe 'Zelta backup'
     It 'has valid backup'
         When call zfs list -r "$TGT_POOL"
         The line 2 of output should match pattern "* /$TGT_POOL"
-        The line 3 of output should match pattern "* /$TGT_POOL/backups"
-        The line 4 of output should match pattern "* /$TGT_POOL/backups/one"
-        The line 5 of output should match pattern "* /$TGT_POOL/backups/one/two"
-        The line 6 of output should match pattern "* /$TGT_POOL/backups/one/two/three"
+        The line 3 of output should match pattern "* /$TGT_POOL/$BACKUPS_DSN"
+        The line 4 of output should match pattern "* /$TGT_POOL/$BACKUPS_DSN/one"
+        The line 5 of output should match pattern "* /$TGT_POOL/$BACKUPS_DSN/one/two"
+        The line 6 of output should match pattern "* /$TGT_POOL/$BACKUPS_DSN/one/two/three"
     End
 
 End
