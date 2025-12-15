@@ -4,10 +4,12 @@
 * [Shellspec Testing](#shellspec-testing)
   * [Overview](#overview)
     * [Installing ShellSpec](#installing-shellspec)
-    * [Making your first test - a simple Example](#making-your-first-test---a-simple-example)
+      * [🔰 Making your first test - a simple Example](#-making-your-first-test---a-simple-example)
   * [Testing `zelta`](#testing-zelta)
+    * [:zap: To run the standard Zelta test](#zap-to-run-the-standard-zelta-test-)
+    * [:zap: To run all tests](#zap-to-run-all-tests)
+    * [🔰 shellspec examples](#-shellspec-examples)
 <!-- TOC -->
-
 * * * 
 ## Overview
 
