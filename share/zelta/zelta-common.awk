@@ -27,15 +27,14 @@ function zelta_init(	_o, _prefix_re) {
 	NumOperands	= split(Opt["OPERANDS"], Operands, SUBSEP)
 }
 
-function load_endpoint(ep, ep_arr,	_str_parts, _id, _remote ,_user, _host, _ds, _snap) {
+function load_endpoint(ep, ep_arr,	_str_parts, _id, _remote ,_user, _host, _ds, _snap, _depth, _pool, _leaf) {
 	if (!ep) return
 	_id	= ep				# ID is the user's endpoint string
-
 	# Find the connection info for ssh, '[user@]host'
 	if (ep ~ /^[^ :\/]+:/) {
 		_remote	= ep
 		sub(/:.*/, "", _remote)		# REMOTE is '[user@]host'
-		sub(/^[^ :\/]+:/,i "", ep)		# Don't split(), ep may have ':'
+		sub(/^[^ :\/]+:/,"", ep)	# Don't split(), ep may have ':'
 		if (split(_remote, _str_parts, "@")==2) {
 			_user = _str_parts[1]	# USER from 'user@host'
 			_host = _str_parts[2]	# HOST
@@ -49,10 +48,13 @@ function load_endpoint(ep, ep_arr,	_str_parts, _id, _remote ,_user, _host, _ds, 
 		_host = Opt["HOSTNAME"]
 	# TO-DO: Review snapshot-only endpoint policy:
 	# ZFS supports bookmarks for incremental source, but not Zelta only needs a target snapshot
-	if (split($0, _str_parts, "@") == 2) {
+	if (split(ep, _str_parts, "@") == 2) {
 		_snap = "@" _str_parts[2]
 	}
 	_ds = _str_parts[1]
+	_depth = split(_ds, _str_parts, "/")
+	_pool = _str_parts[1]
+	_leaf = _str_parts[_depth]
 	if (!_user) { _user = ENVIRON["USER"] }	# USER may be useful for logging
 
 	# Validate and define the endpoint
@@ -63,13 +65,17 @@ function load_endpoint(ep, ep_arr,	_str_parts, _id, _remote ,_user, _host, _ds, 
 	ep_arr["HOST"]		= _host
 	ep_arr["DS"]		= _ds
 	ep_arr["SNAP"]		= _snap
+	ep_arr["POOL"]		= _pool
+	ep_arr["LEAF"]		= _leaf
+	ep_arr["DEPTH"]		= _depth
 }
 
 # OUTPUT FUNCTIONS
 
 # Logging
-function report(mode, message) {
-	print mode "\t" message | Opt["LOG_COMMAND"]
+function report(mode, message,		_mode_message) {
+	_mode_message = mode SUBSEP message
+	print _mode_message | Opt["LOG_COMMAND"]
 	log_output_count++
 }
 
@@ -200,19 +206,40 @@ function str_join(arr, sep) {
 	return arr_join(arr, sep)
 }
 
+# Joins non-blank elements of an array
 function arr_join(arr, sep,    _str, _idx, _i) {
 	if (!sep) sep = " "
-	for (_idx in arr) {
-		if (arr[++_i]) {
+	for (_idx in arr)
+		if (arr[++_i])
 			_str = _str ? _str sep arr[_i] : arr[_i]
-		}
-	}
 	return _str
 }
 
 function arr_copy(src_arr, tgt_arr,		_key) {
         delete tgt_arr
         for (_key in src_arr) tgt_arr[_key] = src_arr[_key]
+}
+
+function arr_len(arr, _lcv, _i) {
+	for (_lcv in arr)
+		++_i
+	return _i
+}
+
+# Sort an array
+function arr_sort(arr, num_elements,	_i, _j, _val) {
+	if (!num_elements)
+		num_elements = arr_len(arr);
+	for (_i = 2; _i <= num_elements; _i++) {
+		# Store the current value and its key
+		_val = arr[_i];
+		_j = _i - 1;
+		while (_j >= 1 && arr[_j] > _val) {
+			arr[_j + 1] = arr[_j];
+			_j--;
+		}
+		arr[_j + 1] = _val;
+	}
 }
 
 # Create an associative array from a list
@@ -282,11 +309,15 @@ function load_build_commands(           _action) {
 # Special variables:
 #   "endpoint": Expands a remote prefix if given
 #   "command_prefix": Inserts before command name for an additional pipe or environment variable
-function build_command(action, vars,            _remote_prefix, _cmd, _num_vars, _var_list, _val) {
+function build_command(action, vars, endpoint,		_remote_prefix, _cmd, _num_vars, _var_list, _val) {
 	if (!LOAD_BUILD_COMMANDS) load_build_commands()
+	# Legacy vars["endpoint"] special
         if (CommandRemote[action] && vars["endpoint"]) {
                 _remote_prefix = remote_str(vars["endpoint"], CommandRemote[action])
-        }
+        } else if (CommandRemote[action] && endpoint["REMOTE"]) {
+		_remote_prefix = Opt["REMOTE_" CommandRemote[action]]
+		_remote_prefix = _remote_prefix " " endpoint["REMOTE"]
+	}
         _cmd = CommandLine[action]
         _num_vars = split(CommandVars[action], _var_list, " ")
         for (_v = 1; _v <= _num_vars; _v++) {

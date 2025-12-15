@@ -160,6 +160,7 @@ function load_option_list(		_tsv, _flag, _flags, _idx, _flag_arr) {
 function override_options(	_e) {
 	for (_e in NewOpt) {
 		if (NewOpt[_e] != Opt[_e]) {
+			# TO-DO: Ensure numerical '0' exports properly
 			export = export " " (ENV_PREFIX _e) "='" NewOpt[_e] "'"
 		}
 	}
