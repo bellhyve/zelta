@@ -25,5 +25,22 @@ Describe 'confirm zfs setup'
          When call zfs list -r "$TGT_POOL"
          The line 2 of output should match pattern "* /$TGT_POOL"
      End
+End
 
+Describe 'try backup'
+    It 'backs up the initial tree'
+        When call zelta backup $SRC_POOL/$TREETOP_DSN $TGT_POOL/$BACKUPS_DSN
+        The stderr should match pattern "* cannot open '$TGT_POOL/$BACKUPS_DSN': dataset does not exist"
+        The stdout should not be blank
+        The status should eq 0
+    End
+
+    It 'has valid backup'
+        When call zfs list -r "$TGT_POOL"
+        The line 2 of output should match pattern "* /$TGT_POOL"
+        The line 3 of output should match pattern "* /$TGT_POOL/$BACKUPS_DSN"
+        The line 4 of output should match pattern "* /$TGT_POOL/$BACKUPS_DSN/one"
+        The line 5 of output should match pattern "* /$TGT_POOL/$BACKUPS_DSN/one/two"
+        The line 6 of output should match pattern "* /$TGT_POOL/$BACKUPS_DSN/one/two/three"
+    End
 End
