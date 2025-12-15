@@ -16,7 +16,7 @@ spec_helper_precheck() {
 # This callback function will be invoked after a specfile has been loaded.
 spec_helper_loaded() {
     :
-    echo "spec_helper.sh loaded from $SHELLSPEC_HELPERDIR"
+    #echo "spec_helper.sh loaded from $SHELLSPEC_HELPERDIR"
 }
 
 start_spec() {
@@ -33,8 +33,8 @@ start_all() {
     :
     #ls -l "./spec/lib/create_file_backed_zfs_test_pools.sh"
     #. "./spec/lib/create_file_backed_zfs_test_pools.sh"
-    curdir=$(pwd)
-    echo "spec_helper.sh start_all curdir:$curdir"
+    #curdir=$(pwd)
+    #echo "spec_helper.sh start_all curdir:$curdir"
     #./spec/initialize/create_file_backed_zfs_test_pools.sh
     #./spec/initialize/initialize_testing_setup.sh
 
