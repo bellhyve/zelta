@@ -74,7 +74,7 @@ function load_endpoint(ep, ep_arr,	_str_parts, _id, _remote ,_user, _host, _ds, 
 
 # Logging
 function report(mode, message,		_mode_message) {
-	_mode_message = mode "|" message
+	_mode_message = mode SUBSEP message
 	print _mode_message | Opt["LOG_COMMAND"]
 	log_output_count++
 }

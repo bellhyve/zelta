@@ -167,6 +167,7 @@ zelta_log() {
 	# selecting another, like LOG_MODE=json. To disable STDERR noise, use `zelta VERB -qq ...`
 	_fd=3
 	_fd_term=4
+	_sep="$(printf '\034')"
 	if [ -n "$ZELTA_LOG_FILE" ] ; then
 		#_fd=" >> '${ZELTA_LOG_FILE}'"
 		exec 3>>"$ZELTA_LOG_FILE"
@@ -178,7 +179,7 @@ zelta_log() {
 			_term="1"
 		fi
 	fi
-	while IFS="|" read log_level log_message; do
+	while IFS="$_sep" read log_level log_message; do
 		: ${log_level:=${log_level:-2}}
 		# If no log_level is given, treat it as a "notice"
 		case "$log_level" in
@@ -227,8 +228,7 @@ case "$script_name" in
 esac
 
 case "$zelta_verb" in
-ipc-log)	shift;
-		zelta_log "$@"
+ipc-log)	zelta_log
 		;;
 ipc-run)
 		# For internal calls. Environment is pre-set.
