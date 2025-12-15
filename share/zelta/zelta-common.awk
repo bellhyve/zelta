@@ -286,6 +286,14 @@ function remote_str(endpoint, type,     _cmd) {
         return _cmd
 }
 
+# Gets remote command from endpoint array
+function get_remote_cmd(ep, type,	_cmd) {
+	if (!ep["REMOTE"]) return
+	type = type ? type : "DEFAULT"
+	_cmd = Opt["REMOTE_" type]" "ep["REMOTE"]
+	return _cmd
+}
+
 ## Command builder
 ##################
 
@@ -309,14 +317,13 @@ function load_build_commands(           _action) {
 # Special variables:
 #   "endpoint": Expands a remote prefix if given
 #   "command_prefix": Inserts before command name for an additional pipe or environment variable
-function build_command(action, vars, endpoint,		_remote_prefix, _cmd, _num_vars, _var_list, _val) {
+function build_command(action, vars, 		_remote_prefix, _cmd, _num_vars, _var_list, _val) {
 	if (!LOAD_BUILD_COMMANDS) load_build_commands()
-	# Legacy vars["endpoint"] special
-        if (CommandRemote[action] && vars["endpoint"]) {
-                _remote_prefix = remote_str(vars["endpoint"], CommandRemote[action])
-        } else if (CommandRemote[action] && endpoint["REMOTE"]) {
-		_remote_prefix = Opt["REMOTE_" CommandRemote[action]]
-		_remote_prefix = _remote_prefix " " endpoint["REMOTE"]
+        if (CommandRemote[action]) {
+		if (vars["endpoint"])
+	                _remote_prefix = remote_str(vars["endpoint"], CommandRemote[action])
+		else if (vars["remote"])
+			_remote_prefix = vars["remote"]
 	}
         _cmd = CommandLine[action]
         _num_vars = split(CommandVars[action], _var_list, " ")
