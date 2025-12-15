@@ -205,6 +205,7 @@ function load_zfs_list_row(ep) {
 ## Identifying Replica Relationships
 ####################################
 
+# Load DSPair keys for summary output
 function create_ds_pair(src_ds, _src_ds_row) {
 	split(src_ds, _src_ds_row, S)
 	_ds_suffix		= _src_ds_row[2]
@@ -239,6 +240,7 @@ function compare_datasets(src_ds_id,		_row_arr) {
 	}
 }
 
+# TO-DO: Add user-defined filters
 function validate_match(src_row, tgt_row, ds_suffix, savepoint) {
 	# Exclude if the target isn't a snapshot
 	if (Row[tgt_row, "type"] != IS_SNAPSHOT)
@@ -249,6 +251,7 @@ function validate_match(src_row, tgt_row, ds_suffix, savepoint) {
 	}
 }
 
+# Step through snapshots for counters and to find common snapshots
 function compare_snapshots(src_row,	_src_row_arr, _ds_suffix, _savepoint, _src_guid, _tgt_ds_id, _tgt_match) {
 	# Identify a match candidate by GUID
 	split(src_row, _src_row_arr, S)
@@ -268,19 +271,52 @@ function compare_snapshots(src_row,	_src_row_arr, _ds_suffix, _savepoint, _src_g
 	}
 }
 
+function review_target_datasets(tgt_id,		_tgt_arr, _row_arr, _num_snaps, _tgt_row, _savepoint,
+						_guid, _src_ds_id,_match, _match_found) {
+	split(tgt_id, _tgt_arr, S)
+	_ds_suffix = _tgt_arr[2]
+	_num_snaps = NumSnaps[tgt_id]
+	if (!DSPair[_ds_suffix,"status"]) {
+		DSPair[_ds_suffix,"tgt_snaps"] = _num_snaps
+		DSPair[_ds_suffix,"status"] = PAIR_TGT_ONLY
+	}
+	for (_s = 1; _s <= _num_snaps; _s++) {
+		_tgt_row = Snap[tgt_id,_s]
+		split(_tgt_row, _row_arr, S)
+		_savepoint	= _row_arr[3]
+		_guid		= Row[_tgt_row, "guid"]
+		_src_ds_id	= Source["ID"] S _ds_suffix S ""
+		_match		= Guid[_src_ds_id, _guid]
+		if (_match)
+			_match_found = 1
+		#print _tgt_row, _match_found, Row[_tgt_row, "type"]
+		if (!_match_found && (Row[_tgt_row, "type"] == IS_SNAPSHOT)) {
+			DSPair[_ds_suffix, "num_blocked"]++
+			DSPair[_ds_suffix, "tgt_next"] = _savepoint
+		}
+	}
+}
+
 function process_datasets(		_src_id, _tgt_id, _num_src_ds, _num_tgt_ds, _d, _s) {
 	_src_id		= Source["ID"]
 	_tgt_id		= Target["ID"]
 	_num_src_ds	= Source["num_ds"]
 	_num_tgt_ds	= Target["num_ds"]
+
+	# Step through soruce objects
 	for (_d = 1; _d <= _num_src_ds; _d++) {
 		_src_ds_id = Dataset[_src_id, _d]
-		_ds_suffix = create_ds_pair(_src_ds_id)
+		create_ds_pair(_src_ds_id)
 		if (compare_datasets(_src_ds_id)) {
 			_num_snaps = NumSnaps[_src_ds_id]
 			for (_s = 1; _s <= _num_snaps; _s++)
 				compare_snapshots(Snap[_src_ds_id,_s])
 		}
+	}
+
+	# Step through target objects
+	for (_d = 1; _d <= _num_tgt_ds; _d++) {
+		review_target_datasets(Dataset[_tgt_id, _d])
 	}
 	arr_sort(DSPairList, NumDSPair)
 }
