@@ -27,7 +27,7 @@ function zelta_init(	_o, _prefix_re) {
 	NumOperands	= split(Opt["OPERANDS"], Operands, SUBSEP)
 }
 
-function load_endpoint(ep, ep_arr,	_str_parts, _id, _remote ,_user, _host, _ds, _snap) {
+function load_endpoint(ep, ep_arr,	_str_parts, _id, _remote ,_user, _host, _ds, _snap, _depth, _pool, _leaf) {
 	if (!ep) return
 	_id	= ep				# ID is the user's endpoint string
 	# Find the connection info for ssh, '[user@]host'
@@ -52,6 +52,9 @@ function load_endpoint(ep, ep_arr,	_str_parts, _id, _remote ,_user, _host, _ds, 
 		_snap = "@" _str_parts[2]
 	}
 	_ds = _str_parts[1]
+	_depth = split(_ds, _str_parts, "/")
+	_pool = _str_parts[1]
+	_leaf = _str_parts[_depth]
 	if (!_user) { _user = ENVIRON["USER"] }	# USER may be useful for logging
 
 	# Validate and define the endpoint
@@ -62,13 +65,17 @@ function load_endpoint(ep, ep_arr,	_str_parts, _id, _remote ,_user, _host, _ds, 
 	ep_arr["HOST"]		= _host
 	ep_arr["DS"]		= _ds
 	ep_arr["SNAP"]		= _snap
+	ep_arr["POOL"]		= _pool
+	ep_arr["LEAF"]		= _leaf
+	ep_arr["DEPTH"]		= _depth
 }
 
 # OUTPUT FUNCTIONS
 
 # Logging
-function report(mode, message) {
-	print mode "\t" message | Opt["LOG_COMMAND"]
+function report(mode, message,		_mode_message) {
+	_mode_message = mode "|" message
+	print _mode_message | Opt["LOG_COMMAND"]
 	log_output_count++
 }
 
@@ -211,6 +218,28 @@ function arr_join(arr, sep,    _str, _idx, _i) {
 function arr_copy(src_arr, tgt_arr,		_key) {
         delete tgt_arr
         for (_key in src_arr) tgt_arr[_key] = src_arr[_key]
+}
+
+function arr_len(arr, _lcv, _i) {
+	for (_lcv in arr)
+		++_i
+	return _i
+}
+
+# Sort an array
+function arr_sort(arr, num_elements,	_i, _j, _val) {
+	if (!num_elements)
+		num_elements = arr_len(arr);
+	for (_i = 2; _i <= num_elements; _i++) {
+		# Store the current value and its key
+		_val = arr[_i];
+		_j = _i - 1;
+		while (_j >= 1 && arr[_j] > _val) {
+			arr[_j + 1] = arr[_j];
+			_j--;
+		}
+		arr[_j + 1] = _val;
+	}
 }
 
 # Create an associative array from a list
