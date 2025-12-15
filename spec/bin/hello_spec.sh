@@ -1,13 +1,12 @@
-
-
-
 # simple test showing helping function inclusion, logging and output matching
+# simple example spec
 
 Describe 'hello shellspec'
   Include spec/lib/hello.sh
   setup() {
-    %logger "--hello spec setup"
-    spec/initialize/initialize_testing_setup.sh
+    %logger "-- hello spec setup"
+    %logger "-- reference this example to help you get started with writing tests"
+    #spec/initialize/initialize_testing_setup.sh
   }
 
   cleanup() {

@@ -16,21 +16,17 @@ spec_helper_precheck() {
 # This callback function will be invoked after a specfile has been loaded.
 spec_helper_loaded() {
   :
-  #set
   echo "spec_helper.sh loaded from $SHELLSPEC_HELPERDIR"
 }
 
 start_spec() {
   :
-  #echo ${This.name}
-  #echo "staring spec"
-  echo "starting {$SHELLSPEC_SPECFILE}"
+  # echo "starting {$SHELLSPEC_SPECFILE}"
 }
 
 end_spec() {
   :
-  #echo "ending spec"
-  echo "ending {$SHELLSPEC_SPECFILE}"
+  # echo "ending {$SHELLSPEC_SPECFILE}"
 }
 
 start_all() {
