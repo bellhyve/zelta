@@ -26,7 +26,7 @@ export SRC_TREE="$SRC_POOL/$TREETOP_DSN"
 export TGT_TREE="$TGT_POOL/$BACKUPS_DSN/$TREETOP_DSN"
 export ALL_DATASETS="one/two/three"
 
-export PATH="${ZELTA_BIN}":${ZFS_BIN}:/usr/bin:/bin
+export PATH="${ZELTA_BIN}":"${ZFS_BIN}":/usr/bin:/bin
 
 #set +x
 #true

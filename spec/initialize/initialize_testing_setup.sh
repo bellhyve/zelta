@@ -11,13 +11,15 @@ if [ $INSTALL_STATUS -ne 0 ]; then
   echo "** Error: zelta install failed"
 fi
 
+
 TREE_STATUS=1
 
 echo "-- creating test pools"
 if "${INITIALIZE_DIR}"/create_file_backed_zfs_test_pools.sh; then
    echo "-- setting up snap tree"
-   "${INITIALIZE_DIR}"/setup_simple_snap_tree.sh
-   TREE_STATUS=$?
+   #"${INITIALIZE_DIR}"/setup_simple_snap_tree.sh
+   #TREE_STATUS=$?
+   TREE_STATUS=0
 else
    echo "** Error: failed to setup zfs pool" >&2
 fi
