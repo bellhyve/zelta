@@ -1,6 +1,5 @@
 #!/bin/sh
 
-
 rm -fr "${TEST_INSTALL}"
 mkdir -p "${TEST_INSTALL}"
 
