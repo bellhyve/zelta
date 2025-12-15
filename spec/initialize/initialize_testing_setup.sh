@@ -1,5 +1,13 @@
 #!/bin/sh
 
+verify_root() {
+    # Check if running as root
+    if [ "$(id -u)" -ne 0 ]; then
+        echo "Error: You must be run as root or with sudo" >&2
+        exit 1
+    fi
+}
+
 initialize_zelta_test() {
     echo "-- BeforeAll setup"
 
@@ -9,7 +17,6 @@ initialize_zelta_test() {
     if [ $INSTALL_STATUS -ne 0 ]; then
         echo "** Error: zelta install failed"
     fi
-
 
     echo "-- creating test pools"
     if "${INITIALIZE_DIR}"/create_file_backed_zfs_test_pools.sh; then
@@ -22,7 +29,6 @@ initialize_zelta_test() {
     fi
 
     #CREATE_STATUS=$?
-
 
     #echo "-- Create pool status:    {$CREATE_STATUS}"
     echo "-- Install Zelta status:  {$INSTALL_STATUS}"
@@ -39,5 +45,5 @@ initialize_zelta_test() {
     return $SETUP_STATUS
 }
 
-
+#verify_root
 initialize_zelta_test

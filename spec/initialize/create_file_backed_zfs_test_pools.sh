@@ -6,7 +6,7 @@ check_pool_exists() {
         echo "** Error: Pool name required" >&2
         return 1
     fi
-    sudo zpool list "$pool_name" > /dev/null 2>&1
+    sudo zpool list "$pool_name" >/dev/null 2>&1
 }
 
 destroy_pool_if_exists() {
@@ -28,8 +28,8 @@ create_test_pool() {
     #set -x
     pool_name="$1"
     if ! destroy_pool_if_exists "${pool_name}"; then
-      echo "** Error: Can't delete pool {$pool_name}" >&2
-      return 1
+        echo "** Error: Can't delete pool {$pool_name}" >&2
+        return 1
     fi
 
     pool_file_img="${ZELTA_ZFS_STORE_TEST_DIR}/${pool_name}.img"
@@ -59,7 +59,6 @@ verify_pool_creation() {
     fi
 }
 
-
 create_pools() {
     echo ""
     echo "=== create pool ${SRC_POOL} ==="
@@ -73,7 +72,7 @@ create_pools() {
     echo "SRC_STATUS:{$SRC_STATUS}"
     echo "TGT_STATUS:{$TGT_STATUS}"
 
-    return $(( SRC_STATUS || TGT_STATUS ))
+    return $((SRC_STATUS || TGT_STATUS))
 }
 
 mkdir -p "${ZELTA_ZFS_STORE_TEST_DIR}"

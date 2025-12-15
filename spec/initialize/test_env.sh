@@ -3,26 +3,25 @@
 #set -x
 
 check_zfs_installed() {
-  # Check if zfs is already on PATH
-  if ! command -v zfs >/dev/null 2>&1; then
-      # Allow user to override ZFS_BIN location, default to /usr/local/sbin
-      ZFS_BIN="${ZFS_BIN:-/usr/local/sbin}"
+    # Check if zfs is already on PATH
+    if ! command -v zfs >/dev/null 2>&1; then
+        # Allow user to override ZFS_BIN location, default to /usr/local/sbin
+        ZFS_BIN="${ZFS_BIN:-/usr/local/sbin}"
 
-      # Add ZFS_BIN to PATH if not already present
-      case ":$PATH:" in
-          *":$ZFS_BIN:"*) ;;
-          *) PATH="$ZFS_BIN:$PATH" ;;
-      esac
-      export PATH
+        # Add ZFS_BIN to PATH if not already present
+        case ":$PATH:" in
+        *":$ZFS_BIN:"*) ;;
+        *) PATH="$ZFS_BIN:$PATH" ;;
+        esac
+        export PATH
 
-      # Verify zfs command is now available
-      if ! command -v zfs >/dev/null 2>&1; then
-          echo "Error: zfs command not found. Please set ZFS_BIN to the correct location." >&2
-          return 1
-      fi
-  fi
+        # Verify zfs command is now available
+        if ! command -v zfs >/dev/null 2>&1; then
+            echo "Error: zfs command not found. Please set ZFS_BIN to the correct location." >&2
+            return 1
+        fi
+    fi
 }
-
 
 CUR_DIR=$(pwd)
 #echo "$CUR_DIR"
@@ -57,4 +56,3 @@ export PATH="${ZELTA_BIN}:$PATH"
 
 #set +x
 #true
-
