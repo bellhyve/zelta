@@ -313,7 +313,7 @@ function load_columns(		_tsv, _key, _opt_list, _opt, _idx, _c, _default_proplist
 	}
 	close(_tsv)
 
-	_default_proplist = "dssuffix,match,info"
+	_default_proplist = "dssuffix,match,last,info"
 	_proplist = Opt["PROPLIST"] ? Opt["PROPLIST"] : _default_proplist
 	if (_proplist == "all")
 		_proplist = arr_join(ColList, ",")
