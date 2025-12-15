@@ -1,59 +1,43 @@
 #!/bin/sh
 
-pwd
+initialize_zelta_test() {
+    echo "-- BeforeAll setup"
 
-echo "-- BeforeAll setup"
-
-echo "-- installing zelta"
-"${INITIALIZE_DIR}"/install_local_zelta.sh
-INSTALL_STATUS=$?
-if [ $INSTALL_STATUS -ne 0 ]; then
-  echo "** Error: zelta install failed"
-fi
-
-
-TREE_STATUS=1
-
-echo "-- creating test pools"
-if "${INITIALIZE_DIR}"/create_file_backed_zfs_test_pools.sh; then
-   echo "-- setting up snap tree"
-   #"${INITIALIZE_DIR}"/setup_simple_snap_tree.sh
-   #TREE_STATUS=$?
-   TREE_STATUS=0
-else
-   echo "** Error: failed to setup zfs pool" >&2
-fi
-
-#CREATE_STATUS=$?
+    echo "-- installing zelta"
+    "${INITIALIZE_DIR}"/install_local_zelta.sh
+    INSTALL_STATUS=$?
+    if [ $INSTALL_STATUS -ne 0 ]; then
+        echo "** Error: zelta install failed"
+    fi
 
 
-#echo "-- Create pool status:    {$CREATE_STATUS}"
-echo "-- Install Zelta status:  {$INSTALL_STATUS}"
-echo "-- Make snap tree status: {$TREE_STATUS}"
+    echo "-- creating test pools"
+    if "${INITIALIZE_DIR}"/create_file_backed_zfs_test_pools.sh; then
+        echo "-- setting up snap tree"
+        "${INITIALIZE_DIR}"/setup_simple_snap_tree.sh
+        TREE_STATUS=$?
+    else
+        echo "** Error: failed to setup zfs pool" >&2
+        TREE_STATUS=1
+    fi
 
-#SETUP_STATUS=$((CREATE_STATUS || INSTALL_STATUS || TREE_STATUS))
-SETUP_STATUS=$((INSTALL_STATUS || TREE_STATUS))
-echo "-- returning SETUP_STATUS:{$SETUP_STATUS}"
+    #CREATE_STATUS=$?
 
-if [ $SETUP_STATUS -ne 0 ]; then
-   echo "** Error: zfs pool and/or zelta install failed!" >&2
-fi
 
-return $SETUP_STATUS
+    #echo "-- Create pool status:    {$CREATE_STATUS}"
+    echo "-- Install Zelta status:  {$INSTALL_STATUS}"
+    echo "-- Make snap tree status: {$TREE_STATUS}"
 
-# setting up test pools requires sudo
+    #SETUP_STATUS=$((CREATE_STATUS || INSTALL_STATUS || TREE_STATUS))
+    SETUP_STATUS=$((INSTALL_STATUS || TREE_STATUS))
+    echo "-- returning SETUP_STATUS:{$SETUP_STATUS}"
 
-#echo "hello from initialize"
-#echo "INITIALIZE_DIR: {$INITIALIZE_DIR}"
-#. spec/initialize/create_file_backed_zfs_test_pools.sh
-#set -x
-#zfs --help
-#. ${INITIALIZE_DIR}/create_file_backed_zfs_test_pools.sh
-#set +x
-#true
-# install zelta in a tmp directory locally for testing
-#. ${INITIALIZE_DIR}/install_local_zelta.sh
-#. ./install.sh
+    if [ $SETUP_STATUS -ne 0 ]; then
+        echo "** Error: zfs pool and/or zelta install failed!" >&2
+    fi
 
-# create a simple test tree of zfs data sets for testing
-#. ${INITIALIZE_DIR}/setup_simple_snap_tree.sh
+    return $SETUP_STATUS
+}
+
+
+initialize_zelta_test
