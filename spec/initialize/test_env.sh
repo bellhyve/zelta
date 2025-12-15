@@ -31,9 +31,6 @@ export INITIALIZE_DIR="${CUR_DIR}/spec/initialize"
 export LOCAL_TMP="${CUR_DIR}/spec/tmp"
 export INITIALIZATION_COMPLETE_MARKER_FILE="$LOCAL_TMP/.initialize_testing_setup_complete"
 export TEST_INSTALL="${LOCAL_TMP}/test_install"
-# allow for custom zfs installation
-# OpenZFS builds are typically installed in "/usr/local/sbin" for testing
-export ZFS_BIN="${ZFS_BIN:-/usr/local/sbin}"
 export ZELTA_BIN="$TEST_INSTALL/bin"
 export ZELTA_SHARE="$TEST_INSTALL/share/zelta"
 export ZELTA_ETC="$TEST_INSTALL/zelta"
@@ -51,8 +48,6 @@ export TGT_TREE="$TGT_POOL/$BACKUPS_DSN/$TREETOP_DSN"
 export ALL_DATASETS="one/two/three"
 
 check_zfs_installed
-
-#export PATH="${ZELTA_BIN}":"${ZFS_BIN}":/usr/bin:/bin
 export PATH="${ZELTA_BIN}:$PATH"
 
 #set +x

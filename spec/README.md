@@ -31,12 +31,27 @@ shellspec -f d spec/bin/hello_spec.sh
 ```
 
 ## Testing `zelta`
-To configure your environment for zelta testing run the following command.
+To configure your environment for zelta testing, run the following command.
+
 > [!NOTE]
 > zfs must be installed on your system.
 
 > [!WARNING]
-> This command requires root privileges because is sets up zfs file backed pools. 
+> The command requires root privileges because is sets up zfs file backed pools. 
+
+
+### To setup a zelta test environment 
+- [zelta_test_setup_spec.sh](./bin/zelta_test_setup_spec.sh)
+    ```shell
+    sudo -E env "PATH=$PATH" shellspec -f d spec/bin/zelta_test_setup_spec.sh
+    ```
+
+### To run all tests
+> [!NOTE]
+> We are using naming convention for tests to run them in a specific order. 
+> Name your new tests staring with the highest existing test number + 1.
+> **This strategy is subject to change and is a WIP** 
+
 ```shell
-sudo -E env "PATH=$PATH" shellspec -f d spec/bin/zelta_test_setup_spec.sh
+sudo -E env "PATH=$PATH" shellspec -f d
 ```
