@@ -652,6 +652,7 @@ function get_send_command_dataset(ds_suffix, remote_ep,		_ds_snap) {
 
 # Assemble a 'zfs send' command with the helpers above
 function create_send_command(ds_suffix, idx, remote_ep, 		_cmd_arr, _cmd, _ds_snap) {
+	if (!Opt[remote_ep "_REMOTE"]) remote_ep = ""
 	_cmd_arr["endpoint"]	= remote_ep
 	_cmd_arr["flags"]	= get_send_command_flags(ds_suffix, idx)
 	_cmd_arr["intr_snap"]	= get_send_command_incr_snap(ds_suffix, idx, remote_ep)
@@ -686,6 +687,7 @@ function get_recv_command_flags(ds_suffix, src_idx, remote_ep,	_flag_arr, _flags
 
 # Assemble a 'zfs recv' command with the help of the flag builder above
 function create_recv_command(ds_suffix, src_idx, remote_ep,		 _cmd_arr, _cmd, _tgt_ds) {
+	if (!Opt[remote_ep "_REMOTE"]) remote_ep = ""
 	_tgt_ds			= Opt["TGT_DS"] ds_suffix
 	_cmd_arr["endpoint"]	= remote_ep
 	_cmd_arr["flags"]	= get_recv_command_flags(ds_suffix, src_idx)
@@ -791,7 +793,7 @@ function get_sync_command(ds_suffix, src_idx, tgt_idx,	_zfs_send, _zfs_recv) {
 			report(LOG_WARNING, "syncing remote endpoints through localhost; consider --push or --pull")
 		_zfs_send 		= create_send_command(ds_suffix, src_idx, "SRC")
 		_zfs_recv		= create_recv_command(ds_suffix, src_idx, "TGT")
-		_cmd			= Opt["SH_COMMAND_PREFIX"] " " _zfs_send "|" _zfs_recv " " Opt["SH_COMMAND_SUFFIX"] 
+		_cmd			=  _zfs_send "|" _zfs_recv
 	}
 	return _cmd
 }
