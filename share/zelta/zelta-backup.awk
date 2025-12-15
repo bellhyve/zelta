@@ -945,7 +945,7 @@ function create_recursive_clone(endpoint, origin_ds, new_ds,		_remote, _user_sna
 		}
 	}
 	if (_ds_count)
-		report(LOG_NOTICE, "cloned " _ds_count "/" NumDS " datasets to " _clone_ds)
+		report(LOG_NOTICE, "cloned " _ds_count "/" NumDS " datasets to " new_ds)
 	else 
 		report(LOG_NOTICE, "no source snapshots to clone")
 }
