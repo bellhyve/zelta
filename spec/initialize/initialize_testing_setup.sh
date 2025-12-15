@@ -3,7 +3,7 @@
 verify_root() {
     # Check if running as root
     if [ "$(id -u)" -ne 0 ]; then
-        echo "Error: You must be run as root or with sudo" >&2
+        echo "Error: You must run as root or with sudo" >&2
         exit 1
     fi
 }
@@ -45,5 +45,5 @@ initialize_zelta_test() {
     return $SETUP_STATUS
 }
 
-#verify_root
+verify_root
 initialize_zelta_test
