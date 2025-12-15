@@ -66,10 +66,11 @@ function zfs_list_cmd(endpoint,		_ep, _ds, _remote, _cmd) {
 	_ds			= endpoint["DS"]
 	_remote			= endpoint["REMOTE"]
 	_cmd_arr["props"]	= "name,guid" add_written()
+	_cmd_arr["remote"]	= get_remote_cmd(endpoint)
 	_cmd_arr["ds"]		= rq(_remote, _ds)
 	if (Opt["DEPTH"])
 		_cmd_arr["flags"] = "-d" Opt["DEPTH"]
-	_cmd			= build_command("LIST", _cmd_arr, endpoint)
+	_cmd			= build_command("LIST", _cmd_arr)
 	if (Opt["DRYRUN"]) _cmd	= report(LOG_NOTICE, "+ " _cmd)
 	if (Opt["TIME"]) _cmd	= wrap_time_cmd(_cmd)
 	_cmd			= str_add(_cmd, CAPTURE_OUTPUT)
