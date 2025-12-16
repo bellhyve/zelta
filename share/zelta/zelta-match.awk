@@ -89,7 +89,7 @@ function pipe_zfs_list_source(		_match_cmd, _src_list_cmd) {
 	report(LOG_INFO, "listing source: " Source["ID"])
 	report(LOG_DEBUG, "`" _src_list_cmd "`")
 
-	# The blank line piped below allows the target awk stream to run its 
+	# The blank line piped below allows the target awk stream to run its
 	# BEGIN block without waiting for first line of 'zfs list' output.
 	print "" | _match_cmd
 	while (_src_list_cmd | getline) print | _match_cmd
@@ -108,7 +108,7 @@ function run_zfs_list_target(		_src_list_cmd) {
 	report(LOG_INFO, "listing target: " Target["ID"])
 	report(LOG_DEBUG, "`" _tgt_list_cmd "`")
 	_tgt_list_cmd = str_add(_tgt_list_cmd, CAPTURE_OUTPUT)
-	while  (_tgt_list_cmd | getline) 
+	while  (_tgt_list_cmd | getline)
 		load_zfs_list_row(Target)
 	close(_tgt_list_cmd)
 }
@@ -154,18 +154,18 @@ function process_row(ep,		_name, _guid, _written, _name_suffix, _ds_suffix, _sav
 	} else 	_ds_suffix		= _name_suffix
 	if (!depth_ok(_ds_suffix))
 		return
-	
+
 	_ep_id			= ep["ID"]
 	_ds_id			= _ep_id S _ds_suffix S ""
 	_row_id			= _ep_id S _ds_suffix S _savepoint
 	_type			= object_type(_type)
-	
+
 	Row[_row_id, "exists"] 	= 1
 	Row[_row_id, "guid"] 	= _guid
 	Row[_row_id, "written"]	= _written
 	Row[_row_id, "name"]	= _name
 	Row[_row_id, "type"]	= _type
-	
+
 	# Snapshots will be used for match GUID over bookmarks
 	if (!Guid[_ds_id, _guid] || (_type == IS_SNAPSHOT))
 		Guid[_ds_id, _guid] = _row_id
@@ -321,6 +321,54 @@ function process_datasets(		_src_id, _tgt_id, _num_src_ds, _num_tgt_ds, _d, _s) 
 	arr_sort(DSPairList, NumDSPair)
 }
 
+
+## Postprocessing
+#################
+# Report up-to-date, syncable, blocked sync, or no source 
+function get_info(	_d, _ds_suffix,_info, _i, _blocked) {
+	for (_d = 1; _d <= NumDSPair; _d++) {
+		_ds_suffix          = DSPairList[_d]
+		_src_ds             = Source["ID"] S _ds_suffix S ""
+		_tgt_ds             = Target["ID"] S _ds_suffix S ""
+
+		_i = 0
+		_blocked = ""
+		delete _info
+
+
+		if (DSPair[_ds_suffix, "status"] == PAIR_TGT_ONLY) {
+			DSPair[_ds_suffix, "info"] = "no source (target only)"
+			continue
+		}
+
+		if (DSPair[_ds_suffix, "status"] == PAIR_SRC_ONLY) {
+			DSPair[_ds_suffix, "info"] = "syncable (full)"
+			continue
+		}
+
+		# Identify blocked syncs to start
+		if (!NumSnaps[_tgt_ds] && NumSnaps[_src_ds])
+			_blocked = "no target snapshots"
+		else if (DSPair[_ds_suffix, "match"] != DSPair[_ds_suffix, "tgt_last"])
+			_blocked = "target diverged"
+		else if (Row[_tgt_ds, "written"])
+			_blocked = "target is written"
+		# List all reasons the sync is blocked
+		if (_blocked) {
+			DSPair[_ds_suffix, "info"] = "blocked sync: " _blocked
+			continue
+		}
+
+
+		if (DSPair[_ds_suffix, "match"] == DSPair[_ds_suffix, "src_last"])
+			DSPair[_ds_suffix, "info"] = "up-to-date"
+		else if (DSPair[_ds_suffix, "match"] == DSPair[_ds_suffix, "tgt_last"])
+				DSPair[_ds_suffix, "info"] = "syncable (incremental)"
+		else {
+			report(LOG_WARNING, Row[_src_ds, "name"] ": unexpected state")
+		}
+	}
+}
 
 ## Output
 #########
@@ -495,6 +543,7 @@ NR > 1 {
 END {
 	if (Opt["MATCH_PIPE"]) {
 		process_datasets()
+		get_info()
 		summary()
 	}
-} 
+}
