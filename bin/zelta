@@ -219,8 +219,12 @@ zelta_log() {
 script_name="${0##*/}"
 case "$script_name" in
 'zelta')
-	zelta_verb="$1";
-	shift;
+	if [ -n "$1" ] ; then
+		zelta_verb="$1";
+		shift
+	else
+		zelta_usage
+	fi
 	;;
 *) 
 	zelta_verb="$script_name"
