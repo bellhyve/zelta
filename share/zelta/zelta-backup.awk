@@ -67,8 +67,10 @@ function usage(message,		_ep_spec, _verb, _clone, _revert) {
         print "  -v, -vv                    Verbose/debug output"              > STDERR
         print "  -q, -qq                    Suppress warnings/errors"          > STDERR
         print "  -j, --json                 JSON output"                       > STDERR
-        print "  --snapshot-always          Always create snapshot"            > STDERR
-        print "  --snap-name NAME           Set snapshot name template"        > STDERR
+	if (!_revert) {
+		print "  --snapshot-always          Always create snapshot"    > STDERR
+		print "  --snap-name NAME           Set snapshot name"         > STDERR
+	}
 	if (!_clone) {
 		print "\nAdvanced Options:"                                    > STDERR
 		if (_verb == "backup")
@@ -452,8 +454,8 @@ function get_snap_name(		_snap_name, _snap_cmd) {
 }
 
 # This function replaces the original 'zelta snapshot' command
-function create_source_snapshot(	_snap_name, _ds_snap, _cmd_arr, _cmd, _snap_failed, _should_snap, _i) {
-	_should_snap = should_snapshot()
+function create_source_snapshot(force_snap,	_snap_name, _ds_snap, _cmd_arr, _cmd, _snap_failed, _should_snap, _i) {
+	_should_snap = force_snap ? force_snap : should_snapshot()
 	if (_should_snap) {
 		_snap_name = get_snap_name()
 		report(LOG_NOTICE, _should_snap _snap_name)
@@ -992,8 +994,11 @@ function create_recursive_clone(endpoint, origin_ds, new_ds,		_remote, _user_sna
 }
 
 function run_revert(		_ds) {
+	# Disable snapshot
+	# TO-DO: Add a mechanism to revert to the previous (rather than named) snapshot
 	_ds = rename_dataset("SRC")
 	create_recursive_clone("SRC", _ds, Opt["SRC_DS"])
+	create_source_snapshot("snapshotting: ")
 	report(LOG_NOTICE, "to retain replica history, run: zelta rotate '"Opt["SRC_DS"]"' 'TARGET'")
 }
 

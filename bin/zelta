@@ -83,6 +83,9 @@ zelta_init() {
 	case "$zelta_verb" in
 		clone)	: ${ZELTA_SEND_INTR:="0"}
 			;;
+		revert)	ZELTA_SEND_INTR="0"
+			ZELTA_SNAP_MODE="0"
+			;;
 		rotate)	: ${ZELTA_SEND_INTR:="0"}
 			;;
 		sync)	: ${ZELTA_SEND_INTR:="0"}
