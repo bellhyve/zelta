@@ -67,14 +67,16 @@ function usage(message) {
 function update_latest_snapshot(endpoint, ds_suffix, snap_name,		_idx, _src_latest) {
 	_idx = endpoint SUBSEP ds_suffix
 	_src_latest = Dataset["SRC", ds_suffix, "latest_snapshot"]
+	# TO-DO: This should be its own function
 	# The source is updated via a snapshot
 	if (endpoint == "SRC") {
 		# If this is the first snapshot for the source, update the snap counter
+		DSTree["source_snap_num"]++
 		if (!_src_latest)
-			DSTree["source_snap_num"]++
-		# If we don't have a new/incremental/intermediate source, the new one becomes it
-		if (!Dataset[_idx, "next_snapshot"]) {
-			DSTree["syncable"]++
+			Dataset[_idx, "earliest_snapshot"] = snap_name
+			Dataset[_idx, "next_snapshot"] = snap_name
+		# If we previously had a match 
+		if (DSPair[ds_suffix, "match"] == _src_latest) {
 			Dataset[_idx, "next_snapshot"] = snap_name
 		}
 		Dataset[_idx, "latest_snapshot"]  = snap_name
@@ -425,7 +427,6 @@ function get_snap_name(		_snap_name, _snap_cmd) {
 
 # This function replaces the original 'zelta snapshot' command
 function create_source_snapshot(	_snap_name, _ds_snap, _cmd_arr, _cmd, _snap_failed, _should_snap, _i) {
-
 	_should_snap = should_snapshot()
 	if (_should_snap) {
 		_snap_name = get_snap_name()
@@ -456,7 +457,6 @@ function create_source_snapshot(	_snap_name, _ds_snap, _cmd_arr, _cmd, _snap_fai
 	if (!_snap_failed) {
 		# We only want to attempt to take a snapshot at most once
 		DSTree["snapshot_attempted"]++
-		DSTree["final_snapshot"] = _snap_name
 		for (_i = 1; _i <= NumDS; _i++) {
 			update_latest_snapshot("SRC", DSList[_i], _snap_name)
 		}
