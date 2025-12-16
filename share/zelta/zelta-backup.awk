@@ -807,7 +807,7 @@ function get_sync_command(ds_suffix,		_src_idx, _tgt_idx, _cmd, _zfs_send, _zfs_
 			report(LOG_WARNING, "syncing remote endpoints through localhost; consider --push or --pull")
 		_zfs_send 		= create_send_command(ds_suffix, _src_idx, "SRC")
 		_zfs_recv		= create_recv_command(ds_suffix, _src_idx, "TGT")
-		_cmd			=  _zfs_send "|" _zfs_recv
+		_cmd			=  "{ " _zfs_send "|" _zfs_recv " ; }"
 	}
 	return _cmd
 }
