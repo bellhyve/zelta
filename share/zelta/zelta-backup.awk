@@ -2,7 +2,7 @@
 #
 # zelta-backup.awk, zelta (replicate|backup|sync|rotate|clone) - replicates remote or local trees
 #   of zfs datasets
-# 
+#
 # After using "zelta match" to identify out-of-date snapshots on the target, this script creates
 # replication streams to synchronize the snapshots of a dataset and its children. This script is
 # useful for backup, migration, and failover scenarios. It intentionally does not have a rollback
@@ -38,6 +38,7 @@
 # Dropped: summary message "replicationErrorCode"
 # Changed "replicate" terminology to "sync" to avoid confusion with 'zfs send --replicate'
 
+
 ## Usage
 ########
 
@@ -51,7 +52,7 @@ function usage(message,		_ep_spec, _verb, _clone, _revert) {
 	if (message) print message                                             > STDERR
 	printf "usage: " _verb " [OPTIONS] "                                   > STDERR
 	print _revert ? "ENDPOINT" : "SOURCE TARGET"                           > STDERR
-	print "\nRequired Arguments:"                                            > STDERR
+	print "\nRequired Arguments:"                                          > STDERR
 	if (_revert)
 		print "  ENDPOINT  " _ep_spec                                  > STDERR
 	else {
@@ -98,7 +99,7 @@ function update_latest_snapshot(endpoint, ds_suffix, snap_name,		_idx, _src_late
 		if (!_src_latest)
 			Dataset[_idx, "earliest_snapshot"] = snap_name
 			Dataset[_idx, "next_snapshot"] = snap_name
-		# If we previously had a match 
+		# If we previously had a match
 		if (DSPair[ds_suffix, "match"] == _src_latest) {
 			Dataset[_idx, "next_snapshot"] = snap_name
 		}
@@ -175,14 +176,14 @@ function load_properties(ep,		_ds, _cmd_arr, _cmd, _ds_suffix, _idx, _seen) {
 
 ## Load snapshot information from `zelta match`
 ###############################################
-	
+
 # Imports a 'zelta match' row into DSPair and Dataset
 function parse_zelta_match_row(		_ds_suffix, _src_idx, _tgt_idx) {
 	if (NF == 5) {
 		# Indexes
 		_ds_suffix				= $1
-		_src_idx				= "SRC" SUBSEP _ds_suffix 
-		_tgt_idx				= "TGT" SUBSEP _ds_suffix 
+		_src_idx				= "SRC" SUBSEP _ds_suffix
+		_tgt_idx				= "TGT" SUBSEP _ds_suffix
 
 		# 'zelta match' columns
 		DSList[++NumDS]				= _ds_suffix
@@ -202,7 +203,7 @@ function parse_zelta_match_row(		_ds_suffix, _src_idx, _tgt_idx) {
 # Run 'zfs match' and pass to parser
 function load_snapshot_deltas(_cmd_arr, _cmd) {
 	FS = "\t"
-	if (!DSTree["target_exists"]) 
+	if (!DSTree["target_exists"])
 		_cmd_arr["command_prefix"]	= "ZELTA_TGT_ID=''"
 	if (Opt["DRYRUN"])
 		_cmd_arr["command_prefix"]	= str_add(_cmd_arr["command_prefix"], "ZELTA_DRYRUN=''")
@@ -234,7 +235,7 @@ function compute_send_range(ds_suffix,		_ds_suffix, _src_idx, _final_ds_snap) {
 	else if (Opt["SEND_INTR"] && !DSPair[_ds_suffix, "match"])
 		_final_ds_snap	= Dataset[_src_idx, "next_snapshot"]
 	# 'zelta rotate' wants the next-available snapshot
-	else if (Opt["VERB"] == "rotate") 
+	else if (Opt["VERB"] == "rotate")
 		_final_ds_snap	= Dataset[_src_idx, "next_snapshot"]
 	# For second pass or -i incremental mode, get up-to-date
 	else
@@ -500,7 +501,7 @@ function create_source_snapshot(	_snap_name, _ds_snap, _cmd_arr, _cmd, _snap_fai
 ## Dataset and properties validation
 ####################################
 
-# 
+
 function dataset_exists(ep, ds,		_cmd_arr, _cmd, _ds_exists, _remote) {
 	_remote = Opt[ep"_REMOTE"]
 	_cmd_arr["endpoint"]	= ep
@@ -879,7 +880,7 @@ function check_origin_match(origin_ds,		_i, _c, _ds_suffix, _origin_arr, _origin
 		if (!Dataset["TGT", _ds_suffix, "exists"]) continue
 		if (DSPair[_ds_suffix, "match"]) continue
 		if (split(_src_origin, _origin_arr, "@") != 2)
-		       continue	
+		       continue
 		_origin_ds		= _origin_arr[1]
 		_origin_snap		= "@" _origin_arr[2]
 		_target_ds_snap		= Opt["TGT_DS"] _ds_suffix _origin_snap
@@ -934,7 +935,7 @@ function run_rotate(		_src_ds_snap, _up_to_date, _src_origin_ds, _origin_arr,
 		if (_up_to_date)
 			stop(1, "replica is up-to-date; source snapshot required for rotation: " Opt["SRC_DS"])
 		else if (DSTree["up_to_date"])
-			report(LOG_WARNING, "insufficient snapshots for fast rotation; performing full backup for "DSTree["up_to_date"]" datasets") 
+			report(LOG_WARNING, "insufficient snapshots for fast rotation; performing full backup for "DSTree["up_to_date"]" datasets")
 		else
 			report(LOG_WARNING, "no common snapshots in '"Opt["SRC_DS"]"' or its origin; performing full backup")
 	}
@@ -986,7 +987,7 @@ function create_recursive_clone(endpoint, origin_ds, new_ds,		_remote, _user_sna
 	}
 	if (_ds_count)
 		report(LOG_NOTICE, "cloned " _ds_count "/" NumDS " datasets to " new_ds)
-	else 
+	else
 		report(LOG_NOTICE, "no source snapshots to clone")
 }
 
@@ -1036,7 +1037,7 @@ function print_summary(		_i, _ds_suffix, _num_streams) {
 # Main planning function
 BEGIN {
 	if (Opt["USAGE"]) usage()
-	
+
 	## Globals and overrides
 	########################
 
