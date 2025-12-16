@@ -324,25 +324,27 @@ function process_datasets(		_src_id, _tgt_id, _num_src_ds, _num_tgt_ds, _d, _s, 
 
 ## Postprocessing
 #################
+
 # Report up-to-date, syncable, blocked sync, or no source 
-function get_info(	_d, _ds_suffix,_info, _i, _blocked) {
+function get_info(	_d, _ds_suffix, _src_ds, _tgt_ds, _info, _blocked, _s) {
 	for (_d = 1; _d <= NumDSPair; _d++) {
 		_ds_suffix          = DSPairList[_d]
 		_src_ds             = Source["ID"] S _ds_suffix S ""
 		_tgt_ds             = Target["ID"] S _ds_suffix S ""
 
-		_i = 0
 		_blocked = ""
 		delete _info
 
 
 		if (DSPair[_ds_suffix, "status"] == PAIR_TGT_ONLY) {
 			DSPair[_ds_suffix, "info"] = "no source (target only)"
+			Global["blocked_count"]++
 			continue
 		}
 
 		if (DSPair[_ds_suffix, "status"] == PAIR_SRC_ONLY) {
 			DSPair[_ds_suffix, "info"] = "syncable (full)"
+			Global["syncable_count"]++
 			continue
 		}
 
@@ -356,18 +358,32 @@ function get_info(	_d, _ds_suffix,_info, _i, _blocked) {
 		# List all reasons the sync is blocked
 		if (_blocked) {
 			DSPair[_ds_suffix, "info"] = "blocked sync: " _blocked
+			Global["blocked_count"]++
 			continue
 		}
 
 
-		if (DSPair[_ds_suffix, "match"] == DSPair[_ds_suffix, "src_last"])
+		if (DSPair[_ds_suffix, "match"] == DSPair[_ds_suffix, "src_last"]) {
 			DSPair[_ds_suffix, "info"] = "up-to-date"
-		else if (DSPair[_ds_suffix, "match"] == DSPair[_ds_suffix, "tgt_last"])
-				DSPair[_ds_suffix, "info"] = "syncable (incremental)"
+			Global["up_to_date_count"]++
+		}
+		else if (DSPair[_ds_suffix, "match"] == DSPair[_ds_suffix, "tgt_last"]) {
+			DSPair[_ds_suffix, "info"] = "syncable (incremental)"
+			Global["syncable_count"]++
+		}
 		else {
 			report(LOG_WARNING, Row[_src_ds, "name"] ": unexpected state")
+			Global["match_error"]++
 		}
 	}
+
+	if (Global["up_to_date_count"])
+		_sum_arr[++_s] = Global["up_to_date_count"] " up-to-date"
+	if (Global["syncable_count"])
+		_sum_arr[++_s] = Global["syncable_count"] " syncable"
+	if (Global["blocked_count"])
+		_sum_arr[++_s] = Global["blocked_count"] " blocked"
+	Global["summary"] = arr_join(_sum_arr, ", ")
 }
 
 ## Output
@@ -489,6 +505,11 @@ function summary(	_r, _line, _ds_suffix, _c, _key, _val, _cell) {
 		}
 		#report(LOG_NOTICE, _line)
 		print _line
+	}
+	if (!Opt["SCRIPTING_MODE"]) {
+		print Global["summary"]
+		if ((NumDSPair > 1) && (Global["summary"] ~ /,/))
+			print NumDSPair " total datasets compared"
 	}
 }
 
