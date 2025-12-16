@@ -181,6 +181,8 @@ function load_snapshot_deltas(_cmd_arr, _cmd) {
 	FS = "\t"
 	if (!DSTree["target_exists"]) 
 		_cmd_arr["command_prefix"]	= "ZELTA_TGT_ID=''"
+	if (Opt["DRYRUN"])
+		_cmd_arr["command_prefix"]	= str_add(_cmd_arr["command_prefix"], "ZELTA_DRYRUN=''")
 	if (Opt["DEPTH"])
 		_cmd_arr["flags"]		= "-d" Depth
 	_cmd					= build_command("MATCH", _cmd_arr)
@@ -440,6 +442,13 @@ function create_source_snapshot(	_snap_name, _ds_snap, _cmd_arr, _cmd, _snap_fai
 	_cmd_arr["endpoint"] = "SRC"
 	_cmd_arr["ds_snap"] = _ds_snap
 	_cmd = build_command("SNAP", _cmd_arr)
+
+	if (Opt["DRYRUN"]) {
+		report(LOG_NOTICE, "+ "_cmd)
+		return 1
+	}
+
+
 	_cmd = _cmd CAPTURE_OUTPUT
 	report(LOG_DEBUG, "`"_cmd"`")
 	while (_cmd | getline) {
