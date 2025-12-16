@@ -51,10 +51,10 @@ function add_written() {
 
 # TO-DO: Add this feature to build_command()
 function wrap_time_cmd(cmd, _cmd_part, _p) {
-	cmd_part[p++]	= Opt["SH_COMMAND_PREFIX"]
-	cmd_part[p++]	= Opt["TIME_COMMAND"]
-	cmd_part[p++]	= cmd
-	cmd_part[p++]	= Opt["SH_COMMAND_SUFFIX"]
+	cmd_part[_p++]	= Opt["SH_COMMAND_PREFIX"]
+	cmd_part[_p++]	= Opt["TIME_COMMAND"]
+	cmd_part[_p++]	= cmd
+	cmd_part[_p++]	= Opt["SH_COMMAND_SUFFIX"]
 	cmd		= arr_join(_cmd_part)
 	return cmd
 }
@@ -66,10 +66,11 @@ function zfs_list_cmd(endpoint,		_ep, _ds, _remote, _cmd) {
 	_ds			= endpoint["DS"]
 	_remote			= endpoint["REMOTE"]
 	_cmd_arr["props"]	= "name,guid" add_written()
+	_cmd_arr["remote"]	= get_remote_cmd(endpoint)
 	_cmd_arr["ds"]		= rq(_remote, _ds)
 	if (Opt["DEPTH"])
 		_cmd_arr["flags"] = "-d" Opt["DEPTH"]
-	_cmd			= build_command("LIST", _cmd_arr, endpoint)
+	_cmd			= build_command("LIST", _cmd_arr)
 	if (Opt["DRYRUN"]) _cmd	= report(LOG_NOTICE, "+ " _cmd)
 	if (Opt["TIME"]) _cmd	= wrap_time_cmd(_cmd)
 	_cmd			= str_add(_cmd, CAPTURE_OUTPUT)
@@ -138,7 +139,7 @@ function object_type(symbol) {
 
 # Load each row into memory
 function process_row(ep,		_name, _guid, _written, _name_suffix, _ds_suffix, _savepoint,
-		     			_type, _ep_id, _ds_id, _ds_snap, _row_id, _tmp_arr) {
+		     			_type, _ep_id, _ds_id, _ds_snap, _row_id, _tmp_arr, _num_snaps) {
 	# Read the row data
 	_name			= $1
 	_guid			= $2
@@ -187,7 +188,7 @@ function process_row(ep,		_name, _guid, _written, _name_suffix, _ds_suffix, _sav
 
 # Check for exceptions or time(1) output, or process the row
 function load_zfs_list_row(ep) {
-	IGNORE_ZFS_LIST_OUTPUT="(sys|user)[ \t]+[0-9]|/dataset does not exist/"
+	IGNORE_ZFS_LIST_OUTPUT="(sys|user)[ \t]+[0-9]|dataset does not exist"
 	if ($0 ~ IGNORE_ZFS_LIST_OUTPUT) return
 	if (/^real[ \t]+[0-9]/) {
 		split($0, time_arr, /[ \t]+/)
@@ -206,7 +207,7 @@ function load_zfs_list_row(ep) {
 ####################################
 
 # Load DSPair keys for summary output
-function create_ds_pair(src_ds, _src_ds_row) {
+function create_ds_pair(src_ds,		_src_ds_row, _ds_suffix, _tgt_ds) {
 	split(src_ds, _src_ds_row, S)
 	_ds_suffix		= _src_ds_row[2]
 	_tgt_ds			= Target["ID"] S _ds_suffix S ""
@@ -227,7 +228,7 @@ function create_ds_pair(src_ds, _src_ds_row) {
 	DSPair[_ds_suffix, "tgt_last"]		= Row[Snap[_tgt_ds,1], "savepoint"]
 }
 
-function compare_datasets(src_ds_id,		_row_arr) {
+function compare_datasets(src_ds_id,		_ds_suffix, _row_arr, _tgt_ds_id) {
 	split(src_ds_id, _row_arr, S)
 	_ds_suffix = _row_arr[2]
 	_tgt_ds_id = Target["ID"] S _ds_suffix S ""
@@ -271,8 +272,8 @@ function compare_snapshots(src_row,	_src_row_arr, _ds_suffix, _savepoint, _src_g
 	}
 }
 
-function review_target_datasets(tgt_id,		_tgt_arr, _row_arr, _num_snaps, _tgt_row, _savepoint,
-						_guid, _src_ds_id,_match, _match_found) {
+function review_target_datasets(tgt_id,		_tgt_arr, _ds_suffix, _num_snaps, _tgt_row, _savepoint,
+						_s, _row_arr, _guid, _src_ds_id,_match, _match_found) {
 	split(tgt_id, _tgt_arr, S)
 	_ds_suffix = _tgt_arr[2]
 	_num_snaps = NumSnaps[tgt_id]
@@ -297,21 +298,20 @@ function review_target_datasets(tgt_id,		_tgt_arr, _row_arr, _num_snaps, _tgt_ro
 	}
 }
 
-function process_datasets(		_src_id, _tgt_id, _num_src_ds, _num_tgt_ds, _d, _s) {
+function process_datasets(		_src_id, _tgt_id, _num_src_ds, _num_tgt_ds, _d, _s, _src_ds_id, _match, _num_snaps) {
 	_src_id		= Source["ID"]
 	_tgt_id		= Target["ID"]
 	_num_src_ds	= Source["num_ds"]
 	_num_tgt_ds	= Target["num_ds"]
 
-	# Step through soruce objects
+	# Step through source objects
 	for (_d = 1; _d <= _num_src_ds; _d++) {
 		_src_ds_id = Dataset[_src_id, _d]
 		create_ds_pair(_src_ds_id)
-		if (compare_datasets(_src_ds_id)) {
-			_num_snaps = NumSnaps[_src_ds_id]
-			for (_s = 1; _s <= _num_snaps; _s++)
-				compare_snapshots(Snap[_src_ds_id,_s])
-		}
+		_match = compare_datasets(_src_ds_id)
+		_num_snaps = NumSnaps[_src_ds_id]
+		for (_s = 1; _s <= _num_snaps; _s++)
+			compare_snapshots(Snap[_src_ds_id,_s])
 	}
 
 	# Step through target objects
@@ -374,7 +374,7 @@ function get_info(	_d, _ds_suffix,_info, _i, _blocked) {
 #########
 
 # Load the column data
-function load_columns(		_tsv, _key, _opt_list, _opt, _idx, _c, _default_proplist, _proplist) {
+function load_columns(		_tsv, _key, _opt_list, _opt, _idx, _c, _default_proplist, _proplist, _p) {
 	_tsv = Opt["SHARE"]"/zelta-cols.tsv"
 	FS="\t"
 	while ((getline<_tsv)>0) {
@@ -417,7 +417,7 @@ function load_columns(		_tsv, _key, _opt_list, _opt, _idx, _c, _default_proplist
 }
 
 # Load override values for DSPair
-function get_column_value(ds_suffix, key) {
+function get_column_value(ds_suffix, key,	_val) {
 	_val = DSPair[ds_suffix, key]
 	# In scripting mode, just make sure numbers are formatted correctly
 	if (Opt["SCRIPTING_MODE"]) {
@@ -454,7 +454,7 @@ function get_cell(c, key, val,		_cell) {
 }
 
 # Adjust visuals for human output (without 'SCRIPTING_MODE')
-function print_header(		_c, _key, _r, _ds_suffix, _len) {
+function print_header(		_c, _key, _r, _ds_suffix, _len, _line) {
 	if (Opt["SCRIPTING_MODE"]) return
 	# Figure out column widths of column names and DSPair[] values for pretty printing
 	for (_c = 1; _c <= NumProps; _c++) {
@@ -546,4 +546,5 @@ END {
 		get_info()
 		summary()
 	}
+	stop()
 }
