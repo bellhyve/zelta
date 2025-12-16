@@ -207,24 +207,25 @@ function load_zfs_list_row(ep) {
 ####################################
 
 # Load DSPair keys for summary output
-function create_ds_pair(src_ds,		_src_ds_row, _ds_suffix, _tgt_ds) {
-	split(src_ds, _src_ds_row, S)
-	_ds_suffix		= _src_ds_row[2]
+function create_ds_pair(row_id,		_row_arr, _ds_suffix, _src_ds, _tgt_ds) {
+	split(row_id, _row_arr, S)
+	_ds_suffix		= _row_arr[2]
+	_src_ds			= Source["ID"] S _ds_suffix S ""
 	_tgt_ds			= Target["ID"] S _ds_suffix S ""
 	DSPairList[++NumDSPair]	= _ds_suffix
 
 	# DSPair contains all output columns, so some Row[] fields must be copied
 	DSPair[_ds_suffix, "ds_suffix"]		= _ds_suffix
-	DSPair[_ds_suffix, "src_name"]		= Row[src_ds, "name"]
+	DSPair[_ds_suffix, "src_name"]		= Row[_src_ds, "name"]
 	DSPair[_ds_suffix, "tgt_name"]		= Row[_tgt_ds, "name"]
-	DSPair[_ds_suffix, "src_written"]	= Row[src_ds, "written"]
+	DSPair[_ds_suffix, "src_written"]	= Row[_src_ds, "written"]
 	DSPair[_ds_suffix, "tgt_written"]	= Row[_tgt_ds, "written"]
-	DSPair[_ds_suffix, "src_snaps"]		= NumSnaps[src_ds]
+	DSPair[_ds_suffix, "src_snaps"]		= NumSnaps[_src_ds]
 	DSPair[_ds_suffix, "tgt_snaps"]		= NumSnaps[_tgt_ds]
 	DSPair[_ds_suffix, "tgt_written"]	= Row[_tgt_ds, "written"]
-	DSPair[_ds_suffix, "src_first"]		= Row[Snap[src_ds,NumSnaps[src_ds]], "savepoint"]
+	DSPair[_ds_suffix, "src_first"]		= Row[Snap[_src_ds,NumSnaps[_src_ds]], "savepoint"]
 	DSPair[_ds_suffix, "tgt_first"]		= Row[Snap[_tgt_ds,NumSnaps[_tgt_ds]], "savepoint"]
-	DSPair[_ds_suffix, "src_last"]		= Row[Snap[src_ds,1], "savepoint"]
+	DSPair[_ds_suffix, "src_last"]		= Row[Snap[_src_ds,1], "savepoint"]
 	DSPair[_ds_suffix, "tgt_last"]		= Row[Snap[_tgt_ds,1], "savepoint"]
 }
 
@@ -278,6 +279,7 @@ function review_target_datasets(tgt_id,		_tgt_arr, _ds_suffix, _num_snaps, _tgt_
 	_ds_suffix = _tgt_arr[2]
 	_num_snaps = NumSnaps[tgt_id]
 	if (!DSPair[_ds_suffix,"status"]) {
+		create_ds_pair(tgt_id)
 		DSPair[_ds_suffix,"tgt_snaps"] = _num_snaps
 		DSPair[_ds_suffix,"status"] = PAIR_TGT_ONLY
 	}
@@ -492,6 +494,10 @@ function print_header(		_c, _key, _r, _ds_suffix, _len, _line) {
 
 # Print the output summary
 function summary(	_r, _line, _ds_suffix, _c, _key, _val, _cell) {
+	if (!NumDSPair) {
+		report(LOG_ERROR, "datasets inaccessible or do not exist")
+		return
+	}
 	print_header()
 	for (_r = 1; _r <= NumDSPair; _r++) {
 		_line = ""
