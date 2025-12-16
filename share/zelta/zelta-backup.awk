@@ -42,21 +42,44 @@
 ########
 
 # We follow zfs's standard of only showing short options when available
-function usage(message) {
-	STDERR = "/dev/stderr"
-	if (message) print message							> STDERR
-	print "usage:"									> STDERR
-	if (Opt["VERB"] == "clone")
-		printf " clone [-d max] [-vq] source-dataset target-dataset\n"		> STDERR
-	else if (Opt["VERB"] == "revert")
-		printf " revert [-vq] dataset\n"						> STDERR
+function usage(message,		_ep_spec, _verb, _clone, _revert) {
+	_src_spec = "[[user@]host:]pool[/dataset[@snapshot]]"
+	_ep_spec  = "[[user@]host:]pool/dataset[@snapshot]"
+	_verb     = Opt["VERB"]
+	_revert   = (_verb == "revert")
+	_revert   = (_verb == "clone")
+	if (message) print message                                             > STDERR
+	printf "usage: " _verb " [OPTIONS] "                                   > STDERR
+	print _revert ? "ENDPOINT" : "SOURCE TARGET"                           > STDERR
+	print "\nRequired Arguments:"                                            > STDERR
+	if (_revert)
+		print "  ENDPOINT  " _ep_spec                                  > STDERR
 	else {
-		usage_prefix = Opt["VERB"] " "
-		printf "\t" usage_prefix "[-bcDeeFhhLMpuVw] [-iIjnpqRtTv] [-d max]\n"	> STDERR
-		printf "\t%*s", length(usage_prefix), ""				> STDERR
-		printf "source-endpoint target-endpoint\n"				> STDERR
+		print "  SOURCE    " _src_spec                                 > STDERR
+		print "  TARGET    " _ep_spec                                  > STDERR
 	}
-	
+	if (_clone) {
+		printf "Clone endpoints require the same 'user', "             > STDERR
+		print "'host', and 'pool'."                                    > STDERR
+	}
+	print "\nCommon Options:"                                              > STDERR
+        print "  -v, -vv                    Verbose/debug output"              > STDERR
+        print "  -q, -qq                    Suppress warnings/errors"          > STDERR
+        print "  -j, --json                 JSON output"                       > STDERR
+        print "  --snapshot-always          Always create snapshot"            > STDERR
+        print "  --snap-name NAME           Set snapshot name template"        > STDERR
+	if (!_clone) {
+		print "\nAdvanced Options:"                                    > STDERR
+		if (_verb == "backup")
+			print "  -i, --incremental          Incremental sync"  > STDERR
+		print "  -d, --depth NUM            Set max dataset depth"     > STDERR
+		print "  [zelta opts] [zfs opts]    See: zelta " _verb " help" > STDERR
+	}
+
+	print "\nFor complete documentation:  zelta help " _verb               > STDERR
+	print "                             man zelta-opts"                    > STDERR
+	print "                             https://zelta.space"               > STDERR
+
 	exit 1
 }
 
@@ -981,6 +1004,7 @@ function run_backup(		_i, _ds_suffix, _syncable) {
 		_ds_suffix = DSList[_i]
 		# Run first pass sync
 		if (Action[_ds_suffix, "can_sync"]) run_zfs_sync(_ds_suffix)
+		if (Opt["DRYRUN"]) continue
 		# Run second pass sync
 		if (Action[_ds_suffix, "can_sync"]) run_zfs_sync(_ds_suffix)
 	}
