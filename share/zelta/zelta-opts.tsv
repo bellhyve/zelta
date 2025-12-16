@@ -33,16 +33,16 @@ policy,backup,replicate,sync,rotate	-i	SEND_INTR	false			INTERMEDIATE
 policy,backup,replicate,sync,rotate	--resume	RESUME	true
 policy,backup,replicate,sync,rotate	--no-resume	RESUME	false
 policy,backup,replicate,sync,rotate,clone	--exclude,-X	EXCLUDE_LIST	set
-policy,backup,replicate,sync,revert,rotate,clone	--snap-name	SNAP_NAME	set
-policy,backup,replicate,sync,revert,rotate,clone	--snap-mode	SNAP_MODE	set			SNAPSHOT
-policy,backup,replicate,sync,revert,rotate,clone	--no-snapshot	SNAP_MODE	false
-policy,backup,replicate,sync,revert,rotate,clone	--snapshot	SNAP_MODE	set	IF_NEEDED
-policy,backup,replicate,sync,revert,rotate,clone	--snapshot-always	SNAP_MODE	set	ALWAYS
-policy,backup,replicate,sync,revert,rotate,clone	--snapshot-skip	SNAP_MODE	set	SKIP
-policy,backup,replicate,sync,revert,rotate,clone	-s	SNAP_MODE	set	IF_NEEDED	option '-s' for '--snapshot' is ambiguous and will be deprecated; use --snapshot, --snapshot-skip, --partial, or --skip-missing (with -R)
-policy,backup,replicate,sync,revert,rotate,clone	-S	SNAP_MODE	set	ALWAYS	option '-S' for '--snapshot-always' is ambiguous will be deprecated; use --snapshot-always or --partial
-policy,backup,replicate,sync,revert,rotate,clone	--snapshot-always	SNAP_MODE	set	ALWAYS
-policy,backup,replicate,sync,revert,rotate	--sync-direction	SYNC_DIRECTION	set
+policy,backup,replicate,sync,rotate,clone	--snap-name	SNAP_NAME	set
+policy,backup,replicate,sync,rotate,clone	--snap-mode	SNAP_MODE	set			SNAPSHOT
+policy,backup,replicate,sync,rotate,clone	--no-snapshot	SNAP_MODE	false
+policy,backup,replicate,sync,rotate,clone	--snapshot	SNAP_MODE	set	IF_NEEDED
+policy,backup,replicate,sync,rotate,clone	--snapshot-always	SNAP_MODE	set	ALWAYS
+policy,backup,replicate,sync,rotate,clone	--snapshot-skip	SNAP_MODE	set	SKIP
+policy,backup,replicate,sync,rotate,clone	-s	SNAP_MODE	set	IF_NEEDED	option '-s' for '--snapshot' is ambiguous and will be deprecated; use --snapshot, --snapshot-skip, --partial, or --skip-missing (with -R)
+policy,backup,replicate,sync,rotate,clone	-S	SNAP_MODE	set	ALWAYS	option '-S' for '--snapshot-always' is ambiguous will be deprecated; use --snapshot-always or --partial
+policy,backup,replicate,sync,rotate,clone	--snapshot-always	SNAP_MODE	set	ALWAYS
+policy,backup,replicate,sync,rotate	--sync-direction	SYNC_DIRECTION	set
 policy,backup,replicate,sync,rotate	--push	SYNC_DIRECTION	set	PUSH
 policy,backup,replicate,sync,rotate	-t	SYNC_DIRECTION	set	PUSH	option '-t' is deprecated; use '--push'
 policy,backup,replicate,sync,rotate	--pull	SYNC_DIRECTION	set	PULL
