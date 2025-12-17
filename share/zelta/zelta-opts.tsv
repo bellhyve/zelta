@@ -35,7 +35,7 @@ policy,backup,replicate,sync,rotate	-I	SEND_INTR	true
 policy,backup,replicate,sync,rotate	-i	SEND_INTR	false			INTERMEDIATE
 policy,backup,replicate,sync,rotate	--resume	RESUME	true
 policy,backup,replicate,sync,rotate	--no-resume	RESUME	false
-policy,backup,replicate,sync,revert,rotate,clone	--snap-name	SNAP_NAME	set
+policy,backup,replicate,snapshot,sync,revert,rotate,clone	--snap-name	SNAP_NAME	set
 policy,backup,replicate,sync,rotate,clone	--snap-mode	SNAP_MODE	set			SNAPSHOT
 policy,backup,replicate,sync,rotate,clone	--no-snapshot	SNAP_MODE	false
 policy,backup,replicate,sync,rotate,clone	--snapshot	SNAP_MODE	set	IF_NEEDED
