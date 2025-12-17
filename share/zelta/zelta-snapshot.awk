@@ -6,10 +6,12 @@
 
 function get_snap_name(		_snap_name) {
 	_snap_name = Opt["SRC_SNAP"] ? Opt["SRC_SNAP"] : Opt["SNAP_NAME"]
-	if (_snap_name)
-		return (/^@/) ? _snap_name : "@" _snap_name
-	srand()
-	return srand()
+	if (!_snap_name) {
+		srand()
+		_snap_name = "@" srand()
+	}
+	_snap_name = (_snap_name ~ /^@/) ? _snap_name : "@" _snap_name
+	return _snap_name
 }
 
 function snapshot(	_snap_name, _ds_snap, _cmd_arr, _cmdk) {
