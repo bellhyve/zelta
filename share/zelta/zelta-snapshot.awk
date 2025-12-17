@@ -7,14 +7,14 @@
 function get_snap_name(		_snap_name) {
 	_snap_name = Opt["SRC_SNAP"] ? Opt["SRC_SNAP"] : Opt["SNAP_NAME"]
 	if (_snap_name)
-		return _snap_name
+		return (/^@/) ? _snap_name : "@" _snap_name
 	srand()
 	return srand()
 }
 
 function snapshot(	_snap_name, _ds_snap, _cmd_arr, _cmdk) {
 	_snap_name = get_snap_name()
-        _ds_snap = Opt["SRC_DS"] "@" _snap_name
+        _ds_snap = Opt["SRC_DS"] _snap_name
         _cmd_arr["endpoint"] = "SRC"
         _cmd_arr["ds_snap"] = _ds_snap
         _cmd = build_command("SNAP", _cmd_arr)
