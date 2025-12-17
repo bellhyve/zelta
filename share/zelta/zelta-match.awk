@@ -488,8 +488,8 @@ function print_header(		_c, _key, _r, _ds_suffix, _len, _line) {
 		}
 		_line = _line get_cell(_c, _key, toupper(_key))
 	}
-	#report(LOG_NOTICE, _line)
-	print _line
+	report(LOG_NOTICE, _line)
+	#print _line
 }
 
 # Print the output summary
@@ -509,13 +509,15 @@ function summary(	_r, _line, _ds_suffix, _c, _key, _val, _cell) {
 			_val = DSPair[_ds_suffix, _key]
 			_line = _line get_cell(_c, _key, _val)
 		}
-		#report(LOG_NOTICE, _line)
-		print _line
+		report(LOG_NOTICE, _line)
+		#print _line
 	}
 	if (!Opt["SCRIPTING_MODE"]) {
-		print Global["summary"]
+		report(LOG_NOTICE, Global["summary"])
+		#print Global["summary"]
 		if ((NumDSPair > 1) && (Global["summary"] ~ /,/))
-			print NumDSPair " total datasets compared"
+			report(LOG_NOTICE, NumDSPair " total datasets compared")
+			#print NumDSPair " total datasets compared"
 	}
 }
 
