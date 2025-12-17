@@ -5,7 +5,8 @@
 #   true    : Set KEY="yes"
 #   false   : Set KEY="no"
 #   set     : Set KEY="VALUE" else KEY="subopt"
-#   arglist : Append argument sent to KEY (space separated)
+#   arglist : Append argument sent to KEY separated by " "
+#   list    : Append subopt to KEY separated by ","
 #   incr    : Increment
 #   decr    : Decrement
 #   invalid : Report error and quit
@@ -21,6 +22,7 @@ all	--text	LOG_MODE	set	text
 all	--help,-h,-?	USAGE	true
 all	-n,--dryrun,--dry-run	DRYRUN	true
 all	-d,--depth	DEPTH	set
+all	--exclude,-X	EXCLUDE	list
 all	--yule	YULE	true
 policy,backup,replicate,sync,rotate	-j,--json	LOG_MODE	set	json
 policy,backup,replicate,sync,rotate	-b,--backup,-c,--compressed,-D,--dedup,-e,--embed,-h,--holds,-L,--largeblock,-p,--parsable,--proctitle,--props,--raw,--skipmissing,-V,-w	SEND_OVERRIDE	arglist
@@ -33,7 +35,6 @@ policy,backup,replicate,sync,rotate	-I	SEND_INTR	true
 policy,backup,replicate,sync,rotate	-i	SEND_INTR	false			INTERMEDIATE
 policy,backup,replicate,sync,rotate	--resume	RESUME	true
 policy,backup,replicate,sync,rotate	--no-resume	RESUME	false
-policy,backup,replicate,sync,rotate,clone	--exclude,-X	EXCLUDE_LIST	set
 policy,backup,replicate,sync,rotate,clone	--snap-name	SNAP_NAME	set
 policy,backup,replicate,sync,rotate,clone	--snap-mode	SNAP_MODE	set			SNAPSHOT
 policy,backup,replicate,sync,rotate,clone	--no-snapshot	SNAP_MODE	false

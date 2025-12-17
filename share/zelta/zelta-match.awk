@@ -161,11 +161,12 @@ function process_row(ep,		_name, _guid, _written, _name_suffix, _ds_suffix, _sav
 	_row_id			= _ep_id S _ds_suffix S _savepoint
 	_type			= object_type(_type)
 
-	Row[_row_id, "exists"] 	= 1
-	Row[_row_id, "guid"] 	= _guid
-	Row[_row_id, "written"]	= _written
-	Row[_row_id, "name"]	= _name
-	Row[_row_id, "type"]	= _type
+	Row[_row_id, "exists"]     = 1
+	Row[_row_id, "guid"]       = _guid
+	Row[_row_id, "written"]    = _written
+	Row[_row_id, "name"]       = _name
+	Row[_row_id, "type"]       = _type
+	Row[_row_id, "ds_suffix"]  = _ds_suffix
 
 	# Snapshots will be used for match GUID over bookmarks
 	if (!Guid[_ds_id, _guid] || (_type == IS_SNAPSHOT))
@@ -173,7 +174,6 @@ function process_row(ep,		_name, _guid, _written, _name_suffix, _ds_suffix, _sav
 
 	# Dataset
 	if (_type == IS_DATASET) {
-
 		# Note: 'zfs list -S createtxg' gives us a reverse view of datasets
 		_num_ds				= ++ep["num_ds"]
 		Dataset[_ep_id, _num_ds]	= _row_id
@@ -205,6 +205,47 @@ function load_zfs_list_row(ep) {
 
 ## Identifying Replica Relationships
 ####################################
+
+
+# Exclude patterns
+function load_exclude_patterns(    _i, _n, _pat_arr, _val, _leader, _pat) {
+	if (!Opt["EXCLUDE"]) return
+
+	_n = split(Opt["EXCLUDE"], _pat_arr, ",")
+	for (_i = 1; _i <= _n; _i++) {
+		_pat = _pat_arr[_i]
+		_leader = substr(_pat, 1, 1)
+		#_pat    = "?" substr(_val, 2)
+	print _pat
+
+		if (_leader == "/")
+			ExcludeDSPattern[++NumExcludeDS] = glob_to_regex(_pat)
+		else if (_leader == "@")
+			ExcludeSnapPattern[++NumExcludeSnap] = glob_to_regex(_pat)
+		else if (_leader == "#")
+			ExcludeBookPattern[++NumExcludeBook] = glob_to_regex(_pat)
+		else
+			report(LOG_WARNING, "malformed exclude pattern '" _pat "'")
+	}
+}
+
+function regex_loop(string, pat_arr, n,	_i) {
+	#print str, arr[1]
+	# DJB DEBUG
+	for (_i = 1; _i <= n; _i++)
+		if (string ~ pat_arr[_i])
+			return 1
+}
+
+function check_exclusions(row_id,	_type) {
+	_type = Row[row_id, "type"]
+	if (_type == IS_DATASET)
+		return regex_loop(Row[row_id, "ds_suffix"], ExcludeDSPattern, NumExcludeDS)
+	if (_type == IS_SNAPSHOT)
+		return regex_loop(Row[row_id, "savepoint"], ExcludeSnapPattern, NumExcludeSnap)
+	if (_type == IS_BOOKMARK)
+		return regex_loop(Row[row_id, "savepoint"], ExcludeBookPattern, NumExcludeBook)
+}
 
 # Load DSPair keys for summary output
 function create_ds_pair(row_id,		_row_arr, _ds_suffix, _src_ds, _tgt_ds) {
@@ -255,6 +296,8 @@ function validate_match(src_row, tgt_row, ds_suffix, savepoint) {
 
 # Step through snapshots for counters and to find common snapshots
 function compare_snapshots(src_row,	_src_row_arr, _ds_suffix, _savepoint, _src_guid, _tgt_ds_id, _tgt_match) {
+	if (check_exclusions(src_row))
+		return
 	# Identify a match candidate by GUID
 	split(src_row, _src_row_arr, S)
 	_ds_suffix	= _src_row_arr[2]
@@ -275,6 +318,8 @@ function compare_snapshots(src_row,	_src_row_arr, _ds_suffix, _savepoint, _src_g
 
 function review_target_datasets(tgt_id,		_tgt_arr, _ds_suffix, _num_snaps, _tgt_row, _savepoint,
 						_s, _row_arr, _guid, _src_ds_id,_match, _match_found) {
+	if (check_exclusions(tgt_id))
+		return
 	split(tgt_id, _tgt_arr, S)
 	_ds_suffix = _tgt_arr[2]
 	_num_snaps = NumSnaps[tgt_id]
@@ -300,7 +345,8 @@ function review_target_datasets(tgt_id,		_tgt_arr, _ds_suffix, _num_snaps, _tgt_
 	}
 }
 
-function process_datasets(		_src_id, _tgt_id, _num_src_ds, _num_tgt_ds, _d, _s, _src_ds_id, _match, _num_snaps) {
+function process_datasets(		_src_id, _tgt_id, _num_src_ds, _num_tgt_ds, _d, _s,
+			  		_src_ds_id, _match, _num_snaps, _tgt_ds_id) {
 	_src_id		= Source["ID"]
 	_tgt_id		= Target["ID"]
 	_num_src_ds	= Source["num_ds"]
@@ -309,6 +355,8 @@ function process_datasets(		_src_id, _tgt_id, _num_src_ds, _num_tgt_ds, _d, _s, 
 	# Step through source objects
 	for (_d = 1; _d <= _num_src_ds; _d++) {
 		_src_ds_id = Dataset[_src_id, _d]
+		if (check_exclusions(_src_ds_id))
+			continue
 		create_ds_pair(_src_ds_id)
 		_match = compare_datasets(_src_ds_id)
 		_num_snaps = NumSnaps[_src_ds_id]
@@ -318,6 +366,9 @@ function process_datasets(		_src_id, _tgt_id, _num_src_ds, _num_tgt_ds, _d, _s, 
 
 	# Step through target objects
 	for (_d = 1; _d <= _num_tgt_ds; _d++) {
+		_tgt_ds_id = Dataset[_tgt_id, _d]
+		if (check_exclusions(_tgt_ds_id))
+			continue
 		review_target_datasets(Dataset[_tgt_id, _d])
 	}
 	arr_sort(DSPairList, NumDSPair)
@@ -571,6 +622,7 @@ NR > 1 {
 
 END {
 	if (Opt["MATCH_PIPE"]) {
+		load_exclude_patterns()
 		process_datasets()
 		get_info()
 		summary()

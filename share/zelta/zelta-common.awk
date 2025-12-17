@@ -14,6 +14,9 @@
 # str_add(a, b, sep): Join by " " or sep
 # str_must_join(a, b, sep): Join by "" or sep but return "" either are missing
 
+## Initialization
+#################
+
 # Load ZELTA_ environment variables as Opt[VAR] shorthand without the prefix
 function zelta_init(	_o, _prefix_re, _val) {
 	_prefix_re = ENV_PREFIX
@@ -70,7 +73,8 @@ function load_endpoint(ep, ep_arr,	_str_parts, _id, _remote ,_user, _host, _ds, 
 	ep_arr["DEPTH"]		= _depth
 }
 
-# OUTPUT FUNCTIONS
+# Output
+########
 
 # Logging
 function report(mode, message,		_mode_message) {
@@ -157,7 +161,9 @@ function stop(_error_code, _error_msg) {
 	exit _error_code
 }
 
-# Simple String Functions
+## Simple String Utilities
+##########################
+
 function qq(_s) {
 	gsub(/ /, "\\ ", _s)
 	return "'"_s"'"
@@ -182,12 +188,6 @@ function str_rep(str, num,    _out, _i) {
 function rq(_r, _s) {
 	_s = _r ? qq(_s) : q(_s)
 	return _s
-}
-
-# DELETE ME
-function str_join(arr, sep) {
-	report(LOG_WARNING, "deprecated common function 'str_join()'")
-	return arr_join(arr, sep)
 }
 
 # Joins non-blank elements of an array
@@ -234,14 +234,15 @@ function create_assoc(list, assoc, sep,		_i, _arr) {
 		assoc[_arr[_i]] = 1
 }
 
-# I think this is just for 'zelta match' and could be retired
-function create_dict(dict, def, 		_i, _n, _arr, _pair) {
-	# def format: user_key:key [space]
-	_n = split(def, _arr, " ")
-	for (_i = 1; _i <= _n; _i++) {
-		if (split(_arr[_i], _pair, ":")) dict[_pair[1]] = _pair[2]
-		else report(LOG_ERROR, "error creating dictionary: " _arr[_1])
-	}
+## Misc String Utilities
+########################
+
+# Convert a user provided glob to a regex for pattern matching
+function glob_to_regex(_r) {
+    gsub(/[\\^$.|()\[\]{}+]/, "\\\\&", _r)
+    gsub(/\*/, ".*", _r)
+    gsub(/\?/, ".", _r)
+    return "^" _r "$"
 }
 
 # systime() doesn't work on a lot of systems despite being in the POSIX spec.
