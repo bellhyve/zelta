@@ -149,8 +149,13 @@ zelta_export() {
 # Load awk common functions plus the verb utility
 zelta_run_awk() {
 	_verb="$1"
+	_yule="$AWK -f $ZELTA_SHARE/zelta-color.awk"
 	shift
-	$AWK -f "$ZELTA_SHARE/zelta-common.awk" -f "$ZELTA_SHARE/zelta-$_verb.awk" -- "$@"
+	if [ -z "$ZELTA_LOG_MODE" ] && [ -n "$ZELTA_YULE" ] ; then
+		$AWK -f "$ZELTA_SHARE/zelta-common.awk" -f "$ZELTA_SHARE/zelta-$_verb.awk" -- "$@" |$_yule
+	else
+		$AWK -f "$ZELTA_SHARE/zelta-common.awk" -f "$ZELTA_SHARE/zelta-$_verb.awk" -- "$@"
+	fi
 }
 
 zelta_args() {

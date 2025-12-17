@@ -21,6 +21,7 @@ all	--text	LOG_MODE	set	text
 all	--help,-h,-?	USAGE	true
 all	-n,--dryrun,--dry-run	DRYRUN	true
 all	-d,--depth	DEPTH	set
+all	--yule	YULE	true
 policy,backup,replicate,sync,rotate	-j,--json	LOG_MODE	set	json
 policy,backup,replicate,sync,rotate	-b,--backup,-c,--compressed,-D,--dedup,-e,--embed,-h,--holds,-L,--largeblock,-p,--parsable,--proctitle,--props,--raw,--skipmissing,-V,-w	SEND_OVERRIDE	arglist
 policy,backup,replicate,sync,rotate	--send-check	SEND_CHECK	true
