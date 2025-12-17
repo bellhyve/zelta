@@ -818,17 +818,20 @@ function run_zfs_sync(ds_suffix,		_cmd, _stream_info, _message, _ds_snap, _size,
 function get_sync_command(ds_suffix,		_src_idx, _tgt_idx, _cmd, _zfs_send, _zfs_recv) {
 	_src_idx = "SRC" SUBSEP ds_suffix
 	_tgt_idx = "TGT" SUBSEP ds_suffix
-	if (Opt["SYNC_DIRECTION"] == "PULL" && Opt["TGT_REMOTE"]) {
+	if (Opt["SRC_REMOTE"] == Opt["TGT_REMOTE"]) {
+		_zfs_send 		= create_send_command(ds_suffix, _src_idx, "SRC")
+		_zfs_recv		= create_recv_command(ds_suffix, _src_idx, "TGT")
+		_cmd			=  "{ " _zfs_send "|" _zfs_recv " ; }"
+		if (Opt["SRC_REMOTE"])	_cmd = str_add(remote_str("SRC"), dq(_cmd))
+	} else if (Opt["SYNC_DIRECTION"] == "PULL" && Opt["TGT_REMOTE"]) {
 		_zfs_send		= create_send_command(ds_suffix, _src_idx, "SRC")
 		_zfs_recv		= create_recv_command(ds_suffix, _src_idx)
 		_cmd			= str_add(remote_str("TGT"), dq(_zfs_send " | " _zfs_recv))
-	}
-	else if (Opt["SYNC_DIRECTION"] == "PUSH" && Opt["SRC_REMOTE"]) {
+	} else if (Opt["SYNC_DIRECTION"] == "PUSH" && Opt["SRC_REMOTE"]) {
 		_zfs_send		= create_send_command(ds_suffix, _src_idx)
 		_zfs_recv		= create_recv_command(ds_suffix, _src_idx, "TGT")
 		_cmd			= str_add(remote_str("SRC"), dq(_zfs_send " | " _zfs_recv))
-	}
-	else {
+	} else {
 		if (Opt["SRC_REMOTE"] && Opt["TGT_REMOTE"] && !DSTree["warned_about_proxy"]++)
 			report(LOG_WARNING, "syncing remote endpoints through localhost; consider --push or --pull")
 		_zfs_send 		= create_send_command(ds_suffix, _src_idx, "SRC")
