@@ -161,6 +161,9 @@ function process_row(ep,		_name, _guid, _written, _name_suffix, _ds_suffix, _sav
 	_row_id			= _ep_id S _ds_suffix S _savepoint
 	_type			= object_type(_type)
 
+	if (check_exclusions(_type, _ds_suffix, _savepoint))
+		return
+	    
 	Row[_row_id, "exists"]     = 1
 	Row[_row_id, "guid"]       = _guid
 	Row[_row_id, "written"]    = _written
@@ -215,8 +218,6 @@ function load_exclude_patterns(    _i, _n, _pat_arr, _val, _leader, _pat) {
 	for (_i = 1; _i <= _n; _i++) {
 		_pat = _pat_arr[_i]
 		_leader = substr(_pat, 1, 1)
-		#_pat    = "?" substr(_val, 2)
-	print _pat
 
 		if (_leader == "/")
 			ExcludeDSPattern[++NumExcludeDS] = glob_to_regex(_pat)
@@ -230,21 +231,18 @@ function load_exclude_patterns(    _i, _n, _pat_arr, _val, _leader, _pat) {
 }
 
 function regex_loop(string, pat_arr, n,	_i) {
-	#print str, arr[1]
-	# DJB DEBUG
 	for (_i = 1; _i <= n; _i++)
 		if (string ~ pat_arr[_i])
 			return 1
 }
 
-function check_exclusions(row_id,	_type) {
-	_type = Row[row_id, "type"]
-	if (_type == IS_DATASET)
-		return regex_loop(Row[row_id, "ds_suffix"], ExcludeDSPattern, NumExcludeDS)
-	if (_type == IS_SNAPSHOT)
-		return regex_loop(Row[row_id, "savepoint"], ExcludeSnapPattern, NumExcludeSnap)
-	if (_type == IS_BOOKMARK)
-		return regex_loop(Row[row_id, "savepoint"], ExcludeBookPattern, NumExcludeBook)
+function check_exclusions(type, suffix, name) {
+	if (type == IS_DATASET)
+	       return regex_loop(suffix, ExcludeDSPattern, NumExcludeDS)
+	if (type == IS_SNAPSHOT)
+	       return regex_loop(name, ExcludeSnapPattern, NumExcludeSnap)
+	if (type == IS_BOOKMARK)
+		return regex_loop(name, ExcludeBookPattern, NumExcludeBook)
 }
 
 # Load DSPair keys for summary output
@@ -296,8 +294,6 @@ function validate_match(src_row, tgt_row, ds_suffix, savepoint) {
 
 # Step through snapshots for counters and to find common snapshots
 function compare_snapshots(src_row,	_src_row_arr, _ds_suffix, _savepoint, _src_guid, _tgt_ds_id, _tgt_match) {
-	if (check_exclusions(src_row))
-		return
 	# Identify a match candidate by GUID
 	split(src_row, _src_row_arr, S)
 	_ds_suffix	= _src_row_arr[2]
@@ -318,8 +314,6 @@ function compare_snapshots(src_row,	_src_row_arr, _ds_suffix, _savepoint, _src_g
 
 function review_target_datasets(tgt_id,		_tgt_arr, _ds_suffix, _num_snaps, _tgt_row, _savepoint,
 						_s, _row_arr, _guid, _src_ds_id,_match, _match_found) {
-	if (check_exclusions(tgt_id))
-		return
 	split(tgt_id, _tgt_arr, S)
 	_ds_suffix = _tgt_arr[2]
 	_num_snaps = NumSnaps[tgt_id]
@@ -337,7 +331,6 @@ function review_target_datasets(tgt_id,		_tgt_arr, _ds_suffix, _num_snaps, _tgt_
 		_match		= Guid[_src_ds_id, _guid]
 		if (_match)
 			_match_found = 1
-		#print _tgt_row, _match_found, Row[_tgt_row, "type"]
 		if (!_match_found && (Row[_tgt_row, "type"] == IS_SNAPSHOT)) {
 			DSPair[_ds_suffix, "num_blocked"]++
 			DSPair[_ds_suffix, "tgt_next"] = _savepoint
@@ -355,8 +348,6 @@ function process_datasets(		_src_id, _tgt_id, _num_src_ds, _num_tgt_ds, _d, _s,
 	# Step through source objects
 	for (_d = 1; _d <= _num_src_ds; _d++) {
 		_src_ds_id = Dataset[_src_id, _d]
-		if (check_exclusions(_src_ds_id))
-			continue
 		create_ds_pair(_src_ds_id)
 		_match = compare_datasets(_src_ds_id)
 		_num_snaps = NumSnaps[_src_ds_id]
@@ -367,8 +358,6 @@ function process_datasets(		_src_id, _tgt_id, _num_src_ds, _num_tgt_ds, _d, _s,
 	# Step through target objects
 	for (_d = 1; _d <= _num_tgt_ds; _d++) {
 		_tgt_ds_id = Dataset[_tgt_id, _d]
-		if (check_exclusions(_tgt_ds_id))
-			continue
 		review_target_datasets(Dataset[_tgt_id, _d])
 	}
 	arr_sort(DSPairList, NumDSPair)
@@ -540,7 +529,6 @@ function print_header(		_c, _key, _r, _ds_suffix, _len, _line) {
 		_line = _line get_cell(_c, _key, toupper(_key))
 	}
 	report(LOG_NOTICE, _line)
-	#print _line
 }
 
 # Print the output summary
@@ -561,14 +549,11 @@ function summary(	_r, _line, _ds_suffix, _c, _key, _val, _cell) {
 			_line = _line get_cell(_c, _key, _val)
 		}
 		report(LOG_NOTICE, _line)
-		#print _line
 	}
 	if (!Opt["SCRIPTING_MODE"]) {
 		report(LOG_NOTICE, Global["summary"])
-		#print Global["summary"]
 		if ((NumDSPair > 1) && (Global["summary"] ~ /,/))
 			report(LOG_NOTICE, NumDSPair " total datasets compared")
-			#print NumDSPair " total datasets compared"
 	}
 }
 
@@ -605,6 +590,7 @@ BEGIN {
 		Source["ds_length"]		= length(Source["DS"]) + 1
 		Source["list_time"] 		= 0
 		Target["list_name"] 		= 0
+		load_exclude_patterns()
 		run_zfs_list_target()
 		# Continues to process the incoming pipes 'pipe_zfs_list_source()'
 	}
@@ -622,7 +608,6 @@ NR > 1 {
 
 END {
 	if (Opt["MATCH_PIPE"]) {
-		load_exclude_patterns()
 		process_datasets()
 		get_info()
 		summary()
