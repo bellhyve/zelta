@@ -4,9 +4,10 @@
 #
 # Make a snapshot
 
-function get_snap_name() {
-	if (Opt["SNAP_NAME"])
-		return Opt["SNAP_NAME"]
+function get_snap_name(		_snap_name) {
+	_snap_name = Opt["SRC_SNAP"] ? Opt["SRC_SNAP"] : Opt["SNAP_NAME"]
+	if (_snap_name)
+		return _snap_name
 	srand()
 	return srand()
 }
