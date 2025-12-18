@@ -138,12 +138,7 @@ function load_option_list(		_tsv, _flag, _flags, _idx, _flag_arr) {
 	while ((getline<_tsv)>0) {
 		if (index($1, Opt["VERB"]) || ($1 == "all")) {
 			# 1:VERBS 2:FLAGS 3:KEY 4:KEY_ALIAS 5:TYPE 6:VALUE 7:DESCRIPTION 8:WARNING
-			if (/^#/)
-				continue
-			else if (!$2 || !$3) {
-				report(LOG_WARNING, "malformed option file line: "$0)
-				continue
-			}
+			if (/^#/ || !$2) continue
 			_flags = $2
 			split(_flags, _flag_arr, ",")
 			# Make an dictionary for flag synonyms
