@@ -108,12 +108,15 @@ function load_option_list(	_tsv, _key, _idx, _flags, _flag_arr) {
 	FS="\t"
 	while ((getline<_tsv)>0) {
 		if (index($1, "policy") || ($1 == "all")) {
-			if (!$3) continue
+			# 1:VERBS 2:FLAGS 3:KEY 4:KEY_ALIAS 5:TYPE 6:VALUE 7:DESCRIPTION 8:WARNING
+			if (/^#/ || $3)
+				continue
 			_key = $3
 			PolicyOptScope[_key]	= ($1 == "policy")
 			PolicyOpt[_key]		= 1
-			PolicyOptType[_key]	= $4
-			split($7, _legacy_arr, ",")
+			PolicyOptType[_key]	= $5
+			PolicyOptWarn[_key]	= $8
+			split($4, _legacy_arr, ",")
 			for (_idx in _legacy_arr) PolicyLegacy[_legacy_arr[_idx]] = _key
 		}
 	}
