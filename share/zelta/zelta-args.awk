@@ -137,18 +137,21 @@ function load_option_list(		_tsv, _flag, _flags, _idx, _flag_arr) {
 	# TO-DO: Complain if TSV doesn't load
 	while ((getline<_tsv)>0) {
 		if (index($1, Opt["VERB"]) || ($1 == "all")) {
-			_flags = $2
-			if (!_flags) {
+			# 1:VERBS 2:FLAGS 3:KEY 4:KEY_ALIAS 5:TYPE 6:VALUE 7:DESCRIPTION 8:WARNING
+			if (/^#/)
+				continue
+			else if (!$2 || !$3) {
 				report(LOG_WARNING, "malformed option file line: "$0)
 				continue
 			}
-			split($2, _flag_arr, ",")
+			_flags = $2
+			split(_flags, _flag_arr, ",")
 			# Make an dictionary for flag synonyms
 			for (_idx in _flag_arr) OptListFlags[_flag_arr[_idx]] = _flags
 			OptListKey[_flags]	= $3
-			OptListType[_flags]	= $4
-			OptListValue[_flags]	= $5
-			OptListWarn[_flags]	= $6
+			OptListType[_flags]	= $5
+			OptListValue[_flags]	= $6
+			OptListWarn[_flags]	= $8
 			# We need to know the default of 'incr'/'decr' action items
 			if ((OptListType[_flags] == "incr") || (OptListType[_flags] == "decr")) {
 				_incr_decr_key = OptListKey[_flags]
