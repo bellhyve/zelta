@@ -61,7 +61,7 @@ For detailed usage of each subcommand, see the respective manual page.
 **zelta policy** [_options_]
 :    Execute replication operations based on configuration file definitions. See **zelta-policy(8)**.
 
-# OPTIONS AND ENVIRONEMNT
+# OPTIONS AND ENVIRONMENT
 Configuration follows a hierarchy from lowest to highest precedence:
 
     1. Built-in defaults
