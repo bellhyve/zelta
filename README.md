@@ -7,7 +7,7 @@
 
 **Zelta** is a suite of safe, portable, and powerful tools for backup, recovery, migration, and advanced ZFS management. It simplifies complex operations into user-friendly commands while providing a robust foundation for large-scale environments with strict regulatory compliance requirements.
 
-Zelta has been battle-tested in production for over six years, replicating tens of millions of snapshots across thousands of systems. It runs on most UNIX and UNIX-like systems (FreeBSD, Illumos, Linux, MacOS) with zero package dependencies—just Bourne shell and AWK.
+Zelta has been battle-tested in production for over six years, replicating tens of millions of snapshots across thousands of systems. It runs on most UNIX and UNIX-like systems (FreeBSD, Illumos, Linux, macOS) with zero package dependencies—just Bourne shell and AWK.
 
 **Zelta does not need to be installed on backup sources or targets.** Using SSH keys and agent forwarding, you can manage replication from a secure bastion host, keeping your infrastructure clean and your attack surface minimal.
 
@@ -43,7 +43,7 @@ Zelta makes operations that are tricky or dangerous with raw ZFS commands ridicu
 Snapshot and replicate your entire laptop to a backup server. Zelta handles snapshot creation, incremental detection, and safe replication.
 
 ```sh
-# Syntax: zelta backup <source> <user@host>:<target>
+# Syntax: zelta backup <user@host:source> <user@host:target>
 zelta backup rpool backup-user@storage.example.com:tank/Backups/my-laptop
 ```
 
@@ -73,7 +73,7 @@ You need to roll back your development dataset to investigate a bug, but you don
 zelta revert opt/datasource/big-database-thing
 ```
 
-Your dataset is now at its previous snapshot. Your current work is **still there**, just renamed to big-database-thing_*last-snap-name*.
+Your dataset is now at its previous snapshot. Your current work is **still there**, just renamed to `big-database-thing_<last-snap-name>`.
 
 ### 4. Keep the Backup Rolling After Divergence
 
@@ -84,7 +84,7 @@ Now your source has diverged from your backup. Normally this requires manual ZFS
 zelta rotate opt/datasource/big-database-thing tank/Backups/big-database-thing
 ```
 
-Done. You now have **both versions** preserved in your backup. No force flags, no data loss, no bull. And it even works between remote datasets! 
+Done. You now have **both versions** preserved in your backup. No force flags, no data loss, no bull. And it even works between remote datasets!
 
 **Your cloud cannot do this.**
 
@@ -112,10 +112,10 @@ Carefully rewinds a dataset in place by renaming and cloning. Ideal for forensic
 Performs a multi-way rename and clone operation to keep backups rolling even after source or target has diverged. Preserves all versions without destructive receives. Your team is already telling your regulators you do this, but Zelta makes the process practical—and easy.
 
 ### `zelta clone`
-Creates a temporary read-write clone of a dataset tree (on the same pool) for recovery, testing, or inspection without disturbing the original. With the convenience of `zelta clone`, there is never a reason to make your backup datasets writeable.
+Creates a temporary read-write clone of a dataset tree (on the same pool) for recovery, testing, or inspection without disturbing the original. With the convenience of `zelta clone`, there is never a reason to make your backup datasets writable.
 
 ### `zelta policy`
-Automates a policy-based engine for managing large-scale concurrent replication operations across many systems. Supports hierarchical configuration with YAML-style policies.
+Automates large-scale concurrent replication operations across many systems using a policy-based engine. Supports hierarchical configuration with YAML-style policies.
 
 ---
 
@@ -138,11 +138,9 @@ All operations work remotely and recursively by default. Zelta replicates as muc
 Replication decisions are based on metadata and available features, not naming conventions. Combined with portability, this makes Zelta an outstanding recovery tool for complex, mixed environments.
 
 ### No Installation Required on Endpoints
-Zelta can run entirely from a bastion host using SSH keys or agent forwarding. Your backup sources and targets don't need Zelta installed—just standard ZFS tools and SSH. This provides for outstanding security in disaster recovery design using 'zfs allow'. The Zelta team at Bell Tower runs its core 'zelta policy' from a locked-down OpenBSD system with configurations ensuring that **no** backup user has access to any unencrypted dataset throughout the entire backup workflow.
+Zelta can run entirely from a bastion host using SSH keys or agent forwarding. Your backup sources and targets don't need Zelta installed—just standard ZFS tools and SSH. This provides outstanding security in disaster recovery design using `zfs allow`. The Zelta team at Bell Tower runs its core `zelta policy` loop from a locked-down OpenBSD system with configurations ensuring that **no** backup user has access to any unencrypted dataset throughout the entire backup workflow.
 
 Zelta follows the Unix philosophy: modular, extensible, and customizable. Defaults can be hierarchically overridden or adjusted with minimal effort.
-
-
 
 ---
 
@@ -154,21 +152,21 @@ We welcome contributors who are passionate about data protection and recovery. B
 
 ### Contact
 
-We welcome any questions, bug reports, or requests at [GitHub Issues](https://github.com/bellhyve/zelta/issues).
+We welcome questions, bug reports, and feature requests at [GitHub Issues](https://github.com/bellhyve/zelta/issues).
 
-For other questions for the Zelta team at Bell Tower including business inquiries, you can reach us via our [contact form](https://belltower.it/contact/).
+For other inquiries including business questions, you can reach the Zelta team at Bell Tower via our [contact form](https://belltower.it/contact/).
 
 ### Conference Talks
 
-BSDCan 2024: Zelta: A Safe and Powerful Approach to ZFS Replication By: Daniel Bell
-[Watch On YouTube](https://www.youtube.com/watch?v=_nmgQTs8wgE&pp=ygUMemVsdGEgYmFja3Vw)
+**BSDCan 2024: Zelta: A Safe and Powerful Approach to ZFS Replication**  
+By Daniel Bell  
+[Watch on YouTube](https://www.youtube.com/watch?v=_nmgQTs8wgE&pp=ygUMemVsdGEgYmFja3Vw)
 
-OpenZFS Summit 2025: Responsible Replication with Zelta
-[Watch On YouTube](https://www.youtube.com/watch?v=G3weooQqcXw)
+**OpenZFS Summit 2025: Responsible Replication with Zelta**  
+[Watch on YouTube](https://www.youtube.com/watch?v=G3weooQqcXw)
 
 ### Bell Tower Services
 For commercial support, custom feature development, and consulting on secure, high-efficiency infrastructure, contact us at [Bell Tower](https://belltower.it/). We provide consulting services for advanced policy management, cost control, compliance, and business continuity.
-
 
 ---
 
@@ -181,7 +179,7 @@ Zelta 1.1 represents a major refactor improving POSIX compliance, portability, a
 - **zelta rebase**: Update base images across filesystems while preserving customizations, sidestepping container problems that Docker was invented to work around.
 - **zelta prune**: Identify snapshots for deletion based on flexible, metadata-driven policies such as creation dates, snapshot density, and actual usage patterns.
 - **Metadata-Aware Sync Protection**: Ensure backup continuity using automatic holds and bookmarks based on replica relationships, and track property changes with ZFS user properties.
-- **Flexible API**: Although 'zelta backup' has a JSON output mode useful for telemetry, we intend to match ZFS's new native JSON output styles for more integration options. To support larger fleets, 'zelta policy' configurations are being updated to use JSON, SQLite, and other databases.
+- **Flexible API**: Although `zelta backup` has a JSON output mode useful for telemetry, we intend to match ZFS's new native JSON output styles for more integration options. To support larger fleets, `zelta policy` configurations are being updated to support JSON, SQLite, and other database formats.
 
 ---
 
