@@ -9,11 +9,6 @@
 
 **zelta backup** [**-bcdDeeFhhLMpuVw**] [**-iIjnpqRtTv**] [_initiator_] _source-endpoint_ _target-endpoint_
 
-**zelta sync** [**-bcdDeeFhhLMpuVw**] [**-iIjnpqRtTv**] [_initiator_] _source-endpoint_ _target-endpoint_
-
-**zelta clone** [**-d** _depth_] _source-dataset_ _target-dataset_
-  
-
 # DESCRIPTION
 **zelta backup** and **zelta sync** attempt to intelligently replicate snapshots from a _source_ ZFS dataset endpoint to a _target_. **zelta backup** optimizes for complete backups of all snapshots by default using a careful LBYL strategy, appropriate for typical backup jobs. **zelta sync** optimizes for efficiency using an EAFP strategy, appropriate for time-sensitive operations or controlled environemnts. Endpoints may be remotely accessible via SSH. As with **zfs receive**, the _target_ dataset endpoint must not exist or be an replica of the _source_.
 
@@ -26,32 +21,70 @@ Zelta is designed for simplicity and safety and is suitable for a backup server 
 These defaults, as well as snapshot naming scheme and many other assumptions, can be modified with arguments or via the environment (see `zelta.env.example` for more information).
 
 # OPTIONS
-See the manuals for **zfs-send(8)** and **zfs-receive(8)** for detail on pass-through options listed below.
 
-**[-bcdDeeFhhLMpuVw] [_--zfs-send-option_]**
-:    Pass any unambiguous dashed or double-dashed option to all **zfs send** and **zfs receive** operations. Note that some options, such as `-s`, are ambiguous and must be set using the environment instead. Some options, such as `-I`, work differently in **zelta <backup|sync>**, and are described in detail below.
 
-**-I** This is the default mode for `zelta backup`. Replicate intermediate incremental streams from the _source_ and _target's_ matching dataset to the newest. If the _target_ is new, all avaialble _source_ snapshots will be replicated.
+**-v,--verbose**
+:    Increase verbosity. Specify once for operational detail and twice (-vv) for debug output.
 
-**-i:** This is the default mode for `zelta sync`. Only replicate the latest stream from the source to the target. If the _target_ is new, only the latest _source_ snapshot will be replicated.
+**-q,--quiet**
+:    Quiet output. Specify once to suppress warnings and twice (-qq) to suppress errors.
 
-**-n, --dryrun**
-:    Run with dry run mode. Don't replicate, but show `zfs <clone|create|get|receive|send>` commands that would be run. Note that **zelta match**, **zfs list**, and **zfs send -n** which are used to determine the anticipated replication operation will not be displayed.
+**--log-level**
+:    Specify a log level value 0-4: errors (0), warnings (1), notices (2, default), info (3, verbose), and debug (4).
+
+**--log-mode**
+:    Enable the specified log modes: 'text' and 'json' are currently supported.
+
+**--text**
+:    Force default output (notices) to print as plain text standard output.
+
+**--help,-h,-?**
+:    Show usage output for the current verb. Also consider 'zelta help <topic>' to view a manual.
+
+**-n,--dryrun,--dry-run**
+:    Display 'zfs' commands related to the action rather than running them.
+
+**-d,--depth**
+:    Limit the recursion depth of operations to the number of levels indicated. For example, a depth of 1 will only include the indicated dataset.
+
+**--exclude,-X**
+:    Exclude a /dataset/suffix, @snapshot, or #bookmark, beginning with the symbol indicated. Wild card matches with '?' and '*' are permitted. See 'zelta help match' for more details.
 
 **-j,--json**
-:    Produce JSON output for the replication job, suppressing all other output. Stream names and error messages will be included in lists inside the JSON block. Incremental streams will be listed in the format: *@earliest-snapshot::dataset@latest-snapshot*
+:    Print JSON output. Only 'zelta backup' is supported. See the 'zelta help backup' for details.
 
-**-p, --progress**
-:    Attempt to use a progress viewer. `pv` will be used by default, otherwise `dd status=progress` will be used.
+**-b,--backup,-c,--compressed,-D,--dedup,-e,--embed,-h,--holds,-L,--largeblock,-p,--parsable,--proctitle,--props,--raw,--skipmissing,-V,-w**
+:    Override all 'zfs send' options with those indicated. For precise and flexible configuration, use the ZELTA_SEND_* environment variables instead.
 
-**-q**  Reduce verbosity.
+**--send-check**
+:    Attempt to drop unsupported 'zfs send' options using a no-op test prior to replication. This feature is not fully implemented.
 
-**-V**  Increase verbosity.
+**-e,-h,-M,-u**
+:    Override all 'zfs receive' options with those indicated. For precise and flexible configuration, use the ZELTA_RECV* environment variables instead.
 
-**-R**  Not recommended. Sets `--depth=1` and passes `-R` to the `zfs send`. See `zfs-send(8)` for details.
+**--rotate**
+:    Rename the target dataset and attempt to sync a clone via a delta provided by the source or source origin clone.
 
-**-d _depth_, --depth _depth_**
-:    Limits the depth of all Zelta operations.
+**-R,--replicate**
+:    Use 'zfs send --replicate' in a backup operation.
+
+**-I**
+:    Sync all possible source snapshots, using 'zfs send -I' for updates. When disabled, only the newest snapshots will be synced.
+
+**--resume**
+:    Enable (the default) or disable automatic resume of interrupted syncs.
+
+**--snap-name**
+:    Specify a snapshot name. Use the form '$(my_snapshot_program)' to use a dynamically generated snapshot. The default is '$(date -u +zelta_%Y-%m-%d_%H.%M.%S)'.
+
+**--snap-mode**
+:    Specify when to snapshot during a 'zelta backup' operation. Specify '0' for never, 'IF_NEEDED', or 'ALWAYS'. 'IF_NEEDED', the default, does not snapshot if the source has no new data.
+
+**--sync-direction**
+:    If both endpoints are remote, use 'PULL' (the default) or 'PUSH' sync. See 'zelta help backup' for more details.
+
+**--recv-pipe**
+:    Pipe output through the indicated command, such as 'dd status=progress'
 
 # EXAMPLES
 

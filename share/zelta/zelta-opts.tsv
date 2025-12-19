@@ -14,8 +14,8 @@
 # VERBS	FLAGS	KEY	KEY_ALIAS	TYPE	VALUE	DESCRIPTION	WARNING
 # -------------------------------------------------------------
 # Global/Generic Options
-all	-v	LOG_LEVEL		incr		Increase verbosity. Specify once for operational detail and twice (-vv) for debug output.
-all	-q	LOG_LEVEL		decr		Quiet output. Specify once to suppress warnings and twice (-qq) to suppress errors.
+all	-v,--verbose	LOG_LEVEL		incr		Increase verbosity. Specify once for operational detail and twice (-vv) for debug output.
+all	-q,--quiet	LOG_LEVEL		decr		Quiet output. Specify once to suppress warnings and twice (-qq) to suppress errors.
 all	--log-level	LOG_LEVEL		set		Specify a log level value 0-4: errors (0), warnings (1), notices (2, default), info (3, verbose), and debug (4).
 all	--log-mode	LOG_MODE		set		Enable the specified log modes: 'text' and 'json' are currently supported.
 all	--text	LOG_MODE		set	text	Force default output (notices) to print as plain text standard output.
