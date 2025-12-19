@@ -1,4 +1,4 @@
-# zelta-opts.tsv
+ zelta-opts.tsv
 #
 # Format: VERBS (comma sep) | FLAGS (comma sep) | KEY | TYPE | VALUE | MSG
 # Types:
@@ -52,8 +52,8 @@ policy,backup,replicate,sync,rotate	--pull	SYNC_DIRECTION		set	PULL
 policy,backup,replicate,sync,rotate	-T	SYNC_DIRECTION		set	PULL		option '-T' is deprecated; use '--pull' (default)
 policy,backup,replicate,sync,rotate	--initiator	INITIATOR		invalid			--initiator is deprecated; use '--pull' (default) or '--push'
 policy,backup,replicate,sync,rotate	--recv-pipe	RECV_PIPE		set		Pipe output through the indicated command, such as 'dd status=progress'
-policy,backup,replicate,sync,rotate	--progress			invalid			option '--progress' is deprecated; use '--use-recv-pipe'
-policy,backup,replicate,sync,rotate	--rate-limit			invalid			option '--rate-limit' is deprecated; use '--use-recv-pipe'
+policy,backup,replicate,sync,rotate	--progress			invalid			option '--progress' is deprecated; use '--recv-pipe'
+policy,backup,replicate,sync,rotate	--rate-limit			invalid			option '--rate-limit' is deprecated; use '--recv-pipe'
 policy,backup,replicate,sync,rotate	-z			invalid			option '-z' is deprecated; consider '--json'
 
 # 'zelta match' options
