@@ -48,7 +48,7 @@ function usage(message,		_ep_spec, _verb, _clone, _revert) {
 	_ep_spec  = "[[user@]host:]pool/dataset[@snapshot]"
 	_verb     = Opt["VERB"]
 	_revert   = (_verb == "revert")
-	_revert   = (_verb == "clone")
+	_clone   = (_verb == "clone")
 	if (message) print message                                             > STDERR
 	printf "usage: " _verb " [OPTIONS] "                                   > STDERR
 	print _revert ? "ENDPOINT" : "SOURCE TARGET"                           > STDERR
@@ -80,7 +80,7 @@ function usage(message,		_ep_spec, _verb, _clone, _revert) {
 	}
 
 	print "\nFor complete documentation:  zelta help " _verb               > STDERR
-	print "                             man zelta-opts"                    > STDERR
+	print "                             man zelta-options"                 > STDERR
 	print "                             https://zelta.space"               > STDERR
 
 	exit 1
