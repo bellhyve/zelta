@@ -48,9 +48,10 @@ rm_test_datasets() {
 #}
 
 setup_zfs_allow() {
-    exec_cmd sudo zfs allow -u "$BACKUP_USER" read,send,snapshot,hold "$SRC_POOL/$TREETOP_DSN"
-    # receive:append causes an error
-    exec_cmd sudo zfs allow -u "$BACKUP_USER" read,bookmark,canmount,create,mount,readonly,receive,snapshot,volmode "$TGT_POOL/$BACKUPS_DSN"
+    SRC_ZFS_CMDS="send,snapshot,hold,bookmark,create,readonly,receive,volmode"
+    TGT_ZFS_CMDS="send,snapshot,hold,bookmark,create,readonly,receive,volmode"
+    exec_cmd sudo zfs allow -u "$BACKUP_USER" "$SRC_ZFS_CMDS" "$SRC_POOL"
+    exec_cmd sudo zfs allow -u "$BACKUP_USER" "$TGT_ZFS_CMDS" "$TGT_POOL"
 }
 
 setup_simple_snap_tree() {

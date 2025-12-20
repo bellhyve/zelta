@@ -85,7 +85,7 @@ create_test_pool() {
     #create_pool_from_image_file $pool_name
 
     echo "Created ${pool_name}"
-    sudo zpool list "${pool_name}"
+    sudo zpool list -v "${pool_name}"
     #  set +x
     #true
 }
