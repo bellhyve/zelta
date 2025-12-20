@@ -83,6 +83,9 @@ zelta_init() {
 	case "$zelta_verb" in
 		clone)	: ${ZELTA_SEND_INTR:="0"}
 			;;
+		revert)	ZELTA_SEND_INTR="0"
+			ZELTA_SNAP_MODE="0"
+			;;
 		rotate)	: ${ZELTA_SEND_INTR:="0"}
 			;;
 		sync)	: ${ZELTA_SEND_INTR:="0"}
@@ -146,8 +149,13 @@ zelta_export() {
 # Load awk common functions plus the verb utility
 zelta_run_awk() {
 	_verb="$1"
+	_yule="$AWK -f $ZELTA_SHARE/zelta-color.awk"
 	shift
-	$AWK -f "$ZELTA_SHARE/zelta-common.awk" -f "$ZELTA_SHARE/zelta-$_verb.awk" -- "$@"
+	if [ -z "$ZELTA_LOG_MODE" ] && [ -n "$ZELTA_YULE" ] ; then
+		$AWK -f "$ZELTA_SHARE/zelta-common.awk" -f "$ZELTA_SHARE/zelta-$_verb.awk" -- "$@" |$_yule
+	else
+		$AWK -f "$ZELTA_SHARE/zelta-common.awk" -f "$ZELTA_SHARE/zelta-$_verb.awk" -- "$@"
+	fi
 }
 
 zelta_args() {
@@ -219,8 +227,12 @@ zelta_log() {
 script_name="${0##*/}"
 case "$script_name" in
 'zelta')
-	zelta_verb="$1";
-	shift;
+	if [ -n "$1" ] ; then
+		zelta_verb="$1";
+		shift
+	else
+		zelta_usage
+	fi
 	;;
 *) 
 	zelta_verb="$script_name"

@@ -51,10 +51,10 @@ function add_written() {
 
 # TO-DO: Add this feature to build_command()
 function wrap_time_cmd(cmd, _cmd_part, _p) {
-	cmd_part[p++]	= Opt["SH_COMMAND_PREFIX"]
-	cmd_part[p++]	= Opt["TIME_COMMAND"]
-	cmd_part[p++]	= cmd
-	cmd_part[p++]	= Opt["SH_COMMAND_SUFFIX"]
+	cmd_part[_p++]	= Opt["SH_COMMAND_PREFIX"]
+	cmd_part[_p++]	= Opt["TIME_COMMAND"]
+	cmd_part[_p++]	= cmd
+	cmd_part[_p++]	= Opt["SH_COMMAND_SUFFIX"]
 	cmd		= arr_join(_cmd_part)
 	return cmd
 }
@@ -90,7 +90,7 @@ function pipe_zfs_list_source(		_match_cmd, _src_list_cmd) {
 	report(LOG_INFO, "listing source: " Source["ID"])
 	report(LOG_DEBUG, "`" _src_list_cmd "`")
 
-	# The blank line piped below allows the target awk stream to run its 
+	# The blank line piped below allows the target awk stream to run its
 	# BEGIN block without waiting for first line of 'zfs list' output.
 	print "" | _match_cmd
 	while (_src_list_cmd | getline) print | _match_cmd
@@ -109,7 +109,7 @@ function run_zfs_list_target(		_src_list_cmd) {
 	report(LOG_INFO, "listing target: " Target["ID"])
 	report(LOG_DEBUG, "`" _tgt_list_cmd "`")
 	_tgt_list_cmd = str_add(_tgt_list_cmd, CAPTURE_OUTPUT)
-	while  (_tgt_list_cmd | getline) 
+	while  (_tgt_list_cmd | getline)
 		load_zfs_list_row(Target)
 	close(_tgt_list_cmd)
 }
@@ -139,7 +139,7 @@ function object_type(symbol) {
 
 # Load each row into memory
 function process_row(ep,		_name, _guid, _written, _name_suffix, _ds_suffix, _savepoint,
-		     			_type, _ep_id, _ds_id, _ds_snap, _row_id, _tmp_arr) {
+		     			_type, _ep_id, _ds_id, _ds_snap, _row_id, _tmp_arr, _num_snaps) {
 	# Read the row data
 	_name			= $1
 	_guid			= $2
@@ -155,25 +155,28 @@ function process_row(ep,		_name, _guid, _written, _name_suffix, _ds_suffix, _sav
 	} else 	_ds_suffix		= _name_suffix
 	if (!depth_ok(_ds_suffix))
 		return
-	
+
 	_ep_id			= ep["ID"]
 	_ds_id			= _ep_id S _ds_suffix S ""
 	_row_id			= _ep_id S _ds_suffix S _savepoint
 	_type			= object_type(_type)
-	
-	Row[_row_id, "exists"] 	= 1
-	Row[_row_id, "guid"] 	= _guid
-	Row[_row_id, "written"]	= _written
-	Row[_row_id, "name"]	= _name
-	Row[_row_id, "type"]	= _type
-	
+
+	if (check_exclusions(_type, _ds_suffix, _savepoint))
+		return
+	    
+	Row[_row_id, "exists"]     = 1
+	Row[_row_id, "guid"]       = _guid
+	Row[_row_id, "written"]    = _written
+	Row[_row_id, "name"]       = _name
+	Row[_row_id, "type"]       = _type
+	Row[_row_id, "ds_suffix"]  = _ds_suffix
+
 	# Snapshots will be used for match GUID over bookmarks
 	if (!Guid[_ds_id, _guid] || (_type == IS_SNAPSHOT))
 		Guid[_ds_id, _guid] = _row_id
 
 	# Dataset
 	if (_type == IS_DATASET) {
-
 		# Note: 'zfs list -S createtxg' gives us a reverse view of datasets
 		_num_ds				= ++ep["num_ds"]
 		Dataset[_ep_id, _num_ds]	= _row_id
@@ -206,29 +209,66 @@ function load_zfs_list_row(ep) {
 ## Identifying Replica Relationships
 ####################################
 
+
+# Exclude patterns
+function load_exclude_patterns(    _i, _n, _pat_arr, _val, _leader, _pat) {
+	if (!Opt["EXCLUDE"]) return
+
+	_n = split(Opt["EXCLUDE"], _pat_arr, ",")
+	for (_i = 1; _i <= _n; _i++) {
+		_pat = _pat_arr[_i]
+		_leader = substr(_pat, 1, 1)
+
+		if (_leader == "/")
+			ExcludeDSPattern[++NumExcludeDS] = glob_to_regex(_pat)
+		else if (_leader == "@")
+			ExcludeSnapPattern[++NumExcludeSnap] = glob_to_regex(_pat)
+		else if (_leader == "#")
+			ExcludeBookPattern[++NumExcludeBook] = glob_to_regex(_pat)
+		else
+			report(LOG_WARNING, "malformed exclude pattern '" _pat "'")
+	}
+}
+
+function regex_loop(string, pat_arr, n,	_i) {
+	for (_i = 1; _i <= n; _i++)
+		if (string ~ pat_arr[_i])
+			return 1
+}
+
+function check_exclusions(type, suffix, name) {
+	if (type == IS_DATASET)
+	       return regex_loop(suffix, ExcludeDSPattern, NumExcludeDS)
+	if (type == IS_SNAPSHOT)
+	       return regex_loop(name, ExcludeSnapPattern, NumExcludeSnap)
+	if (type == IS_BOOKMARK)
+		return regex_loop(name, ExcludeBookPattern, NumExcludeBook)
+}
+
 # Load DSPair keys for summary output
-function create_ds_pair(src_ds, _src_ds_row) {
-	split(src_ds, _src_ds_row, S)
-	_ds_suffix		= _src_ds_row[2]
+function create_ds_pair(row_id,		_row_arr, _ds_suffix, _src_ds, _tgt_ds) {
+	split(row_id, _row_arr, S)
+	_ds_suffix		= _row_arr[2]
+	_src_ds			= Source["ID"] S _ds_suffix S ""
 	_tgt_ds			= Target["ID"] S _ds_suffix S ""
 	DSPairList[++NumDSPair]	= _ds_suffix
 
 	# DSPair contains all output columns, so some Row[] fields must be copied
 	DSPair[_ds_suffix, "ds_suffix"]		= _ds_suffix
-	DSPair[_ds_suffix, "src_name"]		= Row[src_ds, "name"]
+	DSPair[_ds_suffix, "src_name"]		= Row[_src_ds, "name"]
 	DSPair[_ds_suffix, "tgt_name"]		= Row[_tgt_ds, "name"]
-	DSPair[_ds_suffix, "src_written"]	= Row[src_ds, "written"]
+	DSPair[_ds_suffix, "src_written"]	= Row[_src_ds, "written"]
 	DSPair[_ds_suffix, "tgt_written"]	= Row[_tgt_ds, "written"]
-	DSPair[_ds_suffix, "src_snaps"]		= NumSnaps[src_ds]
+	DSPair[_ds_suffix, "src_snaps"]		= NumSnaps[_src_ds]
 	DSPair[_ds_suffix, "tgt_snaps"]		= NumSnaps[_tgt_ds]
 	DSPair[_ds_suffix, "tgt_written"]	= Row[_tgt_ds, "written"]
-	DSPair[_ds_suffix, "src_first"]		= Row[Snap[src_ds,NumSnaps[src_ds]], "savepoint"]
+	DSPair[_ds_suffix, "src_first"]		= Row[Snap[_src_ds,NumSnaps[_src_ds]], "savepoint"]
 	DSPair[_ds_suffix, "tgt_first"]		= Row[Snap[_tgt_ds,NumSnaps[_tgt_ds]], "savepoint"]
-	DSPair[_ds_suffix, "src_last"]		= Row[Snap[src_ds,1], "savepoint"]
+	DSPair[_ds_suffix, "src_last"]		= Row[Snap[_src_ds,1], "savepoint"]
 	DSPair[_ds_suffix, "tgt_last"]		= Row[Snap[_tgt_ds,1], "savepoint"]
 }
 
-function compare_datasets(src_ds_id,		_row_arr) {
+function compare_datasets(src_ds_id,		_ds_suffix, _row_arr, _tgt_ds_id) {
 	split(src_ds_id, _row_arr, S)
 	_ds_suffix = _row_arr[2]
 	_tgt_ds_id = Target["ID"] S _ds_suffix S ""
@@ -272,12 +312,13 @@ function compare_snapshots(src_row,	_src_row_arr, _ds_suffix, _savepoint, _src_g
 	}
 }
 
-function review_target_datasets(tgt_id,		_tgt_arr, _row_arr, _num_snaps, _tgt_row, _savepoint,
-						_guid, _src_ds_id,_match, _match_found) {
+function review_target_datasets(tgt_id,		_tgt_arr, _ds_suffix, _num_snaps, _tgt_row, _savepoint,
+						_s, _row_arr, _guid, _src_ds_id,_match, _match_found) {
 	split(tgt_id, _tgt_arr, S)
 	_ds_suffix = _tgt_arr[2]
 	_num_snaps = NumSnaps[tgt_id]
 	if (!DSPair[_ds_suffix,"status"]) {
+		create_ds_pair(tgt_id)
 		DSPair[_ds_suffix,"tgt_snaps"] = _num_snaps
 		DSPair[_ds_suffix,"status"] = PAIR_TGT_ONLY
 	}
@@ -290,7 +331,6 @@ function review_target_datasets(tgt_id,		_tgt_arr, _row_arr, _num_snaps, _tgt_ro
 		_match		= Guid[_src_ds_id, _guid]
 		if (_match)
 			_match_found = 1
-		#print _tgt_row, _match_found, Row[_tgt_row, "type"]
 		if (!_match_found && (Row[_tgt_row, "type"] == IS_SNAPSHOT)) {
 			DSPair[_ds_suffix, "num_blocked"]++
 			DSPair[_ds_suffix, "tgt_next"] = _savepoint
@@ -298,7 +338,8 @@ function review_target_datasets(tgt_id,		_tgt_arr, _row_arr, _num_snaps, _tgt_ro
 	}
 }
 
-function process_datasets(		_src_id, _tgt_id, _num_src_ds, _num_tgt_ds, _d, _s, _match) {
+function process_datasets(		_src_id, _tgt_id, _num_src_ds, _num_tgt_ds, _d, _s,
+			  		_src_ds_id, _match, _num_snaps, _tgt_ds_id) {
 	_src_id		= Source["ID"]
 	_tgt_id		= Target["ID"]
 	_num_src_ds	= Source["num_ds"]
@@ -316,17 +357,82 @@ function process_datasets(		_src_id, _tgt_id, _num_src_ds, _num_tgt_ds, _d, _s, 
 
 	# Step through target objects
 	for (_d = 1; _d <= _num_tgt_ds; _d++) {
+		_tgt_ds_id = Dataset[_tgt_id, _d]
 		review_target_datasets(Dataset[_tgt_id, _d])
 	}
 	arr_sort(DSPairList, NumDSPair)
 }
 
 
+## Postprocessing
+#################
+
+# Report up-to-date, syncable, blocked sync, or no source 
+function get_info(	_d, _ds_suffix, _src_ds, _tgt_ds, _info, _blocked, _s) {
+	for (_d = 1; _d <= NumDSPair; _d++) {
+		_ds_suffix          = DSPairList[_d]
+		_src_ds             = Source["ID"] S _ds_suffix S ""
+		_tgt_ds             = Target["ID"] S _ds_suffix S ""
+
+		_blocked = ""
+		delete _info
+
+
+		if (DSPair[_ds_suffix, "status"] == PAIR_TGT_ONLY) {
+			DSPair[_ds_suffix, "info"] = "no source (target only)"
+			Global["blocked_count"]++
+			continue
+		}
+
+		if (DSPair[_ds_suffix, "status"] == PAIR_SRC_ONLY) {
+			DSPair[_ds_suffix, "info"] = "syncable (full)"
+			Global["syncable_count"]++
+			continue
+		}
+
+		# Identify blocked syncs to start
+		if (!NumSnaps[_tgt_ds] && NumSnaps[_src_ds])
+			_blocked = "no target snapshots"
+		else if (DSPair[_ds_suffix, "match"] != DSPair[_ds_suffix, "tgt_last"])
+			_blocked = "target diverged"
+		else if (Row[_tgt_ds, "written"])
+			_blocked = "target is written"
+		# List all reasons the sync is blocked
+		if (_blocked) {
+			DSPair[_ds_suffix, "info"] = "blocked sync: " _blocked
+			Global["blocked_count"]++
+			continue
+		}
+
+
+		if (DSPair[_ds_suffix, "match"] == DSPair[_ds_suffix, "src_last"]) {
+			DSPair[_ds_suffix, "info"] = "up-to-date"
+			Global["up_to_date_count"]++
+		}
+		else if (DSPair[_ds_suffix, "match"] == DSPair[_ds_suffix, "tgt_last"]) {
+			DSPair[_ds_suffix, "info"] = "syncable (incremental)"
+			Global["syncable_count"]++
+		}
+		else {
+			report(LOG_WARNING, Row[_src_ds, "name"] ": unexpected state")
+			Global["match_error"]++
+		}
+	}
+
+	if (Global["up_to_date_count"])
+		_sum_arr[++_s] = Global["up_to_date_count"] " up-to-date"
+	if (Global["syncable_count"])
+		_sum_arr[++_s] = Global["syncable_count"] " syncable"
+	if (Global["blocked_count"])
+		_sum_arr[++_s] = Global["blocked_count"] " blocked"
+	Global["summary"] = arr_join(_sum_arr, ", ")
+}
+
 ## Output
 #########
 
 # Load the column data
-function load_columns(		_tsv, _key, _opt_list, _opt, _idx, _c, _default_proplist, _proplist) {
+function load_columns(		_tsv, _key, _opt_list, _opt, _idx, _c, _default_proplist, _proplist, _p) {
 	_tsv = Opt["SHARE"]"/zelta-cols.tsv"
 	FS="\t"
 	while ((getline<_tsv)>0) {
@@ -369,7 +475,7 @@ function load_columns(		_tsv, _key, _opt_list, _opt, _idx, _c, _default_proplist
 }
 
 # Load override values for DSPair
-function get_column_value(ds_suffix, key) {
+function get_column_value(ds_suffix, key,	_val) {
 	_val = DSPair[ds_suffix, key]
 	# In scripting mode, just make sure numbers are formatted correctly
 	if (Opt["SCRIPTING_MODE"]) {
@@ -406,7 +512,7 @@ function get_cell(c, key, val,		_cell) {
 }
 
 # Adjust visuals for human output (without 'SCRIPTING_MODE')
-function print_header(		_c, _key, _r, _ds_suffix, _len) {
+function print_header(		_c, _key, _r, _ds_suffix, _len, _line) {
 	if (Opt["SCRIPTING_MODE"]) return
 	# Figure out column widths of column names and DSPair[] values for pretty printing
 	for (_c = 1; _c <= NumProps; _c++) {
@@ -422,12 +528,15 @@ function print_header(		_c, _key, _r, _ds_suffix, _len) {
 		}
 		_line = _line get_cell(_c, _key, toupper(_key))
 	}
-	#report(LOG_NOTICE, _line)
-	print _line
+	report(LOG_NOTICE, _line)
 }
 
 # Print the output summary
 function summary(	_r, _line, _ds_suffix, _c, _key, _val, _cell) {
+	if (!NumDSPair) {
+		report(LOG_ERROR, "datasets inaccessible or do not exist")
+		return
+	}
 	print_header()
 	for (_r = 1; _r <= NumDSPair; _r++) {
 		_line = ""
@@ -439,8 +548,12 @@ function summary(	_r, _line, _ds_suffix, _c, _key, _val, _cell) {
 			_val = DSPair[_ds_suffix, _key]
 			_line = _line get_cell(_c, _key, _val)
 		}
-		#report(LOG_NOTICE, _line)
-		print _line
+		report(LOG_NOTICE, _line)
+	}
+	if (!Opt["SCRIPTING_MODE"]) {
+		report(LOG_NOTICE, Global["summary"])
+		if ((NumDSPair > 1) && (Global["summary"] ~ /,/))
+			report(LOG_NOTICE, NumDSPair " total datasets compared")
 	}
 }
 
@@ -477,6 +590,7 @@ BEGIN {
 		Source["ds_length"]		= length(Source["DS"]) + 1
 		Source["list_time"] 		= 0
 		Target["list_name"] 		= 0
+		load_exclude_patterns()
 		run_zfs_list_target()
 		# Continues to process the incoming pipes 'pipe_zfs_list_source()'
 	}
@@ -495,6 +609,8 @@ NR > 1 {
 END {
 	if (Opt["MATCH_PIPE"]) {
 		process_datasets()
+		get_info()
 		summary()
 	}
-} 
+	stop()
+}
