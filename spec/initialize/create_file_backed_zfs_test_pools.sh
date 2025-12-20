@@ -1,5 +1,7 @@
 #!/bin/sh
 
+. spec/lib/exec_cmd.sh
+
 check_pool_exists() {
     pool_name="$1"
     if [ -z "$pool_name" ]; then
@@ -24,6 +26,53 @@ destroy_pool_if_exists() {
     fi
 }
 
+rm_img_and_its_loop_devices() {
+    img=$1
+    echo "removing loop devices associated with image file: {$img}"
+    sudo losetup -j "$img" | cut -d: -f1 | xargs -r sudo losetup -d
+
+    echo "removing image file: {$img}"
+    sudo rm -f "$img"
+}
+
+create_file_img() {
+    pool_file_img=$1
+
+    echo "Creating ${ZELTA_ZFS_TEST_POOL_SIZE}" "${pool_file_img}"
+    truncate -s "${ZELTA_ZFS_TEST_POOL_SIZE}" "${pool_file_img}"
+
+    echo "showing created file image:"
+    ls -lh "${pool_file_img}"
+}
+
+create_pool_from_loop_device() {
+    pool_name=$1
+    pool_file_img="${ZELTA_ZFS_STORE_TEST_DIR}/${pool_name}.img"
+
+    rm_img_and_its_loop_devices "$pool_file_img"
+
+    create_file_img "$pool_file_img"
+
+    echo "create loop device for file image: {$pool_file_img}"
+    sudo losetup -f "$pool_file_img"
+
+    loop_device=$(losetup --list --noheadings --output NAME --associated "$pool_file_img")
+    echo "created loop_device:{$loop_device} for image file:{$pool_file_img}"
+
+    echo "create pool {$pool_name} for loop device {$loop_device}"
+    sudo zpool create -f -m "/${pool_name}" "${pool_name}" "${loop_device}"
+
+}
+
+create_pool_from_image_file() {
+    pool_name=$1
+    pool_file_img="${ZELTA_ZFS_STORE_TEST_DIR}/${pool_name}.img"
+
+    create_file_img "$pool_file_img"
+    echo "Creating zfs pool {$pool_name} from image file {$pool_file_img}"
+    sudo zpool create -f -m "/${pool_name}" "${pool_name}" "${pool_file_img}"
+}
+
 create_test_pool() {
     #set -x
     pool_name="$1"
@@ -32,19 +81,30 @@ create_test_pool() {
         return 1
     fi
 
-    pool_file_img="${ZELTA_ZFS_STORE_TEST_DIR}/${pool_name}.img"
-    echo "Creating ${ZELTA_ZFS_TEST_POOL_SIZE}" "${pool_file_img}"
-    truncate -s "${ZELTA_ZFS_TEST_POOL_SIZE}" "${pool_file_img}"
-    ls -lh "${pool_file_img}"
-    echo "Creating zfs pool $pool_name "
-
-    sudo zpool create -f -m "/${pool_name}" "${pool_name}" "${pool_file_img}"
+    create_pool_from_loop_device "$pool_name"
+    #create_pool_from_image_file $pool_name
 
     echo "Created ${pool_name}"
     sudo zpool list "${pool_name}"
     #  set +x
     #true
 }
+
+
+#cleanup_loop_img() {
+#    pool=$1
+#    img=$2
+#    # remove the pool
+#    sudo zpool destroy -f "$pool" 2>/dev/null || true
+#
+#    # Detach all loops using this image
+#    sudo losetup -j "$img" | cut -d: -f1 | xargs -r sudo losetup -d
+#
+#    rm -f "$img"
+#}
+
+
+
 
 verify_pool_creation() {
     pool_name="$1"
@@ -75,5 +135,11 @@ create_pools() {
     return $((SRC_STATUS || TGT_STATUS))
 }
 
+
 mkdir -p "${ZELTA_ZFS_STORE_TEST_DIR}"
 create_pools
+
+#setup_loop_img "${SRC_POOL}"
+#setup_loop_img "${TGT_POOL}"
+
+

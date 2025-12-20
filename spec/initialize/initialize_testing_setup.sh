@@ -1,5 +1,10 @@
 #!/bin/sh
 
+. spec/initialize/test_env.sh
+. spec/lib/exec_cmd.sh
+
+#exec_cmd printf "hello there\n"
+
 verify_root() {
     # Check if running as root
     if [ "$(id -u)" -ne 0 ]; then
@@ -19,7 +24,8 @@ initialize_zelta_test() {
     fi
 
     echo "-- creating test pools"
-    if "${INITIALIZE_DIR}"/create_file_backed_zfs_test_pools.sh; then
+    #if "${INITIALIZE_DIR}"/create_file_backed_zfs_test_pools.sh; then
+    if "${INITIALIZE_DIR}"/create_device_backed_zfs_test_pools.sh; then
         echo "-- setting up snap tree"
         "${INITIALIZE_DIR}"/setup_simple_snap_tree.sh
         TREE_STATUS=$?
@@ -45,5 +51,6 @@ initialize_zelta_test() {
     return $SETUP_STATUS
 }
 
+#. ./spec/initialize/test_env.sh
 verify_root
 initialize_zelta_test

@@ -1,0 +1,15 @@
+# ZFS setup for zelta
+
+
+## Install ZFS
+ 1. Update package lists `sudo apt update`
+ 2. Install ZFS userspace tools `sudo apt install zfsutils-linux`
+
+## Verify ZFS version
+- _Verify ZFS is installed and kernel and user tools versions match_
+  ```
+  zfs version
+  cat /sys/module/zfs/version
+  ```
+
+## ZFS allow setup
