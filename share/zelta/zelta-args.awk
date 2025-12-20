@@ -58,25 +58,28 @@ function match_arg(arg, 	_flag) {
 	stop(1, "invalid option '"arg"'")
 }
 
-function set_arg(flag, subopt) {
-	if (OptListType[flag] == "arglist")	NewOpt[OptListKey[flag]] = str_add(NewOpt[OptListKey[flag]])
-	else if (OptListType[flag] == "true")	NewOpt[OptListKey[flag]] = "1"
-	else if (OptListType[flag] == "false")	NewOpt[OptListKey[flag]] = "0"
-	else if (OptListType[flag] == "set")	NewOpt[OptListKey[flag]] = subopt
-	else if (OptListType[flag] == "incr")	NewOpt[OptListKey[flag]]++
-	else if (OptListType[flag] == "decr")	NewOpt[OptListKey[flag]]--
-	else if (OptListType[flag] == "invalid") stop(1, OptListWarn[flag])
-	if (OptListType[flag] == "warn")	report(LOG_WARNING, OptListWarn[flag])
+function set_arg(flag, subopt,		_type, key) {
+	_type = OptListType[flag]
+	_key  = OptListKey[flag]
+	if (_type == "arglist")       NewOpt[_key] = str_add(NewOpt[_key])
+	else if (_type == "list")     NewOpt[_key] = str_add(NewOpt[_key], subopt, ",")
+	else if (_type == "true")     NewOpt[_key] = "1"
+	else if (_type == "false")    NewOpt[_key] = "0"
+	else if (_type == "set")      NewOpt[_key] = subopt
+	else if (_type == "incr")     NewOpt[_key]++
+	else if (_type == "decr")     NewOpt[_key]--
+	else if (_type == "invalid")  stop(1, OptListWarn[flag])
+	if (_type == "warn")          report(LOG_WARNING, OptListWarn[flag])
 }
 
-# Handle "set" action logic
+# Handle 'set' and 'list' action logic
 function get_subopt(flag, m,	_subopt) {
 	# If a key=value is given out of context, stop
-	if ($2 && ((OptListType[flag] != "set") || OptListValue[flag])) {
+	if ($2 && (!(OptListType[flag] in SUBOPT_TYPES) || OptListValue[flag])) {
 		stop(1, "invalid option assignment '"$0"'")
 	}
-	# Not a "set" action
-	else if (OptListType[flag] != "set") return ""
+	# Not a subopt type
+	else if (!(OptListType[flag] in SUBOPT_TYPES)) return ""
 	# --key=value
 	else if ($2) return $2
 	# Value is defined upstream
@@ -134,18 +137,16 @@ function load_option_list(		_tsv, _flag, _flags, _idx, _flag_arr) {
 	# TO-DO: Complain if TSV doesn't load
 	while ((getline<_tsv)>0) {
 		if (index($1, Opt["VERB"]) || ($1 == "all")) {
+			# 1:VERBS 2:FLAGS 3:KEY 4:KEY_ALIAS 5:TYPE 6:VALUE 7:DESCRIPTION 8:WARNING
+			if (/^#/ || !$2) continue
 			_flags = $2
-			if (!_flags) {
-				report(LOG_WARNING, "malformed option file line: "$0)
-				continue
-			}
-			split($2, _flag_arr, ",")
+			split(_flags, _flag_arr, ",")
 			# Make an dictionary for flag synonyms
 			for (_idx in _flag_arr) OptListFlags[_flag_arr[_idx]] = _flags
 			OptListKey[_flags]	= $3
-			OptListType[_flags]	= $4
-			OptListValue[_flags]	= $5
-			OptListWarn[_flags]	= $6
+			OptListType[_flags]	= $5
+			OptListValue[_flags]	= $6
+			OptListWarn[_flags]	= $8
 			# We need to know the default of 'incr'/'decr' action items
 			if ((OptListType[_flags] == "incr") || (OptListType[_flags] == "decr")) {
 				_incr_decr_key = OptListKey[_flags]
@@ -169,6 +170,8 @@ function override_options(	_e) {
 }
 
 BEGIN {
+	SUBOPT_TYPES["list"]  = 1
+	SUBOPT_TYPES["set"]   = 1
 	load_option_list()
 	get_args()
 	override_options()

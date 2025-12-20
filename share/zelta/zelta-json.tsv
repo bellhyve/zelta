@@ -1,0 +1,16 @@
+# MAP_KEY	VAR_SOURCE	 VAR_KEY	MAP_KEY	NULL_MODE
+# MAP_KEY: The name of the summary field
+# VAR_SOURCE: The source of the key
+# VAR_KEY: The key
+# NULL_MODE: null, 0, or empty to suppress the field if not found
+
+sourceUser	Opt	SRC_USER
+sourceHost	Opt	SRC_HOST
+sourceDataset	Opt	SRC_DS
+sourceSnapshot	Opt	SRC_SNAP
+sourceEndpoint	Opt	SRC_ID
+targetUser	Opt	TGT_USER
+targetHost	Opt	TGT_HOST
+targetDataset	Opt	TGT_DS
+targetSnapshot	Opt	TGT_SNAP
+targetEndpoint	Opt	TGT_ID
