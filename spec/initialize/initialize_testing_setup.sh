@@ -9,7 +9,7 @@ verify_root() {
     # Check if running as root
     if [ "$(id -u)" -ne 0 ]; then
         echo "Error: You must run as root or with sudo" >&2
-        exit 1
+        return 1
     fi
 }
 
@@ -24,8 +24,8 @@ initialize_zelta_test() {
     fi
 
     echo "-- creating test pools"
-    #if "${INITIALIZE_DIR}"/create_file_backed_zfs_test_pools.sh; then
-    if "${INITIALIZE_DIR}"/create_device_backed_zfs_test_pools.sh; then
+    if "${INITIALIZE_DIR}"/create_file_backed_zfs_test_pools.sh; then
+    #if "${INITIALIZE_DIR}"/create_device_backed_zfs_test_pools.sh; then
         echo "-- setting up snap tree"
         "${INITIALIZE_DIR}"/setup_simple_snap_tree.sh
         TREE_STATUS=$?
