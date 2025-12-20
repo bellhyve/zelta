@@ -2,16 +2,21 @@
 # with `zelta help` by setting the path via ZELTA_MAN, e.g.,
 # `export ZELTA_MAN="${HOME}/.config/zelta/doc"`
 
-.SUFFIXES: .md .8
+SRC      = $(wildcard *.md)
+MAN7     = $(patsubst %.7.md,%.7,$(filter %.7.md,$(SRC)))
+MAN8     = $(patsubst %.md,%.8,$(filter-out %.7.md,$(SRC)))
 
-MAN_PAGES = $(patsubst %.md,%.8,$(wildcard *.md))
+all: $(MAN7) $(MAN8)
 
-all: $(MAN_PAGES)
+# Specific rule for Section 7 (Misc/Overview)
+%.7: %.7.md
+	pandoc --standalone --to man $< -o $@
 
-.md.8:
+# Catch-all for Section 8 (Admin commands)
+%.8: %.md
 	pandoc --standalone --to man $< -o $@
 
 clean:
-	rm -f $(MAN_PAGES)
+	rm -f $(MAN7) $(MAN8)
 
 .PHONY: all clean
