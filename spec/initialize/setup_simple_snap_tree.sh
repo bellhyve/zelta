@@ -13,9 +13,9 @@ dataset_exists() {
 }
 
 create_tree_via_zfs() {
-    sudo zfs create -vp "$SRC_TREE"
-    sudo zfs create -vp "$SRC_TREE/$ALL_DATASETS"
-    sudo zfs create -vp "$TGT_POOL/$BACKUPS_DSN"
+    exec_cmd sudo zfs create -vp "$SRC_TREE"
+    exec_cmd sudo zfs create -vp "$SRC_TREE/$ALL_DATASETS"
+    exec_cmd sudo zfs create -vp "$TGT_POOL/$BACKUPS_DSN"
     #sudo zfs create -vsV 16G -o volmode=dev $SRCTREE'/vol1'
 }
 
@@ -29,7 +29,7 @@ rm_test_datasets() {
     for dataset in "${DATASETS[@]}"; do
         if zfs list "$dataset" &>/dev/null; then
             echo "Destroying $dataset..."
-            sudo zfs destroy -vR "$dataset"
+            exec_cmd sudo zfs destroy -vR "$dataset"
         else
             echo "Skipping $dataset (does not exist)"
         fi

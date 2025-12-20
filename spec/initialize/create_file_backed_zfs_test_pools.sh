@@ -8,18 +8,18 @@ check_pool_exists() {
         echo "** Error: Pool name required" >&2
         return 1
     fi
-    sudo zpool list "$pool_name" >/dev/null 2>&1
+    exec_cmd sudo zpool list "$pool_name" >/dev/null 2>&1
 }
 
 destroy_pool_if_exists() {
     pool_name="$1"
     if check_pool_exists "$pool_name"; then
         echo "Destroying pool '$pool_name'..."
-        sudo zpool list "$pool_name"
-        if ! sudo zpool destroy -f "$pool_name"; then
+        exec_cmd sudo zpool list "$pool_name"
+        if ! exec_cmd sudo zpool destroy -f "$pool_name"; then
             echo "Destroy for pool '$pool_name' failed, trying export then destroy"
             # Export is only needed when the pool is busy/imported but destroy can't complete
-            sudo zpool export -f "$pool_name" && sudo zpool destroy -f "$pool_name"
+            exec_cmd sudo zpool export -f "$pool_name" && exec_cmd sudo zpool destroy -f "$pool_name"
         fi
     else
         echo "Pool '$pool_name' does not exist, no need to destroy"
@@ -29,10 +29,10 @@ destroy_pool_if_exists() {
 rm_img_and_its_loop_devices() {
     img=$1
     echo "removing loop devices associated with image file: {$img}"
-    sudo losetup -j "$img" | cut -d: -f1 | xargs -r sudo losetup -d
+    exec_cmd sudo losetup -j "$img" | cut -d: -f1 | xargs -r exec_cmd sudo losetup -d
 
     echo "removing image file: {$img}"
-    sudo rm -f "$img"
+    exec_cmd sudo rm -f "$img"
 }
 
 create_file_img() {
@@ -54,13 +54,13 @@ create_pool_from_loop_device() {
     create_file_img "$pool_file_img"
 
     echo "create loop device for file image: {$pool_file_img}"
-    sudo losetup -f "$pool_file_img"
+    exec_cmd sudo losetup -f "$pool_file_img"
 
     loop_device=$(losetup --list --noheadings --output NAME --associated "$pool_file_img")
     echo "created loop_device:{$loop_device} for image file:{$pool_file_img}"
 
     echo "create pool {$pool_name} for loop device {$loop_device}"
-    sudo zpool create -f -m "/${pool_name}" "${pool_name}" "${loop_device}"
+    exec_cmd sudo zpool create -f -m "/${pool_name}" "${pool_name}" "${loop_device}"
 
 }
 
@@ -70,7 +70,7 @@ create_pool_from_image_file() {
 
     create_file_img "$pool_file_img"
     echo "Creating zfs pool {$pool_name} from image file {$pool_file_img}"
-    sudo zpool create -f -m "/${pool_name}" "${pool_name}" "${pool_file_img}"
+    exec_cmd sudo zpool create -f -m "/${pool_name}" "${pool_name}" "${pool_file_img}"
 }
 
 create_test_pool() {
@@ -85,7 +85,7 @@ create_test_pool() {
     #create_pool_from_image_file $pool_name
 
     echo "Created ${pool_name}"
-    sudo zpool list -v "${pool_name}"
+    exec_cmd sudo zpool list -v "${pool_name}"
     #  set +x
     #true
 }
@@ -111,7 +111,7 @@ verify_pool_creation() {
     expected_size="$2"
 
     if check_pool_exists "$pool_name"; then
-        actual_size=$(sudo zpool list -H -o size "$pool_name")
+        actual_size=$(exec_cmd sudo zpool list -H -o size "$pool_name")
         echo "Success: Pool '$pool_name' created successfully. Size: $actual_size (Expected: $expected_size)"
     else
         echo "Error: Pool '$pool_name' was NOT created."
