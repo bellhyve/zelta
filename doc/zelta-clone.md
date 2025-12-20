@@ -17,16 +17,13 @@ When cloning, the _source_ can be **readonly** and not mounted, making cloning e
 
 
 # OPTIONS
-A _source_ and _target_ dataset parameter are required.
 
-**_source/dataset_**
-:    A dataset, in the form **pool[/component][@snapshot]**, which will be cloned along with all of its descendents. If a snapshot is not given, the most recent snapshot will be used as the clone origin.
+**Required Options**
+    **source/dataset**
+    :    A dataset, in the form **pool[/component][@snapshot]**, which will be cloned along with all of its descendents. If a snapshot is not given, the most recent snapshot will be used as the clone origin.
 
-**_target/dataset_**
-:    A dataset, which must be on the same pool as the **source/dataset**, where the clones will be created. This dataset must not exist.
-
-**initiator**
-:    A remote host, accessible via SSH, where the clone commands will be executed.
+    **target/dataset**
+    :    A dataset, which must be on the same pool as the **source/dataset**, where the clones will be created. This dataset must not exist.
 
 **--snapshot**  Snapshot before cloning. See `zelta.env.example` to adjust the naming scheme.
 
