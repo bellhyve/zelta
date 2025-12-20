@@ -5,6 +5,7 @@
   * [Overview](#overview)
     * [Installing ShellSpec](#installing-shellspec)
       * [🔰 Making your first test - a simple Example](#-making-your-first-test---a-simple-example)
+    * [Setting up a local development environment](#setting-up-a-local-development-environment)
   * [Testing `zelta`](#testing-zelta)
     * [:zap: To run the standard Zelta test](#zap-to-run-the-standard-zelta-test-)
     * [:zap: To run all tests](#zap-to-run-all-tests)
@@ -30,33 +31,8 @@ Use the hello_spec.sh file as a template for your first test.
 shellspec -f d spec/bin/hello_example.sh
 ```
 
-
-### Verifying zfs configuation
-```
-# 1. Update package lists
-sudo apt update
-
-# 2. Install ZFS userspace tools
-sudo apt install zfsutils-linux
-
-# 3. Verify ZFS is installed and versions match
-zfs version
-cat /sys/module/zfs/version
-
-# Expected output (both should match):
-# zfs-2.2.2-0ubuntu9.4
-# zfs-kmod-2.2.2-0ubuntu9.4
-# or similar matching versions
-```
-
-## Setting up a local development environment
-- [setup_local_dev_env.sh](./bin/setup_local_dev_env.sh)
-<details>
-<summary>Setting up an Ubuntu VM</summary>
-
-This content is hidden by default and will be revealed when the user clicks on the summary.
-
-</details>
+### Setting up a local development environment
+- [Ubuntu VM](./doc/vm/README.md)
 
 
 ## Testing `zelta`
@@ -66,7 +42,7 @@ This content is hidden by default and will be revealed when the user clicks on t
 >
 > ⛑️ Only temporary file backed zfs pools are used during testing
 >
-> 🦺 Install are local to a temporary directory
+> 🦺 Installs are local to a temporary directory
 * * *
 ### :zap: To run the standard Zelta test 
 [zelta_standard_test_spec.sh](./bin/zelta_standard_test_spec.sh) 
@@ -96,11 +72,11 @@ sudo -E env "PATH=$PATH" shellspec -f d
     spec/bin/zelta_standard_test_spec.sh:@2-1
     spec/bin/zelta_standard_test_spec.sh:@2-2
     ```
-- Run all examples in group @1
+- `:@1` 🟰 Run all examples in group @1
     ```shell
     sudo -E env "PATH=$PATH" shellspec -f d spec/bin/zelta_standard_test_spec.sh:@1
     ```
-- Run all examples 1 in group @1
+- `:@-1` 🟰 Run only example #1 in group @1
     ```shell
     sudo -E env "PATH=$PATH" shellspec -f d spec/bin/zelta_standard_test_spec.sh:@1-1
     ```
