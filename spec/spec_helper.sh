@@ -1,5 +1,6 @@
 # shellcheck shell=sh
 
+#. spec/initialize/test_env.sh
 # Defining variables and functions here will affect all specfiles.
 # Change shell options inside a function may cause different behavior,
 # so it is better to set them here.
@@ -31,6 +32,7 @@ end_spec() {
 
 start_all() {
     :
+    #exec_cmd "echo 'hello there'"
     #ls -l "./spec/lib/create_file_backed_zfs_test_pools.sh"
     #. "./spec/lib/create_file_backed_zfs_test_pools.sh"
     #curdir=$(pwd)
@@ -57,6 +59,21 @@ spec_helper_configure() {
     after_all end_all
 }
 
+# Define helper functions AFTER spec_helper_configure
+# These will be available in all spec files and in before_all/after_all blocks
+exec_cmd() {
+    printf '%s' "$*" >&2
+    if "$@"; then
+        printf ' :* succeeded\n' >&2
+        return 0
+    else
+        _exit_code=$?
+        printf ' :! failed (exit code: %d)\n' "$_exit_code" >&2
+        return "$_exit_code"
+    fi
+}
+
+
 # In spec_helper.sh
 capture_stderr() {
     RESULT=$({ "$@" 2>&1 1>/dev/null; } 2>&1) || true
@@ -64,3 +81,5 @@ capture_stderr() {
 }
 
 #spec/initialize/test_env.sh
+
+#exec_cmd printf "hello there\n"

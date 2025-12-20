@@ -30,6 +30,35 @@ Use the hello_spec.sh file as a template for your first test.
 shellspec -f d spec/bin/hello_example.sh
 ```
 
+
+### Verifying zfs configuation
+```
+# 1. Update package lists
+sudo apt update
+
+# 2. Install ZFS userspace tools
+sudo apt install zfsutils-linux
+
+# 3. Verify ZFS is installed and versions match
+zfs version
+cat /sys/module/zfs/version
+
+# Expected output (both should match):
+# zfs-2.2.2-0ubuntu9.4
+# zfs-kmod-2.2.2-0ubuntu9.4
+# or similar matching versions
+```
+
+## Setting up a local development environment
+- [setup_local_dev_env.sh](./bin/setup_local_dev_env.sh)
+<details>
+<summary>Setting up an Ubuntu VM</summary>
+
+This content is hidden by default and will be revealed when the user clicks on the summary.
+
+</details>
+
+
 ## Testing `zelta`
 > 🔑 zfs must be installed on your system.
 >
