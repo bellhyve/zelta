@@ -14,8 +14,8 @@
 # VERBS	FLAGS	KEY	KEY_ALIAS	TYPE	VALUE	DESCRIPTION	WARNING
 # -------------------------------------------------------------
 # Global/Generic Options
-all	-v	LOG_LEVEL		incr		Increase verbosity. Specify once for operational detail and twice (-vv) for debug output.
-all	-q	LOG_LEVEL		decr		Quiet output. Specify once to suppress warnings and twice (-qq) to suppress errors.
+all	-v,--verbose	LOG_LEVEL		incr		Increase verbosity. Specify once for operational detail and twice (-vv) for debug output.
+all	-q,--quiet	LOG_LEVEL		decr		Quiet output. Specify once to suppress warnings and twice (-qq) to suppress errors.
 all	--log-level	LOG_LEVEL		set		Specify a log level value 0-4: errors (0), warnings (1), notices (2, default), info (3, verbose), and debug (4).
 all	--log-mode	LOG_MODE		set		Enable the specified log modes: 'text' and 'json' are currently supported.
 all	--text	LOG_MODE		set	text	Force default output (notices) to print as plain text standard output.
@@ -75,3 +75,6 @@ policy	--archive-root	ARCHIVE_ROOT		set		NOT YET IMPLEMENTED. The relative targe
 policy	--host-prefix	HOST_PREFIX		set		Include the source hostname as a parent of the synced target, for example, 'tank/Backups/source.host/backup-dataset'.
 policy	--ds-prefix,--prefix	DS_PREFIX	PREFIX	set		Similar to 'zfs recv -d' and '-e', include the indicated number of parent labels for the target's synced name. See 'zelta help backup' for more detail.
 policy	--backup-command	BACKUP_COMMAND		set
+legacy		SEND_INTR	INTR_FLAGS	set			INTR_FLAGS will be depcreated and renamed to SEND_INTR.
+legacy		SEND_OVERRIDE	SEND_FLAGS	set			SEND_FLAGS will be depcreated. See 'zelta help options' for new SEND options.
+legacy		RECV_OVERRIDE	RECEIVE_FLAGS	set			RECV_FLAGS will be depcreated. See 'zelta help options' for new RECV options.

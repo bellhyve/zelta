@@ -45,16 +45,16 @@ For detailed usage of each subcommand, see the respective manual page.
 **zelta sync** _source_ _target_
 :    Replicate only the most recent snapshot between dataset trees. See **zelta-sync(8)**.
 
-## Recovery
+## Recovery and Iterative Infrastructure
+
+**zelta clone** _dataset_ _target_
+:    Create a writable clone of a dataset tree. See **zelta-clone(8)**.
 
 **zelta revert** _dataset_
 :    Rewind a dataset to a previous snapshot by renaming and cloning. Preserves current state. See **zelta-revert(8)**.
 
 **zelta rotate** _source_ _target_
 :    Preserve divergent dataset versions through rename and clone operations. See **zelta-rotate(8)**.
-
-**zelta clone** _dataset_ _target_
-:    Create a writable clone of a dataset tree. See **zelta-clone(8)**.
 
 ## Automation
 
@@ -107,9 +107,7 @@ Returns 0 on success, non-zero on error.
 **zelta-backup(8)**, **zelta-clone(8)**, **zelta-match(8)**, **zelta-options(8)**, **zelta-policy(8)**, **zelta-revert(8)**, **zelta-rotate(8)**, **zelta-sync(8)**, **cron(8)**, **ssh(1)**, **zfs(8)**
 
 # AUTHORS
-Daniel J. Bell _<bellta@belltower.it>_
+Daniel J. Bell _<bellhyve@zelta.space>_
 
 # WWW
 https://zelta.space
-
-https://github.com/bellhyve/zelta
