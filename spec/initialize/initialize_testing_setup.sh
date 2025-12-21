@@ -23,7 +23,11 @@ initialize_zelta_test() {
         echo "** Error: zelta install failed"
     fi
 
-    echo "-- creating test pools"
+    #"${INITIALIZE_DIR}"/create_device_backed_zfs_test_pools.sh
+    #"${INITIALIZE_DIR}"/create_file_backed_zfs_test_pools.sh
+    #TREE_STATUS=$?
+
+#    echo "-- creating test pools"
     if "${INITIALIZE_DIR}"/create_file_backed_zfs_test_pools.sh; then
     #if "${INITIALIZE_DIR}"/create_device_backed_zfs_test_pools.sh; then
         echo "-- setting up snap tree"
@@ -52,5 +56,6 @@ initialize_zelta_test() {
 }
 
 #. ./spec/initialize/test_env.sh
-verify_root
-initialize_zelta_test
+if verify_root; then
+   initialize_zelta_test
+fi
