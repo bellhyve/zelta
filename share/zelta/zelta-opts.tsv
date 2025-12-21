@@ -75,3 +75,6 @@ policy	--archive-root	ARCHIVE_ROOT		set		NOT YET IMPLEMENTED. The relative targe
 policy	--host-prefix	HOST_PREFIX		set		Include the source hostname as a parent of the synced target, for example, 'tank/Backups/source.host/backup-dataset'.
 policy	--ds-prefix,--prefix	DS_PREFIX	PREFIX	set		Similar to 'zfs recv -d' and '-e', include the indicated number of parent labels for the target's synced name. See 'zelta help backup' for more detail.
 policy	--backup-command	BACKUP_COMMAND		set
+legacy		SEND_INTR	INTR_FLAGS	set			INTR_FLAGS will be depcreated and renamed to SEND_INTR.
+legacy		SEND_OVERRIDE	SEND_FLAGS	set			SEND_FLAGS will be depcreated. See 'zelta help options' for new SEND options.
+legacy		RECV_OVERRIDE	RECEIVE_FLAGS	set			RECV_FLAGS will be depcreated. See 'zelta help options' for new RECV options.

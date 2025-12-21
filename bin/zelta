@@ -7,30 +7,36 @@
 ZELTA_VERSION="Zelta Replication Suite v1.1.0-alpha"
 
 zelta_usage() {
-	[ -n "$1" ] && echo unrecognized command \'"$1"\' >&2
-	cat >&2 << EOF
-usage: zelta command args ...
-where 'command' is one of the following:
+	exec >&2
+	if [ -n "$1" ] ; then
+		echo unrecognized command \'"$1"\'
+		case "$1" in
+		list)      echo did you mean "'zelta match'?" ;;
+		send)      echo did you mean "'zelta backup'?" ;;
+		rollback)  echo did you mean "'zelta revert'?" ;;
+		esac
+	fi
+	cat << EOF
+usage: zelta command [OPTIONS]
 
-	version
+Where 'command' is one of the following:
+  backup                     Sync ZFS datasets (intermediary mode)
+  clone                      Clone ZFS datasets
+  match                      Compare datasets
+  policy                     Run configured replication jobs
+  revert                     Rename and clone a dataset in-place
+  rotate                     Recover sync continuity
+  sync                       Sync ZFS datasets (incremental mode)
+  version                    Show version information
 
-	match [-Hp] [-d max] [-o field[,...]] source-endpoint target-endpoint
+Common Options:
+  -v, -vv                    Verbose/debug output
+  -q, -qq                    Suppress warnings/errors
 
-	backup [-bcdDeeFhhLMpuVw] [-iIjnpqRtTv]
-	       [initiator] source-endpoint target-endpoint
+Each endpoint is in the form: [user@host:]pool[/dataset/][@snap]
 
-	sync [bcdDeeFhhLMpuVw] [-iIjnpqRtTv]
-	     [initiator] source-endpoint target-endpoint
-
-	clone [-d max] source-dataset target-dataset
-
-	policy [backup-options] [site|host|dataset] ...
-
-Each endpoint is of the form: [user@][host:]dataset
-
-Each dataset is of the form: pool/[dataset/]*dataset[@name]
-
-For further help on a command or topic, run: zelta help [<topic>]
+For command-specific help:    zelta help [<topic>]
+For complete documentation:   https://zelta.space
 EOF
 	exit 1
 }
@@ -38,17 +44,20 @@ EOF
 # For "zelta help" run man
 zelta_man() {
 
+	_man_section=8
 	case $1 in
 		'')					_manpage=zelta ;;
-		list|zmatch)				_manpage=zelta-match ;;
-		sync|clone|replicate|zpull|zpush)	_manpage=zelta-backup ;;
+		options)				_manpage=zelta-$1
+							_man_section=7 ;;
+		# Legacy symlinks (from Zelta pre-1.0)
+		zmatch)					_manpage=zelta-match ;;
+		zpull|zpush)				_manpage=zelta-backup ;;
 		*)					_manpage=zelta-$1 ;;
 	esac
-	SECTION=8
 	if [ -s "$ZELTA_DOC" ] ; then
-		man "$ZELTA_DOC/$_manpage.$SECTION"
+		man "$ZELTA_DOC/$_manpage.$_man_section"
 	else
-		man $SECTION $_manpage
+		man $_man_section $_manpage
 	fi
 }
 
@@ -119,7 +128,6 @@ zelta_init() {
 	: ${ZELTA_SEND_RAW:="-L -w"}
 	: ${ZELTA_SEND_NEW:="-p"}
 	: ${ZELTA_SEND_INTR:="1"}
-	: ${ZELTA_SEND_PARTIAL:="1"}
 	: ${ZELTA_SEND_REPLICATE:="-L -s -R -w"}
 
 	# `zfs recv` defaults

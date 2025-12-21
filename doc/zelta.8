@@ -32,7 +32,7 @@ See \f[B]zfs(8)\f[R] for dataset naming conventions.
 .SH SUBCOMMANDS
 For detailed usage of each subcommand, see the respective manual page.
 .PP
-\f[B]zelta help\f[R]
+\f[B]zelta help \f[R]
 .TP
 \f[B]zelta \-?\f[R]
 Display help message.
@@ -58,7 +58,11 @@ See \f[B]zelta\-backup(8)\f[R].
 \f[B]zelta sync\f[R] \f[I]source\f[R] \f[I]target\f[R]
 Replicate only the most recent snapshot between dataset trees.
 See \f[B]zelta\-sync(8)\f[R].
-.SS Recovery
+.SS Recovery and Iterative Infrastructure
+.TP
+\f[B]zelta clone\f[R] \f[I]dataset\f[R] \f[I]target\f[R]
+Create a writable clone of a dataset tree.
+See \f[B]zelta\-clone(8)\f[R].
 .TP
 \f[B]zelta revert\f[R] \f[I]dataset\f[R]
 Rewind a dataset to a previous snapshot by renaming and cloning.
@@ -68,16 +72,12 @@ See \f[B]zelta\-revert(8)\f[R].
 \f[B]zelta rotate\f[R] \f[I]source\f[R] \f[I]target\f[R]
 Preserve divergent dataset versions through rename and clone operations.
 See \f[B]zelta\-rotate(8)\f[R].
-.TP
-\f[B]zelta clone\f[R] \f[I]dataset\f[R] \f[I]target\f[R]
-Create a writable clone of a dataset tree.
-See \f[B]zelta\-clone(8)\f[R].
 .SS Automation
 .TP
 \f[B]zelta policy\f[R] [\f[I]options\f[R]]
 Execute replication operations based on configuration file definitions.
 See \f[B]zelta\-policy(8)\f[R].
-.SH OPTIONS AND ENVIRONEMNT
+.SH OPTIONS AND ENVIRONMENT
 Configuration follows a hierarchy from lowest to highest precedence:
 .IP
 .EX
@@ -136,10 +136,8 @@ Returns 0 on success, non\-zero on error.
 \f[B]ssh(1)\f[R], \f[B]zfs(8)\f[R]
 .SH AUTHORS
 Daniel J. Bell \f[I]\c
-.MT bellta@belltower.it
+.MT bellhyve@zelta.space
 .ME \c
 \f[R]
 .SH WWW
 https://zelta.space
-.PP
-https://github.com/bellhyve/zelta
