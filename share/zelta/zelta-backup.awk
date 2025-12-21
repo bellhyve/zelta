@@ -1093,8 +1093,8 @@ BEGIN {
 		ReceivePipe                     = Opt["RECEIVE_PREFIX"]
 		# Work around legacy format
 		sub(/[| ]*$/, "", ReceivePipe)
-		RECV_PIPE_IN                    = " 2>&5 | "
-		RECV_PIPE_OUT                   = " 5>&2"
+		RECV_PIPE_IN                    = " 2>>/dev/tty | "
+		#RECV_PIPE_OUT                   = " 5>&2"
 		ReceivePipe                     = ReceivePipe RECV_PIPE_IN
 	}
 
