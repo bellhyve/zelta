@@ -1,7 +1,7 @@
 #!/bin/sh
 
 . spec/initialize/test_env.sh
-. spec/lib/exec_cmd.sh
+. spec/lib/common.sh
 
 #exec_cmd printf "hello there\n"
 

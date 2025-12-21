@@ -91,6 +91,10 @@ export ALL_DATASETS="one/two/three"
 export BACKUP_USER="${SUDO_USER:-$(whoami)}"
 
 check_zfs_installed
+
+#export ZELTA_AWK="mawk -Wi"
+export ZELTA_AWK=mawk
+
 export PATH="${ZELTA_BIN}:$PATH"
 
 #export EXEC_CMD_QUIET=1
