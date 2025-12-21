@@ -774,7 +774,7 @@ function run_zfs_sync(ds_suffix,		_cmd, _stream_info, _message, _ds_snap, _size,
 
 	_cmd = _cmd CAPTURE_OUTPUT
 	if (ReceivePipe)
-		_cmd = _cmd #RECV_PIPE_OUT
+		_cmd = _cmd RECV_PIPE_OUT
 	FS="[[:space:]]*"
 	report(LOG_DEBUG, "`"_cmd"`")
 	while (_cmd | getline) {
@@ -1094,7 +1094,7 @@ BEGIN {
 		# Work around legacy format
 		sub(/[| ]*$/, "", ReceivePipe)
 		RECV_PIPE_IN                    = " 2>&5 | "
-		RECV_PIPE_OUT                   = " 5>&2 "
+		RECV_PIPE_OUT                   = " 5>&2"
 		ReceivePipe                     = ReceivePipe RECV_PIPE_IN
 	}
 
