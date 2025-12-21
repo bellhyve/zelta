@@ -1,6 +1,6 @@
 #!/bin/bash
 
-. spec/lib/exec_cmd.sh
+#. spec/lib/exec_cmd.sh
 
 DATASETS=(
     "$SRC_TREE"
@@ -12,12 +12,20 @@ dataset_exists() {
     return $?
 }
 
+#create_tree_via_zfs() {
+#    exec_cmd sudo zfs create -vp "$SRC_TREE"
+#    exec_cmd sudo zfs create -vp "$SRC_TREE/$ALL_DATASETS"
+#    exec_cmd sudo zfs create -vp "$TGT_POOL/$BACKUPS_DSN"
+#    #sudo zfs create -vsV 16G -o volmode=dev $SRCTREE'/vol1'
+#}
+
 create_tree_via_zfs() {
-    exec_cmd sudo zfs create -vp "$SRC_TREE"
-    exec_cmd sudo zfs create -vp "$SRC_TREE/$ALL_DATASETS"
-    exec_cmd sudo zfs create -vp "$TGT_POOL/$BACKUPS_DSN"
+    zfs create -vp "$SRC_TREE"
+    zfs create -vp "$SRC_TREE/$ALL_DATASETS"
+    zfs create -vp "$TGT_POOL/$BACKUPS_DSN"
     #sudo zfs create -vsV 16G -o volmode=dev $SRCTREE'/vol1'
 }
+
 
 create_tree_via_zelta() {
     zelta backup "$SRC_POOL" "$TGT_POOL/$TREETOP_DSN/$ALL_DATASETS"
@@ -25,11 +33,22 @@ create_tree_via_zelta() {
     zelta backup "$TGT_POOL/$TREETOP_DSN" "$SRC_POOL/$TREETOP_DSN"
 }
 
+#rm_test_datasets() {
+#    for dataset in "${DATASETS[@]}"; do
+#        if zfs list "$dataset" &>/dev/null; then
+#            echo "Destroying $dataset..."
+#            exec_cmd sudo zfs destroy -vR "$dataset"
+#        else
+#            echo "Skipping $dataset (does not exist)"
+#        fi
+#    done
+#}
+
 rm_test_datasets() {
     for dataset in "${DATASETS[@]}"; do
         if zfs list "$dataset" &>/dev/null; then
             echo "Destroying $dataset..."
-            exec_cmd sudo zfs destroy -vR "$dataset"
+            zfs destroy -vR "$dataset"
         else
             echo "Skipping $dataset (does not exist)"
         fi
@@ -47,12 +66,12 @@ rm_test_datasets() {
 #    fi
 #}
 
-setup_zfs_allow() {
-    SRC_ZFS_CMDS="send,snapshot,hold,bookmark,create,readonly,receive,volmode"
-    TGT_ZFS_CMDS="send,snapshot,hold,bookmark,create,readonly,receive,volmode"
-    exec_cmd sudo zfs allow -u "$BACKUP_USER" "$SRC_ZFS_CMDS" "$SRC_POOL"
-    exec_cmd sudo zfs allow -u "$BACKUP_USER" "$TGT_ZFS_CMDS" "$TGT_POOL"
-}
+#setup_zfs_allow() {
+#    SRC_ZFS_CMDS="send,snapshot,hold,bookmark,create,readonly,receive,volmode"
+#    TGT_ZFS_CMDS="send,snapshot,hold,bookmark,create,readonly,receive,volmode"
+#    exec_cmd sudo zfs allow -u "$BACKUP_USER" "$SRC_ZFS_CMDS" "$SRC_POOL"
+#    exec_cmd sudo zfs allow -u "$BACKUP_USER" "$TGT_ZFS_CMDS" "$TGT_POOL"
+#}
 
 setup_simple_snap_tree() {
     #set -x
@@ -61,7 +80,7 @@ setup_simple_snap_tree() {
     create_tree_via_zfs
     # TODO: create via zelta
     #create_tree_via_zelta
-    setup_zfs_allow
+    #setup_zfs_allow
 
     TREE_STATUS=$?
     #set +x

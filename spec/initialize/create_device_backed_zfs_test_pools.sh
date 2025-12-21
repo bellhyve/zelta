@@ -14,6 +14,14 @@
 #: ${SRC_POOL_DEVICES:="/dev/nvme1n1"}
 #: ${TGT_POOL_DEVICES:="/dev/nvme2n1"}
 
+setup_zfs_allow() {
+    SRC_ZFS_CMDS="send,snapshot,hold,bookmark,create,readonly,receive,volmode"
+    TGT_ZFS_CMDS="send,snapshot,hold,bookmark,create,readonly,receive,volmode"
+    exec_cmd sudo zfs allow -u "$BACKUP_USER" "$SRC_ZFS_CMDS" "$SRC_POOL"
+    exec_cmd sudo zfs allow -u "$BACKUP_USER" "$TGT_ZFS_CMDS" "$TGT_POOL"
+}
+
+
 echo "=== ZFS Pool Testing Script ==="
 echo "Configuration:"
 echo "  SRC_POOL: $SRC_POOL"
@@ -82,6 +90,8 @@ zpool status "$SRC_POOL"
 echo ""
 zpool status "$TGT_POOL"
 echo ""
+
+setup_zfs_allow
 
 echo "=== Pool creation complete ==="
 
