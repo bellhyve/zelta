@@ -1,6 +1,6 @@
 #!/bin/sh
 
-. spec/lib/exec_cmd.sh
+. spec/lib/common.sh
 
 check_pool_exists() {
     pool_name="$1"
@@ -138,6 +138,7 @@ create_pools() {
 
 mkdir -p "${ZELTA_ZFS_STORE_TEST_DIR}"
 create_pools
+setup_zfs_allow
 
 #setup_loop_img "${SRC_POOL}"
 #setup_loop_img "${TGT_POOL}"

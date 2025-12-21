@@ -2,7 +2,7 @@ Describe 'confirm zfs setup'
     setup() {
         %logger "-- setup zelta test environment"
         #spec/initialize/initialize_testing_setup.sh
-        spec/initialize/setup_simple_snap_tree.sh
+        #spec/initialize/setup_simple_snap_tree.sh
     }
 
     create_marker_file() {
