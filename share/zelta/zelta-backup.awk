@@ -624,7 +624,7 @@ function validate_target_dataset() {
 	validate_target_parent_dataset()
 }
 
-function validate_datasets(	_verb, _src_only, _cloners) {
+function validate_datasets(	_verb, _src_only, _cloners, _pv_fd) {
 	_verb			= Opt["VERB"]
 	_cloners["rotate"]	= 1
 	_cloners["clone"]	= 1
@@ -650,6 +650,16 @@ function validate_datasets(	_verb, _src_only, _cloners) {
 	validate_source_dataset()
 	if (!(_verb in _src_only))
 		validate_target_dataset()
+
+	# pv for the fans
+	# TO-DO: No-op 'zfs send' step to find and insert totals
+	if (Opt["RECEIVE_PREFIX"] && !(Source["REMOTE"] && Target["REMOTE"])) {
+		ReceivePipe  = Opt["RECEIVE_PREFIX"]
+		# Clean up legacy format
+		sub(/[| ]*$/, "", ReceivePipe)
+		_pv_fd       = " 2>>/dev/tty | "
+		ReceivePipe  = ReceivePipe _pv_fd
+	}
 }
 
 
@@ -830,24 +840,30 @@ function run_zfs_sync(ds_suffix,		_cmd, _stream_info, _message, _ds_snap, _size,
 		#jlist("errorMessages", error_list)
 
 ## Construct replication commands
-function get_sync_command(ds_suffix,		_src_idx, _tgt_idx, _cmd, _zfs_send, _zfs_recv) {
+function get_sync_command(ds_suffix,		_src_idx, _tgt_idx, _cmd, _zfs_send, _zfs_recv,
+			  			_orechestrate, _push, _pull) {
 	_src_idx = "SRC" SUBSEP ds_suffix
 	_tgt_idx = "TGT" SUBSEP ds_suffix
+	_orchestrate = (Opt["SRC_REMOTE"] && Opt["TGT_REMOTE"])
+	_pull = _orchestrate && (Opt["SYNC_DIRECTION"] == "PULL")
+	_push = _orchestrate && (Opt["SYNC_DIRECTION"] == "PUSH")
+
+	# If both remotes are the same, it's either local or 'hairpin'
 	if (Opt["SRC_REMOTE"] == Opt["TGT_REMOTE"]) {
 		_zfs_send 		= create_send_command(ds_suffix, _src_idx, "SRC")
 		_zfs_recv		= create_recv_command(ds_suffix, _src_idx, "TGT")
 		_cmd			=  "{ " _zfs_send "|" _zfs_recv " ; }"
 		if (Opt["SRC_REMOTE"])	_cmd = str_add(remote_str("SRC"), dq(_cmd))
-	} else if (Opt["SYNC_DIRECTION"] == "PULL" && Opt["TGT_REMOTE"]) {
+	} else if (_pull) {
 		_zfs_send		= create_send_command(ds_suffix, _src_idx, "SRC")
 		_zfs_recv		= create_recv_command(ds_suffix, _src_idx)
 		_cmd			= str_add(remote_str("TGT"), dq(_zfs_send " | " _zfs_recv))
-	} else if (Opt["SYNC_DIRECTION"] == "PUSH" && Opt["SRC_REMOTE"]) {
+	} else if (_push) {
 		_zfs_send		= create_send_command(ds_suffix, _src_idx)
 		_zfs_recv		= create_recv_command(ds_suffix, _src_idx, "TGT")
 		_cmd			= str_add(remote_str("SRC"), dq(_zfs_send " | " _zfs_recv))
 	} else {
-		if (Opt["SRC_REMOTE"] && Opt["TGT_REMOTE"] && !DSTree["warned_about_proxy"]++)
+		if (_orchestrate && !DSTree["warned_about_proxy"]++)
 			report(LOG_WARNING, "syncing remote endpoints through localhost; consider --push or --pull")
 		_zfs_send 		= create_send_command(ds_suffix, _src_idx, "SRC")
 		_zfs_recv		= create_recv_command(ds_suffix, _src_idx, "TGT")
@@ -855,7 +871,6 @@ function get_sync_command(ds_suffix,		_src_idx, _tgt_idx, _cmd, _zfs_send, _zfs_
 	}
 	return _cmd
 }
-
 
 ## Sync planning
 ################
@@ -1087,16 +1102,6 @@ BEGIN {
 	SNAP_WRITTEN				= 2
 	SNAP_MISSING				= 3
 	SNAP_LATEST				= 4
-
-	# Half-heartedly use pv or dd or whatever because it's what the fans want
-	if (Opt["RECEIVE_PREFIX"]) {
-		ReceivePipe                     = Opt["RECEIVE_PREFIX"]
-		# Work around legacy format
-		sub(/[| ]*$/, "", ReceivePipe)
-		RECV_PIPE_IN                    = " 2>>/dev/tty | "
-		#RECV_PIPE_OUT                   = " 5>&2"
-		ReceivePipe                     = ReceivePipe RECV_PIPE_IN
-	}
 
 	# Telemetry
 	DSTree["vers_major"]		= 1
