@@ -48,7 +48,7 @@ function usage(message,		_ep_spec, _verb, _clone, _revert) {
 	_ep_spec  = "[[user@]host:]pool/dataset[@snapshot]"
 	_verb     = Opt["VERB"]
 	_revert   = (_verb == "revert")
-	_clone   = (_verb == "clone")
+	_clone    = (_verb == "clone")
 	if (message) print message                                             > STDERR
 	printf "usage: " _verb " [OPTIONS] "                                   > STDERR
 	print _revert ? "ENDPOINT" : "SOURCE TARGET"                           > STDERR
@@ -80,7 +80,7 @@ function usage(message,		_ep_spec, _verb, _clone, _revert) {
 	}
 
 	print "\nFor complete documentation:  zelta help " _verb               > STDERR
-	print "                             man zelta-options"                 > STDERR
+	print "                             zelta help options"                    > STDERR
 	print "                             https://zelta.space"               > STDERR
 
 	exit 1
@@ -734,11 +734,14 @@ function get_recv_command_flags(ds_suffix, src_idx, remote_ep,	_flag_arr, _flags
 # Assemble a 'zfs recv' command with the help of the flag builder above
 function create_recv_command(ds_suffix, src_idx, remote_ep,		 _cmd_arr, _cmd, _tgt_ds) {
 	if (!Opt[remote_ep "_REMOTE"]) remote_ep = ""
-	_tgt_ds			= Opt["TGT_DS"] ds_suffix
-	_cmd_arr["endpoint"]	= remote_ep
-	_cmd_arr["flags"]	= get_recv_command_flags(ds_suffix, src_idx, remote_ep)
-	_cmd_arr["ds"]		= remote_ep ? qq(_tgt_ds) : q(_tgt_ds)
-	_cmd			= build_command("RECV", _cmd_arr)
+	_tgt_ds	                = Opt["TGT_DS"] ds_suffix
+	_cmd_arr["endpoint"]    = remote_ep
+	_cmd_arr["flags"]       = get_recv_command_flags(ds_suffix, src_idx, remote_ep)
+	_cmd_arr["ds"]          = remote_ep ? qq(_tgt_ds) : q(_tgt_ds)
+	_cmd                    = build_command("RECV", _cmd_arr)
+	if (ReceivePipe) {
+		_cmd            = ReceivePipe _cmd
+	}
 	return _cmd
 }
 
@@ -769,9 +772,11 @@ function run_zfs_sync(ds_suffix,		_cmd, _stream_info, _message, _ds_snap, _size,
 		return 1
 	}
 
-	report(LOG_DEBUG, "`"_cmd"`")
 	_cmd = _cmd CAPTURE_OUTPUT
+	if (ReceivePipe)
+		_cmd = _cmd #RECV_PIPE_OUT
 	FS="[[:space:]]*"
+	report(LOG_DEBUG, "`"_cmd"`")
 	while (_cmd | getline) {
 		if ($1 == "size") {
 			_size = $2
@@ -1082,6 +1087,16 @@ BEGIN {
 	SNAP_WRITTEN				= 2
 	SNAP_MISSING				= 3
 	SNAP_LATEST				= 4
+
+	# Half-heartedly use pv or dd or whatever because it's what the fans want
+	if (Opt["RECEIVE_PREFIX"]) {
+		ReceivePipe                     = Opt["RECEIVE_PREFIX"]
+		# Work around legacy format
+		sub(/[| ]*$/, "", ReceivePipe)
+		RECV_PIPE_IN                    = " 2>&5 | "
+		RECV_PIPE_OUT                   = " 5>&2 "
+		ReceivePipe                     = ReceivePipe RECV_PIPE_IN
+	}
 
 	# Telemetry
 	DSTree["vers_major"]		= 1
