@@ -69,7 +69,8 @@ function set_arg(flag, subopt,		_type, key) {
 	else if (_type == "incr")     NewOpt[_key]++
 	else if (_type == "decr")     NewOpt[_key]--
 	else if (_type == "invalid")  stop(1, OptListWarn[flag])
-	if (_type == "warn")          report(LOG_WARNING, OptListWarn[flag])
+	if (OptListWarn[flag])
+		report(LOG_WARNING, OptListWarn[flag])
 }
 
 # Handle 'set' and 'list' action logic
