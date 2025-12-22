@@ -159,7 +159,7 @@ For other inquiries including business questions, you can reach the Zelta team a
 ### Conference Talks
 
 **BSDCan 2024: Zelta: A Safe and Powerful Approach to ZFS Replication**  
-By Daniel Bell  
+By Daniel J. Bell
 [Watch on YouTube](https://www.youtube.com/watch?v=_nmgQTs8wgE&pp=ygUMemVsdGEgYmFja3Vw)
 
 **OpenZFS Summit 2025: Responsible Replication with Zelta**  

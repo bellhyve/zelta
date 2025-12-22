@@ -42,6 +42,9 @@ elif [ -z "$ZELTA_BIN$ZELTA_SHARE$ZELTA_ETC$ZELTA_DOC" ]; then
 	read whatever
 fi
 
+# TO-DO: Add GNU Awk 5.2 bug workaround
+# gawk -V 2>&1 |grep -q "GNU Awk 5" && [AWK=mawk]
+
 : ${ZELTA_CONF:="$ZELTA_ETC/zelta.conf"}
 : ${ZELTA_ENV:="$ZELTA_ETC/zelta.env"}
 ZELTA="$ZELTA_BIN/zelta"

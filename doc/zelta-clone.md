@@ -7,45 +7,53 @@
 
 # SYNOPSIS
 
-**zelta clone** [**-d** _depth_] [_initiator_] _source/dataset_ _target/dataset_
+**zelta clone** [**-d** _depth_] _source/dataset[@snap]_ _target/dataset_
   
 
 # DESCRIPTION
-**zelta clone** performs a recursive **zfs clone** operation on a local or indicated host. By default, it wil clone the most recent dataset and all of its descendents. The _target_ dataset must not exist. By default, the topmost dataset property `readonly=off` will be set. Note that ZFS cloning will reset (inherit) mountpoints. Clones must be created on the same pool as the source dataset.
+`zelta clone` performs a recursive **zfs clone** operation on a dataset. This is useful for recursive duplication of dataset trees and backup inspection and recovery of a files replicated with `zelta backup`. The clones will reference the latest or indicated snapshot, and consume practically no additional space. Clones can be modified and destroyed without affecting their origin datasets.
 
-When cloning, the _source_ can be **readonly** and not mounted, making cloning excellent for backup inspection as well as recovery of a dataset from a specific snapshot. If using **zelta clone** for recovery, consider using **zelta backup --rotate** to replicate the cloned dataset state to its backup replicas.
+The _source_ and _target_ must be on the same host and pool. The mountpoint will be inherited below the target parent (as provided by `zfs clone`). The _target_ dataset must not exist. To create a clone on a remote host ensure the endpoints are identical including the username and hostname used:
 
+Example remote operation:
+
+    zelta clone backup@host1.com:tank/zones/data host1.com:tank/clones/data
 
 # OPTIONS
-A _source_ and _target_ dataset parameter are required.
 
-**_source/dataset_**
-:    A dataset, in the form **pool[/component][@snapshot]**, which will be cloned along with all of its descendents. If a snapshot is not given, the most recent snapshot will be used as the clone origin.
+**Required Options**
 
-**_target/dataset_**
-:    A dataset, which must be on the same pool as the **source/dataset**, where the clones will be created. This dataset must not exist.
+_source_
+:    A dataset, in the form **pool[/dataset][@snapshot]**, which will be cloned along with all of its descendents. If a snapshot is not given, the most recent snapshot will be used.
 
-**initiator**
-:    A remote host, accessible via SSH, where the clone commands will be executed.
+_target_
+:    A dataset on the same pool as the **source/dataset**, where the clones will be created. This dataset must not exist.
 
-**--snapshot**  Snapshot before cloning. See `zelta.env.example` to adjust the naming scheme.
+**Logging Options**
 
 **-n, --dryrun**
 :    Don't clone, but show the `zfs clone` commands that would be executed.
 
-**-q**  Reduce verbosity.
+**-q**
+:    Reduce verbosity.
 
-**-v**  Increase verbosity.
+**-v**
+:    Increase verbosity.
+
+**Dataset and Snapshot Options**
+
+**--snapshot-always**
+:    Ensure a snapshot before cloning.
+
+**--snapshot-name**
+:    Specify a snapshot name. See `zelta.env.example` to adjust the default naming scheme.
 
 **-d _depth_, --depth _depth_**
 :    Limits the depth of all Zelta operations.
 
 # EXAMPLES
 
-
-The _target_ clones can be destroyed without affecting their source. After cloning a dataset with a remote replica, **zelta backup --rotate**
-
-**Clone a dataset tree for inspection:**
+**Clone a dataset tree:**
 
 ```sh
 zelta clone tank/vm/myos tank/temp/myos-202404 
@@ -65,7 +73,7 @@ zelta clone -n tank/source/dataset tank/target/dataset
 ```
 
 # SEE ALSO
-ssh(1), zelta(8), zelta-backup(8), zelta-match(8), zelta-policy(8), zfs(8), zfs-clone(8), zfs-promote(8)
+zelta(8), zelta-backup(8), zelta-match(8), zelta-options(8), zelta-policy(8), zelta-revert(8), zelta-rotate(8), zelta-sync(8), cron(8), ssh(1), zfs(8), zfs-clone(8), zfs-promote(8)
 
 # AUTHORS
 Daniel J. Bell _<bellta@belltower.it>_

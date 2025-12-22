@@ -48,7 +48,7 @@ function usage(message,		_ep_spec, _verb, _clone, _revert) {
 	_ep_spec  = "[[user@]host:]pool/dataset[@snapshot]"
 	_verb     = Opt["VERB"]
 	_revert   = (_verb == "revert")
-	_revert   = (_verb == "clone")
+	_clone    = (_verb == "clone")
 	if (message) print message                                             > STDERR
 	printf "usage: " _verb " [OPTIONS] "                                   > STDERR
 	print _revert ? "ENDPOINT" : "SOURCE TARGET"                           > STDERR
@@ -80,7 +80,7 @@ function usage(message,		_ep_spec, _verb, _clone, _revert) {
 	}
 
 	print "\nFor complete documentation:  zelta help " _verb               > STDERR
-	print "                             man zelta-opts"                    > STDERR
+	print "                             zelta help options"                    > STDERR
 	print "                             https://zelta.space"               > STDERR
 
 	exit 1
@@ -624,7 +624,7 @@ function validate_target_dataset() {
 	validate_target_parent_dataset()
 }
 
-function validate_datasets(	_verb, _src_only, _cloners) {
+function validate_datasets(	_verb, _src_only, _cloners, _pv_fd) {
 	_verb			= Opt["VERB"]
 	_cloners["rotate"]	= 1
 	_cloners["clone"]	= 1
@@ -650,6 +650,16 @@ function validate_datasets(	_verb, _src_only, _cloners) {
 	validate_source_dataset()
 	if (!(_verb in _src_only))
 		validate_target_dataset()
+
+	# pv for the fans
+	# TO-DO: No-op 'zfs send' step to find and insert totals
+	if (Opt["RECEIVE_PREFIX"] && !(Source["REMOTE"] && Target["REMOTE"])) {
+		ReceivePipe  = Opt["RECEIVE_PREFIX"]
+		# Clean up legacy format
+		sub(/[| ]*$/, "", ReceivePipe)
+		_pv_fd       = " 2>>/dev/tty | "
+		ReceivePipe  = ReceivePipe _pv_fd
+	}
 }
 
 
@@ -662,6 +672,8 @@ function get_send_command_flags(ds_suffix, idx,		_f, _idx, _flags, _flag_list) {
 		_flags = "-t " Dataset["TGT", ds_suffix, "receive_resume_token"]
 		return _flags
 	}
+	if (Opt["SEND_OVERRIDE"])
+		return Opt["SEND_OVERRIDE"]
 	if (Opt["VERB"] == "replicate")
 		_flag_list[++_f]	= Opt["SEND_REPLICATE"]
 	else if (Dataset[idx,"encryption"])
@@ -714,6 +726,8 @@ function create_send_command(ds_suffix, idx, remote_ep, 		_cmd_arr, _cmd, _ds_sn
 # Detect and configure recv flags
 # Note we need the SOURCE index, not the target's to evaluate some options
 function get_recv_command_flags(ds_suffix, src_idx, remote_ep,	_flag_arr, _flags, _i, _origin) {
+	if (Opt["RECV_OVERRIDE"])
+		return Opt["RECV_OVERRIDE"]
 	if (ds_suffix == "")
 		_flag_arr[++_i]	= Opt["RECV_TOP"]
 	if (Dataset[src_idx, "type"] == "volume")
@@ -734,11 +748,14 @@ function get_recv_command_flags(ds_suffix, src_idx, remote_ep,	_flag_arr, _flags
 # Assemble a 'zfs recv' command with the help of the flag builder above
 function create_recv_command(ds_suffix, src_idx, remote_ep,		 _cmd_arr, _cmd, _tgt_ds) {
 	if (!Opt[remote_ep "_REMOTE"]) remote_ep = ""
-	_tgt_ds			= Opt["TGT_DS"] ds_suffix
-	_cmd_arr["endpoint"]	= remote_ep
-	_cmd_arr["flags"]	= get_recv_command_flags(ds_suffix, src_idx, remote_ep)
-	_cmd_arr["ds"]		= remote_ep ? qq(_tgt_ds) : q(_tgt_ds)
-	_cmd			= build_command("RECV", _cmd_arr)
+	_tgt_ds	                = Opt["TGT_DS"] ds_suffix
+	_cmd_arr["endpoint"]    = remote_ep
+	_cmd_arr["flags"]       = get_recv_command_flags(ds_suffix, src_idx, remote_ep)
+	_cmd_arr["ds"]          = remote_ep ? qq(_tgt_ds) : q(_tgt_ds)
+	_cmd                    = build_command("RECV", _cmd_arr)
+	if (ReceivePipe) {
+		_cmd            = ReceivePipe _cmd
+	}
 	return _cmd
 }
 
@@ -769,9 +786,11 @@ function run_zfs_sync(ds_suffix,		_cmd, _stream_info, _message, _ds_snap, _size,
 		return 1
 	}
 
-	report(LOG_DEBUG, "`"_cmd"`")
 	_cmd = _cmd CAPTURE_OUTPUT
+	if (ReceivePipe)
+		_cmd = _cmd RECV_PIPE_OUT
 	FS="[[:space:]]*"
+	report(LOG_DEBUG, "`"_cmd"`")
 	while (_cmd | getline) {
 		if ($1 == "size") {
 			_size = $2
@@ -825,24 +844,30 @@ function run_zfs_sync(ds_suffix,		_cmd, _stream_info, _message, _ds_snap, _size,
 		#jlist("errorMessages", error_list)
 
 ## Construct replication commands
-function get_sync_command(ds_suffix,		_src_idx, _tgt_idx, _cmd, _zfs_send, _zfs_recv) {
+function get_sync_command(ds_suffix,		_src_idx, _tgt_idx, _cmd, _zfs_send, _zfs_recv,
+			  			_orechestrate, _push, _pull) {
 	_src_idx = "SRC" SUBSEP ds_suffix
 	_tgt_idx = "TGT" SUBSEP ds_suffix
+	_orchestrate = (Opt["SRC_REMOTE"] && Opt["TGT_REMOTE"])
+	_pull = _orchestrate && (Opt["SYNC_DIRECTION"] == "PULL")
+	_push = _orchestrate && (Opt["SYNC_DIRECTION"] == "PUSH")
+
+	# If both remotes are the same, it's either local or 'hairpin'
 	if (Opt["SRC_REMOTE"] == Opt["TGT_REMOTE"]) {
 		_zfs_send 		= create_send_command(ds_suffix, _src_idx, "SRC")
 		_zfs_recv		= create_recv_command(ds_suffix, _src_idx, "TGT")
 		_cmd			=  "{ " _zfs_send "|" _zfs_recv " ; }"
 		if (Opt["SRC_REMOTE"])	_cmd = str_add(remote_str("SRC"), dq(_cmd))
-	} else if (Opt["SYNC_DIRECTION"] == "PULL" && Opt["TGT_REMOTE"]) {
+	} else if (_pull) {
 		_zfs_send		= create_send_command(ds_suffix, _src_idx, "SRC")
 		_zfs_recv		= create_recv_command(ds_suffix, _src_idx)
 		_cmd			= str_add(remote_str("TGT"), dq(_zfs_send " | " _zfs_recv))
-	} else if (Opt["SYNC_DIRECTION"] == "PUSH" && Opt["SRC_REMOTE"]) {
+	} else if (_push) {
 		_zfs_send		= create_send_command(ds_suffix, _src_idx)
 		_zfs_recv		= create_recv_command(ds_suffix, _src_idx, "TGT")
 		_cmd			= str_add(remote_str("SRC"), dq(_zfs_send " | " _zfs_recv))
 	} else {
-		if (Opt["SRC_REMOTE"] && Opt["TGT_REMOTE"] && !DSTree["warned_about_proxy"]++)
+		if (_orchestrate && !DSTree["warned_about_proxy"]++)
 			report(LOG_WARNING, "syncing remote endpoints through localhost; consider --push or --pull")
 		_zfs_send 		= create_send_command(ds_suffix, _src_idx, "SRC")
 		_zfs_recv		= create_recv_command(ds_suffix, _src_idx, "TGT")
@@ -850,7 +875,6 @@ function get_sync_command(ds_suffix,		_src_idx, _tgt_idx, _cmd, _zfs_send, _zfs_
 	}
 	return _cmd
 }
-
 
 ## Sync planning
 ################
