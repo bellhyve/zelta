@@ -1,6 +1,6 @@
 #!/usr/bin/awk -f
 #
-# zelta policy, zp - iterates through replication commands indicated in a policy file
+# zelta policy, zp - iterates through sync commands indicated in a policy file
 #
 # usage: zelta policy [-flags] [site, host, dataset, dataset_last_element, or source host:dataset] ...
 #
@@ -17,16 +17,12 @@
 # Arguments can be any site, host, dataset, last dataset element, or a host:dataset pair, separated by
 # whitespace.
 #
-# By default, "zelta policy" attempts to replicate from every site, host, and dataset.
+# By default, "zelta policy" attempts to sync from every site, host, and dataset.
 # This behavior can be overridden by adding one or more unique item names from the
 # configuration file to the argument list. For example, entering a site name will
 # replicate all datasets from all hosts of a site. Keep this in mind when reusing
 # host or dataset names. For example, "zelta policy zroot" will back up every dataset
 # ending in "zroot".
-#
-# It can also be used to loop through the site/host/dataset objects to run
-# other commmands such as other replication tools, logging, replications setup
-# functions, or any arbitrary command.
 
 function usage(message) {
 	if (message) print message							> STDERR
@@ -109,7 +105,7 @@ function load_option_list(	_tsv, _key, _idx, _flags, _flag_arr) {
 	while ((getline<_tsv)>0) {
 		if (index($1, "policy") || ($1 == "all")) {
 			# 1:VERBS 2:FLAGS 3:KEY 4:KEY_ALIAS 5:TYPE 6:VALUE 7:DESCRIPTION 8:WARNING
-			if (/^#/ || $3)
+			if (/^#/ || !$3)
 				continue
 			_key = $3
 			PolicyOptScope[_key]	= ($1 == "policy")
