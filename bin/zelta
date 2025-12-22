@@ -226,10 +226,12 @@ zelta_log() {
 	else
 		exec 3>&2
 		exec 4>&1
-		if [ "${ZELTA_LOG_MODE:-text}" = "text" ]; then
-			_term="1"
-		fi
 	fi
+	case "$ZELTA_LOG_MODE" in
+	'')    _term="1" ;;
+	text)  unset ZELTA_LOG_PREFIX
+	       _term="1" ;;
+	esac
 	while IFS="$_sep" read log_level log_message; do
 		: ${log_level:=${log_level:-2}}
 		# If no log_level is given, treat it as a "notice"
