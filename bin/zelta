@@ -109,10 +109,9 @@ zelta_init() {
 				_good_awk=original-awk
 			else
 				cat >&2 <<-EOF
-				warning: GNU Awk 5.2.1 has a serious memory bug; upgrade or install  different awk:
+				warning: GNU Awk 5.2.1 has a serious memory bug; upgrade gawk or install original-awk/mawk:
 				  Ubuntu/Debian: apt install mawk
 				EOF
-				exit 1
 			fi
 			if [ -n "$_good_awk" ]; then
 				echo "warning: 'gawk' bug detected, using '"$_good_awk"'" >&2
