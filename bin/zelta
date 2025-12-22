@@ -75,17 +75,51 @@ zelta_init() {
 	# Read zelta.env prepending ZELTA_ prefix when necessary
 	if [ -r "$ZELTA_ENV" ]; then
 		_env_settings=$($AWK -F= '
-		    /^[[:space:]]*#/ || /^[[:space:]]*$/ { next }
-		    {
-			sub(/=/, ":=")
+		BEGIN {
+			InvalidEnv["ZELTA_AWK"] = 1
+			InvalidEnv["ZELTA_ETC"] = 1
+			InvalidEnv["ZELTA_ENV"] = 1
+			STDERR = "/dev/stderr"
+		}
+		/^[[:space:]]*#/ || /^[[:space:]]*$/ { next }
+		{
 			sub(/^[[:space:]]+/,"")
+			if ($1 !~ /^ZELTA_/) $0 = "ZELTA_" $0
+			if ($1 in InvalidEnv) {
+				print "warning: " $1 " ignored; it must be exported prior to zelta.env" > STDERR
+				next
+			}
 			sub(/[[:space:]]*#.*$/, "")
-			if (! /^ZELTA_/) $0 = "ZELTA_" $0
+			sub(/=/, ":=")
 			printf ": ${%s}\n", $0
-		    }
+		}
 		' "$ZELTA_ENV")
 		
 		eval "$_env_settings"
+	fi
+
+	# Debian/Ubuntu awk bug workaround
+	if [ -z "$ZELTA_AWK" ]; then
+		_awk_ver=$(awk -V 2>/dev/null | head -n 1)
+		case "$_awk_ver" in
+		*"GNU Awk 5.2.1"*)
+			if command -v mawk >/dev/null 2>&1; then
+				_good_awk=mawk
+			elif command -v original-awk >/dev/null 2>&1; then
+				_good_awk=original-awk
+			else
+				cat >&2 <<-EOF
+				warning: GNU Awk 5.2.1 has a serious memory bug; upgrade or install  different awk:
+				  Ubuntu/Debian: apt install mawk
+				EOF
+				exit 1
+			fi
+			if [ -n "$_good_awk" ]; then
+				echo "warning: 'gawk' bug detected, using '"$_good_awk"'" >&2
+				export AWK="$_good_awk" ZELTA_AWK="$_good_awk"
+			fi
+			;;
+		esac
 	fi
 
 	# Verb-specific defaults
@@ -100,6 +134,8 @@ zelta_init() {
 		sync)	: ${ZELTA_SEND_INTR:="0"}
 			;;
 	esac
+
+	
 
 	: ${ZELTA_SHARE:="/usr/local/share/zelta"}	# Dir for helper scripts
 	: ${ZELTA_CONFIG:="$ZELTA_ETC/zelta.conf"}	# YAML for "zelta policy"
