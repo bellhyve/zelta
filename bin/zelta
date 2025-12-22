@@ -4,33 +4,39 @@
 #
 # Initialize the environment for Zelta subcommands
 
-ZELTA_VERSION="Zelta Replication Suite v1.1.0-alpha"
+ZELTA_VERSION="Zelta Replication Suite v1.1-beta1"
 
 zelta_usage() {
-	[ -n "$1" ] && echo unrecognized command \'"$1"\' >&2
-	cat >&2 << EOF
-usage: zelta command args ...
-where 'command' is one of the following:
+	exec >&2
+	if [ -n "$1" ] ; then
+		echo unrecognized command \'"$1"\'
+		case "$1" in
+		list)      echo did you mean "'zelta match'?" ;;
+		send)      echo did you mean "'zelta backup'?" ;;
+		rollback)  echo did you mean "'zelta revert'?" ;;
+		esac
+	fi
+	cat << EOF
+usage: zelta command [OPTIONS]
 
-	version
+Where 'command' is one of the following:
+  backup                     Sync ZFS datasets (intermediary mode)
+  clone                      Clone ZFS datasets
+  match                      Compare datasets
+  policy                     Run configured replication jobs
+  revert                     Rename and clone a dataset in-place
+  rotate                     Recover sync continuity
+  sync                       Sync ZFS datasets (incremental mode)
+  version                    Show version information
 
-	match [-Hp] [-d max] [-o field[,...]] source-endpoint target-endpoint
+Common Options:
+  -v, -vv                    Verbose/debug output
+  -q, -qq                    Suppress warnings/errors
 
-	backup [-bcdDeeFhhLMpuVw] [-iIjnpqRtTv]
-	       [initiator] source-endpoint target-endpoint
+Each endpoint is in the form: [user@host:]pool[/dataset/][@snap]
 
-	sync [bcdDeeFhhLMpuVw] [-iIjnpqRtTv]
-	     [initiator] source-endpoint target-endpoint
-
-	clone [-d max] source-dataset target-dataset
-
-	policy [backup-options] [site|host|dataset] ...
-
-Each endpoint is of the form: [user@][host:]dataset
-
-Each dataset is of the form: pool/[dataset/]*dataset[@name]
-
-For further help on a command or topic, run: zelta help [<topic>]
+For command-specific help:    zelta help [<topic>]
+For complete documentation:   https://zelta.space
 EOF
 	exit 1
 }
@@ -38,17 +44,20 @@ EOF
 # For "zelta help" run man
 zelta_man() {
 
+	_man_section=8
 	case $1 in
 		'')					_manpage=zelta ;;
-		list|zmatch)				_manpage=zelta-match ;;
-		sync|clone|replicate|zpull|zpush)	_manpage=zelta-backup ;;
+		options)				_manpage=zelta-$1
+							_man_section=7 ;;
+		# Legacy symlinks (from Zelta pre-1.0)
+		zmatch)					_manpage=zelta-match ;;
+		zpull|zpush)				_manpage=zelta-backup ;;
 		*)					_manpage=zelta-$1 ;;
 	esac
-	SECTION=8
 	if [ -s "$ZELTA_DOC" ] ; then
-		man "$ZELTA_DOC/$_manpage.$SECTION"
+		man "$ZELTA_DOC/$_manpage.$_man_section"
 	else
-		man $SECTION $_manpage
+		man $_man_section $_manpage
 	fi
 }
 
@@ -66,17 +75,50 @@ zelta_init() {
 	# Read zelta.env prepending ZELTA_ prefix when necessary
 	if [ -r "$ZELTA_ENV" ]; then
 		_env_settings=$($AWK -F= '
-		    /^[[:space:]]*#/ || /^[[:space:]]*$/ { next }
-		    {
-			sub(/=/, ":=")
+		BEGIN {
+			InvalidEnv["ZELTA_AWK"] = 1
+			InvalidEnv["ZELTA_ETC"] = 1
+			InvalidEnv["ZELTA_ENV"] = 1
+			STDERR = "/dev/stderr"
+		}
+		/^[[:space:]]*#/ || /^[[:space:]]*$/ { next }
+		{
 			sub(/^[[:space:]]+/,"")
+			if ($1 !~ /^ZELTA_/) $0 = "ZELTA_" $0
+			if ($1 in InvalidEnv) {
+				print "warning: " $1 " ignored; it must be exported prior to zelta.env" > STDERR
+				next
+			}
 			sub(/[[:space:]]*#.*$/, "")
-			if (! /^ZELTA_/) $0 = "ZELTA_" $0
+			sub(/=/, ":=")
 			printf ": ${%s}\n", $0
-		    }
+		}
 		' "$ZELTA_ENV")
 		
 		eval "$_env_settings"
+	fi
+
+	# Debian/Ubuntu awk bug workaround
+	if [ -z "$ZELTA_AWK" ]; then
+		_awk_ver=$(awk -V 2>/dev/null | head -n 1)
+		case "$_awk_ver" in
+		*"GNU Awk 5.2.1"*)
+			if command -v mawk >/dev/null 2>&1; then
+				_good_awk=mawk
+			elif command -v original-awk >/dev/null 2>&1; then
+				_good_awk=original-awk
+			else
+				cat >&2 <<-EOF
+				warning: GNU Awk 5.2.1 has a serious memory bug; upgrade gawk or install original-awk/mawk:
+				  Ubuntu/Debian: apt install mawk
+				EOF
+			fi
+			if [ -n "$_good_awk" ]; then
+				echo "warning: 'gawk' bug detected, using '"$_good_awk"'" >&2
+				export AWK="$_good_awk" ZELTA_AWK="$_good_awk"
+			fi
+			;;
+		esac
 	fi
 
 	# Verb-specific defaults
@@ -91,6 +133,8 @@ zelta_init() {
 		sync)	: ${ZELTA_SEND_INTR:="0"}
 			;;
 	esac
+
+	
 
 	: ${ZELTA_SHARE:="/usr/local/share/zelta"}	# Dir for helper scripts
 	: ${ZELTA_CONFIG:="$ZELTA_ETC/zelta.conf"}	# YAML for "zelta policy"
@@ -119,7 +163,6 @@ zelta_init() {
 	: ${ZELTA_SEND_RAW:="-L -w"}
 	: ${ZELTA_SEND_NEW:="-p"}
 	: ${ZELTA_SEND_INTR:="1"}
-	: ${ZELTA_SEND_PARTIAL:="1"}
 	: ${ZELTA_SEND_REPLICATE:="-L -s -R -w"}
 
 	# `zfs recv` defaults
