@@ -57,8 +57,8 @@ export BACKUP_USER="${SUDO_USER:-$(whoami)}"
 
 check_zfs_installed
 
-#export ZELTA_AWK="mawk -Wi"
-export ZELTA_AWK=mawk
+# If you need to modify the version of awk used
+#export ZELTA_AWK=mawk
 
 export PATH="${ZELTA_BIN}:$PATH"
 
