@@ -672,6 +672,8 @@ function get_send_command_flags(ds_suffix, idx,		_f, _idx, _flags, _flag_list) {
 		_flags = "-t " Dataset["TGT", ds_suffix, "receive_resume_token"]
 		return _flags
 	}
+	if (Opt["SEND_OVERRIDE"])
+		return Opt["SEND_OVERRIDE"]
 	if (Opt["VERB"] == "replicate")
 		_flag_list[++_f]	= Opt["SEND_REPLICATE"]
 	else if (Dataset[idx,"encryption"])
@@ -724,6 +726,10 @@ function create_send_command(ds_suffix, idx, remote_ep, 		_cmd_arr, _cmd, _ds_sn
 # Detect and configure recv flags
 # Note we need the SOURCE index, not the target's to evaluate some options
 function get_recv_command_flags(ds_suffix, src_idx, remote_ep,	_flag_arr, _flags, _i, _origin) {
+	if (Opt["RECV_OVERRIDE"])
+		return Opt["RECV_OVERRIDE"]
+	if (ds_suffix == "")
+		_flag_arr[++_i]	= Opt["RECV_TOP"]
 	if (ds_suffix == "")
 		_flag_arr[++_i]	= Opt["RECV_TOP"]
 	if (Dataset[src_idx, "type"] == "volume")

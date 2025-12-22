@@ -77,4 +77,6 @@ policy	--ds-prefix,--prefix	DS_PREFIX	PREFIX	set		Similar to 'zfs recv -d' and '
 policy	--backup-command	BACKUP_COMMAND		set
 legacy		SEND_INTR	INTR_FLAGS	set			INTR_FLAGS will be depcreated and renamed to SEND_INTR.
 legacy		SEND_OVERRIDE	SEND_FLAGS	set			SEND_FLAGS will be depcreated. See 'zelta help options' for new SEND options.
-legacy		RECV_OVERRIDE	RECEIVE_FLAGS	set			RECV_FLAGS will be depcreated. See 'zelta help options' for new RECV options.
+legacy		RECV_OVERRIDE	RECEIVE_FLAGS	set			RECEIVE_FLAGS will be depcreated. See 'zelta help options' for new RECV options.
+legacy		REMOTE_SEND	REMOTE_SEND_COMMAND	set
+legacy		REMOTE_RECV	REMOTE_RECV_COMMAND	set

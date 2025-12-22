@@ -143,16 +143,23 @@ function load_option_list(		_tsv, _flag, _flags, _idx, _flag_arr) {
 			split(_flags, _flag_arr, ",")
 			# Make an dictionary for flag synonyms
 			for (_idx in _flag_arr) OptListFlags[_flag_arr[_idx]] = _flags
-			OptListKey[_flags]	= $3
-			OptListType[_flags]	= $5
-			OptListValue[_flags]	= $6
-			OptListWarn[_flags]	= $8
+			OptListKey[_flags]    = $3
+			OptListType[_flags]   = $5
+			OptListValue[_flags]  = $6
+			OptListWarn[_flags]   = $8
 			# We need to know the default of 'incr'/'decr' action items
 			if ((OptListType[_flags] == "incr") || (OptListType[_flags] == "decr")) {
 				_incr_decr_key = OptListKey[_flags]
 				NewOpt[_incr_decr_key] = Opt[_incr_decr_key]
 			}
+		} else if (Opt[$4] && !Opt["LEGACY_ENV"]) {
+			# Check for legacy variables and reassign them
+			if ($8) report(LOG_WARNING, $8)
+			NewOpt[$3] = Opt[$4]
+			NewOpt["LEGACY_ENV"] = 1
 		}
+
+
 	}
 	close(_tsv)
 }
