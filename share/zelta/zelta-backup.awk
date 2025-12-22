@@ -730,8 +730,6 @@ function get_recv_command_flags(ds_suffix, src_idx, remote_ep,	_flag_arr, _flags
 		return Opt["RECV_OVERRIDE"]
 	if (ds_suffix == "")
 		_flag_arr[++_i]	= Opt["RECV_TOP"]
-	if (ds_suffix == "")
-		_flag_arr[++_i]	= Opt["RECV_TOP"]
 	if (Dataset[src_idx, "type"] == "volume")
 		_flag_arr[++_i]	= Opt["RECV_VOL"]
 	if (Dataset[src_idx, "type"] == "filesystem")
