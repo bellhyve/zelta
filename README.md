@@ -1,7 +1,20 @@
 ![Zelta Logo](https://zelta.space/index/zelta-banner.svg)
 
 # The Zelta Backup and Recovery Suite
-*Version 1.1.0, December 22, 2025*
+*Version 1.1.0-beta.1, 2025-12-22
+
+---
+
+> **⚠️ BETA NOTICE**  
+> This is a beta release with significant improvements over the stable 1.0 branch. Documentation and QA are ongoing, but the codebase is solid and is actively being used in production for thousands of replication workflows.
+> 
+> - **Stable Release:** For the most tried-and-true version of Zelta see the [March 2024 release (v1.0)](https://github.com/bellhyve/zelta/tree/release/1.0)
+> - **What's New:** Check [CHANGELOG.md](CHANGELOG.md) for the latest changes
+> - **Found a Bug?** Please [open an issue](https://github.com/bellhyve/zelta/issues)
+> 
+> We're excited for the new changes and encourage you to try it out. Your feedback helps make Zelta better.
+
+---
 
 [zelta.space](https://zelta.space) | [Documentation](https://zelta.space/en/home) | [GitHub](https://github.com/bellhyve/zelta)
 
