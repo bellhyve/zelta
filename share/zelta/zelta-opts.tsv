@@ -43,7 +43,7 @@ policy,backup,replicate,sync,rotate,clone	--no-snapshot	SNAP_MODE		false
 policy,backup,replicate,sync,rotate,clone	--snapshot	SNAP_MODE		set	IF_NEEDED
 policy,backup,replicate,sync,rotate,clone	--snapshot-always	SNAP_MODE		set	ALWAYS
 policy,backup,replicate,sync,rotate,clone	--snapshot-skip	SNAP_MODE		set	SKIP
-policy,backup,replicate,sync,rotate,clone	-s	SNAP_MODE		set	IF_NEEDED		option '-s' for '--snapshot' is ambiguous and will be deprecated; use --snapshot, --snapshot-skip, --partial, or --skip-missing (with -R)
+policy,backup,replicate,sync,rotate,clone	-s	SNAP_MODE		set	IF_NEEDED		option '-s' for '--snapshot' is ambiguous and will be deprecated; use --snapshot, --snapshot-skip, --partial, or --skip-missing
 policy,backup,replicate,sync,rotate,clone	-S	SNAP_MODE		set	ALWAYS		option '-S' for '--snapshot-always' is ambiguous will be deprecated; use --snapshot-always or --partial
 policy,backup,replicate,sync,rotate	--sync-direction	SYNC_DIRECTION		set		If both endpoints are remote, use 'PULL' (the default) or 'PUSH' sync. See 'zelta help backup' for more details.
 policy,backup,replicate,sync,rotate	--push	SYNC_DIRECTION		set	PUSH
