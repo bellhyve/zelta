@@ -1,39 +1,5 @@
 #!/bin/sh
 
-#set -x
-
-#. spec/lib/exec_cmd.sh
-
-exec_cmd() {
-    if [ "${EXEC_CMD_QUIET:-}" != "1" ]; then
-        printf '%s' "$*"
-    fi
-    if "$@"; then
-        [ "${EXEC_CMD_QUIET:-}" != "1" ] && printf ' :* succeeded\n'
-        return 0
-    else
-        _exit_code=$?
-        [ "${EXEC_CMD_QUIET:-}" != "1" ] && printf ' :! failed (exit code: %d)\n' "$_exit_code"
-        return "$_exit_code"
-    fi
-}
-
-#x_exec_cmd() {
-#    %putsn "$ $*"
-#    if "$@"; then
-#        %putsn "  -> succeeded"
-#        return 0
-#    else
-#        _exit_code=$?
-#        %putsn "  -> failed (exit code: $_exit_code)"
-#        return "$_exit_code"
-#    fi
-#}
-
-#exec_cmd() {
-#    :;
-#}
-
 check_zfs_installed() {
     # Check if zfs is already on PATH
     if ! command -v zfs >/dev/null 2>&1; then
@@ -56,7 +22,6 @@ check_zfs_installed() {
 }
 
 CUR_DIR=$(pwd)
-#echo "$CUR_DIR"
 
 export INITIALIZE_DIR="${CUR_DIR}/spec/initialize"
 
@@ -98,5 +63,3 @@ export ZELTA_AWK=mawk
 export PATH="${ZELTA_BIN}:$PATH"
 
 #export EXEC_CMD_QUIET=1
-#set +x
-#true
