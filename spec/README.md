@@ -23,6 +23,9 @@ the following links are helpful:
 ### Installing ShellSpec
 
 See the [ShellSpec installation guide](https://github.com/shellspec/shellspec#installation) for instructions.
+- The following works on FreeBSD and Ubuntu
+- `curl -fsSL https://git.io/shellspec | sh`
+- Add `$HOME/.local/bin` to your `PATH`
 
 #### 🔰 Making your first test - a simple Example
 Use the hello_spec.sh file as a template for your first test.
@@ -46,6 +49,7 @@ shellspec -f d spec/bin/hello_example.sh
 * * *
 ### :zap: To run the standard Zelta test 
 [zelta_standard_test_spec.sh](./bin/zelta_standard_test_spec.sh) 
+
   ```
   sudo -E env "PATH=$PATH" shellspec -f d spec/bin/zelta_standard_test_spec.sh
   ```
