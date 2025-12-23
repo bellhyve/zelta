@@ -1,11 +1,8 @@
-#!/bin/bash
+#!/bin/sh
 
 #. spec/lib/exec_cmd.sh
 
-DATASETS=(
-    "$SRC_TREE"
-    "$TGT_TREE"
-)
+DATASETS="${SRC_TREE} ${TGT_TREE}"
 
 dataset_exists() {
     zfs list "$1" &>/dev/null
@@ -45,7 +42,7 @@ create_tree_via_zelta() {
 #}
 
 rm_test_datasets() {
-    for dataset in "${DATASETS[@]}"; do
+    for dataset in "${DATASETS}"; do
         if zfs list "$dataset" &>/dev/null; then
             echo "Destroying $dataset..."
             zfs destroy -vR "$dataset"
