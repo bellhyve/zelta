@@ -74,20 +74,23 @@ create_pool_from_image_file() {
 }
 
 create_test_pool() {
-    #set -x
     pool_name="$1"
     if ! destroy_pool_if_exists "${pool_name}"; then
         echo "** Error: Can't delete pool {$pool_name}" >&2
         return 1
     fi
 
-    create_pool_from_loop_device "$pool_name"
-    #create_pool_from_image_file $pool_name
+    if [ "$POOL_TYPE" = "$LOOP_DEV_POOL" ]; then
+        create_pool_from_loop_device "$pool_name"
+    elif [ "$POOL_TYPE" = "$FILE_IMG_POOL" ]; then
+        create_pool_from_image_file $pool_name
+    else
+        echo "Can't create pools for unsupported POOL_TYPE: {$POOL_TYPE}" >&2
+        return 1
+    fi
 
     echo "Created ${pool_name}"
     exec_cmd sudo zpool list -v "${pool_name}"
-    #  set +x
-    #true
 }
 
 
@@ -102,8 +105,6 @@ create_test_pool() {
 #
 #    rm -f "$img"
 #}
-
-
 
 
 verify_pool_creation() {

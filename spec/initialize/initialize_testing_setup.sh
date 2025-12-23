@@ -55,7 +55,6 @@ initialize_zelta_test() {
     return $SETUP_STATUS
 }
 
-#. ./spec/initialize/test_env.sh
 if verify_root; then
    initialize_zelta_test
 fi
