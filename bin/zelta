@@ -311,7 +311,6 @@ zelta_args "$@"
 
 case $zelta_verb in
 	# zelta-match.awk
-	list |\
 	zmatch |\
 	match)		zelta_run_awk "match" ;;
 	# zelta-backup.awk

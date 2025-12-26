@@ -53,7 +53,7 @@ function create_backup_command(site, host, source,		_key, _cmd_arr, _i, _src, _t
 		# Don't forward 'zelta policy' options
 		if (PolicyOptScope[_key]) continue
 		else if (Host[_key])
-			_cmd_arr[++_i] = ENV_PREFIX _key "=" q(Host[_key])
+			_cmd_arr[++_i] = ENV_PREFIX _key "=" dq(Host[_key])
 	}
 	# Construct the endpoint strings
 	# Switch to use the command_builder
@@ -139,7 +139,8 @@ function get_global_overrides(		_key) {
 function load_config(		_conf_error, _arr, _context,
 		     		host, site, source, target) {
 	# TO-DO: Fix _local _var _style for the above
-	FS = "(:?[ \t]+)|(:$)"
+	# Split for YAML: Leading space, "- list item", "key: value", and "EOL:"
+	FS = "^ +|- |:[[:space:]]+|:$"
 	OFS=","
 	_conf_error = "configuration parse error at line: "
 	BACKUP_COMMAND = "zelta backup"

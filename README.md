@@ -115,8 +115,11 @@ Compares two dataset trees and reports matching snapshots or discrepancies. Esse
 ### `zelta backup`
 Robust replication with safe defaults. Creates consistent, read-only replicas with intelligent incremental detection and optional pre-replication snapshots to ensure backups are current.
 
-### `zelta sync`
-Fast replication by transferring only the latest common snapshot, minimizing checks for maximum speed. Perfect for continuous replication loops such as asynchronous clustering.
+### `zelta policy`
+Automates large-scale concurrent replication operations across many systems using a policy-based engine. Supports hierarchical configuration with YAML-style policies.
+
+### `zelta clone`
+Creates a temporary read-write clone of a dataset tree (on the same pool) for recovery, testing, or inspection without disturbing the original. With the convenience of `zelta clone`, there is never a reason to make your backup datasets writable.
 
 ### `zelta revert`
 Carefully rewinds a dataset in place by renaming and cloning. Ideal for forensic analysis, testing, or recovering from mistakes without losing current state.
@@ -124,11 +127,14 @@ Carefully rewinds a dataset in place by renaming and cloning. Ideal for forensic
 ### `zelta rotate`
 Performs a multi-way rename and clone operation to keep backups rolling even after source or target has diverged. Preserves all versions without destructive receives. Your team is already telling your regulators you do this, but Zelta makes the process practical—and easy.
 
-### `zelta clone`
-Creates a temporary read-write clone of a dataset tree (on the same pool) for recovery, testing, or inspection without disturbing the original. With the convenience of `zelta clone`, there is never a reason to make your backup datasets writable.
+## Misc Tools and Synonyms
 
-### `zelta policy`
-Automates large-scale concurrent replication operations across many systems using a policy-based engine. Supports hierarchical configuration with YAML-style policies.
+Zelta can be used with a few synonyms and shortcuts.
+- `zelta snapshot`: Runs `zfs snapshot -r` on a local or remote endpoint.
+- `zelta report`: A simple example Slack API reporting script that provides a 1-line report of backup status.
+- `zelta sync`: Runs `zelta backup -i` which skips intermediate snapshots.
+- `zelta replicate`: Runs `zelta backup -R`, which uses the recursive `zfs send -R`  option rather than Zelta's per-snapshot analysis.
+- `zpull`, `zmatch`, `zp`: If symlinked or aliased to `zelta`, these legacy shortcuts can be used for `zelta backup`, `zelta match`, and `zelta policy` respectively.
 
 ---
 
