@@ -66,6 +66,7 @@ match	--no-target,--notarget	TGT_ID		false
 match	--time	CHECK_TIME		true		Calculate the time of each 'zfs list' operation.
 
 # 'zelta policy' options
+policy	--conifg,-C	CONFIG		set		The YAML-style Zelta Policy configuration file
 policy	--retry	RETRY		true		Retry failed syncs the indicated number of times.
 policy	--no-retry,--noretry	RETRY		false
 policy	--jobs	JOBS	THREADS	true		Run the indicated number of policy jobs concurrently, one for each Site in the configuration.
