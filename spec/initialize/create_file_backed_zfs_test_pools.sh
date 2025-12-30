@@ -11,6 +11,13 @@ check_pool_exists() {
     exec_cmd sudo zpool list "$pool_name" >/dev/null 2>&1
 }
 
+## 1. Export (destroy) the pool
+#zfs destroy -r poolname  # destroys all datasets (optional, if you want to be thorough)
+#zpool destroy poolname   # destroys the pool itself
+#
+## 2. Detach the loop device
+#sudo losetup -d /dev/loop0  # replace loop0 with your actual loop device
+
 destroy_pool_if_exists() {
     pool_name="$1"
     if check_pool_exists "$pool_name"; then
@@ -29,8 +36,38 @@ destroy_pool_if_exists() {
 rm_img_and_its_loop_devices() {
     img=$1
     echo "removing loop devices associated with image file: {$img}"
-    exec_cmd sudo losetup -j "$img" | cut -d: -f1 | xargs -r exec_cmd sudo losetup -d
 
+    # Remove all loop devices at once
+    sudo losetup -j "$img" | cut -d: -f1 | xargs -r -n1 sudo losetup -d
+
+    echo "removing image file: {$img}"
+    exec_cmd sudo rm -f "$img"
+}
+
+#x2rm_img_and_its_loop_devices() {
+#    img=$1
+#    echo "removing loop devices associated with image file: {$img}"
+#
+#    # Get all loop devices for this image
+#    while IFS= read -r loop_device; do
+#        if [[ -n "$loop_device" ]]; then
+#            echo "removing loop device {$loop_device}"
+#            exec_cmd sudo losetup -d "$loop_device"
+#        fi
+#    done < <(sudo losetup -j "$img" | cut -d: -f1)
+#
+#    echo "removing image file: {$img}"
+#    exec_cmd sudo rm -f "$img"
+#}
+
+xxrm_img_and_its_loop_devices() {
+    img=$1
+    echo "removing loop devices associated with image file: {$img}"
+    #exec_cmd sudo losetup -j "$img" | cut -d: -f1 | xargs -r exec_cmd sudo losetup -d
+
+    loop_device=$(sudo losetup -j "$img" | cut -d: -f1)
+    echo "removing loop device {$loop_device}"
+    exec_cmd sudo losetup -d $loop_device
     echo "removing image file: {$img}"
     exec_cmd sudo rm -f "$img"
 }
@@ -135,11 +172,19 @@ create_pools() {
 
     return $((SRC_STATUS || TGT_STATUS))
 }
+set -x
+rm -fR "${ZFS_MOUNT_BASE}"
+mkdir -p "${ZFS_MOUNT_BASE}"
+chmod 777 "${ZFS_MOUNT_BASE}"
+chown ${BACKUP_USER} "${ZFS_MOUNT_BASE}"
+chgrp ${BACKUP_USER} "${ZFS_MOUNT_BASE}"
 
-
+ls -ld "${ZFS_MOUNT_BASE}"
 mkdir -p "${ZELTA_ZFS_STORE_TEST_DIR}"
+set +x
 create_pools
 setup_zfs_allow
+
 
 #setup_loop_img "${SRC_POOL}"
 #setup_loop_img "${TGT_POOL}"

@@ -30,9 +30,11 @@ initialize_zelta_test() {
 #    echo "-- creating test pools"
     if "${INITIALIZE_DIR}"/create_file_backed_zfs_test_pools.sh; then
     #if "${INITIALIZE_DIR}"/create_device_backed_zfs_test_pools.sh; then
-        echo "-- setting up snap tree"
-        "${INITIALIZE_DIR}"/setup_simple_snap_tree.sh
+        #echo "-- setting up snap tree"
+        #"${INITIALIZE_DIR}"/setup_simple_snap_tree.sh
         TREE_STATUS=$?
+        # NOTE: moving create snap tree into test specs, we'll have different kinds of trees
+        #TREE_STATUS=0
     else
         echo "** Error: failed to setup zfs pool" >&2
         TREE_STATUS=1
