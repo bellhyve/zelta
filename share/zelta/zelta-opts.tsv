@@ -27,10 +27,10 @@ all	--yule	YULE		true
 
 # Options for 'zelta backup' and other 'zfs send/recv/clone' verbs
 policy,backup,replicate,sync,rotate	-j,--json	LOG_MODE		set	json	Print JSON output. Only 'zelta backup' is supported. See the 'zelta help backup' for details.
-policy,backup,replicate,sync,rotate	-b,--backup,-c,--compressed,-D,--dedup,-e,--embed,-h,--holds,-L,--largeblock,-p,--parsable,--proctitle,--props,--raw,--skipmissing,-V,-w	SEND_OVERRIDE	arglist			Override all 'zfs send' options with those indicated. For precise and flexible configuration, use the ZELTA_SEND_* environment variables instead.
+policy,backup,replicate,sync,rotate	-b,--backup,-c,--compressed,-D,--dedup,-e,--embed,--holds,-L,--largeblock,-p,--parsable,--proctitle,--props,--raw,--skipmissing,-V,-w	SEND_OVERRIDE	arglist			Override all 'zfs send' options with those indicated. For precise and flexible configuration, use the ZELTA_SEND_* environment variables instead.
 policy,backup,replicate,sync,rotate	--send-check	SEND_CHECK		true		Attempt to drop unsupported 'zfs send' options using a no-op test prior to replication. This feature is not fully implemented.
 policy,backup,replicate,sync,rotate	-F	SEND_OVERRIDE		arglist	 		destructive option 'F' used; consider 'zelta rotate' when possible
-policy,backup,replicate,sync,rotate	-e,-h,-M,-u	RECV_OVERRIDE		arglist		Override all 'zfs receive' options with those indicated. For precise and flexible configuration, use the ZELTA_RECV* environment variables instead.
+policy,backup,replicate,sync,rotate	-e,-M,-u	RECV_OVERRIDE		arglist		Override all 'zfs receive' options with those indicated. For precise and flexible configuration, use the ZELTA_RECV* environment variables instead.
 policy,backup,replicate,sync,rotate	--rotate	VERB		set	rotate	Rename the target dataset and attempt to sync a clone via a delta provided by the source or source origin clone.
 policy,backup,replicate,sync,rotate	-R,--replicate	VERB		set	replicate	Use 'zfs send --replicate' in a backup operation.
 policy,backup,replicate,sync,rotate	-I	SEND_INTR	INTERMEDIATE	true		Sync all possible source snapshots, using 'zfs send -I' for updates. When disabled, only the newest snapshots will be synced.
@@ -40,11 +40,10 @@ policy,backup,replicate,sync,rotate	--no-resume	RESUME		false
 policy,backup,replicate,snapshot,sync,revert,rotate,clone	--snap-name	SNAP_NAME		set		Specify a snapshot name. Use the form '$(my_snapshot_program)' to use a dynamically generated snapshot. The default is '$(date -u +zelta_%Y-%m-%d_%H.%M.%S)'.
 policy,backup,replicate,sync,rotate,clone	--snap-mode	SNAP_MODE	SNAPSHOT	set		Specify when to snapshot during a 'zelta backup' operation. Specify '0' for never, 'IF_NEEDED', or 'ALWAYS'. 'IF_NEEDED', the default, does not snapshot if the source has no new data.
 policy,backup,replicate,sync,rotate,clone	--no-snapshot	SNAP_MODE		false
-policy,backup,replicate,sync,rotate,clone	--snapshot	SNAP_MODE		set	IF_NEEDED
-policy,backup,replicate,sync,rotate,clone	--snapshot-always	SNAP_MODE		set	ALWAYS
+policy,backup,replicate,sync,rotate,clone	--snapshot,--snapshot-always	SNAP_MODE		set	ALWAYS
 policy,backup,replicate,sync,rotate,clone	--snapshot-skip	SNAP_MODE		set	SKIP
 policy,backup,replicate,sync,rotate,clone	-s	SNAP_MODE		set	IF_NEEDED		option '-s' for '--snapshot' is ambiguous and will be deprecated; use --snapshot, --snapshot-skip, --partial, or --skip-missing
-policy,backup,replicate,sync,rotate,clone	-S	SNAP_MODE		set	ALWAYS		option '-S' for '--snapshot-always' is ambiguous will be deprecated; use --snapshot-always or --partial
+policy,backup,replicate,sync,rotate,clone	-S	SNAP_MODE		set	ALWAYS		option '-S' is ambiguous and will be deprecated; use --snapshot or --partial
 policy,backup,replicate,sync,rotate	--sync-direction	SYNC_DIRECTION		set		If both endpoints are remote, use 'PULL' (the default) or 'PUSH' sync. See 'zelta help backup' for more details.
 policy,backup,replicate,sync,rotate	--push	SYNC_DIRECTION		set	PUSH
 policy,backup,replicate,sync,rotate	-t	SYNC_DIRECTION		set	PUSH		option '-t' is deprecated; use '--push'
@@ -55,6 +54,7 @@ policy,backup,replicate,sync,rotate	--recv-pipe	RECV_PIPE		set		Pipe output thro
 policy,backup,replicate,sync,rotate	--progress			invalid			option '--progress' is deprecated; use '--recv-pipe'
 policy,backup,replicate,sync,rotate	--rate-limit			invalid			option '--rate-limit' is deprecated; use '--recv-pipe'
 policy,backup,replicate,sync,rotate	-z			invalid			option '-z' is deprecated; consider '--json'
+policy,backup,replicate,sync,rotate	-h	USAGE		true		option '-h' is ambiguous; use '--holds' or see SEND/RECV options in 'zelta help options'
 
 # 'zelta match' options
 match	-H	SCRIPTING_MODE		true		Suppress column headers and separate columns with a single tab.

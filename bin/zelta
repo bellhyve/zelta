@@ -20,23 +20,22 @@ zelta_usage() {
 usage: zelta command [OPTIONS]
 
 Where 'command' is one of the following:
-  backup                     Sync ZFS datasets (intermediary mode)
-  clone                      Clone ZFS datasets
+
   match                      Compare datasets
+  backup                     Sync ZFS datasets
   policy                     Run configured replication jobs
+  clone                      Clone ZFS datasets
   revert                     Rename and clone a dataset in-place
   rotate                     Recover sync continuity
-  sync                       Sync ZFS datasets (incremental mode)
-  version                    Show version information
 
-Common Options:
-  -v, -vv                    Verbose/debug output
-  -q, -qq                    Suppress warnings/errors
+  version                    Show version information
 
 Each endpoint is in the form: [user@host:]pool[/dataset/][@snap]
 
-For command-specific help:    zelta help [<topic>]
-For complete documentation:   https://zelta.space
+For complete documentation:  zelta help
+                             zelta help [<topic>]
+                             zelta help options
+                             https://zelta.space
 EOF
 	exit 1
 }
@@ -113,7 +112,7 @@ zelta_init() {
 				  Ubuntu/Debian: apt install mawk
 				EOF
 			fi
-			if [ -n "$_good_awk" ]; then
+			if [ -n "$_good_awk" ] && [ "$ZELTA_LOG_LEVEL" -ge 4 ] ; then
 				echo "warning: 'gawk' bug detected, using '"$_good_awk"'" >&2
 				export AWK="$_good_awk" ZELTA_AWK="$_good_awk"
 			fi
