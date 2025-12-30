@@ -5,24 +5,27 @@
 **zelta rotate** - recover sync continuity by renaming, cloning, and incrementally syncing a ZFS replica
 
 # DESCRIPTION
-**zelta rotate** renames a replica and then performs a multi-way clone and sync operation. This can be used to restore sync continuity when a _source_ and/or _target_ replica have diverged. This technique is a non-destructive alternative to `zfs rollback` and `zfs recv -F`, and is useful for maintaining forensic evidence in recovery scenarios and advanced iterative infrastructure workflows.
+**zelta rotate** renames a target replica and performs a multi-way clone and sync operation to restore sync continuity when a source and target have diverged. This technique is a non-destructive alternative to `zfs rollback` and `zfs recv -F`, useful for maintaining forensic evidence in recovery scenarios and advanced iterative infrastructure workflows.
 
-As with `zelta backup`, `zelta rotate` works recursively, and both _source_ and _target_ may be local or remote via **ssh(1)**.
+As with `zelta backup`, `zelta rotate` works recursively on dataset trees. Both source and target may be local or remote via **ssh(1)**.
 
-The rotate operation will attempt to sync a minimum amount of data to complete the task, targeting the next available snapshot for incremental sync. It is recommended to run `zelta backup` with your preferred settings after successful rotation.
+The rotate operation syncs the minimum data necessary to complete the task, targeting the next available snapshot for incremental replication. After successful rotation, run `zelta backup` with your preferred settings to ensure full consistency.
 
-If any child dataset is already in sync, Zelta will create a snapshot on the source, which is required for a successful rotation. If no common snapshots are found between the source and target for any children, a full backup will be performed instead. 
+## Rotation Process
 
-If the requested (topmost) target replica has no common snapshot with the source, `zelta rotate` will not continue. In this case, it is recommended to rename the diverged target so `zelta backup` can perform a full backup.
+**zelta rotate** performs these operations:
 
-See `zelta help backup` for more information about Zelta's sync process, which `zelta rotate` also performs. Additionally, `zelta rotate` performs the following additional operations.
+1. **Snapshot Creation**: If the source has uncommitted changes, a new snapshot is created (unless `--no-snapshot` is specified).
+2. **Match Detection**: Zelta searches for common snapshots between source and target. If none are found, it checks the source origin (the dataset from which the source was cloned).
+3. **Target Preservation**: The target is renamed by appending the matching snapshot name. For example, `pool/ds` with matching snapshot `@yesterday` becomes `pool/ds_yesterday`. Note that no properties, including mountpoint and readonly status, are altered.
+4. **Incremental Sync**: For each child dataset with a matching snapshot, Zelta creates a clone at the target and performs an incremental sync.
+5. **Full Backup**: For child datasets without matching snapshots, a full backup is performed.
 
-    • If the _target_ has no matching snapshots with the _source_, the _source origin_ is checked for matches.
-    • The _target_ is renamed, appending the matching snapshot name. For example, `pool/ds` with the snapshot @yesterday may become `pool/ds_yesterday`.
-    • For each child with a matching snapshot, an incremental sync will be performed by creating a clone.
-    • For each child without a matching snapshot, a full backup will be performed.
+## Limitations
 
-Remote dataset endpoints for the _source_ and _target_ follow **scp(1)** conventions. Dataset names follow **zfs(8)** naming conventions. The _target_ must be a replica of the _source_.
+If the topmost target dataset has no common snapshot with either the source or source origin, `zelta rotate` will not continue. In this case, manually rename the diverged target and use `zelta backup` to perform a full replication.
+
+Remote dataset endpoints follow **scp(1)** conventions. Dataset names follow **zfs(8)** naming conventions. The target must be a replica of the source.
 
 Examples:
 
@@ -31,77 +34,69 @@ Examples:
 
 # OPTIONS
 
-**Endpoint Options (Required)**
-If both endpoints are remote, the default behavior will be a **pull replication** (`\--pull`). This requires that the _target_ user must have ssh access to the _source_, typically provided by using an `ssh` key or agent forwarding. For help with advanced `ssh` configuration, see the _https://zelta.space_ wiki.
+**Endpoint Arguments (Required)**
+
+If both endpoints are remote, the default behavior is **pull replication** (`--pull`). This requires that the target user have ssh access to the source, typically provided by ssh keys or agent forwarding. For advanced ssh configuration, see _https://zelta.space_.
 
 _source_
 : The dataset to replicate. The source origin, if needed, is automatically detected.
 
 _target_
-:    The dataset which will be rotated.
+: The replica dataset to be rotated.
 
 **Output Options**
 
 **-v, \--verbose**
-:    Increase verbosity. Specify once for operational detail, twice (`-vv`) for debug output.
+: Increase verbosity. Specify once for operational detail, twice (`-vv`) for debug output.
 
 **-q, \--quiet**
-:    Quiet output. Specify once to suppress warnings, twice (`-qq`) to suppress errors.
+: Quiet output. Specify once to suppress warnings, twice (`-qq`) to suppress errors.
 
 **-n, \--dryrun, \--dry-run**
-:    Display `zfs` commands without executing them.
+: Display `zfs` commands without executing them.
 
 **Connection Options**
 
-**\--push,\--pull,\--sync-direction** _DIRECTION_
-:    When both endpoints are remote, use `PULL` (default) or `PUSH` sync direction.
+**\--push, \--pull, \--sync-direction** _DIRECTION_
+: When both endpoints are remote, use `PULL` (default) or `PUSH` sync direction.
 
 **Snapshot Options**
 
 **\--no-snapshot**
-:    Do not snapshot. If a snapshot is needed, rotation will not occur.
+: Do not create snapshots. If a snapshot is needed for rotation, the operation will fail.
 
 **\--snapshot**
-:    Snapshot even if the _source_ is not in need of one.
+: Force snapshot creation even if the source has no uncommitted changes.
 
 **\--snap-name** _NAME_
-:    Specify snapshot name. Use `$(command)` for dynamic generation. Default: `$(date -u +zelta_%Y-%m-%d_%H.%M.%S)`.
-
-**Sync Options**
-
-**\--send-check**
-:    Attempt to drop unsupported `zfs send` options using a no-op test prior to replication. Not fully implemented.
-
-**Override Options**
-As a convenience feature, all options for `zfs send` and/or `zfs recv` may be overridden. In most circumstances, these defaults should be overridden in `zelta.env`. See `zelta help options` for more details.
-
-**-b,\--backup,-c,\--compressed,-D,\--dedup,-e,\--embed,\--holds,-L,\--largeblock,-p,\--parsable,\--proctitle,\--props,\--raw,\--skipmissing,-V,-w**
-:    Override default `zfs send` options. For precise configuration, use `ZELTA_SEND_*` environment variables instead. See **zelta-options(8)**.
-
-**-M,-u**
-:    Override default `zfs receive` options. For precise configuration, use `ZELTA_RECV_*` environment variables instead. See **zelta-options(8)**.
-
-# NOTES
-See **zelta-options(8)** for more information about options that can be configured via the environment, `zelta.env`, and `zelta policy`.
+: Specify snapshot name. Use `$(command)` for dynamic generation. Default: `$(date -u +zelta_%Y-%m-%d_%H.%M.%S)`.
 
 # EXAMPLES
-Rewind a _source_ backup to its previous snapshot state with a rename and clone operation.
+
+A common workflow after accidentally diverging a source from its backup:
+
+First, rewind the source to its previous snapshot state using a rename and clone operation:
 
     zelta revert sink/source/dataset
 
-Rename and update its replica with a 4-way incremental backup.
+Then rotate the target replica, performing a 4-way incremental sync to match the reverted source:
 
     zelta rotate sink/source/dataset backup-host.example:tank/target/dataset
 
-Ensure the replicas are consistent.
+Finally, ensure full consistency between source and target:
 
     zelta backup sink/source/dataset backup-host.example:tank/target/dataset
+
+The original diverged datasets remain accessible as `sink/source/dataset_<snapshot>` and `tank/target/dataset_<snapshot>` for forensic analysis.
 
 # EXIT STATUS
 Returns 0 on success, non-zero on error.
 
+# NOTES
+See **zelta-options(8)** for environment variables, `zelta.env` configuration, and `zelta policy` integration.
+
 # SEE ALSO
-zelta(8), zelta-options(7), zelta-match(8), zelta-backup(8), zelta-policy(8), zelta-clone(8),  zelta-revert(8), ssh(1), zfs(8)
+zelta(8), zelta-options(7), zelta-match(8), zelta-backup(8), zelta-policy(8), zelta-clone(8), zelta-revert(8), ssh(1), zfs(8), zfs-allow(8)
 
 # AUTHORS
 Daniel J. Bell <_bellhyve@zelta.space_>
