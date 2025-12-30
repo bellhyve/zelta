@@ -161,8 +161,16 @@ function process_row(ep,		_name, _guid, _written, _name_suffix, _ds_suffix, _sav
 	_row_id			= _ep_id S _ds_suffix S _savepoint
 	_type			= object_type(_type)
 
-	if (check_exclusions(_type, _ds_suffix, _savepoint))
-		return
+	# Check for exclusion
+	if (_type == IS_DATASET) {
+		if (_name in ExcludeDS)
+			return
+		if (regex_loop(_ds_suffix, ExcludeDSPattern, NumExcludeDS))
+			return
+	}
+	if ((_type == IS_SNAPSHOT) && (_ep_id == Source["ID"]))
+		if (regex_loop(_savepoint, ExcludeSnapPattern, NumExcludeSnap))
+			return
 	    
 	Row[_row_id, "exists"]     = 1
 	Row[_row_id, "guid"]       = _guid
@@ -223,10 +231,11 @@ function load_exclude_patterns(    _i, _n, _pat_arr, _val, _leader, _pat) {
 			ExcludeDSPattern[++NumExcludeDS] = glob_to_regex(_pat)
 		else if (_leader == "@")
 			ExcludeSnapPattern[++NumExcludeSnap] = glob_to_regex(_pat)
-		else if (_leader == "#")
-			ExcludeBookPattern[++NumExcludeBook] = glob_to_regex(_pat)
+		# Dropping bookmark exclusions since they can't be incremental targets
+		#else if (_leader == "#")
+		#	ExcludeBookPattern[++NumExcludeBook] = glob_to_regex(_pat)
 		else
-			report(LOG_WARNING, "malformed exclude pattern '" _pat "'")
+			ExcludeDS[_pat] = 1
 	}
 }
 
@@ -234,15 +243,6 @@ function regex_loop(string, pat_arr, n,	_i) {
 	for (_i = 1; _i <= n; _i++)
 		if (string ~ pat_arr[_i])
 			return 1
-}
-
-function check_exclusions(type, suffix, name) {
-	if (type == IS_DATASET)
-	       return regex_loop(suffix, ExcludeDSPattern, NumExcludeDS)
-	if (type == IS_SNAPSHOT)
-	       return regex_loop(name, ExcludeSnapPattern, NumExcludeSnap)
-	if (type == IS_BOOKMARK)
-		return regex_loop(name, ExcludeBookPattern, NumExcludeBook)
 }
 
 # Load DSPair keys for summary output

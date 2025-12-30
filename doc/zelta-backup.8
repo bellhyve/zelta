@@ -7,9 +7,8 @@
 \f[B]zelta backup\f[R] [\f[I]OPTIONS\f[R]] \f[I]source\f[R]
 \f[I]target\f[R]
 .SH DESCRIPTION
-\f[B]zelta backup\f[R] syncs snapshots from a \f[I]source\f[R] ZFS
-dataset to a \f[I]target\f[R] dataset, working recursively on a dataset
-tree.
+\f[B]zelta backup\f[R] recursively syncs snapshots from a
+\f[I]source\f[R] ZFS dataset to a \f[I]target\f[R] dataset.
 Both \f[I]source\f[R] and \f[I]target\f[R] may be local or remote via
 \f[B]ssh(1)\f[R].
 Remote endpoints follow \f[B]scp(1)\f[R] conventions:
@@ -17,16 +16,32 @@ Remote endpoints follow \f[B]scp(1)\f[R] conventions:
 .PP
 \f[B]zelta backup\f[R] optimizes for complete, safe replication
 including intermediate snapshots.
-The synonym \f[B]zelta sync\f[R] performs incremental syncs excluding
-intermediate snapshots, and the synonym \f[B]zelta replicate\f[R] uses
-the \f[B]zfs send \-\-replicate\f[R] option instead of Zelta\(cqs
-per\-snapshot analysis.
+As with \f[CR]zfs recv\f[R], the \f[I]target\f[R] dataset must be a
+replica of the \f[I]soruce\f[R] or must not exist.
 .PP
-As with \f[B]zfs receive\f[R], the \f[I]target\f[R] dataset must not
-exist or must be a replica of the \f[I]source\f[R].
+Prior to sync, \f[CR]zelta backup\f[R] performs the following operations
+to ensure optimal \f[CR]zfs send/zfs recv\f[R] options are automatically
+selected.
+.IP
+.EX
+1. The properties of the _source_ and _target_ are checked using \(gazfs get\(ga.
+2. If the _target_ dataset\(aqs parent does not exist, it will be created with \(gazfs create\(ga.
+3. Using \(gazelta match\(ga, a snapshot GUID comparison is performed with \(gazfs list\(ga.
+4. One or more \(gazfs send/zfs recv\(ga operations will be performed to update the _target_.
+.EE
 .PP
-To ensure safe operation, the following defaults are set for a new sync
-\f[I]target\f[R] dataset:
+The following \f[CR]zfs send\f[R] options will be automatically used:
+.IP
+.EX
+• Default: \-\-large\-block, \-\-compressed, \-\-embed
+• Encrypted: \-\-large\-block, \-\-raw
+• New/Full syncs: Add \-\-props
+• Incremental syncs: Add \-I (override with \-i)
+• If \-R is used: \-\-replicate, \-\-large\-block, \-\-raw, \-\-skip\-missing
+.EE
+.PP
+To ensure safe, repeatable, and efficienct operation, the following
+defaults are set for a new \f[I]target\f[R] dataset:
 .IP
 .EX
 1. The property \(gareadonly=on\(ga is set on the top (indicated) filesystem
@@ -35,8 +50,35 @@ To ensure safe operation, the following defaults are set for a new sync
 4. On filesystems, mountpoints are inherited to prevent overlapping mounts
 .EE
 .PP
-See \f[B]zelta\-options(8)\f[R] for more information.
+Remote dataset endpoints follow \f[B]scp(1)\f[R] conventions:
+[user\(at]host:[dataset], and require standard ZFS utilities and SSH
+access.
+Note that Zelta does \f[B]not\f[R] need to be installed on remote ZFS
+servers.
+.PP
+Examples:
+.IP
+.EX
+Local:  zpool/dataset\(atsnapshot
+Remote: user\(atexample.com:zpool/dataset\(atsnapshots
+.EE
 .SH OPTIONS
+\f[B]Endpoint Options (Required)\f[R] If both endpoints are remote, the
+default behavior will be a \f[B]pull replication\f[R]
+(\f[CR]\(rs\-\-pull\f[R]).
+This requires that the \f[I]target\f[R] user must have ssh access to the
+\f[I]source\f[R], typically provided by using an \f[CR]ssh\f[R] key or
+agent forwarding.
+For help with advanced \f[CR]ssh\f[R] configuration, see the
+\f[I]https://zelta.space\f[R] wiki.
+.TP
+\f[I]source\f[R]
+The dataset which will be synced with its descendants.
+If a snapshot is given, it will be used as the last synced snapshot.
+If no snapshot is \f[I]target\f[R]
+The dataset which will be updated.
+.PP
+\f[B]Output Options\f[R]*
 .TP
 \f[B]\-v, \-\-verbose\f[R]
 Increase verbosity.
@@ -64,41 +106,18 @@ See \f[B]zelta\-match(8)\f[R].
 \f[B]\-j, \-\-json\f[R]
 Print JSON output.
 See \f[B]zelta\-options(8)\f[R] for details.
+.PP
+\f[B]Connection Options\f[R]
 .TP
-\f[B]\-b,\-\-backup,\-c,\-\-compressed,\-D,\-\-dedup,\-e,\-\-embed,\-h,\-\-holds,\-L,\-\-largeblock,\-p,\-\-parsable,\-\-proctitle,\-\-props,\-\-raw,\-\-skipmissing,\-V,\-w\f[R]
-Override default \f[CR]zfs send\f[R] options.
-For precise configuration, use \f[CR]ZELTA_SEND_*\f[R] environment
-variables instead.
-See \f[B]zelta\-options(8)\f[R].
+\f[B]\-\-push,\-\-pull,\-\-sync\-direction\f[R] \f[I]DIRECTION\f[R]
+When both endpoints are remote, use \f[CR]PULL\f[R] (default) or
+\f[CR]PUSH\f[R] sync direction.
 .TP
-\f[B]\-\-send\-check\f[R]
-Attempt to drop unsupported \f[CR]zfs send\f[R] options using a no\-op
-test prior to replication.
-Not fully implemented.
-.TP
-\f[B]\-e,\-h,\-M,\-u\f[R]
-Override default \f[CR]zfs receive\f[R] options.
-For precise configuration, use \f[CR]ZELTA_RECV_*\f[R] environment
-variables instead.
-See \f[B]zelta\-options(8)\f[R].
-.TP
-\f[B]\-\-rotate\f[R]
-Rename the target dataset and sync a clone via delta from the source or
-source origin clone.
-See \f[B]zelta help rotate\f[R].
-.TP
-\f[B]\-R, \-\-replicate\f[R]
-Use \f[B]zfs send \-\-replicate\f[R] instead of Zelta\(cqs per\-snapshot
-analysis.
-.TP
-\f[B]\-I\f[R]
-Sync all possible source snapshots using \f[CR]zfs send \-I\f[R] for
-updates.
-When disabled, only the newest snapshots are synced.
-This is the default behavior for \f[B]zelta backup\f[R].
-.TP
-\f[B]\-\-resume,\-\-no\-resume\f[R]
-Enable (default) or disable automatic resume of interrupted syncs.
+\f[B]\-\-recv\-pipe\f[R] \f[I]COMMAND\f[R]
+Pipe \f[CR]zfs receive\f[R] output through the indicated command, such
+as \f[CR]dd status=progress\f[R].
+.PP
+\f[B]Snapshot Options\f[R]
 .TP
 \f[B]\-\-no\-snapshot\f[R]
 Do not snapshot.
@@ -115,14 +134,57 @@ Default: \f[CR]$(date \-u +zelta_%Y\-%m\-%d_%H.%M.%S)\f[R].
 \f[B]\-\-snap\-mode\f[R] \f[I]MODE\f[R]
 Specify when to snapshot: \f[CR]0\f[R] (never), \f[CR]IF_NEEDED\f[R]
 (default, only if source has new data), or \f[CR]ALWAYS\f[R].
+.PP
+\f[B]Sync Options\f[R]
 .TP
-\f[B]\-\-push,\-\-pull,\-\-sync\-direction\f[R] \f[I]DIRECTION\f[R]
-When both endpoints are remote, use \f[CR]PULL\f[R] (default) or
-\f[CR]PUSH\f[R] sync direction.
+\f[B]\-\-send\-check\f[R]
+Attempt to drop unsupported \f[CR]zfs send\f[R] options using a no\-op
+test prior to replication.
+Not fully implemented.
 .TP
-\f[B]\-\-recv\-pipe\f[R] \f[I]COMMAND\f[R]
-Pipe \f[CR]zfs receive\f[R] output through the indicated command, such
-as \f[CR]dd status=progress\f[R].
+\f[B]\-\-rotate\f[R]
+Rename the target dataset and sync a clone via delta from the source or
+source origin clone.
+See \f[B]zelta help rotate\f[R].
+.TP
+\f[B]\-R, \-\-replicate\f[R]
+Use \f[B]zfs send \-\-replicate\f[R] instead of Zelta\(cqs per\-snapshot
+analysis.
+.TP
+\f[B]\-I\f[R]
+Sync all possible source snapshots using \f[CR]zfs send \-I\f[R] for
+updates.
+This is the default behavior.
+See \f[B]\-i\f[R] to disable this behavior.
+.TP
+\f[B]\-\-resume,\-\-no\-resume\f[R]
+Enable (default) or disable automatic resume of interrupted syncs.
+.PP
+\f[B]Override Options\f[R] As a convenience feature, all options for
+\f[CR]zfs send\f[R] and/or \f[CR]zfs recv\f[R] may be overridden.
+In most circumstances, these defaults should be overridden in
+\f[CR]zelta.env\f[R].
+See \f[CR]zelta help options\f[R] for more details.
+.TP
+\f[B]\-b,\-\-backup,\-c,\-\-compressed,\-D,\-\-dedup,\-e,\-\-embed,\-h,\-\-holds,\-L,\-\-largeblock,\-p,\-\-parsable,\-\-proctitle,\-\-props,\-\-raw,\-\-skipmissing,\-V,\-w\f[R]
+Override default \f[CR]zfs send\f[R] options.
+For precise configuration, use \f[CR]ZELTA_SEND_*\f[R] environment
+variables instead.
+See \f[B]zelta\-options(8)\f[R].
+.TP
+\f[B]\-e,\-h,\-M,\-u\f[R]
+Override default \f[CR]zfs receive\f[R] options.
+For precise configuration, use \f[CR]ZELTA_RECV_*\f[R] environment
+variables instead.
+See \f[B]zelta\-options(8)\f[R].
+.SH NOTES
+See \f[B]zelta\-options(8)\f[R] for more information about options that
+can be configured via the environment, \f[CR]zelta.env\f[R], and
+\f[CR]zelta policy\f[R].
+.PP
+The \f[CR]zelta sync\f[R] command is a convenience alias for
+\f[CR]zelta backup \-i\f[R] and may be extended in future versions with
+additional optimizations for continuous replication workflows.
 .SH EXAMPLES
 The same command works for both new and existing target datasets.
 .PP
@@ -135,7 +197,7 @@ zelta backup tank/source/dataset tank/target/dataset
 Remote to local synchronization:
 .IP
 .EX
-zelta sync remote_host:tank/source/dataset tank/target/dataset
+zelta backup remote_host:tank/source/dataset tank/target/dataset
 .EE
 .PP
 Dry run to preview commands:
@@ -159,16 +221,9 @@ zelta backup \-d 2 tank/source tank/target
 .SH EXIT STATUS
 Returns 0 on success, non\-zero on error.
 .SH SEE ALSO
-\f[B]zelta(8)\f[R], \f[B]zelta\-clone(8)\f[R],
-\f[B]zelta\-match(8)\f[R], \f[B]zelta\-options(8)\f[R],
-\f[B]zelta\-policy(8)\f[R], \f[B]zelta\-rotate(8)\f[R],
-\f[B]zelta\-sync(8)\f[R], \f[B]ssh(1)\f[R], \f[B]zfs(8)\f[R]
+zelta(8), zelta\-options(7), zelta\-match(8), zelta\-policy(8),
+zelta\-clone(8), zelta\-revert(8), zelta\-rotate(8), ssh(1), zfs(8)
 .SH AUTHORS
-Daniel J. Bell \f[I]\c
-.MT bellta@belltower.it
-.ME \c
-\f[R]
+Daniel J. Bell <\f[I]bellhyve\(atzelta.space\f[R]>
 .SH WWW
 https://zelta.space
-.PP
-https://github.com/bellhyve/zelta
