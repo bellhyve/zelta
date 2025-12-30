@@ -226,10 +226,12 @@ zelta_log() {
 	else
 		exec 3>&2
 		exec 4>&1
-		if [ "${ZELTA_LOG_MODE:-text}" = "text" ]; then
-			_term="1"
-		fi
 	fi
+	case "$ZELTA_LOG_MODE" in
+	'')    _term="1" ;;
+	text)  unset ZELTA_LOG_PREFIX
+	       _term="1" ;;
+	esac
 	while IFS="$_sep" read log_level log_message; do
 		: ${log_level:=${log_level:-2}}
 		# If no log_level is given, treat it as a "notice"
@@ -309,7 +311,6 @@ zelta_args "$@"
 
 case $zelta_verb in
 	# zelta-match.awk
-	list |\
 	zmatch |\
 	match)		zelta_run_awk "match" ;;
 	# zelta-backup.awk
@@ -331,7 +332,7 @@ case $zelta_verb in
 	-V |\
 	--version |\
 	version)	echo $ZELTA_VERSION ;;
-	''|-?)		zelta_usage ;;
+	''|-?|usage)	zelta_usage ;;
 	help)		zelta_man "$@" ;;
 	*)		# Try zelta-VERB.awk
 			if [ -r "$ZELTA_SHARE/zelta-$zelta_verb.awk" ]; then
