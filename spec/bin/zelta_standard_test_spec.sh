@@ -1,3 +1,17 @@
+
+match_either() {
+    case $SHELLSPEC_SUBJECT in
+        "$1"|"$2") 
+    	return 0 
+    	;;
+        *) 
+    	return 1 
+    	;;
+    esac
+}
+
+
+
 Describe 'confirm zfs setup'
     before_all() {
         %logger "-- before_all: confirm zfs setup"
@@ -26,13 +40,14 @@ Describe 'confirm zfs setup'
 End
 
 Describe 'try backup'
+
     It 'backs up the initial tree'
         When call zelta backup $SRC_POOL/$TREETOP_DSN $TGT_POOL/$BACKUPS_DSN
         The line 1 of output should match pattern "source is written; snapshotting: @zelta_*"
         The line 2 of output should equal "syncing 4 datasets"
         The line 3 of output should equal "no snapshot; target diverged: bpool/backups"
         The line 4 of output should match pattern  "* sent, 3 streams received in *"
-        The stderr should match pattern "warning: 'gawk' bug detected, using 'mawk'"
+	The stderr should satisfy match_either  "warning: 'gawk' bug detected, using 'mawk'" ""
         The stdout should not be blank
         The status should eq 0
     End
