@@ -89,7 +89,7 @@ rm_all_datasets_for_pool() {
     #zfs list -H -o name -t filesystem,volume -r $poolname | grep -v "^${poolname}\$"  | tac | xargs -n1 sudo zfs destroy
 
     zfs list -H -o name -t filesystem,volume -r $poolname | grep -v "^${poolname}\$" | tac | while IFS= read -r dataset; do
-        exec_cmd sudo zfs destroy "$dataset"
+        exec_cmd sudo zfs destroy -r "$dataset"
     done
 
 }

@@ -20,22 +20,25 @@ export ZELTA_MAN8="$TEST_INSTALL/share/man/man8"
 export SRC_POOL_DEVICES
 export TGT_POOL_DEVICES
 
-export SRC_SVR=dever@fzfsdev:
+##export SRC_SVR=dever@fzfsdev:
+##export TGT_SVR=dever@fzfsdev:
+SRC_SVR=
+TGT_SVR=
 export SRC_POOL='apool'
 export TGT_POOL='bpool'
-export TGT_SVR=dever@fzfsdev:
 export TREETOP_DSN='treetop'
 export BACKUPS_DSN='backups'
 export SOURCE=${SRC_SVR}${SRC_POOL}/${TREETOP_DSN}
 export TARGET=${TGT_SVR}${TGT_POOL}/${BACKUPS_DSN}
+export SRC_TREE="$SRC_POOL/$TREETOP_DSN"
+export TGT_TREE="$TGT_POOL/$BACKUPS_DSN/$TREETOP_DSN"
+export ALL_DATASETS="one/two/three"
+
 
 export ZFS_MOUNT_BASE="${LOCAL_TMP}/zfs-test-mounts"
 export ZELTA_ZFS_STORE_TEST_DIR="${LOCAL_TMP}/zelta-zfs-store-test"
 export ZELTA_ZFS_TEST_POOL_SIZE="20G"
 
-export SRC_TREE="$SRC_POOL/$TREETOP_DSN"
-export TGT_TREE="$TGT_POOL/$BACKUPS_DSN/$TREETOP_DSN"
-export ALL_DATASETS="one/two/three"
 
 export FILE_IMG_POOL=1
 export LOOP_DEV_POOL=2
