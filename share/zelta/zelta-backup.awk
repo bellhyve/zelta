@@ -68,7 +68,7 @@ function usage(message,		_ep_spec, _verb, _clone, _revert) {
         print "  -q, -qq                    Suppress warnings/errors"          > STDERR
         print "  -j, --json                 JSON output"                       > STDERR
 	if (!_revert) {
-		print "  --snapshot-always          Always create snapshot"    > STDERR
+		print "  --snapshot                 Always create snapshot"    > STDERR
 		print "  --snap-name NAME           Set snapshot name"         > STDERR
 	}
 	if (!_clone) {
@@ -76,11 +76,9 @@ function usage(message,		_ep_spec, _verb, _clone, _revert) {
 		if (_verb == "backup")
 			print "  -i, --incremental          Incremental sync"  > STDERR
 		print "  -d, --depth NUM            Set max dataset depth"     > STDERR
-		print "  [zelta opts] [zfs opts]    See: zelta " _verb " help" > STDERR
 	}
 
 	print "\nFor complete documentation:  zelta help " _verb               > STDERR
-	print "                             zelta help options"                    > STDERR
 	print "                             https://zelta.space"               > STDERR
 
 	exit 1
@@ -633,7 +631,9 @@ function validate_datasets(	_verb, _src_only, _cloners, _pv_fd) {
 	load_endpoint(Operands[2], Target)
 
 	# Check command line
-	if (!NumOperands)
+	if (Opt["USAGE"])
+		usage()
+	else if (!NumOperands)
 		usage("no endpoints given")
 	else if (NumOperands > 2)
 		usage("too many operands: " Operands[3])
