@@ -26,7 +26,7 @@ for md in $MD_DIR/*.md; do
 	fi
 
 	# Make sure it hasn't been updated
-	wiki_time=$(date -j -f "%Y-%m-%dT%H:%M:%S" "${updated%.*}" "+%s")
+	wiki_time=$(date -ju -f "%Y-%m-%dT%H:%M:%S" "${updated%.*}" "+%s")
 	file_time=$(stat -f "%m" "${md}")
 	if [ "${wiki_time}" -gt "${file_time}" ]; then
 		echo "Skipping ${md}: Wiki page is newer (${updated})"
