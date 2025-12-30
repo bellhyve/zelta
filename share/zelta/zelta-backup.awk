@@ -442,7 +442,7 @@ function should_snapshot() {
 	else if (DSTree["snapshot_needed"] == SNAP_MISSING)
 		return "missing source snapshot; snapshotting: "
 	else if (DSTree["snapshot_needed"] == SNAP_LATEST)
-		return "action requires a target delta; snapshotting: "
+		return "action requires a snapshot delta; snapshotting: "
 	else return 0
 }
 
@@ -975,20 +975,18 @@ function run_rotate(		_src_ds_snap, _up_to_date, _src_origin_ds, _origin_arr, _n
 		if (_up_to_date)
 			stop(1, "replica is up-to-date; source snapshot required for rotation: " Opt["SRC_DS"])
 		# If any single item is rotateable, warn that some snapshots require full restoration
-		else if (DSTree["rotatable"]) {
-			report(LOG_WARNING, "insufficient snapshots; performing full backup for " _num_full_backup " datasets")
+		else if (!DSPair["","match"]) {
+			report(LOG_ERROR, "to perform a full backup, rename the target dataset or sync to an empty target")
+			stop(1, "top source dataset '" Opt["SRC_DS"] "' or its origin must match the target for rotation to continue")
 		}
-		# If incrementals cannot be used, warn that we're actually just doing a rename+full sync
+		else if (DSTree["rotatable"])
+			report(LOG_WARNING, "insufficient snapshots; performing full backup for " _num_full_backup " datasets")
+		# The following state may be impossible
 		else
-			report(LOG_WARNING, "no common snapshots in '"Opt["SRC_DS"]"' or its origin; performing full backup")
+			stop(1, "rotation not possible")
 	}
 
 	#for (_i = 1; _i <= NumDS; _i++) report(LOG_DEBUG, "dataset: "_src_origin_ds DSList[_i] ":  origin: " Dataset["SRC",DSList[_i],"origin"] "  source origin match: " DSPair[DSList[_i] "source_origin_match"]  "  match:" DSPair[DSList[_i],"match"] "  can_rotate?: " Action[DSList[_i],"can_rotate"] "  explain:" explain_sync_status(DSList[_i])
-
-	if (!DSPair["","match"]) {
-		report(LOG_ERROR, "to perform a full backup, rename the target dataset or sync to an empty target")
-		stop(1, "top source dataset '" Opt["SRC_DS"] "' or its origin must match the target for rotation to continue")
-	}
 
 	# Rename target dataset
 	_target_origin = rename_dataset("TGT")
