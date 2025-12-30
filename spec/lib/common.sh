@@ -41,9 +41,43 @@ exec_cmd() {
     fi
 }
 
+
+setup_linux_zfs_allow() {
+    export SRC_ZFS_CMDS="send,snapshot,hold,bookmark,create,readonly,receive,volmode,mount,mountpoint,canmount"
+    export TGT_ZFS_CMDS="send,snapshot,hold,bookmark,create,readonly,receive,volmode,mount,mountpoint,canmount"
+}
+
+setup_freebsd_zfs_allow() {
+    export SRC_ZFS_CMDS="send,snapshot,hold,bookmark,create,readonly,receive,volmode,mount,mountpoint,canmount"
+    export TGT_ZFS_CMDS="send,snapshot,hold,bookmark,create,readonly,receive,volmode,mount,mountpoint,canmount"
+}
+
+
+setup_linux_env() {
+    setup_linux_zfs_allow
+    export POOL_TYPE="$LOOP_DEV_POOL"
+}
+
+setup_freebsd_env() {
+    setup_freebsd_zfs_allow
+    export POOL_TYPE="$FILE_IMG_POOL"
+}
+
+
+
 setup_zfs_allow() {
-    SRC_ZFS_CMDS="send,snapshot,hold,bookmark,create,readonly,receive,volmode"
-    TGT_ZFS_CMDS="send,snapshot,hold,bookmark,create,readonly,receive,volmode,mount,mountpoint,canmount"
+
+#mount
+#unmount
+#create
+#destroy
+#snapshot
+#send
+#receive
+#hold/release
+
+
+
     #TGT_ZFS_CMDS="receive,create,mount,mountpoint,canmount"
     exec_cmd sudo zfs allow -u "$BACKUP_USER" "$SRC_ZFS_CMDS" "$SRC_POOL"
     exec_cmd sudo zfs allow -u "$BACKUP_USER" "$TGT_ZFS_CMDS" "$TGT_POOL"
@@ -60,17 +94,17 @@ setup_os_specific_env() {
                 . /etc/os-release
                 if [ "$ID" = "ubuntu" ]; then
                     echo "$OS_TYPE: setting: POOL_TYPE=\$LOOP_DEV_POOL:$LOOP_DEV_POOL"
-                    export POOL_TYPE="$LOOP_DEV_POOL"
+                    setup_linux_env
                     return
                 fi
             fi
             # fallback for other Linux distros
             echo "$OS_TYPE: setting: POOL_TYPE=\$LOOP_DEV_POOL:$LOOP_DEV_POOL"
-            export POOL_TYPE="$LOOP_DEV_POOL"
+            setup_linux_env
             ;;
         FreeBSD|Darwin)
             echo "$OS_TYPE: setting: POOL_TYPE=\$FILE_IMG_POOL:$FILE_IMG_POOL"
-            export POOL_TYPE="$FILE_IMG_POOL"
+            setup_freebsd_env
             ;;
         *)
             echo "$OS_TYPE: Unsupported OS_TYPE: {$OS_TYPE}" >&2

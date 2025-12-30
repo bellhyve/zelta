@@ -32,6 +32,7 @@ Describe 'try backup'
         The line 2 of output should equal "syncing 4 datasets"
         The line 3 of output should equal "no snapshot; target diverged: bpool/backups"
         The line 4 of output should match pattern  "* sent, 3 streams received in *"
+        The stderr should match pattern "warning: 'gawk' bug detected, using 'mawk'"
         The stdout should not be blank
         The status should eq 0
     End
@@ -45,3 +46,8 @@ Describe 'try backup'
         The line 6 of output should match pattern "* /$TGT_POOL/$BACKUPS_DSN/one/two/three"
     End
 End
+
+#Describe 'zelta rotate'
+#    It 'rotates the backed up tree'
+#    When call zelta rotate $SOURCE $TARGET
+#End
