@@ -21,8 +21,18 @@ sudo spec/initialize/setup_simple_snap_tree.sh
 
 echo "Step 3/3: Running zelta tests..."
 #shellspec spec/bin/zelta_standard_test_spec.sh
+
+echo "Shellspec: validate test tree"
 shellspec -f d spec/bin/zelta_standard_test_spec.sh:@1
+
+echo "Shellspec: test zelta backup"
 shellspec -f d spec/bin/zelta_standard_test_spec.sh:@2
+
+# timestamps granularity is 1 second, need to wait 1 second before running another snapshotting command
+sleep 1
+
+echo "Shellspec: test zelta rotate"
+shellspec -f d spec/bin/zelta_standard_test_spec.sh:@3-1
 
 echo ""
 echo "✓ Tests complete"
