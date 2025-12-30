@@ -94,25 +94,9 @@ For example, a depth of 1 will only include the indicated
 \f[I]source\f[R] dataset.
 .TP
 \f[B]EXCLUDE\f[R]
-Exclude a comma\-delimited list of dataset suffixes anchored with a
-\f[CR]/\f[R], like \f[CR]/dataset/suffix\f[R], or snapshots anchored
-with a \f[CR]\(at\f[R], like \f[CR]\(atsnapshot\f[R].
-Wild card matches with \f[CR]?\f[R] and \f[CR]*\f[R] are permitted.
-.RS
-Given a \f[I]source\f[R] endpoint \f[CR]sink\f[R] and the setting
-\f[CR]EXCLUDE=\(aq/*/swap,#*,\(at*_hourly,/temp\(aq\f[R]:
-.TP
-\f[CR]\(at*_hourly\f[R]
-All snapshots ending with \f[CR]_hourly\f[R] would be excluded as sync
-candidates.
-.TP
-\f[CR]/*/swap\f[R]
-All datasets ending with \f[CR]/swap\f[R] will be ignored.
-.TP
-\f[CR]/temp\f[R]
-The \f[CR]sink/temp\f[R] dataset will be ignored; however a
-\f[CR]sink/ds/temp\f[R] would still be synced.
-.RE
+Exclude datasets or source snapshots matching the specified exclusion
+pattern.
+See \f[I]EXCLUSION PATTERNS\f[R] below.
 .SH ZELTA MATCH OPTIONS
 .TP
 \f[B]SCRIPTING_MODE\f[R]
@@ -248,6 +232,93 @@ example, \f[CR]tank/Backups/source.host/backup\-dataset\f[R].
 Similar to \f[CR]zfs recv \-d\f[R] and \f[CR]\-e\f[R], include the
 indicated number of parent labels for the target\(cqs synced name.
 See \f[B]zelta\-backup(8)\f[R] for more detail.
+.SH EXCLUSION PATTERNS
+The EXCLUDE option, or the arguments \f[B]\-\-exclude\f[R] or
+\f[B]\-X\f[R], contain a comma separated list of patterns to exclude
+datasets or source snapshots from operations.
+.SS Pattern Types
+.TP
+\f[B]Absolute Dataset Path\f[R]
+Similar to \f[B]zfs send \-\-exclude\f[R], exclude the named source
+dataset from operations.
+.RS
+Example: \f[CR]tank/vm/swap\f[R] excludes only that specific dataset.
+.RE
+.TP
+\f[B]Relative Dataset Path\f[R]
+Prefix with \f[CR]/\f[R] to exclude the dataset suffix relative to the
+given dataset name.
+.RS
+Example: Given the dataset \f[CR]sink/swap\f[R] and the pattern
+\f[CR]/swap\f[R]: \f[CR]sink/swap\f[R] will be excluded, but
+\f[CR]sink/vm/swap\f[R] will \f[B]not\f[R] be excluded.
+.RE
+.TP
+\f[B]Dataset Pattern\f[R]
+Use glob\-like matching of \f[CR]*\f[R] (zero or more characters) or
+\f[CR]?\f[R] (single character).
+Relative paths must begin with \f[CR]/\f[R].
+.RS
+Examples, given the given \f[I]source\f[R] of \f[CR]sink/data\f[R]:
+.IP \(bu 2
+\f[CR]/*/swap\f[R] would exclude \f[CR]sink/data/one/swap\f[R] and
+\f[CR]sink/data/two/swap\f[R] but \f[B]not\f[R]
+\f[CR]sink/data/swap\f[R]
+.IP \(bu 2
+\f[CR]/vm\-*\f[R] would exclude \f[CR]sink/data/vm\-one\f[R] and its
+descendants, but \f[B]not\f[R] \f[CR]sink/data/vm/one\f[R]
+.IP \(bu 2
+\f[CR]/test?\f[R] would exclude \f[CR]sink/data/test1\f[R] but
+\f[B]not\f[R] \f[CR]sink/data/test15\f[R]
+.RE
+.TP
+\f[B]Snapshot Name\f[R]
+Match snapshots by name.
+Prefix with \f[CR]\(at\f[R] to indicate a snapshot.
+.RS
+Example: \f[CR]\(atmanual\-backup\f[R] excludes any snapshot named
+\f[CR]manual\-backup\f[R].
+.RE
+.TP
+\f[B]Snapshot Pattern\f[R]
+Use glob\-like matching of \f[CR]*\f[R] (zero or more characters) or
+\f[CR]?\f[R] (single character).
+Snapshot names must begin with \f[CR]\(at\f[R].
+.RS
+Examples:
+.IP \(bu 2
+\f[CR]\(at*_hourly\f[R] excludes snapshots ending in \f[CR]_hourly\f[R]
+.IP \(bu 2
+\f[CR]\(atsnap\-2024*\f[R] excludes snapshots beginning with
+\f[CR]snap\-2024\f[R]
+.IP \(bu 2
+\f[CR]\(atauto\-*00??\f[R] excludes snapshots beginning with
+\f[CR]auto\-\f[R] and ending with 00 and two of any character
+.RE
+.SS Behavior Notes
+\f[B]Datasets\f[R]
+.PP
+If a dataset\(cqs parent is excluded from a full backup operation, the
+child cannot be backed up.
+.PP
+\f[B]Snapshots\f[R]
+.PP
+For incremental replication, at least one common snapshot must remain
+between source and target.
+Therefore, snapshot exclusion logic is only meaningful when applied to
+incremental source snapshots in incremental mode (\f[B]SEND_INTR=0\f[R]
+or \f[B]\-i\f[R]).
+For example, snapshot exclusion is useful for skipping hourly snapshots
+and but updating dailies.
+.IP \(bu 2
+Excluding a target\(cqs most recent snapshot will cause an incremental
+to fail
+.IP \(bu 2
+In intermediate mode (the default), intermediate snapshots will still be
+included
+.IP \(bu 2
+Bookmark exclusions are not supported as they serve only as replication
+sources
 .SH EXAMPLES
 Set options via environment for a one\-off run:
 .IP

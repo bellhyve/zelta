@@ -4,32 +4,28 @@
 **zelta** - perform safe, recursive ZFS operations locally and remotely
 
 # SYNOPSIS
-        zelta -V | --version
+        zelta -V | --version | version
         zelta SUBCOMMAND [OPTIONS] [ARGUMENTS]
 
 # DESCRIPTION
 **zelta** provides tools for ZFS replication, backup verification, dataset recovery, and policy-based automation. All operations work recursively on dataset trees and support both local and remote execution via **ssh(1)**.
 
-Remote dataset endpoints follow **scp(1)** conventions: [user@]host:[dataset]. Operations can be performed without installing **zelta** on remote systems—only standard ZFS utilities and SSH access are required.
+Remote dataset endpoints follow **scp(1)** conventions. Operations can be performed without installing **zelta** on remote systems—only standard ZFS utilities and SSH access are required.
 
 Examples:
 
-    Local:  zpool/dataset@snapshot
-    Remote: user@example.com:zpool/dataset@snapshot
+    Local:  pool/dataset@snapshot
+    Remote: user@example.com:pool/dataset@snapshot
 
 See **zfs(8)** for dataset naming conventions.
 
 # SUBCOMMANDS
-For detailed usage of each subcommand, see the respective manual page.
-
-**zelta help <subcommand>**
+For detailed usage of each subcommand, run **zelta help <subcommand>** or see the respective manual page.
 
 **zelta -?**
 :    Display help message.
 
-**zelta -V, --version**
-
-**zelta version**
+**zelta -V**, **\--version**, **version**
 :    Display version information.
 
 ## Comparison
@@ -40,12 +36,9 @@ For detailed usage of each subcommand, see the respective manual page.
 ## Replication
 
 **zelta backup** _source_ _target_
-:    Replicate a dataset tree. Creates snapshots if needed, detects optimal send options, and replicates intermediate datasets. See **zelta-backup(8)**.
+:    Replicate a dataset tree. Creates snapshots if needed, detects optimal send options, and replicates intermediate snapshots. See **zelta-backup(8)**.
 
-**zelta sync** _source_ _target_
-:    Replicate only the most recent snapshot between dataset trees. See **zelta-sync(8)**.
-
-## Recovery and Iterative Infrastructure
+## Recovery
 
 **zelta clone** _dataset_ _target_
 :    Create a writable clone of a dataset tree. See **zelta-clone(8)**.
@@ -64,7 +57,7 @@ For detailed usage of each subcommand, see the respective manual page.
 # OPTIONS AND ENVIRONMENT
 Configuration follows a hierarchy from lowest to highest precedence:
 
-    1. Built-in defaults
+    1. Internal defaults
     2. `/usr/local/etc/zelta/zelta.env`
     3. Policy configuration (`zelta.conf`)
     4. Environment variables
@@ -80,9 +73,11 @@ See **zelta-options(8)** for details.
 :    Global default setting overrides.
 
 # EXAMPLES
+The following examples use "sink" as the source pool and "tank" as the backup target.
+
 Replicate a dataset to a remote host:
 
-    zelta backup sink/data/project user@backup.example.com:tank/backups/project
+    zelta backup sink/data/project backupuser@backup-host.example:tank/backups/project
 
 Compare local and remote dataset trees:
 
@@ -94,9 +89,9 @@ Revert a dataset to its previous snapshot:
 
 Update a target that has diverged:
 
-    zelta rotate sink/data/project user@backup.example.com:tank/backups/project
+    zelta rotate sink/data/project backupuser@backup-host.example:tank/backups/project
 
-Back up everything defined in policy settings.
+Back up everything defined in policy settings (**zelta.conf**).
 
     zelta policy
 
@@ -104,10 +99,10 @@ Back up everything defined in policy settings.
 Returns 0 on success, non-zero on error.
 
 # SEE ALSO
-**zelta-backup(8)**, **zelta-clone(8)**, **zelta-match(8)**, **zelta-options(8)**, **zelta-policy(8)**, **zelta-revert(8)**, **zelta-rotate(8)**, **zelta-sync(8)**, **cron(8)**, **ssh(1)**, **zfs(8)**
+zelta-match(8), zelta-backup(8), zelta-policy(8), zelta-clone(8), zelta-options(8), zelta-revert(8), zelta-rotate(8), cron(8), ssh(1), zfs(8)
 
 # AUTHORS
-Daniel J. Bell _<bellhyve@zelta.space>_
+Daniel J. Bell <_bellhyve@zelta.space_>
 
 # WWW
 https://zelta.space
