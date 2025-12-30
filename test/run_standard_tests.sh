@@ -20,7 +20,9 @@ echo "Step 2/3: Creating test dataset tree..."
 sudo spec/initialize/setup_simple_snap_tree.sh
 
 echo "Step 3/3: Running zelta tests..."
-shellspec spec/bin/zelta_standard_test_spec.sh
+#shellspec spec/bin/zelta_standard_test_spec.sh
+shellspec -f d spec/bin/zelta_standard_test_spec.sh:@1
+shellspec -f d spec/bin/zelta_standard_test_spec.sh:@2
 
 echo ""
 echo "✓ Tests complete"
