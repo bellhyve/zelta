@@ -4,6 +4,8 @@
 #export TREETOP_DSN=treetop
 #export BACKUPS_DSN=backups
 
+. spec/bin/standard_test/standard_test_env.sh
+
 match_either() {
     case $SHELLSPEC_SUBJECT in
         "$1"|"$2") 

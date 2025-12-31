@@ -14,13 +14,13 @@ You'll be prompted for your password for the setup steps.
 EOF
 
 echo "Step 1/3: Initializing test environment..."
-sudo spec/initialize/initialize_testing_setup.sh
+sudo spec/bin/all_tests_setup/all_tests_setup.sh
 
 echo "Step 2/3: Creating test dataset tree..."
-sudo spec/initialize/setup_simple_snap_tree.sh
+sudo spec/bin/standard_test/standard_snap_tree.sh
 
 echo "Step 3/3: Running zelta tests..."
-shellspec spec/bin/zelta_standard_test_spec.sh
+shellspec spec/bin/standard_test/standard_test_spec.sh
 
 echo ""
 echo "✓ Tests complete"
