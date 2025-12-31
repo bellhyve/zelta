@@ -4,9 +4,10 @@
 
 CUR_DIR=$(pwd)
 
-export INITIALIZE_DIR="${CUR_DIR}/spec/initialize"
+ALL_TESTS_SETUP_DIR=${CUR_DIR}/spec/bin/all_tests_setup
+#export INITIALIZE_DIR="${CUR_DIR}/spec/initialize"
 export LOCAL_TMP="${CUR_DIR}/spec/tmp"
-export INITIALIZATION_COMPLETE_MARKER_FILE="$LOCAL_TMP/.initialize_testing_setup_complete"
+#export INITIALIZATION_COMPLETE_MARKER_FILE="$LOCAL_TMP/.initialize_testing_setup_complete"
 export TEST_INSTALL="${LOCAL_TMP}/test_install"
 export ZELTA_BIN="$TEST_INSTALL/bin"
 export ZELTA_SHARE="$TEST_INSTALL/share/zelta"
@@ -26,13 +27,13 @@ SRC_SVR=
 TGT_SVR=
 export SRC_POOL='apool'
 export TGT_POOL='bpool'
-export TREETOP_DSN='treetop'
-export BACKUPS_DSN='backups'
-export SOURCE=${SRC_SVR}${SRC_POOL}/${TREETOP_DSN}
-export TARGET=${TGT_SVR}${TGT_POOL}/${BACKUPS_DSN}
-export SRC_TREE="$SRC_POOL/$TREETOP_DSN"
-export TGT_TREE="$TGT_POOL/$BACKUPS_DSN/$TREETOP_DSN"
-export ALL_DATASETS="one/two/three"
+#export TREETOP_DSN='treetop'
+#export BACKUPS_DSN='backups'
+#export SOURCE=${SRC_SVR}${SRC_POOL}/${TREETOP_DSN}
+#export TARGET=${TGT_SVR}${TGT_POOL}/${BACKUPS_DSN}
+#export SRC_TREE="$SRC_POOL/$TREETOP_DSN"
+#export TGT_TREE="$TGT_POOL/$BACKUPS_DSN/$TREETOP_DSN"
+#export ALL_DATASETS="one/two/three"
 
 
 export ZFS_MOUNT_BASE="${LOCAL_TMP}/zfs-test-mounts"

@@ -1,7 +1,7 @@
 --require spec_helper
 
 # Set test environment variables
---env-from spec/initialize/test_env.sh
+#--env-from spec/initialize/test_env.sh
 
 ## Default kcov (coverage) options
 # --kcov-options "--include-path=. --path-strip-level=1"

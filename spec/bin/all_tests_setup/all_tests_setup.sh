@@ -1,6 +1,6 @@
 #!/bin/sh
 
-. spec/initialize/test_env.sh
+. spec/bin/all_tests_setup/common_test_env.sh
 . spec/lib/common.sh
 
 #exec_cmd printf "hello there\n"
@@ -17,7 +17,7 @@ initialize_zelta_test() {
     echo "-- BeforeAll setup"
 
     echo "-- installing zelta"
-    "${INITIALIZE_DIR}"/install_local_zelta.sh
+    "${ALL_TESTS_SETUP_DIR}"/install_local_zelta.sh
     INSTALL_STATUS=$?
     if [ $INSTALL_STATUS -ne 0 ]; then
         echo "** Error: zelta install failed"
@@ -28,7 +28,7 @@ initialize_zelta_test() {
     #TREE_STATUS=$?
 
 #    echo "-- creating test pools"
-    if "${INITIALIZE_DIR}"/create_file_backed_zfs_test_pools.sh; then
+    if "${ALL_TESTS_SETUP_DIR}"/create_file_backed_zfs_test_pools.sh; then
     #if "${INITIALIZE_DIR}"/create_device_backed_zfs_test_pools.sh; then
         #echo "-- setting up snap tree"
         #"${INITIALIZE_DIR}"/setup_simple_snap_tree.sh

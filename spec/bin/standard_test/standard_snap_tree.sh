@@ -1,6 +1,6 @@
 #!/bin/sh
 
-. spec/initialize/test_env.sh
+. spec/bin/standard_test/standard_test_env.sh
 . spec/lib/common.sh
 
 DATASETS="${SRC_TREE} ${TGT_TREE}"
