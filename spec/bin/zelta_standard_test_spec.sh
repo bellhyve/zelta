@@ -97,6 +97,8 @@ End
 
 Describe 'zelta rotate'
     It 'rotates the backed up tree'
+        # force snapshot timestamp to be at 1 second in future to prevent backup snapshot conflict
+        sleep 1
         When call zelta rotate $SOURCE $TARGET
         # I saw this error once and not again, I'm not sure how to reproduce it
         The line 1 of output should match pattern "action requires a target delta; snapshotting: *"
