@@ -14,7 +14,7 @@ You'll be prompted for your password for the setup steps.
 EOF
 
 echo "Step 1/3: Initializing test environment..."
-sudo -E spec/bin/all_tests_setup/all_tests_setup.sh
+spec/bin/all_tests_setup/all_tests_setup.sh
 
 echo "Step 2/3: Creating test dataset tree..."
-sudo -E spec/bin/standard_test/standard_snap_tree.sh
+spec/bin/standard_test/standard_snap_tree.sh
