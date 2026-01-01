@@ -1,8 +1,10 @@
 #!/bin/sh
 
 TEST_BRANCH=feature/zelta-test
+TEST_USER=dever
+REMOTE_HOST=fzfsdev
 #pool_name="tank"
-ssh dever@fzfsdev << EOF
+ssh ${TEST_USER}@${REMOTE_HOST} << EOF
 set -x
 rm -fr /tmp/zelta-dev
 mkdir -p /tmp/zelta-dev
