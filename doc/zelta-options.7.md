@@ -65,7 +65,7 @@ The following options are often modified for user-specific installations and tes
 # GENERAL OPTIONS
 
 **DEPTH**
-:   Limit the recursion depth of operations to the number of levels indicated. For example, a depth of 1 will only include the indicated _source_ dataset.
+:   Limit the recursion depth of operations to the number of levels indicated. For example, a depth of 1 will only include the indicated _source_ dataset. Has no effect with **REPLICATE** enabled.
 
 **EXCLUDE**
 :    Exclude datasets or source snapshots matching the specified exclusion pattern. See _EXCLUSION PATTERNS_ below.
@@ -105,7 +105,7 @@ The following options are often modified for user-specific installations and tes
 :   Toggle option to transmit intermediate snapshots (`1`, the default) or incremental (`0`).
 
 **SEND_REPLICATE**
-:   Options to use in `zelta replicate` mode. Defaults to `-LsRw1`.
+:   Options to use in `zelta backup -R` mode. Defaults to `zfs send -LsRw`.
 
 **SEND_CHECK**
 :   Attempt to drop unsupported `zfs send` options using a no-op test prior to replication. This feature is not fully implemented.
@@ -151,6 +151,7 @@ The following options are often modified for user-specific installations and tes
 :   Options for recursive cloning. Defaults to `-po readonly=off`.
 
 # POLICY OPTIONS
+The following options only effect `zelta policy` operations.
 
 **RETRY**
 :   Retry failed syncs the indicated number of times.
@@ -164,11 +165,17 @@ The following options are often modified for user-specific installations and tes
 **ARCHIVE_ROOT**
 :   NOT YET IMPLEMENTED. The relative target path used for rotated clones.
 
-**HOST_PREFIX**
-:   Include the source hostname as a parent of the synced target, for example, `tank/Backups/source.host/backup-dataset`.
+**ADD_HOST_PREFIX**
+:   Include the source hostname as a parent of the synced target.
+- Example: Source `web1:sink/dataset` with `BACKUP_ROOT: tank/backups` becomes `tank/backups/web1/dataset`.
 
-**DS_PREFIX**
-:   Similar to `zfs recv -d` and `-e`, include the indicated number of parent labels for the target's synced name. See **zelta-backup(8)** for more detail.
+**ADD_DATASET_PREFIX**
+:   Similar to `zfs recv -d`, include the indicated number of parent dataset labels for the `BACKUP_ROOT`'s (or specified target's) name. If set to `-1` all labels up to the pool name will be attached to the target name.
+- Example: Source `web1:sink/source/dataset` with `BACKUP_ROOT: tank/backups`:
+  - `0`: `tank/backups/dataset`
+  - `1`: `tank/backups/source/dataset`
+  - `-1`: `tank/backups/sink/source/dataset`
+- **ADD_HOST_PREFIX** stacks with **ADD_DATASET_PREFIX**. With both enabled, the hostname is prepended first: `tank/backups/web1/source/dataset`.
 
 # EXCLUSION PATTERNS
 

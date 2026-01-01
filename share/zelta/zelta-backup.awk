@@ -1120,6 +1120,8 @@ BEGIN {
 	DSTree["target_pool"] = _tgt_ds_tree[1]
 	if (Opt["SNAP_MODE"] == "ALWAYS")
 		DSTree["snapshot_needed"]	= SNAP_ALWAYS
+	if (Opt["VERB"] == "REPLICATE")
+		Opt["DEPTH"] = 1
 
 	validate_datasets()
 	validate_snapshots()

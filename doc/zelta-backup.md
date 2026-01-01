@@ -40,13 +40,13 @@ The following `zfs send` options are applied based on dataset properties:
 To ensure safe and repeatable replication, the following measures are applied to the target:
 
 - The property `readonly=on` is set on the topmost dataset requested
-- Synced filesystems are not mounted during replication
+- Synced filesystems are not mounted on the _target_ during replication
 - On newly backed up filesystems, property `canmount=noauto` is set
 - On newly backed up filesystems, mountpoints are inherited to prevent overlapping mounts
 
 ## Source and Target Endpoints
 
-Remote dataset endpoints follow **scp(1)** conventions and require standard ZFS utilities and SSH access. Note that Zelta does **not** need to be installed on remote ZFS servers.
+Remote dataset endpoint names follow **scp(1)** conventions and require standard ZFS utilities and SSH access. Note that Zelta does **not** need to be installed on remote ZFS servers.
 
 Examples:
 
@@ -126,17 +126,82 @@ _target_
 : Enable (default) or disable automatic resume of interrupted syncs.
 
 ## Advanced Override Options
+Zelta automatically applies non-destructive and efficient `zfs send` and `zfs recv` options based on dataset type and context. These can be modified with three types of arguments.
+- **Granular Override Options:** Define options to use in specific situations.
+- **Dataset Tree Override Options:** Provide the entire string of `zfs send` or `zfs recv` options.
+- **Pass-Through Override Options:** For convenience, provide unambiguous `zfs send` or `zfs recv` options.
 
-You may need to override default `zfs send` or `zfs recv` options. For precise and repeatable configuration, use `ZELTA_SEND_*` and `ZELTA_RECV_*` environment variables instead. See **zelta-options(8)**. Note only unambiguous `zfs send-recv` options are permitted on the Zelta command line.
-: **Examples:**
-  * **-Lw**: Always send in raw mode.
-  * **-L**: Use only **-L**. Since Zelta's defaults include **-c** for nonencrpyted datasets, overriding this allows data to be recompressed at the target endpoint. **Warning:** Encrypted datasets will be sent with an unencrypted stream.
+Some options have special use or meaning and should usually be excluded from overrides.
+- The following options are used internally by Zelta:
+  - `zfs send \--parsable (-P)`
+  - `zfs recv \-v)`
+- These `zfs send` options have special behavior within Zelta (see the options above for details):
+  - `-I` and `-i` change both full and incremental backup behavior
+  - `--exclude, -X` is has additional Zelta functionality
+  - `--dryrun, -n` shows `zfs send`/`zfs recv` commands that would be run
+  - `-t` is used automatically to resume a partial backup
+- `zfs send -S` is not supported
+- `zfs recv -A` should be used manually when needed
 
-**-b, \--backup, -c, \--compressed, -D, \--dedup, \--embed, \--holds, -L, \--largeblock, -p, \--parsable, \--proctitle, \--props, \--raw, \--skipmissing, -V, -w**
-: Override default `zfs send` options. Use with caution.
+These defaults can also be changed globally in `zelta.env` or via policy in `zelta.conf`.
 
-**-M, -u**
-: Override default `zfs receive` options. Use with caution. Note: `-e` and `-h` are ambiguous and cannot be used for receive overrides.
+### Granular Override Options
+For precise control in dataset trees with mixed types, use these options to override specific contexts. These precise options are cumulative. For example, a filesystem receive will use options from **\--recv-default**, **\--recv-top** (if applicable), and **\--recv-fs**.
+
+**\--send-default** *"OPTIONS"*
+: `zfs send` options used when the dataset is **not** encrypted (default: **-Lce**)
+* Example: `--send-default -Le` to allow the target to recompress the data.
+
+**\--send-raw** *"OPTIONS"*
+: `zfs send` options used when the dataset **is** encrypted (default: **-Lw**)
+
+**\--send-new** *"OPTIONS"*
+: Additional `zfs send` options used during a full (non-incremental) backup (default: **-p**)
+
+**\--recv-default** *"OPTIONS"*
+: `zfs recv` options used for all datasets (none by default)
+
+**\--recv-top** *"OPTIONS"*
+: Additional `zfs recv` options used for the topmost indicated dataset (default: **-o readonly=on**)
+
+**\--recv-fs** *"OPTIONS"*
+: Additional `zfs recv` options for filesystem datasets (default: **-u -o canmount=noauto -x mountpoint**)
+* Example: `--recv-fs '-o mountpoint=none` may help avoid permission errors on some operating systems.
+
+**\--recv-vol** *"OPTIONS"*
+: Additional `zfs recv` options for volume datasets (default: **-o volmode=none**)
+* Example: `--recv-vol '-o volmode=dev'`
+
+### Dataset Tree Override Options
+The following two options override `zfs send` and `zfs recv` for all datasets in the backup task regardless of context.
+
+**\--send-override** *'OPTIONS'*
+: Override default `zfs send` options.
+
+**\--recv-override** *'OPTIONS'*
+: Override default `zfs recv` options.
+
+### Pass-Through Override Flags
+For convenience for those especially fluent in ZFS, Zelta passes unambiguous `zfs send` and `zfs recv` options. If a single pass-through option is given, all other context-based options for that `zfs` command are overridden. For example, if `-L` is given, `zfs send` operations will only receive the `-L` flag
+
+Several options may not work as expected or are unsupported:
+- Ambiguous single-dash options are **unsupported**: [`-cdehs`]
+- The following options have special handlers; see their definitions above for details:
+  - `--exclude, -X`
+  - `-I, -i`
+  - `--replicate, -R`
+
+**Use with caution.** When in doubt, modify options using the granular override options.
+
+**-b, --backup, -c, --compressed, -D, --dedup, --embed, --holds, -L, --largeblock, -p, --parsable, --proctitle, --props, --raw, --skipmissing, -V, -w**
+: Override default `zfs send` options.
+
+**-F, -M, -u**
+: Override default `zfs receive` options.
+
+**Common Examples:**
+- **-Lw**: Always send in raw encrypted mode
+- **-L --recv-override '-o compression=zstd-5'**: Resets `zfs send` options and recompress the target with zstd level 5 compression. Since Zelta defaults include **-c** for unencrypted datasets, this allows data to be recompressed at the target. **Warning:** Encrypted datasets will be sent with an unencrypted stream.
 
 # EXAMPLES
 
@@ -156,7 +221,7 @@ Dry run to preview commands:
 
 Replicate with custom snapshot naming:
 
-    zelta backup --snap-name "backup_$(date +%Y%m%d)" \
+    zelta backup \--snap-name "backup_$(date +%Y%m%d)" \
         sink/source/dataset tank/backups/source/dataset
 
 Incremental sync, skipping intermediate snapshots:

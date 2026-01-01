@@ -36,7 +36,9 @@ Without additional parameters, **zelta policy** will run a **zelta backup** job 
 
 **_dataset_**  Run a backup job only for the _dataset_ listed. Note this parameter can match the _source_ **or** _target_ dataset, e.g., requesting `zroot` would run the replication for any matching dataset on any host.
 
-**_host:dataset_**  Specify a _source_ or _backup_ dataset endpoint, equivalent to the paramemters of **zelta backup**.
+**_host:dataset_**  Specify a _source_ or _backup_ dataset endpoint name, equivalent to the paramemters of **zelta backup**.
+
+**_dataset_pattern_**  Speicfy the final source or target dataset label. For example, `vm` would run all backup jobs with datasets ending in `/vm`.
 
 # FILES
 For detailed documentation of the **zelta policy** configuraiton see `zelta.conf.example`.

@@ -4,7 +4,7 @@
 **zelta** - perform safe, recursive ZFS operations locally and remotely
 
 # SYNOPSIS
-        zelta -V | --version | version
+        zelta -V | \--version | version
         zelta SUBCOMMAND [OPTIONS] [ARGUMENTS]
 
 # DESCRIPTION

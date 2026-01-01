@@ -29,7 +29,7 @@
 **\--text**
 :    Forces default output (notices) to print as plain text standard output. 
 
-**-n,\--dryrun,--dry-run**
+**-n,\--dryrun**
 :    Display 'zfs' commands related to the action rather than running them.
 
 ** Dataset and Snapshot Options**

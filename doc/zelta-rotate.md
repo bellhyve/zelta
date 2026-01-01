@@ -25,7 +25,7 @@ The rotate operation syncs the minimum data necessary to complete the task, targ
 
 If the topmost target dataset has no common snapshot with either the source or source origin, `zelta rotate` will not continue. In this case, manually rename the diverged target and use `zelta backup` to perform a full replication.
 
-Remote dataset endpoints follow **scp(1)** conventions. Dataset names follow **zfs(8)** naming conventions. The target must be a replica of the source.
+Remote endpoint names follow **scp(1)** conventions. Dataset names follow **zfs(8)** naming conventions. The target must be a replica of the source.
 
 Examples:
 
