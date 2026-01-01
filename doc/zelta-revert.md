@@ -15,11 +15,11 @@ After reverting, the original dataset remains accessible under a new name, allow
 
 **zelta revert** performs these operations:
 
-1. **Snapshot Selection**: If a snapshot is specified in the endpoint, that snapshot is used. Otherwise, the most recent snapshot is selected.
+1. **Snapshot Selection**: If a `@snapshot` name is specified at the end of the endpoint, that snapshot is used. Otherwise, the most recent snapshot is selected.
 2. **Dataset Preservation**: The target dataset is renamed by appending the snapshot name. For example, `pool/ds` reverted to snapshot `@yesterday` becomes `pool/ds_yesterday`. Note that no properties, including mountpoint and readonly status, are altered.
 3. **Clone Creation**: For each child dataset, Zelta creates a clone from the selected snapshot at the original dataset path.
 
-Remote dataset endpoints follow **scp(1)** conventions. Dataset names follow **zfs(8)** naming conventions.
+Remote endpoint names follow **scp(1)** conventions. Dataset names follow **zfs(8)** naming conventions.
 
 Examples:
 
@@ -33,7 +33,7 @@ Examples:
 **Endpoint Argument (Required)**
 
 _endpoint_
-: The dataset to revert, optionally specifying a snapshot. If no snapshot is specified, the most recent snapshot is used.
+: The endpoint name to revert, optionally specifying a snapshot. If no snapshot is specified, the most recent snapshot is used.
 
 **Output Options**
 

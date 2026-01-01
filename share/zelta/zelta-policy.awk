@@ -47,11 +47,11 @@ function usage(message) {
 function resolve_target(src, tgt, host,		_n, _i, _segments) {
 	if (tgt) { return tgt }
 	tgt = Host["BACKUP_ROOT"]
-	if (Host["HOST_PREFIX"] && host) {
+	if (Host["ADD_HOST_PREFIX"] && host) {
 		tgt = tgt "/" host
 	}
 	_n = split(src, _segments, "/")
-	for (_i = _n - Host["host_prefix"]; _i <= _n; _i++) {
+	for (_i = _n - Host["ADD_DATASET_PREFIX"]; _i <= _n; _i++) {
 		if (_segments[_i]) {
 			tgt = tgt "/" _segments[_i]
 		}

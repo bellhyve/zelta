@@ -22,8 +22,8 @@ current state.
 .SS Revert Process
 \f[B]zelta revert\f[R] performs these operations:
 .IP "1." 3
-\f[B]Snapshot Selection\f[R]: If a snapshot is specified in the
-endpoint, that snapshot is used.
+\f[B]Snapshot Selection\f[R]: If a \f[CR]\(atsnapshot\f[R] name is
+specified at the end of the endpoint, that snapshot is used.
 Otherwise, the most recent snapshot is selected.
 .IP "2." 3
 \f[B]Dataset Preservation\f[R]: The target dataset is renamed by
@@ -36,7 +36,7 @@ altered.
 \f[B]Clone Creation\f[R]: For each child dataset, Zelta creates a clone
 from the selected snapshot at the original dataset path.
 .PP
-Remote dataset endpoints follow \f[B]scp(1)\f[R] conventions.
+Remote endpoint names follow \f[B]scp(1)\f[R] conventions.
 Dataset names follow \f[B]zfs(8)\f[R] naming conventions.
 .PP
 Examples:
@@ -51,7 +51,7 @@ Remote: user\(atexample.com:pool/dataset\(atsnapshot
 \f[B]Endpoint Argument (Required)\f[R]
 .TP
 \f[I]endpoint\f[R]
-The dataset to revert, optionally specifying a snapshot.
+The endpoint name to revert, optionally specifying a snapshot.
 If no snapshot is specified, the most recent snapshot is used.
 .PP
 \f[B]Output Options\f[R]

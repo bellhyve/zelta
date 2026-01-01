@@ -69,8 +69,13 @@ Note this parameter can match the \f[I]source\f[R] \f[B]or\f[R]
 the replication for any matching dataset on any host.
 .PP
 \f[B]\f[BI]host:dataset\f[B]\f[R] Specify a \f[I]source\f[R] or
-\f[I]backup\f[R] dataset endpoint, equivalent to the paramemters of
+\f[I]backup\f[R] dataset endpoint name, equivalent to the paramemters of
 \f[B]zelta backup\f[R].
+.PP
+\f[B]\f[BI]dataset_pattern\f[B]\f[R] Speicfy the final source or target
+dataset label.
+For example, \f[CR]vm\f[R] would run all backup jobs with datasets
+ending in \f[CR]/vm\f[R].
 .SH FILES
 For detailed documentation of the \f[B]zelta policy\f[R] configuraiton
 see \f[CR]zelta.conf.example\f[R].

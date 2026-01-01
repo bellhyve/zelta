@@ -92,6 +92,7 @@ Limit the recursion depth of operations to the number of levels
 indicated.
 For example, a depth of 1 will only include the indicated
 \f[I]source\f[R] dataset.
+Has no effect with \f[B]REPLICATE\f[R] enabled.
 .TP
 \f[B]EXCLUDE\f[R]
 Exclude datasets or source snapshots matching the specified exclusion
@@ -141,8 +142,8 @@ Toggle option to transmit intermediate snapshots (\f[CR]1\f[R], the
 default) or incremental (\f[CR]0\f[R]).
 .TP
 \f[B]SEND_REPLICATE\f[R]
-Options to use in \f[CR]zelta replicate\f[R] mode.
-Defaults to \f[CR]\-LsRw1\f[R].
+Options to use in \f[CR]zelta backup \-R\f[R] mode.
+Defaults to \f[CR]zfs send \-LsRw\f[R].
 .TP
 \f[B]SEND_CHECK\f[R]
 Attempt to drop unsupported \f[CR]zfs send\f[R] options using a no\-op
@@ -207,6 +208,7 @@ enabled.
 Options for recursive cloning.
 Defaults to \f[CR]\-po readonly=off\f[R].
 .SH POLICY OPTIONS
+The following options only effect \f[CR]zelta policy\f[R] operations.
 .TP
 \f[B]RETRY\f[R]
 Retry failed syncs the indicated number of times.
@@ -224,14 +226,37 @@ that dataset (if not overridden by policy).
 NOT YET IMPLEMENTED.
 The relative target path used for rotated clones.
 .TP
-\f[B]HOST_PREFIX\f[R]
-Include the source hostname as a parent of the synced target, for
-example, \f[CR]tank/Backups/source.host/backup\-dataset\f[R].
+\f[B]ADD_HOST_PREFIX\f[R]
+Include the source hostname as a parent of the synced target.
+.IP \(bu 2
+Example: Source \f[CR]web1:rpool/data\f[R] with
+\f[CR]BACKUP_ROOT: bk:tank/B\f[R] becomes
+\f[CR]bk:tank/B/web1/data\f[R].
 .TP
-\f[B]DS_PREFIX\f[R]
-Similar to \f[CR]zfs recv \-d\f[R] and \f[CR]\-e\f[R], include the
-indicated number of parent labels for the target\(cqs synced name.
-See \f[B]zelta\-backup(8)\f[R] for more detail.
+\f[B]ADD_DATASET_PREFIX\f[R]
+Similar to \f[CR]zfs recv \-d\f[R], include the indicated number of
+parent dataset labels for the \f[CR]BACKUP_ROOT\f[R]\(cqs (or specified
+target\(cqs) name.
+If set to \f[CR]\-1\f[R] all labels up to the pool name will be attached
+to the target name.
+For example, if syncing a source of \f[CR]sink/source/dataset\f[R] and a
+target of \f[CR]tank/target/backups\f[R], the target will sync to:
+\f[CR]tank/target/backups/sink/source/dataset\f[R].
+.IP \(bu 2
+Example: Source \f[CR]sink/source/dataset\f[R] with
+\f[CR]BACKUP_ROOT: tank/backups\f[R]:
+.RS 2
+.IP \(bu 2
+\f[CR]0\f[R]: \f[CR]tank/backups/dataset\f[R]
+.IP \(bu 2
+\f[CR]1\f[R]: \f[CR]tank/backups/source/dataset\f[R]
+.IP \(bu 2
+\f[CR]\-1\f[R]: \f[CR]tank/backups/sink/source/dataset\f[R]
+.RE
+.PP
+These options stack.
+With both enabled, hostname is prepended first:
+\f[CR]tank/backups/web1/source/dataset\f[R].
 .SH EXCLUSION PATTERNS
 The EXCLUDE option, or the arguments \f[B]\-\-exclude\f[R] or
 \f[B]\-X\f[R], contain a comma separated list of patterns to exclude

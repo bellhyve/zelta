@@ -74,8 +74,8 @@ set
 On newly backed up filesystems, mountpoints are inherited to prevent
 overlapping mounts
 .SS Source and Target Endpoints
-Remote dataset endpoints follow \f[B]scp(1)\f[R] conventions and require
-standard ZFS utilities and SSH access.
+Remote dataset endpoint names follow \f[B]scp(1)\f[R] conventions and
+require standard ZFS utilities and SSH access.
 Note that Zelta does \f[B]not\f[R] need to be installed on remote ZFS
 servers.
 .PP
@@ -189,8 +189,7 @@ You may need to override default \f[CR]zfs send\f[R] or \f[CR]zfs recv\f[R] opti
 .IP \(bu 2
 \f[B]\-L\f[R]: Use only \f[B]\-L\f[R].
 Since Zelta\(cqs defaults include \f[B]\-c\f[R] for nonencrpyted
-datasets, overriding this allows data to be recompressed at the target
-endpoint.
+datasets, overriding this allows data to be recompressed at the target.
 \f[B]Warning:\f[R] Encrypted datasets will be sent with an unencrypted
 stream.
 .RE
@@ -228,7 +227,7 @@ zelta backup \-n sink/source/dataset tank/target/dataset
 Replicate with custom snapshot naming:
 .IP
 .EX
-zelta backup \-\-snap\-name \(dqbackup_$(date +%Y%m%d)\(dq \(rs
+zelta backup \(rs\-\-snap\-name \(dqbackup_$(date +%Y%m%d)\(dq \(rs
     sink/source/dataset tank/backups/source/dataset
 .EE
 .PP
