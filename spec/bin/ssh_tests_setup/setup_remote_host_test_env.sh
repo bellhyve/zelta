@@ -10,7 +10,7 @@ git clone https://github.com/bellhyve/zelta.git /tmp/zelta-dev
 cd /tmp/zelta-dev
 git checkout $TEST_BRANCH
 ls
-spec/bin/ssh_tests_setup/setup_remote_pools.sh
+spec/bin/ssh_tests_setup/setup_zfs_pools_on_remote.sh
 set +x
 EOF
 
