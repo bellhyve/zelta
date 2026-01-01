@@ -93,7 +93,7 @@ The following options are often modified for user-specific installations and tes
 :   Override all `zfs send` options with those indicated. For precise and flexible configuration for different circumstances, use the `SEND_*` variables below instead.
 
 **SEND_DEFAULT**
-:   Options used for unencrpyted filesystems and volumes. Defaults to `-Lce`.
+:   Options used for unencrypted filesystems and volumes. Defaults to `-Lce`.
 
 **SEND_RAW**
 :   Options used for encrypted datasets. Defaults to `-Lw`.
@@ -215,6 +215,16 @@ The EXCLUDE option, or the arguments **\--exclude** or **-X**, contain a comma s
     - `@*_hourly` excludes snapshots ending in `_hourly`
     - `@snap-2024*` excludes snapshots beginning with `snap-2024`
     - `@auto-*00??` excludes snapshots beginning with `auto-` and ending with 00 and two of any character
+
+### Exclusions Quick Reference
+
+| Pattern Type | Example | Matches |
+|--------------|---------|---------|
+| Absolute dataset | `tank/vm/swap` | Exact dataset only |
+| Relative dataset | `/swap` | Dataset ending in `/swap` |
+| Dataset wildcard | `/vm-*` | Datasets matching pattern |
+| Snapshot name | `@manual-backup` | Exact snapshot name |
+| Snapshot wildcard | `@*_hourly` | Snapshots matching pattern |
 
 ## Behavior Notes
 

@@ -41,7 +41,7 @@ Without additional parameters, **zelta policy** will run a **zelta backup** job 
 **_dataset_pattern_**  Speicfy the final source or target dataset label. For example, `vm` would run all backup jobs with datasets ending in `/vm`.
 
 # FILES
-For detailed documentation of the **zelta policy** configuraiton see `zelta.conf.example`.
+For detailed documentation of the **zelta policy** configuration see `zelta.conf.example`.
 
 **/usr/local/etc/zelta/zelta.conf**
 :    The default configuration file locaiton.

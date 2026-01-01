@@ -2,7 +2,7 @@
 .\"
 .TH "zelta\-backup" "8" "" "" "System Manager\(cqs Manual"
 .SH NAME
-\f[B]zelta backup\f[R] \- replicate ZFS dataset trees
+\f[B]zelta backup\f[R] \- replicate a ZFS dataset tree
 .SH SYNOPSIS
 \f[B]zelta backup\f[R] [\f[I]OPTIONS\f[R]] \f[I]source\f[R]
 \f[I]target\f[R]
@@ -13,7 +13,7 @@ Both \f[I]source\f[R] and \f[I]target\f[R] may be local or remote via
 \f[B]ssh(1)\f[R].
 .PP
 As with other Zelta commands, \f[B]zelta backup\f[R] works recursively
-on dataset trees.
+on a dataset tree.
 The \f[I]target\f[R] dataset must be a replica of the \f[I]source\f[R]
 or must not exist.
 .PP
@@ -66,7 +66,8 @@ applied to the target:
 The property \f[CR]readonly=on\f[R] is set on the topmost dataset
 requested
 .IP \(bu 2
-Synced filesystems are not mounted during replication
+Synced filesystems are not mounted on the \f[I]target\f[R] during
+replication
 .IP \(bu 2
 On newly backed up filesystems, property \f[CR]canmount=noauto\f[R] is
 set
@@ -180,29 +181,152 @@ For incremental backups, \f[CR]zfs send \-i\f[R] will be used.
 \f[B]\-\-resume, \-\-no\-resume\f[R]
 Enable (default) or disable automatic resume of interrupted syncs.
 .SS Advanced Override Options
+\f[B]WARNING:\f[R] These options override Zelta\(cqs automatic safety
+and efficiency logic.
+Incorrect usage can result in target data loss or decrypted backup
+streams.
+Use only when you understand the implications.
+.PP
+Zelta automatically applies non\-destructive and efficient
+\f[CR]zfs send\f[R] and \f[CR]zfs recv\f[R] options based on dataset
+type and context.
+These defaults can be modified three ways:
+.IP "1." 3
+\f[B]Granular Override Options\f[R] \(em Override specific contexts
+(encrypted vs unencrypted, filesystem vs volume, etc.)
+.IP "2." 3
+\f[B]Dataset Tree Override Options\f[R] \(em Replace all
+\f[CR]zfs send\f[R] or \f[CR]zfs recv\f[R] options for an entire backup
+job
+.IP "3." 3
+\f[B]Pass\-Through Override Flags\f[R] \(em Directly pass unambiguous
+\f[CR]zfs send\f[R] or \f[CR]zfs recv\f[R] flags
+.PP
+\f[B]Most Common Use Case: Recompress Backups\f[R]
+.PP
+Typically, users adjust Zelta options because they would like to
+aggressively compress data on their backup endpoints.
+This is best done with the \f[CR]\-\-send\-default\f[R] and
+\f[CR]\-\-recv\-default\f[R] flags, which will not prevent Zelta from
+sending encrypted backups in raw (encrypted) format:
+.IP
+.EX
+zelta backup \-\-send\-default \-Le \-\-recv\-default \(aq\-o compression=zstd\-5\(aq source backup
+.EE
+.PP
+All overrides can also be configured globally in \f[CR]zelta.env\f[R] or
+per\-job via \f[CR]zelta.conf\f[R].
+.SS Important: Options with Special Handling
+Several \f[CR]zfs send\f[R] and \f[CR]zfs recv\f[R] options have special
+meaning in Zelta and should generally \f[B]not\f[R] be included in
+override strings:
+.PP
+\f[B]Zelta uses these internally:\f[R] \-
+\f[CR]zfs send \-\-parsable (\-P)\f[R] \(em Used for progress tracking
+\- \f[CR]zfs recv \-v\f[R] \(em Used for operational feedback
+.PP
+\f[B]These have Zelta\-specific behavior (see OPTIONS above):\f[R] \-
+\f[CR]\-I\f[R] and \f[CR]\-i\f[R] \(em Control incremental behavior; use
+the flags documented above instead \- \f[CR]\-\-exclude, \-X\f[R] \(em
+Has additional Zelta functionality beyond the \f[CR]zfs send\f[R]
+version \- \f[CR]\-\-dryrun, \-n\f[R] \(em Shows commands that would
+run; handled by Zelta \- \f[CR]\-t\f[R] \(em Used automatically for
+resume tokens
+.PP
+\f[B]Not supported:\f[R] \- \f[CR]zfs send \-S\f[R] \(em Unsupported \-
+\f[CR]zfs recv \-A\f[R] \(em Should be used manually when needed
+.SS Granular Override Options
+For precise control in a dataset tree with mixed types, override
+specific contexts.
+These options are \f[B]cumulative\f[R]\(emfor example, a filesystem
+receive will combine options from \f[CR]\-\-recv\-default\f[R],
+\f[CR]\-\-recv\-top\f[R] (if applicable), and \f[CR]\-\-recv\-fs\f[R].
 .TP
-You may need to override default \f[CR]zfs send\f[R] or \f[CR]zfs recv\f[R] options. For precise and repeatable configuration, use \f[CR]ZELTA_SEND_*\f[R] and \f[CR]ZELTA_RECV_*\f[R] environment variables instead. See \f[B]zelta\-options(8)\f[R]. Note only unambiguous \f[CR]zfs send\-recv\f[R] options are permitted on the Zelta command line.
+\f[B]\(ensend\-default\f[R] \f[I]\(lqOPTIONS\(rq\f[R]
+\f[CR]zfs send\f[R] options for \f[B]unencrypted\f[R] datasets (default:
+\f[CR]\-Lce\f[R])
+.TP
+\f[B]\(ensend\-raw\f[R] \f[I]\(lqOPTIONS\(rq\f[R]
+\f[CR]zfs send\f[R] options for \f[B]encrypted\f[R] datasets (default:
+\f[CR]\-Lw\f[R])
+.TP
+\f[B]\(ensend\-new\f[R] \f[I]\(lqOPTIONS\(rq\f[R]
+Additional \f[CR]zfs send\f[R] options during full (non\-incremental)
+backups (default: \f[CR]\-p\f[R])
+.TP
+\f[B]\(enrecv\-default\f[R] \f[I]\(lqOPTIONS\(rq\f[R]
+\f[CR]zfs recv\f[R] options for all datasets (none by default)
+.TP
+\f[B]\(enrecv\-top\f[R] \f[I]\(lqOPTIONS\(rq\f[R]
+Additional \f[CR]zfs recv\f[R] options for the topmost dataset only
+(default: \f[CR]\-o readonly=on\f[R])
+.TP
+\f[B]\(enrecv\-fs\f[R] \f[I]\(lqOPTIONS\(rq\f[R]
+Additional \f[CR]zfs recv\f[R] options for filesystem datasets (default:
+\f[CR]\-u \-o canmount=noauto \-x mountpoint\f[R])
+.TP
+\f[B]\(enrecv\-vol\f[R] \f[I]\(lqOPTIONS\(rq\f[R]
+Additional \f[CR]zfs recv\f[R] options for volume datasets (default:
+\f[CR]\-o volmode=none\f[R])
+.PP
 \f[B]Examples:\f[R]
-.RS
-.IP \(bu 2
-\f[B]\-Lw\f[R]: Always send in raw mode.
-.IP \(bu 2
-\f[B]\-L\f[R]: Use only \f[B]\-L\f[R].
-Since Zelta\(cqs defaults include \f[B]\-c\f[R] for nonencrpyted
-datasets, overriding this allows data to be recompressed at the target.
-\f[B]Warning:\f[R] Encrypted datasets will be sent with an unencrypted
-stream.
-.RE
+.IP
+.EX
+# Allow target to recompress unencrypted data
+zelta backup \-\-send\-default \(dq\-Le\(dq source target
+
+# Change volume mode on target
+zelta backup \-\-recv\-vol \(dq\-o volmode=dev\(dq source target
+
+# Avoid mountpoint permission issues on some systems
+zelta backup \-\-recv\-fs \(dq\-o mountpoint=none\(dq source target
+.EE
+.SS Dataset Tree Override Options
+These options \f[B]replace all context\-specific defaults\f[R] for an
+entire backup job.
+Use when you need complete control over a specific command.
 .TP
-\f[B]\-b, \-\-backup, \-c, \-\-compressed, \-D, \-\-dedup, \-\-embed, \-\-holds, \-L, \-\-largeblock, \-p, \-\-parsable, \-\-proctitle, \-\-props, \-\-raw, \-\-skipmissing, \-V, \-w\f[R]
-Override default \f[CR]zfs send\f[R] options.
-Use with caution.
+\f[B]\(ensend\-override\f[R] \f[I]\(lqOPTIONS\(rq\f[R]
+Override all default \f[CR]zfs send\f[R] options
 .TP
-\f[B]\-M, \-u\f[R]
-Override default \f[CR]zfs receive\f[R] options.
-Use with caution.
-Note: \f[CR]\-e\f[R] and \f[CR]\-h\f[R] are ambiguous and cannot be used
-for receive overrides.
+\f[B]\(enrecv\-override\f[R] \f[I]\(lqOPTIONS\(rq\f[R]
+Override all default \f[CR]zfs recv\f[R] options
+.PP
+\f[B]Example:\f[R]
+.IP
+.EX
+# Use minimal \(gazfs send\(ga to send uncompressed (**and decrypted!**) streams and recompress aggressively on the target
+zelta backup \-\-send\-override \(dq\-L\(dq \-\-recv\-override \(dq\-o compression=zstd\-5\(dq source target
+.EE
+.SS Pass\-Through Override Flags
+If \f[B]any\f[R] pass\-through flag is specified, it replaces
+\f[B]all\f[R] automatic options for that command.
+For example, specifying \f[CR]\-L\f[R] alone means \f[CR]zfs send\f[R]
+will receive \f[B]only\f[R] \f[CR]\-L\f[R]\(emno compression, no
+embedded data, no properties.
+.PP
+The following unambiguous \f[CR]zfs send\f[R] and \f[CR]zfs recv\f[R]
+flags are passed through directly:
+.PP
+\f[B]zfs send:\f[R]
+\f[CR]\-b, \-\-backup, \-\-embed, \-\-holds, \-L, \-\-largeblock, \-\-proctitle, \-\-props, \-\-raw, \-\-skipmissing, \-V, \-w\f[R]
+.PP
+\f[B]zfs recv:\f[R] \f[CR]\-F, \-M, \-u\f[R]
+.PP
+\f[B]Ambiguous or unsupported flags:\f[R] \- Single\-dash options with
+multiple meanings are \f[B]not supported\f[R]:
+\f[CR]\-c, \-d, \-e, \-h, \-s\f[R] \- Options with Zelta\-specific
+handlers (see above): \f[CR]\-I, \-i, \-R, \-X, \-n\f[R]
+.PP
+\f[B]Example:\f[R]
+.IP
+.EX
+# Recompress at target with zstd\-5
+# WARNING: This disables encrypted sends!
+zelta backup \-L \-\-recv\-override \(dq\-o compression=zstd\-5\(dq source target
+.EE
+.PP
+\f[B]When in doubt, use the granular override options instead.\f[R]
 .SH EXAMPLES
 The same command works for both new and existing target datasets.
 .PP
