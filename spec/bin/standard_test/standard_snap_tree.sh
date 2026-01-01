@@ -74,21 +74,17 @@ create_tree_via_zelta() {
 
 rm_all_datasets_for_pool() {
     poolname=$1
+
+    # shellcheck disable=SC2120
+    reverse_lines() {
+        awk '{lines[NR]=$0} END {for(i=NR;i>0;i--) print lines[i]}' "$@"
+    }
+
     echo "removing all datasets for pool {$poolname}"
-    #zfs list -H -o name -t filesystem,volume -r $poolname | grep -v "^${poolname}$" | tac | xargs -n1 zfs destroy
-    #exec_cmd zfs list -H -o name -t filesystem,volume -r $poolname | grep -v "^${poolname}$" | tac | xargs -n1 zfs destroy
-    #exec_cmd zfs list -H -o name -t filesystem,volume -r $poolname | grep -v "^${poolname}\$"  | tac
-
-    #echo "destroying datsets for pool {$poolname}"
-    dataset_list=$(zfs list -H -o name -t filesystem,volume -r $poolname | grep -v "^${poolname}$" | tac)
-    #zfs list -H -o name -t filesystem,volume -r $poolname | grep -v "^${poolname}$" | tac
-    #dataset_list=$(zfs list -H -o name -t filesystem,volume -r $poolname | grep -v "^${poolname}\$"  | tac)
+    dataset_list=$(zfs list -H -o name -t filesystem,volume -r $poolname | grep -v "^${poolname}$" | reverse_lines)
     echo $dataset_list
-    #echo "dataset_list = {$dataset_list}"
-    #exec_cmd zfs list -H -o name -t filesystem,volume -r $poolname | grep -v "^${poolname}\$"  | tac | xargs -n1 sudo zfs destroy
-    #zfs list -H -o name -t filesystem,volume -r $poolname | grep -v "^${poolname}\$"  | tac | xargs -n1 sudo zfs destroy
 
-    zfs list -H -o name -t filesystem,volume -r $poolname | grep -v "^${poolname}\$" | tac | while IFS= read -r dataset; do
+    zfs list -H -o name -t filesystem,volume -r $poolname | grep -v "^${poolname}\$" | reverse_lines | while IFS= read -r dataset; do
         exec_cmd sudo zfs destroy -r "$dataset"
     done
 
