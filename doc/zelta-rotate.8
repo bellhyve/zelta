@@ -8,6 +8,10 @@ and incrementally syncing a ZFS replica
 \f[B]zelta rotate\f[R] renames a target replica and performs a
 multi\-way clone and sync operation to restore sync continuity when a
 source and target have diverged.
+The operation considers up to four dataset states: the current source,
+the current target, the source\(cqs origin (if cloned), and the
+target\(cqs origin, finding the optimal sync path between them.
+.PP
 This technique is a non\-destructive alternative to
 \f[CR]zfs rollback\f[R] and \f[CR]zfs recv \-F\f[R], useful for
 maintaining forensic evidence in recovery scenarios and advanced

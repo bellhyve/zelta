@@ -7,7 +7,7 @@
 # DESCRIPTION
 **zelta revert** rewinds a dataset to a previous snapshot state by renaming the current dataset and creating a clone from the specified snapshot. This technique is a non-destructive alternative to `zfs rollback`, preserving the current state for forensic analysis, testing, or recovery scenarios.
 
-As with other Zelta commands, **zelta revert** works recursively on dataset trees. The endpoint may be local or remote via **ssh(1)**.
+As with other Zelta commands, **zelta revert** works recursively on a dataset tree. The endpoint may be local or remote via **ssh(1)**.
 
 After reverting, the original dataset remains accessible under a new name, allowing you to examine both the reverted state and the preserved current state.
 

@@ -5,7 +5,9 @@
 **zelta rotate** - recover sync continuity by renaming, cloning, and incrementally syncing a ZFS replica
 
 # DESCRIPTION
-**zelta rotate** renames a target replica and performs a multi-way clone and sync operation to restore sync continuity when a source and target have diverged. This technique is a non-destructive alternative to `zfs rollback` and `zfs recv -F`, useful for maintaining forensic evidence in recovery scenarios and advanced iterative infrastructure workflows.
+**zelta rotate** renames a target replica and performs a multi-way clone and sync operation to restore sync continuity when a source and target have diverged. The operation considers up to four dataset states: the current source, the current target, the source's origin (if cloned), and the target's origin, finding the optimal sync path between them.
+
+This technique is a non-destructive alternative to `zfs rollback` and `zfs recv -F`, useful for maintaining forensic evidence in recovery scenarios and advanced iterative infrastructure workflows.
 
 As with `zelta backup`, `zelta rotate` works recursively on dataset trees. Both source and target may be local or remote via **ssh(1)**.
 
