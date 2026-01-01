@@ -18,9 +18,3 @@ sudo -E spec/bin/all_tests_setup/all_tests_setup.sh
 
 echo "Step 2/3: Creating test dataset tree..."
 sudo -E spec/bin/standard_test/standard_snap_tree.sh
-
-echo "Step 3/3: Running zelta tests..."
-shellspec spec/bin/standard_test/standard_test_spec.sh
-
-echo ""
-echo "✓ Tests complete"

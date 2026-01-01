@@ -1,6 +1,12 @@
 #!/bin/sh
 
+echo "check SRC_SVR:{$SRC_SVR}"
+echo "check TGT_SVR:{$SRC_SVR}"
+
+set -x
 . spec/bin/all_tests_setup/common_test_env.sh
+set +x
+
 . spec/lib/common.sh
 
 #exec_cmd printf "hello there\n"
