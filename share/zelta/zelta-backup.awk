@@ -160,8 +160,9 @@ function load_properties(ep,		_ds, _cmd_arr, _cmd, _ds_suffix, _idx, _seen) {
 		}
 		else if ($0 ~ COMMAND_ERRORS) {
 			close(_zfs_get_command)
-			report(LOG_ERROR, $0)
-			stop(1, "invalid endpoint '"Opt[ep "_ID"]"'")
+			#stop(1, "endpoint unreachable '"Opt[ep "_ID"]"'")
+			# ssh and other command errors and such are reasonably explicit
+			stop(1, $0)
 		}
 		else if (/dataset does not exist/) {
 			close(_zfs_get_command)
@@ -170,8 +171,7 @@ function load_properties(ep,		_ds, _cmd_arr, _cmd, _ds_suffix, _idx, _seen) {
 		else report(LOG_WARNING,"unexpected 'zfs get' output: " $0)
 	}
 	close(_cmd)
-	#DSTree[ep,"exists"] = 1
-	return 1
+	return Dataset[ep, "", "exists"]
 }
 
 
