@@ -23,10 +23,12 @@ export TGT_POOL_DEVICES
 
 ##export SRC_SVR=dever@fzfsdev:
 ##export TGT_SVR=dever@fzfsdev:
-SRC_SVR=
-TGT_SVR=
-export SRC_POOL='apool'
-export TGT_POOL='bpool'
+
+SRC_SVR="${SRC_SVR:-}"
+TGT_SVR="${TGT_SVR:-}"
+
+export SRC_POOL="${SRC_SVR}apool"
+export TGT_POOL="${TGT_SVR}bpool"
 #export TREETOP_DSN='treetop'
 #export BACKUPS_DSN='backups'
 #export SOURCE=${SRC_SVR}${SRC_POOL}/${TREETOP_DSN}
@@ -60,3 +62,4 @@ check_zfs_installed
 export PATH="${ZELTA_BIN}:$PATH"
 
 #export EXEC_CMD_QUIET=1
+
