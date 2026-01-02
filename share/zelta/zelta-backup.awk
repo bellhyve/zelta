@@ -890,9 +890,10 @@ function rename_dataset(endpoint,		_old_ds, _new_ds, _remote, _snap,
 	_snap				= Opt[endpoint"_SNAP"]
 	_latest				= Dataset[endpoint,"","latest_snapshot"]
 	_unique_name			= _snap ? _snap : _latest
+	_unique_name			= _unique_name ? _unique_name : get_snap_name()
 	# This really means, "we don't have a name"
-	if (!_unique_name)
-		stop(1, "insufficient snapshots to continue: " _old_ds)
+	#if (!_unique_name)
+	#	stop(1, "insufficient snapshots to continue: " _old_ds)
 	gsub(/@/,"_",_unique_name)
 	_new_ds				= _old_ds _unique_name
 	# Note that this is an origin dataset, not an origin snapshot
@@ -981,9 +982,10 @@ function run_rotate(		_src_ds_snap, _up_to_date, _src_origin_ds, _origin_arr, _n
 #		}
 		else if (DSTree["rotatable"])
 			report(LOG_WARNING, "insufficient snapshots; performing full backup for " _num_full_backup " datasets")
-		else
+		else {
 			report(LOG_ERROR, "target is not a replica of the source")
 			stop(1, "to perform a full backup, rename the target dataset or sync to an empty target")
+		}
 	}
 
 	#for (_i = 1; _i <= NumDS; _i++) report(LOG_DEBUG, "dataset: "_src_origin_ds DSList[_i] ":  origin: " Dataset["SRC",DSList[_i],"origin"] "  source origin match: " DSPair[DSList[_i] "source_origin_match"]  "  match:" DSPair[DSList[_i],"match"] "  can_rotate?: " Action[DSList[_i],"can_rotate"] "  explain:" explain_sync_status(DSList[_i])
