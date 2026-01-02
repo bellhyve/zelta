@@ -9,7 +9,6 @@ set +x
 
 . spec/lib/common.sh
 
-#exec_cmd printf "hello there\n"
 
 verify_root() {
     # Check if running as root
@@ -63,6 +62,5 @@ initialize_zelta_test() {
     return $SETUP_STATUS
 }
 
-if verify_root; then
-   initialize_zelta_test
-fi
+# NOTE: root is no longer required, unless there is a sloppy state left by improper sudo use
+initialize_zelta_test
