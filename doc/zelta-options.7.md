@@ -65,21 +65,10 @@ The following options are often modified for user-specific installations and tes
 # GENERAL OPTIONS
 
 **DEPTH**
-:   Limit the recursion depth of operations to the number of levels indicated. For example, a depth of 1 will only include the indicated _source_ dataset.
+:   Limit the recursion depth of operations to the number of levels indicated. For example, a depth of 1 will only include the indicated _source_ dataset. Has no effect with **REPLICATE** enabled.
 
 **EXCLUDE**
-:   Exclude a comma-delimited list of dataset suffixes anchored with a `/`, like `/dataset/suffix`, or snapshots anchored with a `@`, like `@snapshot`. Wild card matches with `?` and `*` are permitted.
-
-    Given a _source_ endpoint `sink` and the setting `EXCLUDE='/*/swap,#*,@*_hourly,/temp'`:
-
-    `@*_hourly`
-    :    All snapshots ending with `_hourly` would be excluded as sync candidates.
-
-    `/*/swap`
-    :    All datasets ending with `/swap` will be ignored.
-
-    `/temp`
-    :    The `sink/temp` dataset will be ignored; however a `sink/ds/temp` would still be synced.
+:    Exclude datasets or source snapshots matching the specified exclusion pattern. See _EXCLUSION PATTERNS_ below.
 
 # ZELTA MATCH OPTIONS
 
@@ -104,7 +93,7 @@ The following options are often modified for user-specific installations and tes
 :   Override all `zfs send` options with those indicated. For precise and flexible configuration for different circumstances, use the `SEND_*` variables below instead.
 
 **SEND_DEFAULT**
-:   Options used for unencrpyted filesystems and volumes. Defaults to `-Lce`.
+:   Options used for unencrypted filesystems and volumes. Defaults to `-Lce`.
 
 **SEND_RAW**
 :   Options used for encrypted datasets. Defaults to `-Lw`.
@@ -116,7 +105,7 @@ The following options are often modified for user-specific installations and tes
 :   Toggle option to transmit intermediate snapshots (`1`, the default) or incremental (`0`).
 
 **SEND_REPLICATE**
-:   Options to use in `zelta replicate` mode. Defaults to `-LsRw1`.
+:   Options to use in `zelta backup -R` mode. Defaults to `zfs send -LsRw`.
 
 **SEND_CHECK**
 :   Attempt to drop unsupported `zfs send` options using a no-op test prior to replication. This feature is not fully implemented.
@@ -162,6 +151,7 @@ The following options are often modified for user-specific installations and tes
 :   Options for recursive cloning. Defaults to `-po readonly=off`.
 
 # POLICY OPTIONS
+The following options only effect `zelta policy` operations.
 
 **RETRY**
 :   Retry failed syncs the indicated number of times.
@@ -175,11 +165,80 @@ The following options are often modified for user-specific installations and tes
 **ARCHIVE_ROOT**
 :   NOT YET IMPLEMENTED. The relative target path used for rotated clones.
 
-**HOST_PREFIX**
-:   Include the source hostname as a parent of the synced target, for example, `tank/Backups/source.host/backup-dataset`.
+**ADD_HOST_PREFIX**
+:   Include the source hostname as a parent of the synced target.
+- Example: Source `web1:sink/dataset` with `BACKUP_ROOT: tank/backups` becomes `tank/backups/web1/dataset`.
 
-**DS_PREFIX**
-:   Similar to `zfs recv -d` and `-e`, include the indicated number of parent labels for the target's synced name. See **zelta-backup(8)** for more detail.
+**ADD_DATASET_PREFIX**
+:   Similar to `zfs recv -d`, include the indicated number of parent dataset labels for the `BACKUP_ROOT`'s (or specified target's) name. If set to `-1` all labels up to the pool name will be attached to the target name.
+- Example: Source `web1:sink/source/dataset` with `BACKUP_ROOT: tank/backups`:
+  - `0`: `tank/backups/dataset`
+  - `1`: `tank/backups/source/dataset`
+  - `-1`: `tank/backups/sink/source/dataset`
+- **ADD_HOST_PREFIX** stacks with **ADD_DATASET_PREFIX**. With both enabled, the hostname is prepended first: `tank/backups/web1/source/dataset`.
+
+# EXCLUSION PATTERNS
+
+The EXCLUDE option, or the arguments **\--exclude** or **-X**, contain a comma separated list of patterns to exclude datasets or source snapshots from operations.
+
+## Pattern Types
+
+**Absolute Dataset Path**
+:   Similar to **zfs send \--exclude**, exclude the named source dataset from operations.
+
+    Example: `tank/vm/swap` excludes only that specific dataset.
+
+**Relative Dataset Path**
+:   Prefix with `/` to exclude the dataset suffix relative to the given dataset name.
+
+    Example: Given the dataset `sink/swap` and the pattern `/swap`: `sink/swap` will be excluded, but `sink/vm/swap` will **not** be excluded.
+
+**Dataset Pattern**
+:   Use glob-like matching of `*` (zero or more characters) or `?` (single character). Relative paths must begin with `/`.
+
+    Examples, given the given _source_ of `sink/data`:
+
+    - `/*/swap` would exclude `sink/data/one/swap` and `sink/data/two/swap` but **not** `sink/data/swap`
+    - `/vm-*` would exclude `sink/data/vm-one` and its descendants, but **not** `sink/data/vm/one`
+    - `/test?` would exclude `sink/data/test1` but **not** `sink/data/test15`
+
+**Snapshot Name**
+:   Match snapshots by name. Prefix with `@` to indicate a snapshot.
+
+    Example: `@manual-backup` excludes any snapshot named `manual-backup`.
+
+**Snapshot Pattern**
+:   Use glob-like matching of `*` (zero or more characters) or `?` (single character). Snapshot names must begin with `@`.
+
+    Examples:
+
+    - `@*_hourly` excludes snapshots ending in `_hourly`
+    - `@snap-2024*` excludes snapshots beginning with `snap-2024`
+    - `@auto-*00??` excludes snapshots beginning with `auto-` and ending with 00 and two of any character
+
+### Exclusions Quick Reference
+
+| Pattern Type | Example | Matches |
+|--------------|---------|---------|
+| Absolute dataset | `tank/vm/swap` | Exact dataset only |
+| Relative dataset | `/swap` | Dataset ending in `/swap` |
+| Dataset wildcard | `/vm-*` | Datasets matching pattern |
+| Snapshot name | `@manual-backup` | Exact snapshot name |
+| Snapshot wildcard | `@*_hourly` | Snapshots matching pattern |
+
+## Behavior Notes
+
+**Datasets**
+
+If a dataset's parent is excluded from a full backup operation, the child cannot be backed up.
+
+**Snapshots**
+
+For incremental replication, at least one common snapshot must remain between source and target. Therefore, snapshot exclusion logic is only meaningful when applied to incremental source snapshots in incremental mode (**SEND_INTR=0** or **-i**). For example, snapshot exclusion is useful for skipping hourly snapshots and but updating dailies.
+
+- Excluding a target's most recent snapshot will cause an incremental to fail
+- In intermediate mode (the default), intermediate snapshots will still be included
+- Bookmark exclusions are not supported as they serve only as replication sources
 
 # EXAMPLES
 Set options via environment for a one-off run:

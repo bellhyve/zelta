@@ -22,8 +22,8 @@ pool.
 The mountpoint will be inherited below the target parent (as provided by
 \f[CR]zfs clone\f[R]).
 The \f[I]target\f[R] dataset must not exist.
-To create a clone on a remote host ensure the endpoints are identical
-including the username and hostname used:
+To create a clone on a remote host ensure the \f[I]source\f[R] and
+\f[I]target\f[R] are identical including the username and hostname used:
 .PP
 Example remote operation:
 .IP
@@ -45,7 +45,7 @@ This dataset must not exist.
 .PP
 \f[B]Logging Options\f[R]
 .TP
-\f[B]\-n, \(endryrun\f[R]
+\f[B]\-n, \-\-dryrun\f[R]
 Don\(cqt clone, but show the \f[CR]zfs clone\f[R] commands that would be
 executed.
 .TP
@@ -57,14 +57,14 @@ Increase verbosity.
 .PP
 \f[B]Dataset and Snapshot Options\f[R]
 .TP
-\f[B]\(ensnapshot\-always\f[R]
+\f[B]\-\-snapshot\-always\f[R]
 Ensure a snapshot before cloning.
 .TP
-\f[B]\(ensnapshot\-name\f[R]
+\f[B]\-\-snapshot\-name\f[R]
 Specify a snapshot name.
 See \f[CR]zelta.env.example\f[R] to adjust the default naming scheme.
 .TP
-\f[B]\-d \f[BI]depth\f[B], \(endepth \f[BI]depth\f[B]\f[R]
+\f[B]\-d \f[BI]depth\f[B], \-\-depth \f[BI]depth\f[B]\f[R]
 Limits the depth of all Zelta operations.
 .SH EXAMPLES
 \f[B]Clone a dataset tree:\f[R]
@@ -92,9 +92,6 @@ zelta(8), zelta\-backup(8), zelta\-match(8), zelta\-options(8),
 zelta\-policy(8), zelta\-revert(8), zelta\-rotate(8), zelta\-sync(8),
 cron(8), ssh(1), zfs(8), zfs\-clone(8), zfs\-promote(8)
 .SH AUTHORS
-Daniel J. Bell \f[I]\c
-.MT bellta@belltower.it
-.ME \c
-\f[R]
+Daniel J. Bell <\f[I]bellhyve\(atzelta.space\f[R]>
 .SH WWW
 https://zelta.space

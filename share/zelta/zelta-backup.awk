@@ -68,7 +68,7 @@ function usage(message,		_ep_spec, _verb, _clone, _revert) {
         print "  -q, -qq                    Suppress warnings/errors"          > STDERR
         print "  -j, --json                 JSON output"                       > STDERR
 	if (!_revert) {
-		print "  --snapshot-always          Always create snapshot"    > STDERR
+		print "  --snapshot                 Always create snapshot"    > STDERR
 		print "  --snap-name NAME           Set snapshot name"         > STDERR
 	}
 	if (!_clone) {
@@ -76,11 +76,9 @@ function usage(message,		_ep_spec, _verb, _clone, _revert) {
 		if (_verb == "backup")
 			print "  -i, --incremental          Incremental sync"  > STDERR
 		print "  -d, --depth NUM            Set max dataset depth"     > STDERR
-		print "  [zelta opts] [zfs opts]    See: zelta " _verb " help" > STDERR
 	}
 
 	print "\nFor complete documentation:  zelta help " _verb               > STDERR
-	print "                             zelta help options"                    > STDERR
 	print "                             https://zelta.space"               > STDERR
 
 	exit 1
@@ -162,8 +160,9 @@ function load_properties(ep,		_ds, _cmd_arr, _cmd, _ds_suffix, _idx, _seen) {
 		}
 		else if ($0 ~ COMMAND_ERRORS) {
 			close(_zfs_get_command)
-			report(LOG_ERROR, $0)
-			stop(1, "invalid endpoint '"Opt[ep "_ID"]"'")
+			#stop(1, "endpoint unreachable '"Opt[ep "_ID"]"'")
+			# ssh and other command errors and such are reasonably explicit
+			stop(1, $0)
 		}
 		else if (/dataset does not exist/) {
 			close(_zfs_get_command)
@@ -172,8 +171,7 @@ function load_properties(ep,		_ds, _cmd_arr, _cmd, _ds_suffix, _idx, _seen) {
 		else report(LOG_WARNING,"unexpected 'zfs get' output: " $0)
 	}
 	close(_cmd)
-	#DSTree[ep,"exists"] = 1
-	return 1
+	return Dataset[ep, "", "exists"]
 }
 
 
@@ -444,7 +442,7 @@ function should_snapshot() {
 	else if (DSTree["snapshot_needed"] == SNAP_MISSING)
 		return "missing source snapshot; snapshotting: "
 	else if (DSTree["snapshot_needed"] == SNAP_LATEST)
-		return "action requires a target delta; snapshotting: "
+		return "action requires a snapshot delta; snapshotting: "
 	else return 0
 }
 
@@ -633,7 +631,9 @@ function validate_datasets(	_verb, _src_only, _cloners, _pv_fd) {
 	load_endpoint(Operands[2], Target)
 
 	# Check command line
-	if (!NumOperands)
+	if (Opt["USAGE"])
+		usage()
+	else if (!NumOperands)
 		usage("no endpoints given")
 	else if (NumOperands > 2)
 		usage("too many operands: " Operands[3])
@@ -975,20 +975,18 @@ function run_rotate(		_src_ds_snap, _up_to_date, _src_origin_ds, _origin_arr, _n
 		if (_up_to_date)
 			stop(1, "replica is up-to-date; source snapshot required for rotation: " Opt["SRC_DS"])
 		# If any single item is rotateable, warn that some snapshots require full restoration
-		else if (DSTree["rotatable"]) {
-			report(LOG_WARNING, "insufficient snapshots; performing full backup for " _num_full_backup " datasets")
+		else if (!DSPair["","match"]) {
+			report(LOG_ERROR, "to perform a full backup, rename the target dataset or sync to an empty target")
+			stop(1, "top source dataset '" Opt["SRC_DS"] "' or its origin must match the target for rotation to continue")
 		}
-		# If incrementals cannot be used, warn that we're actually just doing a rename+full sync
+		else if (DSTree["rotatable"])
+			report(LOG_WARNING, "insufficient snapshots; performing full backup for " _num_full_backup " datasets")
+		# The following state may be impossible
 		else
-			report(LOG_WARNING, "no common snapshots in '"Opt["SRC_DS"]"' or its origin; performing full backup")
+			stop(1, "rotation not possible")
 	}
 
 	#for (_i = 1; _i <= NumDS; _i++) report(LOG_DEBUG, "dataset: "_src_origin_ds DSList[_i] ":  origin: " Dataset["SRC",DSList[_i],"origin"] "  source origin match: " DSPair[DSList[_i] "source_origin_match"]  "  match:" DSPair[DSList[_i],"match"] "  can_rotate?: " Action[DSList[_i],"can_rotate"] "  explain:" explain_sync_status(DSList[_i])
-
-	if (!DSPair["","match"]) {
-		report(LOG_ERROR, "to perform a full backup, rename the target dataset or sync to an empty target")
-		stop(1, "top source dataset '" Opt["SRC_DS"] "' or its origin must match the target for rotation to continue")
-	}
 
 	# Rename target dataset
 	_target_origin = rename_dataset("TGT")
@@ -1122,6 +1120,8 @@ BEGIN {
 	DSTree["target_pool"] = _tgt_ds_tree[1]
 	if (Opt["SNAP_MODE"] == "ALWAYS")
 		DSTree["snapshot_needed"]	= SNAP_ALWAYS
+	if (Opt["VERB"] == "REPLICATE")
+		Opt["DEPTH"] = 1
 
 	validate_datasets()
 	validate_snapshots()

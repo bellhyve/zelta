@@ -1,167 +1,290 @@
 % zelta-backup(8) | System Manager's Manual
 
 # NAME
-**zelta backup**, - replicate ZFS dataset trees
+
+**zelta backup** - replicate a ZFS dataset tree
 
 # SYNOPSIS
+
 **zelta backup** [_OPTIONS_] _source_ _target_
 
 # DESCRIPTION
-**zelta backup** recursively syncs snapshots from a _source_ ZFS dataset to a _target_ dataset. Both _source_ and _target_ may be local or remote via **ssh(1)**.
 
-Backups are optimized for complete, safe replication including syncing all snapshots for new backups and intermediate snapshots when updating existing replicas. As with `zfs recv`, the _target_ dataset must be a replica of the _source or must not exist.
+**zelta backup** recursively replicates snapshots from a _source_ ZFS dataset to a _target_ dataset. Both _source_ and _target_ may be local or remote via **ssh(1)**.
 
-Prior to sync, `zelta backup` performs the following operations to ensure optimal `zfs send/zfs recv` options are automatically selected.
+As with other Zelta commands, **zelta backup** works recursively on a dataset tree. The _target_ dataset must be a replica of the _source_ or must not exist.
 
-    • The properties of the _source_ and _target_ are checked using `zfs get`.
-    • If the _target_ dataset's parent does not exist, it will be created with `zfs create`.
-    • Using `zelta match`, a snapshot GUID comparison is performed with `zfs list`.
-    • One or more `zfs send/zfs recv` operations will be performed to update the _target_.
+Prior to replication, **zelta backup** analyzes both source and target to automatically select optimal `zfs send` and `zfs recv` options. This process includes property inspection, parent dataset creation if needed, snapshot GUID comparison via **zelta match**, and one or more send/recv operations to update the target.
 
-The following `zfs send` options will be automatically applied to the _source_:
+## Replication Process
 
-    • Default: --large-block, --compressed, --embed
-    • Encrypted Datasets: --large-block, --raw
-    • Replicate Mode: --replicate, --large-block, --raw, --skip-missing
-    • New/full syncs also use --props
+**zelta backup** performs these operations:
 
-To ensure safe and repeatable syncs, the following options are applied to the _target_:
+1. **Property Analysis**: Source and target properties are checked using `zfs get` to detect encryption, written state, and other features.
+2. **Parent Creation**: If the target dataset's parent does not exist, it will be created with `zfs create`.
+3. **Snapshot Comparison**: Using **zelta match**, a snapshot GUID comparison is performed with `zfs list` to identify matching snapshots and determine the optimal replication strategy.
+4. **Snapshot Creation**: If the source has uncommitted changes and no recent snapshot exists, a new snapshot is created (unless `--no-snapshot` is specified).
+5. **Incremental Sync**: One or more `zfs send/zfs recv` operations are performed to update the target, using incremental sends when possible.
 
-    • The property `readonly=on` is set on the topmost dataset requestsed
-    • Synced filesystems are not mounted
-    • On newly backed up filesystems, property `canmount=noauto` is set
-    • On newly backed up filesystems, mountpoints are inherited to prevent overlapping mounts
+## Send Options
 
-Remote dataset endpoints follow **scp(1)** conventions: [user@]host:[dataset], and require standard ZFS utilities and SSH access. Note that Zelta does **not** need to be installed on remote ZFS servers.
+The following `zfs send` options are applied based on dataset properties:
+
+- **Default**: `--large-block`, `--compressed`, `--embed`
+- **Encrypted Datasets**: `--large-block`, `--raw`
+- **New/Full Syncs**: Also includes `--props`
+- **Replicate Mode** (`-R`): `--replicate`, `--large-block`, `--raw`, `--skip-missing`
+
+## Target Safety Features
+
+To ensure safe and repeatable replication, the following measures are applied to the target:
+
+- The property `readonly=on` is set on the topmost dataset requested
+- Synced filesystems are not mounted on the _target_ during replication
+- On newly backed up filesystems, property `canmount=noauto` is set
+- On newly backed up filesystems, mountpoints are inherited to prevent overlapping mounts
+
+## Source and Target Endpoints
+
+Remote dataset endpoint names follow **scp(1)** conventions and require standard ZFS utilities and SSH access. Note that Zelta does **not** need to be installed on remote ZFS servers.
 
 Examples:
 
-    Local:  zpool/dataset@snapshot
-    Remote: user@example.com:zpool/dataset@snapshots
-
+    Local:  pool/dataset
+    Local:  pool/dataset@snapshot
+    Remote: user@example.com:pool/dataset
+    Remote: user@example.com:pool/dataset@snapshot
 
 # OPTIONS
 
-**Endpoint Options (Required)**
-If both endpoints are remote, the default behavior will be a **pull replication** (`\--pull`). This requires that the _target_ user must have ssh access to the _source_, typically provided by using an `ssh` key or agent forwarding. For help with advanced `ssh` configuration, see the _https://zelta.space_ wiki.
+## Endpoint Arguments (Required)
+
+If both endpoints are remote, the default behavior is **pull replication** (`--pull`). This requires that the _target_ user have ssh access to the _source_, typically provided by ssh keys or agent forwarding. For advanced ssh configuration, see _https://zelta.space_.
 
 _source_
 : The dataset to replicate. If a snapshot is specified, replication will sync up to that snapshot.
 
 _target_
-:    The dataset which will be updated.
+: The dataset which will be updated.
 
 **Output Options**
 
 **-v, \--verbose**
-:    Increase verbosity. Specify once for operational detail, twice (`-vv`) for debug output.
+: Increase verbosity. Specify once for operational detail, twice (`-vv`) for debug output.
 
 **-q, \--quiet**
-:    Quiet output. Specify once to suppress warnings, twice (`-qq`) to suppress errors.
-
-**-n, \--dryrun, \--dry-run**
-:    Display `zfs` commands without executing them.
-
-**-d, \--depth** _LEVELS_
-:    Limit recursion depth. For example, a depth of 1 includes only the specified dataset.
-
-**\--exclude, -X** _PATTERN_
-:    Exclude /dataset/suffix, @snapshot, or #bookmark beginning with the indicated symbol. Wildcards `?` and `*` are permitted. See **zelta-match(8)**.
+: Quiet output. Specify once to suppress warnings, twice (`-qq`) to suppress errors.
 
 **-j, \--json**
-:    Print JSON output. See **zelta-options(8)** for details.
+: Output results in JSON format. See **zelta-options(8)** for details.
 
-**Connection Options**
+**-n, \--dryrun, \--dry-run**
+: Display `zfs` commands without executing them.
 
-**\--push,\--pull,\--sync-direction** _DIRECTION_
-:    When both endpoints are remote, use `PULL` (default) or `PUSH` sync direction.
+## Connection Options
+
+**\--push, \--pull, \--sync-direction** _DIRECTION_
+: When both endpoints are remote, use `PULL` (default) or `PUSH` sync direction.
 
 **\--recv-pipe** _COMMAND_
-:    Pipe `zfs receive` output through the indicated command, such as `dd status=progress`.
+: Pipe `zfs receive` output through the indicated command, such as `dd status=progress`.
 
-**Snapshot Options**
+## Dataset Options
+
+**-d, \--depth** _LEVELS_
+: Limit recursion depth. For example, a depth of 1 includes only the specified dataset.
+
+**\--exclude, -X** _PATTERN_
+: Exclude /dataset/suffix, @snapshot, or #bookmark beginning with the indicated symbol. Wildcards `?` and `*` are permitted. See **zelta-match(8)**.
+
+## Snapshot Options
 
 **\--no-snapshot**
-:    Do not snapshot.
+: Do not create snapshots. If a snapshot is needed for replication, the operation will fail.
 
-**\--snapshot-always**
-:    Snapshot even if the _source_ has no written data in need of one.
+**\--snapshot, \--snapshot-always**
+: Force snapshot creation even if the source has no uncommitted changes.
 
 **\--snap-name** _NAME_
-:    Specify snapshot name. Use `$(command)` for dynamic generation. Default: `$(date -u +zelta_%Y-%m-%d_%H.%M.%S)`.
+: Specify snapshot name. Use `$(command)` for dynamic generation. Default: `$(date -u +zelta_%Y-%m-%d_%H.%M.%S)`.
 
 **\--snap-mode** _MODE_
-:    Specify when to snapshot: `0` (never), `IF_NEEDED` (default, only if source has new data), or `ALWAYS`.
+: Specify when to snapshot: `NEVER` (or `0`), `IF_NEEDED` (default, only if source has new data or no recent snapshot), or `ALWAYS`.
 
-**Sync Options**
+## Sync Options
 
-**\--send-check**
-:    Attempt to drop unsupported `zfs send` options using a no-op test prior to replication. Not fully implemented.
-
-**\--rotate**
-:    Rename the target dataset and sync a clone via delta from the source or source origin clone. See **zelta help rotate**.
-
-**-R,\--replicate**
-:    Use **zfs send \--replicate** instead of Zelta's per-snapshot analysis.
+**-R, \--replicate**
+: Use `zfs send --replicate` instead of Zelta's per-snapshot analysis. This sends all snapshots, bookmarks, and properties in a single process but provides less granular control over send options.
 
 **-I**
-:    Sync all possible source snapshots using `zfs send -I` for updates. This is the default behavior. See **-i** to disable this behavior.
+: Sync all intermediate source snapshots using `zfs send -I` for updates. This is the default behavior. See **-i**.
 
-**\--resume,\--no-resume**
+**-i, \--incremental**
+: Sync only the latest snapshot, skipping any intermediate snapshots. For full backups only the latest snapshot will be sent. For incremental backups, `zfs send -i` will be used.
 
-**-i**
-:    Sync only the latest snapshot, skipping any intermediate snapshots. For full backups only the latest snapshot will be sent. For incremental backups, `zfs send -i` will be used. This behavior is the default if the **zelta sync** verb is used.
+**\--resume, \--no-resume**
+: Enable (default) or disable automatic resume of interrupted syncs.
 
-**\--resume,\--no-resume**
-:    Enable (default) or disable automatic resume of interrupted syncs.
+## Advanced Override Options
 
-**Override Options**
-As a convenience feature, all options for `zfs send` and/or `zfs recv` may be overridden. In most circumstances, these defaults should be overridden in `zelta.env`. See `zelta help options` for more details.
+**WARNING:** These options override Zelta's automatic safety and efficiency logic. Incorrect usage can result in target data loss or decrypted backup streams. Use only when you understand the implications.
 
-**-b,\--backup,-c,\--compressed,-D,\--dedup,-e,\--embed,-h,\--holds,-L,\--largeblock,-p,\--parsable,\--proctitle,\--props,\--raw,\--skipmissing,-V,-w**
-:    Override default `zfs send` options. For precise configuration, use `ZELTA_SEND_*` environment variables instead. See **zelta-options(8)**.
+Zelta automatically applies non-destructive and efficient `zfs send` and `zfs recv` options based on dataset type and context. These defaults can be modified three ways:
 
-**-e,-h,-M,-u**
-:    Override default `zfs receive` options. For precise configuration, use `ZELTA_RECV_*` environment variables instead. See **zelta-options(8)**.
+1. **Granular Override Options** — Override specific contexts (encrypted vs unencrypted, filesystem vs volume, etc.)
+2. **Dataset Tree Override Options** — Replace all `zfs send` or `zfs recv` options for an entire backup job
+3. **Pass-Through Override Flags** — Directly pass unambiguous `zfs send` or `zfs recv` flags
 
+**Most Common Use Case: Recompress Backups**
 
-# NOTES
-See **zelta-options(8)** for more information about options that can be configured via the environment, `zelta.env`, and `zelta policy`.
+Typically, users adjust Zelta options because they would like to aggressively compress data on their backup endpoints. This is best done with the `--send-default` and `--recv-default` flags, which will not prevent Zelta from sending encrypted backups in raw (encrypted) format:
+```
+zelta backup --send-default -Le --recv-default '-o compression=zstd-5' source backup
+```
 
-The `zelta sync` command is a convenience alias for `zelta backup -i` and may be extended in future versions with additional optimizations for continuous replication workflows.
+All overrides can also be configured globally in `zelta.env` or per-job via `zelta.conf`.
+
+### Important: Options with Special Handling
+
+Several `zfs send` and `zfs recv` options have special meaning in Zelta and should generally **not** be included in override strings:
+
+**Zelta uses these internally:**
+- `zfs send --parsable (-P)` — Used for progress tracking
+- `zfs recv -v` — Used for operational feedback
+
+**These have Zelta-specific behavior (see OPTIONS above):**
+- `-I` and `-i` — Control incremental behavior; use the flags documented above instead
+- `--exclude, -X` — Has additional Zelta functionality beyond the `zfs send` version
+- `--dryrun, -n` — Shows commands that would run; handled by Zelta
+- `-t` — Used automatically for resume tokens
+
+**Not supported:**
+- `zfs send -S` — Unsupported
+- `zfs recv -A` — Should be used manually when needed
+
+### Granular Override Options
+
+For precise control in a dataset tree with mixed types, override specific contexts. These options are **cumulative**—for example, a filesystem receive will combine options from `--recv-default`, `--recv-top` (if applicable), and `--recv-fs`.
+
+**--send-default** *"OPTIONS"*
+: `zfs send` options for **unencrypted** datasets (default: `-Lce`)
+
+**--send-raw** *"OPTIONS"*
+: `zfs send` options for **encrypted** datasets (default: `-Lw`)
+
+**--send-new** *"OPTIONS"*
+: Additional `zfs send` options during full (non-incremental) backups (default: `-p`)
+
+**--recv-default** *"OPTIONS"*
+: `zfs recv` options for all datasets (none by default)
+
+**--recv-top** *"OPTIONS"*
+: Additional `zfs recv` options for the topmost dataset only (default: `-o readonly=on`)
+
+**--recv-fs** *"OPTIONS"*
+: Additional `zfs recv` options for filesystem datasets (default: `-u -o canmount=noauto -x mountpoint`)
+
+**--recv-vol** *"OPTIONS"*
+: Additional `zfs recv` options for volume datasets (default: `-o volmode=none`)
+
+**Examples:**
+```
+# Allow target to recompress unencrypted data
+zelta backup --send-default "-Le" source target
+
+# Change volume mode on target
+zelta backup --recv-vol "-o volmode=dev" source target
+
+# Avoid mountpoint permission issues on some systems
+zelta backup --recv-fs "-o mountpoint=none" source target
+```
+
+### Dataset Tree Override Options
+
+These options **replace all context-specific defaults** for an entire backup job. Use when you need complete control over a specific command.
+
+**--send-override** *"OPTIONS"*
+: Override all default `zfs send` options
+
+**--recv-override** *"OPTIONS"*
+: Override all default `zfs recv` options
+
+**Example:**
+```
+# Use minimal `zfs send` to send uncompressed (**and decrypted!**) streams and recompress aggressively on the target
+zelta backup --send-override "-L" --recv-override "-o compression=zstd-5" source target
+```
+
+### Pass-Through Override Flags
+
+If **any** pass-through flag is specified, it replaces **all** automatic options for that command. For example, specifying `-L` alone means `zfs send` will receive **only** `-L`—no compression, no embedded data, no properties.
+
+The following unambiguous `zfs send` and `zfs recv` flags are passed through directly:
+
+**zfs send:** `-b, --backup, --embed, --holds, -L, --largeblock, --proctitle, --props, --raw, --skipmissing, -V, -w`
+
+**zfs recv:** `-F, -M, -u`
+
+**Ambiguous or unsupported flags:**
+- Single-dash options with multiple meanings are **not supported**: `-c, -d, -e, -h, -s`
+- Options with Zelta-specific handlers (see above): `-I, -i, -R, -X, -n`
+
+**Example:**
+```
+# Recompress at target with zstd-5
+# WARNING: This disables encrypted sends!
+zelta backup -L --recv-override "-o compression=zstd-5" source target
+```
+
+**When in doubt, use the granular override options instead.**
 
 # EXAMPLES
+
 The same command works for both new and existing target datasets.
 
 Local replication with automatic snapshot creation:
 
-    zelta backup tank/source/dataset tank/target/dataset
+    zelta backup sink/source/dataset tank/target/dataset
 
 Remote to local synchronization:
 
-    zelta backup remote_host:tank/source/dataset tank/target/dataset
+    zelta backup remote_host:sink/source/dataset tank/target/dataset
 
 Dry run to preview commands:
 
-    zelta backup -n tank/source/dataset tank/target/dataset
+    zelta backup -n sink/source/dataset tank/target/dataset
 
 Replicate with custom snapshot naming:
 
     zelta backup \--snap-name "backup_$(date +%Y%m%d)" \
-        tank/source tank/backups/source
+        sink/source/dataset tank/backups/source/dataset
+
+Incremental sync, skipping intermediate snapshots:
+
+    zelta backup -i sink/source tank/target
 
 Limit recursion depth:
 
-    zelta backup -d 2 tank/source tank/target
+    zelta backup -d 2 sink/source tank/target
 
 # EXIT STATUS
+
 Returns 0 on success, non-zero on error.
 
+# NOTES
+
+See **zelta-options(8)** for environment variables, `zelta.env` configuration, and `zelta policy` integration.
+
+The `zelta sync` command is a convenience alias for `zelta backup -i` and may be extended in future versions with additional optimizations for continuous replication workflows.
+
 # SEE ALSO
-zelta(8), zelta-options(7), zelta-match(8), zelta-policy(8), zelta-clone(8),  zelta-revert(8), zelta-rotate(8), ssh(1), zfs(8)
+
+zelta(8), zelta-options(7), zelta-match(8), zelta-policy(8), zelta-clone(8), zelta-revert(8), zelta-rotate(8), ssh(1), zfs(8), zfs-send(8), zfs-receive(8)
 
 # AUTHORS
+
 Daniel J. Bell <_bellhyve@zelta.space_>
 
 # WWW
+
 https://zelta.space
