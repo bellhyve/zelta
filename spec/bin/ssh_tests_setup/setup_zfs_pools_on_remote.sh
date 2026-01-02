@@ -1,6 +1,19 @@
 #!/bin/sh
 set -e
 
+# This scripts runs as ssh on the designated remote host
+# and there is no environment set. We make the current directory
+# the location of the git clone for zelta
+cd_to_git_clone_dir() {
+    script_dir=$(cd "$(dirname "$0")" && pwd)
+    parent_dir=$(dirname "$script_dir")
+    cd "$parent_dir/../.." || exit 1
+    cur_dir=$(pwd)
+    echo "git zelta clone directory is: {$cur_dir}"
+}
+
+cd_to_git_clone_dir
+
 cat <<EOF
 === Zelta Test Suite ===
 

@@ -19,5 +19,5 @@ NOTE: This test suite requires temporary root access for:
 
 EOF
 
-sudo spec/bin/one_time_setup/setup_sudoers.sh
+spec/bin/one_time_setup/setup_sudoers.sh
 

@@ -1,5 +1,7 @@
 #!/bin/sh
 
+. spec/bin/all_tests_setup/common_test_env.sh
+
 # pull down zelta from github
 ssh ${BACKUP_USER}@${REMOTE_TEST_HOST} << EOF
 set -x
@@ -14,14 +16,15 @@ set +x
 EOF
 
 # scripts
-onetime_setup=${ZELTA_GIT_CLONE_DIR}/test/one_time_test_env_setup.sh
+#onetime_setup=${ZELTA_GIT_CLONE_DIR}/test/one_time_test_env_setup.sh
+onetime_setup=${ZELTA_GIT_CLONE_DIR}/spec/bin/one_time_setup/setup_sudoers.sh
 setup_pools=${ZELTA_GIT_CLONE_DIR}/spec/bin/ssh_tests_setup/setup_zfs_pools_on_remote.sh
 
 # update sudo
-ssh -t ${BACKUP_USER}@${REMOTE_TEST_HOST}:"$onetime_setup"
+ssh -t ${BACKUP_USER}@${REMOTE_TEST_HOST} sudo "${onetime_setup}"
 
 # create pools
-ssh -t ${BACKUP_USER}@${REMOTE_TEST_HOST}:"$setup_pools"
+ssh -t ${BACKUP_USER}@${REMOTE_TEST_HOST} sudo "${setup_pools}"
 
 
 

@@ -1,5 +1,18 @@
 #!/bin/sh
 
+# This scripts runs as ssh on the designated remote host
+# and there is no environment set. We make the current directory
+# the location of the git clone for zelta
+cd_to_git_clone_dir() {
+    script_dir=$(cd "$(dirname "$0")" && pwd)
+    parent_dir=$(dirname "$script_dir")
+    cd "$parent_dir/../.." || exit 1
+    cur_dir=$(pwd)
+    echo "git zelta clone directory is: {$cur_dir}"
+}
+
+cd_to_git_clone_dir
+
 . spec/bin/all_tests_setup/common_test_env.sh
 
 echo "Setting sudo for backup user {$BACKUP_USER}"
@@ -20,12 +33,14 @@ case "$os_name" in
         zpool_path="/usr/sbin/zpool"
         mount_path="/usr/bin/mount"
         mkdir_path="/usr/bin/mkdir"
+        sudoers_dir="/etc/sudoers.d"
         ;;
     freebsd)
         zfs_path="/sbin/zfs"
         zpool_path="/sbin/zpool"
         mount_path="/sbin/mount"
         mkdir_path="/bin/mkdir"
+        sudoers_dir="/usr/local/etc/sudoers.d"
         ;;
     *)
         echo "Unsupported OS: $os_name" >&2
@@ -38,7 +53,7 @@ setup_script="${ZELTA_DEV_PATH}/spec/bin/ssh_tests_setup/setup_zfs_pools_on_remo
 sudoers_entry="${BACKUP_USER} ALL=(ALL) NOPASSWD: ${zpool_path}, ${zfs_path}, ${mount_path}, ${mkdir_path}, ${setup_script}"
 
 # Sudoers file location
-sudoers_file="/etc/sudoers.d/zelta-${BACKUP_USER}"
+sudoers_file="$sudoers_dir/zelta-${BACKUP_USER}"
 
 # Check if running as root
 if [ "$(id -u)" -ne 0 ]; then
