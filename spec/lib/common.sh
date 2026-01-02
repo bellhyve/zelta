@@ -67,6 +67,7 @@ setup_freebsd_zfs_allow() {
 setup_linux_env() {
     setup_linux_zfs_allow
     export POOL_TYPE="$LOOP_DEV_POOL"
+    export ZELTA_AWK=mawk
 }
 
 setup_freebsd_env() {
