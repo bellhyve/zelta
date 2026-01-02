@@ -41,6 +41,17 @@ exec_cmd() {
     fi
 }
 
+exec_on() {
+    local server="$1"
+    shift
+
+    if [ -n "$server" ]; then
+        ssh "$server" "$@"
+    else
+        "$@"
+    fi
+}
+
 
 setup_linux_zfs_allow() {
     export SRC_ZFS_CMDS="send,snapshot,hold,bookmark,create,readonly,receive,volmode,mount,mountpoint,canmount"
