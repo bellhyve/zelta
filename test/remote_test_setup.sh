@@ -19,5 +19,5 @@ NOTE: This test suite requires temporary root access for:
 
 EOF
 
-spec/bin/one_time_setup/setup_sudoers.sh
+spec/bin/ssh_tests_setup/setup_remote_host_test_env.sh
 
