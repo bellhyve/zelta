@@ -845,7 +845,7 @@ function run_zfs_sync(ds_suffix,		_cmd, _stream_info, _message, _ds_snap, _size,
 
 ## Construct replication commands
 function get_sync_command(ds_suffix,		_src_idx, _tgt_idx, _cmd, _zfs_send, _zfs_recv,
-			  			_orechestrate, _push, _pull) {
+			  			_orchestrate, _push, _pull) {
 	_src_idx = "SRC" SUBSEP ds_suffix
 	_tgt_idx = "TGT" SUBSEP ds_suffix
 	_orchestrate = (Opt["SRC_REMOTE"] && Opt["TGT_REMOTE"])
@@ -854,8 +854,8 @@ function get_sync_command(ds_suffix,		_src_idx, _tgt_idx, _cmd, _zfs_send, _zfs_
 
 	# If both remotes are the same, it's either local or 'hairpin'
 	if (Opt["SRC_REMOTE"] == Opt["TGT_REMOTE"]) {
-		_zfs_send 		= create_send_command(ds_suffix, _src_idx, "SRC")
-		_zfs_recv		= create_recv_command(ds_suffix, _src_idx, "TGT")
+		_zfs_send 		= create_send_command(ds_suffix, _src_idx)
+		_zfs_recv		= create_recv_command(ds_suffix, _src_idx)
 		_cmd			=  "{ " _zfs_send "|" _zfs_recv " ; }"
 		if (Opt["SRC_REMOTE"])	_cmd = str_add(remote_str("SRC"), dq(_cmd))
 	} else if (_pull) {

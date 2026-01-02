@@ -326,7 +326,7 @@ function build_command(action, vars, 		_remote_prefix, _cmd, _num_vars, _var_lis
 BEGIN {
 	# Constants
 	ENV_PREFIX	= "ZELTA_"
-	COMMAND_ERRORS	= "([Nn]o route to host|[Cc]ould not resolve|[Cc]ommand not found|[Cc]onnection refused|[Nn]etwork.*unreachable|timed out)"
+	COMMAND_ERRORS	= "([Nn]o route to host|[Cc]ould not resolve|[Cc]ommand not found|[Cc]onnection refused|[Nn]etwork.*unreachable|timed out|Permission denied.*publickey)"
 	CAPTURE_OUTPUT	= " 2>&1"
 	STDERR		= "/dev/stderr"
 	LOG_ERROR	= 0
