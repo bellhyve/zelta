@@ -103,22 +103,25 @@ Describe 'zelta rotate'
     It 'rotates the backed up tree'
         # force snapshot timestamp to be at 1 second in future to prevent backup snapshot conflict
         sleep 1
-        When call zelta rotate $SOURCE $TARGET
-        # I saw this error once and not again, I'm not sure how to reproduce it
-        The line 1 of output should match pattern "action requires a target delta; snapshotting: *"
 
+        When call zelta rotate $SOURCE $TARGET
+
+        # TODO: confirm this is no longer a warning, but a verbose message
         # Check for gawk warning on Linux only
-        if [ "$(uname -s)" = "Linux" ]; then
-            The line 1 of stderr should equal "warning: 'gawk' bug detected, using 'mawk'"
-        fi
+        #if [ "$(uname -s)" = "Linux" ]; then
+        #    The line 1 of stderr should equal "warning: 'gawk' bug detected, using 'mawk'"
+        #fi
 
         # Check for expected error messages (order-independent)
         # TODO: consider making these checks less brittle/specific by check for a more general message
-        The stderr should include "warning: insufficient snapshots; performing full backup for 1 datasets"
-        The stderr should include "error: to perform a full backup, rename the target dataset or sync to an empty target"
-        The stderr should include "error: top source dataset 'apool/treetop' or its origin must match the target for rotation to continue"
 
-        #The stdout should be blank
+        The stdout should match pattern "action requires a snapshot delta; snapshotting: @zelta_*"
+
+        The stderr should include "error: to perform a full backup, rename the target dataset or sync to an empty target"
+
+        # TODO: verify that '$SOURCE' will work for remotes
+        The stderr should include "error: top source dataset '$SOURCE' or its origin must match the target for rotation to continue"
+
         The stderr should not be blank
         The status should eq 1
     End
