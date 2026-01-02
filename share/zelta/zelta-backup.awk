@@ -975,15 +975,15 @@ function run_rotate(		_src_ds_snap, _up_to_date, _src_origin_ds, _origin_arr, _n
 		if (_up_to_date)
 			stop(1, "replica is up-to-date; source snapshot required for rotation: " Opt["SRC_DS"])
 		# If any single item is rotateable, warn that some snapshots require full restoration
-		else if (!DSPair["","match"]) {
-			report(LOG_ERROR, "to perform a full backup, rename the target dataset or sync to an empty target")
-			stop(1, "top source dataset '" Opt["SRC_DS"] "' or its origin must match the target for rotation to continue")
-		}
+#		else if (!DSPair["","match"]) {
+#			report(LOG_ERROR, "to perform a full backup, rename the target dataset or sync to an empty target")
+#			stop(1, "top source dataset '" Opt["SRC_DS"] "' or its origin must match the target for rotation to continue")
+#		}
 		else if (DSTree["rotatable"])
 			report(LOG_WARNING, "insufficient snapshots; performing full backup for " _num_full_backup " datasets")
-		# The following state may be impossible
 		else
-			stop(1, "rotation not possible")
+			report(LOG_ERROR, "target is not a replica of the source")
+			stop(1, "to perform a full backup, rename the target dataset or sync to an empty target")
 	}
 
 	#for (_i = 1; _i <= NumDS; _i++) report(LOG_DEBUG, "dataset: "_src_origin_ds DSList[_i] ":  origin: " Dataset["SRC",DSList[_i],"origin"] "  source origin match: " DSPair[DSList[_i] "source_origin_match"]  "  match:" DSPair[DSList[_i],"match"] "  can_rotate?: " Action[DSList[_i],"can_rotate"] "  explain:" explain_sync_status(DSList[_i])
