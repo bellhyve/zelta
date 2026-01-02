@@ -13,6 +13,10 @@ You'll be prompted for your password for the setup steps.
 
 EOF
 
+# we want to ensure we a running locally
+unset SRC_SVR
+unset TGT_SVR
+
 echo "Step 1/3: Initializing test environment..."
 spec/bin/all_tests_setup/all_tests_setup.sh
 
@@ -21,6 +25,9 @@ spec/bin/standard_test/standard_snap_tree.sh
 
 echo "Step 3/3: Running zelta tests..."
 shellspec spec/bin/standard_test/standard_test_spec.sh
+#shellspec -f d --xtrace spec/bin/standard_test/standard_test_spec.sh:@1
+#shellspec -f d --xtrace spec/bin/standard_test/standard_test_spec.sh:@2
+#shellspec -f d --xtrace spec/bin/standard_test/standard_test_spec.sh:@3
 
 echo ""
 echo "✓ Tests complete"
