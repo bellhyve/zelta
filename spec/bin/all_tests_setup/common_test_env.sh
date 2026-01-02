@@ -4,6 +4,17 @@
 
 CUR_DIR=$(pwd)
 
+# backup username, should be configured for ssh access on remotes
+export BACKUP_USER="${BACKUP_USER:-dever}"
+#export BACKUP_USER="${SUDO_USER:-$(whoami)}"
+
+# location for git pulls of source for testing
+export ZELTA_GIT_CLONE_PATH="${ZELTA_GIT_CLONE_PATH:-/tmp/zelta-dev}"
+
+# Zelta supports remote commands, by default SRC and TGT servers are the current host
+export SRC_SVR="${SRC_SVR:-}"
+export TGT_SVR="${TGT_SVR:-}"
+
 ALL_TESTS_SETUP_DIR=${CUR_DIR}/spec/bin/all_tests_setup
 #export INITIALIZE_DIR="${CUR_DIR}/spec/initialize"
 export LOCAL_TMP="${CUR_DIR}/spec/tmp"
@@ -14,6 +25,9 @@ export ZELTA_SHARE="$TEST_INSTALL/share/zelta"
 export ZELTA_ETC="$TEST_INSTALL/zelta"
 export ZELTA_MAN8="$TEST_INSTALL/share/man/man8"
 
+
+# TODO: remove device support completely or clean it up, currently using image files for pools
+# TODO: if keeping it, clean up the tested code for this and support the POOL_TYPE FLAG that selects it
 # Default devices if not set
 : ${SRC_POOL_DEVICES:="/dev/nvme1n1"}
 : ${TGT_POOL_DEVICES:="/dev/nvme2n1"}
@@ -24,11 +38,11 @@ export TGT_POOL_DEVICES
 ##export SRC_SVR=dever@fzfsdev:
 ##export TGT_SVR=dever@fzfsdev:
 
-SRC_SVR="${SRC_SVR:-}"
-TGT_SVR="${TGT_SVR:-}"
 
-export SRC_POOL="${SRC_SVR}apool"
-export TGT_POOL="${TGT_SVR}bpool"
+#export SRC_POOL="${SRC_SVR}apool"
+#export TGT_POOL="${TGT_SVR}bpool"
+
+
 #export TREETOP_DSN='treetop'
 #export BACKUPS_DSN='backups'
 #export SOURCE=${SRC_SVR}${SRC_POOL}/${TREETOP_DSN}
@@ -51,8 +65,6 @@ export POOL_TYPE=$FILE_IMG_POOL
 
 setup_os_specific_env
 #echo "Using POOL_TYPE: {$POOL_TYPE}"
-
-export BACKUP_USER="${SUDO_USER:-$(whoami)}"
 
 check_zfs_installed
 
