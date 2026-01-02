@@ -20,9 +20,19 @@ export SRC_SVR="${SRC_SVR:-}"
 export TGT_SVR="${TGT_SVR:-}"
 export SRC_POOL="apool"
 export TGT_POOL="bpool"
-export ZELTA_SRC_POOL="${SRC_SVR}${SRC_POOL}"
-export ZELTA_TGT_POOL="${TGT_SVR}${TGT_POOL}"
 
+
+if [ -z "$SRC_SVR" ]; then
+    export ZELTA_SRC_POOL="${SRC_POOL}"
+else
+    export ZELTA_SRC_POOL="${SRC_SVR}:${SRC_POOL}"
+fi
+
+if [ -z "$TGT_SVR" ]; then
+    export ZELTA_TGT_POOL="${TGT_POOL}"
+else
+    export ZELTA_TGT_POOL="${TGT_SVR}:${TGT_POOL}"
+fi
 
 ALL_TESTS_SETUP_DIR=${CUR_DIR}/spec/bin/all_tests_setup
 #export INITIALIZE_DIR="${CUR_DIR}/spec/initialize"
