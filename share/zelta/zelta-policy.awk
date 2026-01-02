@@ -25,22 +25,33 @@
 # ending in "zroot".
 
 function usage(message) {
-	if (message) print message							> STDERR
-	print "usage:"									> STDERR
-	print "	policy [backup-override-options] [site|host|dataset] ...\n"		> STDERR
-	print "See zelta.conf(5) for configuration details.\n"				> STDERR
-	print "For further help on a command or topic, run: zelta help [<topic>]"	> STDERR
+	if (message)
+		print message > STDERR
+	print "usage:  policy [backup-override-options] [site|host|dataset] ...\n"  > STDERR
+	print "Runs replication jobs defined in: " Opt["CONFIG"] "\n"               > STDERR
+	print "Without operands, run 'zelta backup' jobs for all configured"        > STDERR
+	print "datasets. With operands, process the specified objects.\n"           > STDERR
+	print "Common Options:"                                                     > STDERR
+        print "  -v, -vv                    Verbose/debug output"                   > STDERR
+        print "  -q, -qq                    Suppress warnings/errors"               > STDERR
+        print "  -j, --json                 JSON output"                            > STDERR
+        print "  -n, --dryrun               Show 'zelta backup' commands and exit"  > STDERR
+        print "  --snapshot                 Always snapshot"                        > STDERR
+        print "  --no-snapshot              Never snapshot\n"                       > STDERR
+	print "For complete documentation:  zelta help policy"                      > STDERR
+	print "                             zelta help options"                     > STDERR
+	print "                             https://zelta.space"                    > STDERR
 	exit(1)
 }
 
 function resolve_target(src, tgt, host,		_n, _i, _segments) {
 	if (tgt) { return tgt }
 	tgt = Host["BACKUP_ROOT"]
-	if (Host["HOST_PREFIX"] && host) {
+	if (Host["ADD_HOST_PREFIX"] && host) {
 		tgt = tgt "/" host
 	}
 	_n = split(src, _segments, "/")
-	for (_i = _n - Host["host_prefix"]; _i <= _n; _i++) {
+	for (_i = _n - Host["ADD_DATASET_PREFIX"]; _i <= _n; _i++) {
 		if (_segments[_i]) {
 			tgt = tgt "/" _segments[_i]
 		}
@@ -207,7 +218,12 @@ function load_config(		_conf_error, _arr, _context,
 		} else usage(_conf_error _line_num)
 	}
 	close(Opt["CONFIG"])
-	if (!total_datasets) usage("no datasets defined in " Opt["CONFIG"])
+	if (!total_datasets) {
+		if (NumOperands)
+			usage("no matching policy objects found")
+		else
+			usage("no datasets defined in " Opt["CONFIG"])
+	}
 	#for (key in cli_options) Global[key] = cli_options[key]
 	FS = "[ \t]+";
 }
@@ -305,7 +321,8 @@ function backup_loop(		_site, _host, _hosts_arr, _job_status, _endpoint_key,
 }
 
 BEGIN {
-	STDERR = "/dev/stderr"
+	if (Opt["USAGE"])
+		usage()
 	load_option_list()
 	get_global_overrides()
 	load_config()

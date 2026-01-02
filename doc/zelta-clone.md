@@ -13,7 +13,7 @@
 # DESCRIPTION
 `zelta clone` performs a recursive **zfs clone** operation on a dataset. This is useful for recursive duplication of dataset trees and backup inspection and recovery of a files replicated with `zelta backup`. The clones will reference the latest or indicated snapshot, and consume practically no additional space. Clones can be modified and destroyed without affecting their origin datasets.
 
-The _source_ and _target_ must be on the same host and pool. The mountpoint will be inherited below the target parent (as provided by `zfs clone`). The _target_ dataset must not exist. To create a clone on a remote host ensure the endpoints are identical including the username and hostname used:
+The _source_ and _target_ must be on the same host and pool. The mountpoint will be inherited below the target parent (as provided by `zfs clone`). The _target_ dataset must not exist. To create a clone on a remote host ensure the _source_ and _target_ are identical including the username and hostname used:
 
 Example remote operation:
 
@@ -31,7 +31,7 @@ _target_
 
 **Logging Options**
 
-**-n, --dryrun**
+**-n, \--dryrun**
 :    Don't clone, but show the `zfs clone` commands that would be executed.
 
 **-q**
@@ -42,13 +42,13 @@ _target_
 
 **Dataset and Snapshot Options**
 
-**--snapshot-always**
+**\--snapshot-always**
 :    Ensure a snapshot before cloning.
 
-**--snapshot-name**
+**\--snapshot-name**
 :    Specify a snapshot name. See `zelta.env.example` to adjust the default naming scheme.
 
-**-d _depth_, --depth _depth_**
+**-d _depth_, \--depth _depth_**
 :    Limits the depth of all Zelta operations.
 
 # EXAMPLES
@@ -76,7 +76,7 @@ zelta clone -n tank/source/dataset tank/target/dataset
 zelta(8), zelta-backup(8), zelta-match(8), zelta-options(8), zelta-policy(8), zelta-revert(8), zelta-rotate(8), zelta-sync(8), cron(8), ssh(1), zfs(8), zfs-clone(8), zfs-promote(8)
 
 # AUTHORS
-Daniel J. Bell _<bellta@belltower.it>_
+Daniel J. Bell <_bellhyve@zelta.space_>
 
 # WWW
 https://zelta.space

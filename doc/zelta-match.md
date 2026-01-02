@@ -4,7 +4,6 @@
 
 **zelta match** - Describes the relationship between a dataset tree and its replica.
 
-
 # SYNOPSIS
 
 **zelta match** [**-Hp**] [**-d** _depth_] [**-o** _field_[,...]] _source_ _target_
@@ -30,7 +29,7 @@
 **\--text**
 :    Forces default output (notices) to print as plain text standard output. 
 
-**-n,\--dryrun,--dry-run**
+**-n,\--dryrun**
 :    Display 'zfs' commands related to the action rather than running them.
 
 ** Dataset and Snapshot Options**
@@ -39,9 +38,10 @@
 :    Limit the recursion depth of operations to the number of levels indicated. For example, a depth of 1 will only include the indicated dataset.
 
 **\--exclude,-X**
-:    Exclude a /dataset/suffix, @snapshot, or #bookmark, beginning with the symbol indicated. Wild card matches with '?' and '*' are permitted. See 'zelta help match' for more details.
+:    Exclude datasets or source snapshots matching the specified exclusion pattern. This option can be include multiple patters separated by commas and can be specified multiple times. See _EXCLUSION PATTERNS_ in **zelta help options** for details.
 
-** Columns and Summary Behavior**
+**Columns and Summary Behavior**
+
 **-H**
 :    Suppress column headers and separate columns with a single tab.
 
@@ -107,7 +107,7 @@ zelta match -n tank/source/dataset tank/target/dataset
 ```
 
 # SEE ALSO
-zelta(8), zelta-clone(8), zelta-backup(8), zelta-options(8), zelta-policy(8), zelta-revert(8), zelta-rotate(8), zelta-sync(8), ssh(1), zfs(8), zfs-list(8)
+zelta(8), zelta-backup(8), zelta-policy(8), zelta-clone(8), zelta-options(8), zelta-revert(8), zelta-rotate(8), cron(8), ssh(1), zfs(8)
 
 # AUTHORS
 Daniel J. Bell <_bellhyve@zelta.space_>

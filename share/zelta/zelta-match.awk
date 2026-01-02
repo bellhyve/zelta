@@ -21,18 +21,20 @@
 function usage(message,		_counter, _c, _key) {
 	STDERR = "/dev/stderr"
 	usage_table = "\t%-13s%s\n"
-	print (message ? message "\n" : "") "usage:"						> STDERR
-	print "\tmatch [-Hp] [-d max] [-o field[,...]] source-endpoint target-endpoint\n"	> STDERR
-	print "The following fields are supported:\n"						> STDERR
-	printf usage_table"\n",	"PROPERTY",	"VALUES"					> STDERR
+	printf (message ? message "\n" : "") "usage:"                                              > STDERR
+	print "\tmatch [-Hp] [-d max] [-o field[,...]] SOURCE TARGET\n"                            > STDERR
+	print "The following fields are supported:\n"                                              > STDERR
+	printf usage_table"\n",	"PROPERTY",	"VALUES"                                           > STDERR
 	for(_counter in ColInfo) {
 		_key = ColList[++_c]
 		if (ColWarn[_key])
 			continue
 		printf usage_table, _key, ColInfo[_key] > STDERR
 	}
-	print "\nSizes are specified in bytes with standard units such as K, M, G, etc.\n"	> STDERR
-	print "For further help on a command or topic, run: zelta help [<topic>]"		> STDERR
+	print "\nSizes are specified in bytes with standard units such as K, M, G, etc.\n"         > STDERR
+	print "SOURCE and TARGET endpoints are in the form: [user@host:]pool[/dataset/][@snap]\n"  > STDERR
+	print "For complete documentation:  zelta help [<topic>]"                                  > STDERR
+	print "                             https://zelta.space"                                   > STDERR
 	exit 1
 }
 
