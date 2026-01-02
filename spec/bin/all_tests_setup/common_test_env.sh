@@ -18,6 +18,10 @@ export REMOTE_TEST_HOST=fzfsdev
 # Zelta supports remote commands, by default SRC and TGT servers are the current host
 export SRC_SVR="${SRC_SVR:-}"
 export TGT_SVR="${TGT_SVR:-}"
+export SRC_POOL="apool"
+export TGT_POOL="bpool"
+export ZELTA_SRC_POOL="${SRC_SVR}${SRC_POOL}"
+export ZELTA_TGT_POOL="${TGT_SVR}${TGT_POOL}"
 
 
 ALL_TESTS_SETUP_DIR=${CUR_DIR}/spec/bin/all_tests_setup
@@ -43,9 +47,6 @@ export TGT_POOL_DEVICES
 ##export SRC_SVR=dever@fzfsdev:
 ##export TGT_SVR=dever@fzfsdev:
 
-
-#export SRC_POOL="${SRC_SVR}apool"
-#export TGT_POOL="${TGT_SVR}bpool"
 
 
 #export TREETOP_DSN='treetop'

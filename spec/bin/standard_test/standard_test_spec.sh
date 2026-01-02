@@ -18,30 +18,30 @@ match_either() {
 }
 
 
-global_setup_function() {
-    %putsn "global_setup_function"
-    %putsn "before: SRC_POOL=$SRC_POOL, TGT_POOL=$TGT_POOL"
-    #export SRC_SVR=dever@fzfsdev:
-    #export TGT_SVR=dever@fzfsdev:
-    #SRC_POOL='apool'
-    #TGT_POOL='bpool'
-    export TREETOP_DSN='treetop'
-    export BACKUPS_DSN='backups'
-    export SOURCE=${SRC_SVR}${SRC_POOL}/${TREETOP_DSN}
-    export TARGET=${TGT_SVR}${TGT_POOL}/${BACKUPS_DSN}
-    export SRC_TREE="$SRC_POOL/$TREETOP_DSN"
-    export TGT_TREE="$TGT_POOL/$BACKUPS_DSN/$TREETOP_DSN"
-    export ALL_DATASETS="one/two/three"
-    %putsn "after: SRC_POOL=$SRC_POOL, TGT_POOL=$TGT"
-    CWD=$(pwd)
-    #sudo /home/dever/src/repos/zelta/spec/initialize/setup_simple_snap_tree.sh
-    #./spec/initializize/setup_simple_snap_tree.sh
-    %putsn "current dir {$CWD}"
-    %putsn "current dir {$CWD}"
-    %putsn "current dir {$CWD}"
-    %putsn "current dir {$CWD}"
-    %putsn "current dir {$CWD}"
-}
+#global_setup_function() {
+#    %putsn "global_setup_function"
+#    %putsn "before: SRC_POOL=$SRC_POOL, TGT_POOL=$TGT_POOL"
+#    #export SRC_SVR=dever@fzfsdev:
+#    #export TGT_SVR=dever@fzfsdev:
+#    #SRC_POOL='apool'
+#    #TGT_POOL='bpool'
+#    export TREETOP_DSN='treetop'
+#    export BACKUPS_DSN='backups'
+#    export SOURCE=${SRC_SVR}${SRC_POOL}/${TREETOP_DSN}
+#    export TARGET=${TGT_SVR}${TGT_POOL}/${BACKUPS_DSN}
+#    export SRC_TREE="$SRC_POOL/$TREETOP_DSN"
+#    export TGT_TREE="$TGT_POOL/$BACKUPS_DSN/$TREETOP_DSN"
+#    export ALL_DATASETS="one/two/three"
+#    %putsn "after: SRC_POOL=$SRC_POOL, TGT_POOL=$TGT"
+#    CWD=$(pwd)
+#    #sudo /home/dever/src/repos/zelta/spec/initialize/setup_simple_snap_tree.sh
+#    #./spec/initializize/setup_simple_snap_tree.sh
+#    %putsn "current dir {$CWD}"
+#    %putsn "current dir {$CWD}"
+#    %putsn "current dir {$CWD}"
+#    %putsn "current dir {$CWD}"
+#    %putsn "current dir {$CWD}"
+#}
 
 
 #BeforeAll 'global_setup_function'
