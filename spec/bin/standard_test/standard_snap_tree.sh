@@ -20,20 +20,20 @@ dataset_exists() {
 #export SRC_TREE="$SRC_POOL/$TREETOP_DSN"
 #export TGT_TREE="$TGT_POOL/$BACKUPS_DSN/$TREETOP_DSN"
 
-try1_create_test_tree() {
-    local pool="$1"
-    local root="$2"
-    local mount_base="$3"
-
-    mkdir -p "${mount_base}/${root}/one/two/three"
-    zfs create -o mountpoint="${mount_base}/${root}" "${pool}/${root}"
-    zfs create -o mountpoint="${mount_base}/${root}/one" "${pool}/${root}/one"
-    zfs create -o mountpoint="${mount_base}/${root}/one/two" "${pool}/${root}/one/two"
-    zfs create -o mountpoint="${mount_base}/${root}/one/two/three" "${pool}/${root}/one/two/three"
-
-    echo "Test tree created successfully"
-    echo "Mounted at: $mount_base"
-}
+#try1_create_test_tree() {
+#    local pool="$1"
+#    local root="$2"
+#    local mount_base="$3"
+#
+#    mkdir -p "${mount_base}/${root}/one/two/three"
+#    zfs create -o mountpoint="${mount_base}/${root}" "${pool}/${root}"
+#    zfs create -o mountpoint="${mount_base}/${root}/one" "${pool}/${root}/one"
+#    zfs create -o mountpoint="${mount_base}/${root}/one/two" "${pool}/${root}/one/two"
+#    zfs create -o mountpoint="${mount_base}/${root}/one/two/three" "${pool}/${root}/one/two/three"
+#
+#    echo "Test tree created successfully"
+#    echo "Mounted at: $mount_base"
+#}
 
 
 new_create_tree_via_zfs() {
@@ -48,9 +48,9 @@ new_create_tree_via_zfs() {
 }
 
 old_create_tree_via_zfs() {
-    exec_cmd zfs create -vp "$SRC_TREE"
-    exec_cmd zfs create -vp "$SRC_TREE/$ALL_DATASETS"
-    exec_cmd zfs create -vp "$TGT_POOL/$BACKUPS_DSN"
+    exec_cmd sudo zfs create -vp "$SRC_TREE"
+    exec_cmd sudo zfs create -vp "$SRC_TREE/$ALL_DATASETS"
+    exec_cmd sudo zfs create -vp "$TGT_POOL/$BACKUPS_DSN"
     #sudo zfs create -vsV 16G -o volmode=dev $SRCTREE'/vol1'
 }
 
@@ -99,7 +99,7 @@ x_rm_test_datasets() {
             echo "there is no dataset to remove "
         fi
 
-        if exec_cmd zfs list "$dataset" &>/dev/null; then
+        if exec_cmd sudo zfs list "$dataset" &>/dev/null; then
             #echo "Destroying $dataset..."
             echo "need to destroy dataset $dataset"
             #exec_cmd zfs destroy -vR "$dataset"
@@ -113,8 +113,8 @@ setup_simple_snap_tree() {
     #set -x
     echo "Make a fresh test tree"
     #rm_test_datasets
-    rm_all_datasets_for_pool "apool"
-    rm_all_datasets_for_pool "bpool"
+    rm_all_datasets_for_pool $SRC_POOL
+    rm_all_datasets_for_pool $TGT_POOL
     #new_create_tree_via_zfs
     #try1_create_test_tree "$SRC_POOL" "$TREETOP_DSN" "$ZFS_MOUNT_BASE"
     old_create_tree_via_zfs
