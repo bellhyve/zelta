@@ -112,8 +112,8 @@ zelta_init() {
 				  Ubuntu/Debian: apt install mawk
 				EOF
 			fi
-			if [ -n "$_good_awk" ] && [ "$ZELTA_LOG_LEVEL" -ge 4 ] ; then
-				echo "warning: 'gawk' bug detected, using '"$_good_awk"'" >&2
+			if [ -n "$_good_awk" ] ; then
+				 [ "${ZELTA_LOG_LEVEL:-0}" -ge 4 ] && echo "warning: 'gawk' bug detected, using '"$_good_awk"'" >&2
 				export AWK="$_good_awk" ZELTA_AWK="$_good_awk"
 			fi
 			;;
