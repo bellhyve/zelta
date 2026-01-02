@@ -9,11 +9,16 @@ export BACKUP_USER="${BACKUP_USER:-dever}"
 #export BACKUP_USER="${SUDO_USER:-$(whoami)}"
 
 # location for git pulls of source for testing
-export ZELTA_GIT_CLONE_PATH="${ZELTA_GIT_CLONE_PATH:-/tmp/zelta-dev}"
+export ZELTA_GIT_CLONE_DIR="${ZELTA_GIT_CLONE_DIR:-/tmp/zelta-dev}"
+export GIT_TEST_BRANCH=feature/zelta-test
+export REMOTE_TEST_HOST=fzfsdev
+#ZELTA_DEV_PATH=/tmp/zelta-dev
+
 
 # Zelta supports remote commands, by default SRC and TGT servers are the current host
 export SRC_SVR="${SRC_SVR:-}"
 export TGT_SVR="${TGT_SVR:-}"
+
 
 ALL_TESTS_SETUP_DIR=${CUR_DIR}/spec/bin/all_tests_setup
 #export INITIALIZE_DIR="${CUR_DIR}/spec/initialize"

@@ -1,20 +1,27 @@
 #!/bin/sh
 
-TEST_BRANCH=feature/zelta-test
-TEST_USER=dever
-REMOTE_HOST=fzfsdev
-TEST_DIR=/tmp/zelta-dev
-
-ssh ${TEST_USER}@${REMOTE_HOST} << EOF
+# pull down zelta from github
+ssh ${BACKUP_USER}@${REMOTE_TEST_HOST} << EOF
 set -x
-rm -fr ${TEST_DIR}
-mkdir -p ${TEST_DIR}
-chmod 777 ${TEST_DIR}
-git clone https://github.com/bellhyve/zelta.git ${TEST_DIR}
-cd ${TEST_DIR}
-git checkout $TEST_BRANCH
+rm -fr ${ZELTA_GIT_CLONE_DIR}
+mkdir -p ${ZELTA_GIT_CLONE_DIR}
+chmod 777 ${ZELTA_GIT_CLONE_DIR}
+git clone https://github.com/bellhyve/zelta.git ${ZELTA_GIT_CLONE_DIR}
+cd ${ZELTA_GIT_CLONE_DIR}
+git checkout $GIT_TEST_BRANCH
 ls
-sudo spec/bin/ssh_tests_setup/setup_zfs_pools_on_remote.sh
 set +x
 EOF
+
+# scripts
+onetime_setup=${ZELTA_GIT_CLONE_DIR}/test/one_time_test_env_setup.sh
+setup_pools=${ZELTA_GIT_CLONE_DIR}/spec/bin/ssh_tests_setup/setup_zfs_pools_on_remote.sh
+
+# update sudo
+ssh -t ${BACKUP_USER}@${REMOTE_TEST_HOST}:"$onetime_setup"
+
+# create pools
+ssh -t ${BACKUP_USER}@${REMOTE_TEST_HOST}:"$setup_pools"
+
+
 
