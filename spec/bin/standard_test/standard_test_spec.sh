@@ -1,11 +1,23 @@
-
-#export SRC_POOL=apool
-#export TGT_POOL=bpool
-#export TREETOP_DSN=treetop
-#export BACKUPS_DSN=backups
+#!/bin/bash
 
 . spec/bin/standard_test/standard_test_env.sh
+. spec/lib/common.sh
 
+# valid xtrace usage if found
+validate_options() {
+    # Direct test - executes if function returns 0 (success)
+    if check_if_xtrace_expectations_supported; then
+        %logger "xtrace expectations are supported"
+    else
+        echo "xtrace options are not correct" >&2
+        echo "to show expectations use --shell bash and bash version >= 4" >&2
+        echo "NOTE Use: --xtrace --shell bash" >&2
+        return 1
+    fi
+    return 0
+}
+
+# allow for 2 vaild matches for current shellspec line/subject being considered
 match_either() {
     case $SHELLSPEC_SUBJECT in
         "$1"|"$2") 
@@ -17,7 +29,8 @@ match_either() {
     esac
 }
 
-
+# TODO: is it possible to setup a snap tree on FreeBSD as the backup user?
+# TODO: when should this code be removed: left over from an attempt to setup a snap tree prior to start of every test
 #global_setup_function() {
 #    %putsn "global_setup_function"
 #    %putsn "before: SRC_POOL=$SRC_POOL, TGT_POOL=$TGT_POOL"
@@ -44,8 +57,7 @@ match_either() {
 #}
 
 
-#BeforeAll 'global_setup_function'
-
+#BeforeAll validate_options
 
 Describe 'confirm zfs setup'
     before_all() {
@@ -78,24 +90,24 @@ End
 Describe 'try backup'
 
     It 'backs up the initial tree'
-        #When call zelta backup $SRC_POOL/$TREETOP_DSN $TGT_POOL/$BACKUPS_DSN
         When call zelta backup $SOURCE $TARGET
+
         The line 1 of output should match pattern "source is written; snapshotting: @zelta_*"
         The line 2 of output should equal "syncing 4 datasets"
-        The line 3 of output should equal "no snapshot; target diverged: bpool/backups"
-        The line 4 of output should match pattern  "* sent, 3 streams received in *"
-	    The stderr should satisfy match_either  "warning: 'gawk' bug detected, using 'mawk'" ""
-        The stdout should not be blank
+        The line 3 of output should match pattern "* sent, 4 streams received in * seconds"
         The status should eq 0
     End
 
     It 'has valid backup'
         When call exec_on "$TGT_SVR" zfs list -r "$TGT_POOL"
-        The line 2 of output should match pattern "* /$TGT_POOL"
-        The line 3 of output should match pattern "* /$TGT_POOL/$BACKUPS_DSN"
-        The line 4 of output should match pattern "* /$TGT_POOL/$BACKUPS_DSN/one"
-        The line 5 of output should match pattern "* /$TGT_POOL/$BACKUPS_DSN/one/two"
-        The line 6 of output should match pattern "* /$TGT_POOL/$BACKUPS_DSN/one/two/three"
+        The line 2 of output should match pattern "$TGT_POOL * /$TGT_POOL"
+        The line 3 of output should match pattern "$TGT_POOL/$BACKUPS_DSN * /$TGT_POOL/$BACKUPS_DSN"
+        The line 4 of output should match pattern "$TGT_TREE * none"
+        The line 5 of output should match pattern "$TGT_TREE/one * none"
+        The line 6 of output should match pattern "$TGT_TREE/one/two * none"
+        The line 7 of output should match pattern "$TGT_TREE/one/two/three * none"
+        The stderr should be blank
+        The status should eq 0
     End
 End
 
@@ -106,23 +118,16 @@ Describe 'zelta rotate'
 
         When call zelta rotate $SOURCE $TARGET
 
-        # TODO: confirm this is no longer a warning, but a verbose message
-        # Check for gawk warning on Linux only
-        #if [ "$(uname -s)" = "Linux" ]; then
-        #    The line 1 of stderr should equal "warning: 'gawk' bug detected, using 'mawk'"
-        #fi
-
-        # Check for expected error messages (order-independent)
-        # TODO: consider making these checks less brittle/specific by check for a more general message
-
-        The stdout should match pattern "action requires a snapshot delta; snapshotting: @zelta_*"
-
-        The stderr should include "error: to perform a full backup, rename the target dataset or sync to an empty target"
-
-        # TODO: verify that '$SOURCE' will work for remotes
-        The stderr should include "error: top source dataset '$SOURCE' or its origin must match the target for rotation to continue"
-
-        The stderr should not be blank
-        The status should eq 1
+        # TODO: verify that '$SRC_TREE and TGT_TREE' will work for remotes, or if i need to use $SOURCE and $TARGET instead
+        The line 1 of output should match pattern "action requires a snapshot delta; snapshotting: @zelta_*"
+        The line 2 of output should match pattern "rotating from source: ${SRC_TREE}@zelta_*"
+        The line 3 of output should match pattern "renaming '${TGT_TREE}' to '${TGT_TREE}_zelta_*'"
+        The line 4 of output should match pattern "to ensure target is up-to-date, run: zelta backup ${SRC_TREE} ${TGT_TREE}"
+        The line 5 of output should match pattern "* datasets up-to-date"
+        The line 6 of output should match pattern "* sent, * streams received in * seconds"
+        The stderr should be blank
+        The status should eq 0
     End
 End
+
+

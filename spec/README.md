@@ -84,4 +84,7 @@ sudo -E env "PATH=$PATH" shellspec -f d
     ```shell
     sudo -E env "PATH=$PATH" shellspec -f d spec/bin/zelta_standard_test_spec.sh:@1-1
     ```
-
+- use options `--xtrace --shell bash` to show a trace with expectation evaluation
+  ```shell
+  shellspec -f d --xtrace --shell bash spec/bin/standard_test/standard_test_spec.sh:@2-2  
+  ```
