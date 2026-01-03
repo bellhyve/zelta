@@ -134,7 +134,8 @@ function check_snapshot_needed(endpoint, ds_suffix, prop_key, prop_val) {
 
 
 # Load zfs properties for an endpoint
-function load_properties(ep,		_ds, _cmd_arr, _cmd, _ds_suffix, _idx, _seen) {
+function load_properties(ep,		_ds, _cmd_arr, _cmd, _cmd_id, _ds_suffix, _idx, _seen) {
+	_cmd_id                 = "zfs get"
 	_ds			= Opt[ep "_DS"]
 	_cmd_arr["endpoint"]	= ep
 	_cmd_arr["ds"]		= rq(Opt[ep"_REMOTE"],_ds)
@@ -158,17 +159,12 @@ function load_properties(ep,		_ds, _cmd_arr, _cmd, _ds_suffix, _idx, _seen) {
 				DSTree[ep, "count"]++
 			}
 		}
-		else if ($0 ~ COMMAND_ERRORS) {
-			close(_zfs_get_command)
-			#stop(1, "endpoint unreachable '"Opt[ep "_ID"]"'")
-			# ssh and other command errors and such are reasonably explicit
-			stop(1, $0)
-		}
 		else if (/dataset does not exist/) {
-			close(_zfs_get_command)
+			close(_cmd)
 			return 0
 		}
-		else report(LOG_WARNING,"unexpected 'zfs get' output: " $0)
+		else 
+			log_common_command_feedback(_cmd_id, _cmd, STOP_ON_ERROR)
 	}
 	close(_cmd)
 	return Dataset[ep, "", "exists"]
