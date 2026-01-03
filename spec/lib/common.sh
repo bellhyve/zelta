@@ -52,15 +52,95 @@ exec_on() {
     fi
 }
 
+test_fn_status() {
+    return 1
+}
+
+
+# see https://deepwiki.com/shellspec/shellspec/5.1-command-line-options#tracing-and-profiling
+
+check_if_xtrace_expectations_supported() {
+    # use --shell bash --xtrace to see trace of execution and evaluates expectations
+    # bash version must be >= 4
+
+    echo "hello from check_if_xtrace_expections_supported"
+
+    # Return error if SHELLSPEC_XTRACE is defined, SHELLSPEC_SHELL contains bash,
+    # and bash version is less than 4
+    if [ -n "$SHELLSPEC_XTRACE" ] && echo "$SHELLSPEC_SHELL" | grep -q bash; then
+        if [ -n "$BASH_VERSION" ]; then
+            # Extract major version (first element of BASH_VERSINFO)
+            if [ "${BASH_VERSINFO[0]}" -lt 4 ]; then
+                echo "Error: xtrace with bash requires version 4 or higher (current: $BASH_VERSION)" >&2
+                return 1
+            fi
+        else
+            # SHELLSPEC_SHELL contains bash but we're not running in bash
+            # Try to check the version of the specified bash
+            bash_version=$("$SHELLSPEC_SHELL" --version 2>/dev/null | head -n1)
+            if echo "$bash_version" | grep -q "version [0-3]\."; then
+                echo "Error: xtrace with bash requires version 4 or higher (detected: $bash_version)" >&2
+                return 1
+            fi
+        fi
+    fi
+
+    # Diagnostic output (optional - remove if not needed)
+    if [ "$SHELLSPEC_XTRACE" ]; then
+        echo "Running with xtrace enabled"
+    fi
+
+    if [ "$SHELLSPEC_SHELL" != "auto" ]; then
+        echo "Using custom shell: $SHELLSPEC_SHELL"
+    else
+        echo "Using auto-detected shell"
+    fi
+
+    if [ -n "$BASH_VERSION" ] && [ "${BASH_VERSINFO[0]}" -ge 4 ]; then
+        echo "BASH_XTRACEFD supported"
+    else
+        echo "BASH_XTRACEFD not supported"
+        return 1
+    fi
+
+    return 0
+}
+
+
+
+xxxcheck_if_xtrace_expections_supported() {
+    # use --shell bash --xtrace to see trace of execution and evaluates expectations
+    # bash version must be >= 4
+    # Check the version of bash to see if xtrace is supported
+    # Check if xtrace is enabled
+    if [ "$SHELLSPEC_XTRACE" ]; then
+      echo "Running with xtrace enabled"
+    fi
+
+    # Check if a custom shell is specified
+    if [ "$SHELLSPEC_SHELL" != "auto" ]; then
+      echo "Using custom shell: $SHELLSPEC_SHELL"
+    else
+      echo "Using auto-detected shell"
+    fi
+
+    if [ -n "$BASH_VERSION" ] && [ "${BASH_VERSINFO[0]}" -ge 4 ] && [ "${BASH_VERSINFO[1]}" -ge 1 ]; then
+      echo "BASH_XTRACEFD supported"
+    else
+      echo "BASH_XTRACEFD not supported"
+      return 1
+    fi
+}
+
 
 setup_linux_zfs_allow() {
-    export SRC_ZFS_CMDS="send,snapshot,hold,bookmark,create,readonly,receive,volmode,mount,mountpoint,canmount"
-    export TGT_ZFS_CMDS="send,snapshot,hold,bookmark,create,readonly,receive,volmode,mount,mountpoint,canmount"
+    export SRC_ZFS_CMDS="send,snapshot,hold,bookmark,create,readonly,receive,volmode,mount,mountpoint,canmount,rename"
+    export TGT_ZFS_CMDS="send,snapshot,hold,bookmark,create,readonly,receive,volmode,mount,mountpoint,canmount,rename"
 }
 
 setup_freebsd_zfs_allow() {
-    export SRC_ZFS_CMDS="send,snapshot,hold,bookmark,create,readonly,receive,volmode,mount,mountpoint,canmount"
-    export TGT_ZFS_CMDS="send,snapshot,hold,bookmark,create,readonly,receive,volmode,mount,mountpoint,canmount"
+    export SRC_ZFS_CMDS="send,snapshot,hold,bookmark,create,readonly,receive,volmode,mount,mountpoint,canmount,rename"
+    export TGT_ZFS_CMDS="send,snapshot,hold,bookmark,create,readonly,receive,volmode,mount,mountpoint,canmount,rename"
 }
 
 

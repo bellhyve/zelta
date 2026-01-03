@@ -25,11 +25,16 @@ spec/bin/standard_test/standard_snap_tree.sh
 
 echo "Step 3/3: Running zelta tests..."
 
-OPTIONS="${OPTIONS:-}"
-#shellspec spec/bin/standard_test/standard_test_spec.sh
-shellspec -f d $OPTIONS spec/bin/standard_test/standard_test_spec.sh:@1
-shellspec -f d $OPTIONS spec/bin/standard_test/standard_test_spec.sh:@2
-shellspec -f d $OPTIONS spec/bin/standard_test/standard_test_spec.sh:@3
+# To show a trace and execute expectations, use bash
+
+#OPTIONS="${OPTIONS:-}"
+OPTIONS="--xtrace --shell bash"
+# unset OPTIONS
+
+shellspec -f d $OPTIONS spec/bin/standard_test/standard_test_spec.sh
+#shellspec $OPTIONS -f d spec/bin/standard_test/standard_test_spec.sh:@1
+#shellspec $OPTIONS -f d spec/bin/standard_test/standard_test_spec.sh:@2
+#shellspec $OPTIONS -f d spec/bin/standard_test/standard_test_spec.sh:@3
 
 echo ""
 echo "✓ Tests complete"
