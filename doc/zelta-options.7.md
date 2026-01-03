@@ -117,13 +117,19 @@ The following options are often modified for user-specific installations and tes
 :   Default `zfs recv` options. Defaults to none.
 
 **RECV_TOP**
-:   Additional options for the top dataset. Defaults to `-o readonly=on`.
+:   Additional options for the top dataset during new (full) backup. Defaults to `-o readonly=on`.
 
 **RECV_FS**
-:   Additional options for filesystems. Defaults to `-u -x mountpoint -o canmount=noauto`.
+:   Additional options for filesystems during a new (full) backup. Defaults to `-u -x mountpoint -o canmount=noauto`.
 
 **RECV_VOL**
-:   Additional options for volumes. Defaults to none.
+:   Additional options for volumes new (full). Defaults to none.
+
+**RECV_PROPS_ADD**
+:   Add the list of 'zfs recv -o' properties in the form **property=value**. See 'zfs-receive(8)'.
+
+**RECV_PROPS_DEL**
+:   Add the list of 'zfs recv -x' excluded properties. See 'zfs-receive(8)'.
 
 **RECV_PARTIAL**
 :   Additional options if RESUME is enabled. Defaults to `-s`.
