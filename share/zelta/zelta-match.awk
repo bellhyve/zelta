@@ -165,7 +165,7 @@ function process_row(ep,		_name, _guid, _written, _name_suffix, _ds_suffix, _sav
 
 	# Check for exclusion
 	if (_type == IS_DATASET) {
-		if (_name in ExcludeDS)
+		if (is_ds_excluded(_name))
 			return
 		if (regex_loop(_ds_suffix, ExcludeDSPattern, NumExcludeDS))
 			return
@@ -221,30 +221,40 @@ function load_zfs_list_row(ep) {
 
 
 # Exclude patterns
-function load_exclude_patterns(    _i, _n, _pat_arr, _val, _leader, _pat) {
+function load_exclude_patterns(    _i, _n, _pat_arr, _pat, _g2r) {
 	if (!Opt["EXCLUDE"]) return
 
 	_n = split(Opt["EXCLUDE"], _pat_arr, ",")
 	for (_i = 1; _i <= _n; _i++) {
 		_pat = _pat_arr[_i]
-		_leader = substr(_pat, 1, 1)
 
-		if (_leader == "/")
-			ExcludeDSPattern[++NumExcludeDS] = glob_to_regex(_pat)
-		else if (_leader == "@")
+		if (_pat ~ /^\/|^\*.*\//)
+			ExcludeDSPattern[++NumExcludeDS] = glob_to_regex(_pat, "(/.*)?")
+		else if (_pat ~ /^@/)
 			ExcludeSnapPattern[++NumExcludeSnap] = glob_to_regex(_pat)
-		# Dropping bookmark exclusions since they can't be incremental targets
-		#else if (_leader == "#")
-		#	ExcludeBookPattern[++NumExcludeBook] = glob_to_regex(_pat)
+		else if (_pat ~ /[\*\?]/)
+			report(LOG_WARNING, "invalid exclusion pattern '"_pat"' must start with '@' or include '/'")
 		else
 			ExcludeDS[_pat] = 1
 	}
 }
 
-function regex_loop(string, pat_arr, n,	_i) {
+function regex_loop(string, pat_arr,        n, _i) {
 	for (_i = 1; _i <= n; _i++)
 		if (string ~ pat_arr[_i])
 			return 1
+}
+
+function is_ds_excluded(string,             _i, _pat) {
+	if (string in ExcludeDS)
+		return 1
+	# Check for descendents
+	for (_i in ExcludeDS) {
+		if (!_i) continue
+		_pat = _i "/"
+		if (index(string, _pat) == 1)
+			return 1
+	}
 }
 
 # Load DSPair keys for summary output

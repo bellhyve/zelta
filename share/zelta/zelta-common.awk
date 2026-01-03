@@ -238,11 +238,11 @@ function create_assoc(list, assoc, sep,		_i, _arr) {
 ########################
 
 # Convert a user provided glob to a regex for pattern matching
-function glob_to_regex(_r) {
-    gsub(/[\\^$.|()\[\]{}+]/, "\\\\&", _r)
-    gsub(/\*/, ".*", _r)
-    gsub(/\?/, ".", _r)
-    return "^" _r "$"
+function glob_to_regex(r, s) {
+    gsub(/[\\^$.|()\[\]{}+]/, "\\\\&", r)
+    gsub(/\*/, ".*", r)
+    gsub(/\?/, ".", r)
+    return "^" r s "$"
 }
 
 # systime() doesn't work on a lot of systems despite being in the POSIX spec.

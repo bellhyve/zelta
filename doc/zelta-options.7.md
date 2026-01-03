@@ -179,25 +179,26 @@ The following options only effect `zelta policy` operations.
 
 # EXCLUSION PATTERNS
 
-The EXCLUDE option, or the arguments **\--exclude** or **-X**, contain a comma separated list of patterns to exclude datasets or source snapshots from operations.
+The EXCLUDE option, or the arguments **\--exclude** or **-X**, contain a comma separated list of patterns to exclude datasets or source snapshots from operations. Excluding a dataset will also exclude its children.
 
 ## Pattern Types
 
 **Absolute Dataset Path**
 :   Similar to **zfs send \--exclude**, exclude the named source dataset from operations.
 
-    Example: `tank/vm/swap` excludes only that specific dataset.
+    Example: `tank/vm/swap` excludes that specific dataset.
 
 **Relative Dataset Path**
 :   Prefix with `/` to exclude the dataset suffix relative to the given dataset name.
 
     Example: Given the dataset `sink/swap` and the pattern `/swap`: `sink/swap` will be excluded, but `sink/vm/swap` will **not** be excluded.
 
-**Dataset Pattern**
-:   Use glob-like matching of `*` (zero or more characters) or `?` (single character). Relative paths must begin with `/`.
+**Relative Dataset Pattern**
+:   Use glob-like matching of `*` (zero or more characters) or `?` (single character). The pattern must start with '/' or '*' and must contain a '/'.
 
     Examples, given the given _source_ of `sink/data`:
 
+    - `*/swap` would exclude `sink/data/one/swap`, `sink/data/two/swap`, and `sink/data/swap`
     - `/*/swap` would exclude `sink/data/one/swap` and `sink/data/two/swap` but **not** `sink/data/swap`
     - `/vm-*` would exclude `sink/data/vm-one` and its descendants, but **not** `sink/data/vm/one`
     - `/test?` would exclude `sink/data/test1` but **not** `sink/data/test15`
@@ -220,9 +221,9 @@ The EXCLUDE option, or the arguments **\--exclude** or **-X**, contain a comma s
 
 | Pattern Type | Example | Matches |
 |--------------|---------|---------|
-| Absolute dataset | `tank/vm/swap` | Exact dataset only |
-| Relative dataset | `/swap` | Dataset ending in `/swap` |
-| Dataset wildcard | `/vm-*` | Datasets matching pattern |
+| Absolute dataset | `tank/vm/swap` | Exact dataset |
+| Relative dataset | `/tmp` | Top dataset ending in `/tmp` |
+| Relative dataset wildcard | `*/swap` | Any dataset ending in `/swap` |
 | Snapshot name | `@manual-backup` | Exact snapshot name |
 | Snapshot wildcard | `@*_hourly` | Snapshots matching pattern |
 
@@ -230,7 +231,7 @@ The EXCLUDE option, or the arguments **\--exclude** or **-X**, contain a comma s
 
 **Datasets**
 
-If a dataset's parent is excluded from a full backup operation, the child cannot be backed up.
+Excluding a dataset will also exclude its descendants.
 
 **Snapshots**
 
