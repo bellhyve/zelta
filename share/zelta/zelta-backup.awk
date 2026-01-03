@@ -908,6 +908,8 @@ function rename_dataset(endpoint,		_old_ds, _new_ds, _remote, _snap,
 	report(LOG_DEBUG, "`"_cmd"`")
 	_cmd = _cmd CAPTURE_OUTPUT
 	while (_cmd | getline) {
+		if (/cannot unmount/)
+			stop(1, $0)
 		report(LOG_ERROR, "unexpected 'zfs rename' output: " $0)
 	}
 	close(_cmd)
