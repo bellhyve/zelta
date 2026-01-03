@@ -134,7 +134,8 @@ function check_snapshot_needed(endpoint, ds_suffix, prop_key, prop_val) {
 
 
 # Load zfs properties for an endpoint
-function load_properties(ep,		_ds, _cmd_arr, _cmd, _ds_suffix, _idx, _seen) {
+function load_properties(ep,		_ds, _cmd_arr, _cmd, _cmd_id, _ds_suffix, _idx, _seen) {
+	_cmd_id                 = "zfs get"
 	_ds			= Opt[ep "_DS"]
 	_cmd_arr["endpoint"]	= ep
 	_cmd_arr["ds"]		= rq(Opt[ep"_REMOTE"],_ds)
@@ -158,17 +159,12 @@ function load_properties(ep,		_ds, _cmd_arr, _cmd, _ds_suffix, _idx, _seen) {
 				DSTree[ep, "count"]++
 			}
 		}
-		else if ($0 ~ COMMAND_ERRORS) {
-			close(_zfs_get_command)
-			#stop(1, "endpoint unreachable '"Opt[ep "_ID"]"'")
-			# ssh and other command errors and such are reasonably explicit
-			stop(1, $0)
-		}
 		else if (/dataset does not exist/) {
-			close(_zfs_get_command)
+			close(_cmd)
 			return 0
 		}
-		else report(LOG_WARNING,"unexpected 'zfs get' output: " $0)
+		else 
+			log_common_command_feedback(_cmd_id, _cmd, STOP_ON_ERROR)
 	}
 	close(_cmd)
 	return Dataset[ep, "", "exists"]
@@ -737,6 +733,10 @@ function get_recv_command_flags(ds_suffix, src_idx, remote_ep,	_flag_arr, _flags
 		if (Dataset[src_idx, "type"] == "filesystem")
 			_flag_arr[++_i]	= Opt["RECV_FS"]
 	}
+	if (Opt["RECV_PROPS_ADD"])
+			_flag_arr[++_i]	= Opt["RECV_PROPS_ADD"]
+	if (Opt["RECV_PROPS_DEL"])
+			_flag_arr[++_i]	= Opt["RECV_PROPS_DEL"]
 	if (Opt["RESUME"])
 		_flag_arr[++_i]	= Opt["RECV_PARTIAL"]
 	if (DSPair[ds_suffix, "target_origin"]) {
@@ -775,7 +775,7 @@ function run_zfs_sync(ds_suffix,		_cmd, _stream_info, _message, _ds_snap, _size,
 	IGNORE_ZFS_SEND_OUTPUT = "^(incremental|full)| records (in|out)$|bytes.*transferred|(create|receive) mountpoint|ignoring$"
 	IGNORE_RESUME_OUTPUT = "^nvlist version|^\t(fromguid|object|offset|bytes|toguid|toname|embedok|compressok)"
 	WARN_ZFS_RECV_OUTPUT = "cannot receive (readonly|canmount) property"
-	FAIL_ZFS_SEND_RECV_OUTPUT = "^(Host key verification failed|cannot receive .* stream|cannot send)"
+	FAIL_ZFS_SEND_RECV_OUTPUT = "^(Host key verification failed|cannot receive .* stream|cannot send|missing.*argument)"
 	_message	= DSPair[ds_suffix, "source_start"] ? DSPair[ds_suffix, "source_start"]"::" : ""
 	_message	= _message DSPair[ds_suffix, "source_end"]
 	_ds_snap	= Opt["SRC_DS"] ds_suffix DSPair[ds_suffix, "source_end"]
@@ -1136,6 +1136,14 @@ BEGIN {
 		DSTree["snapshot_needed"]	= SNAP_ALWAYS
 	if (Opt["VERB"] == "REPLICATE")
 		Opt["DEPTH"] = 1
+	if (Opt["RECV_PROPS_ADD"]) {
+		gsub(/,/, " -o ", Opt["RECV_PROPS_ADD"])
+		Opt["RECV_PROPS_ADD"] = "-o " Opt["RECV_PROPS_ADD"]
+	}
+	if (Opt["RECV_PROPS_DEL"]) {
+		gsub(/,/, " -x ", Opt["RECV_PROPS_DEL"])
+		Opt["RECV_PROPS_DEL"] = "-x " Opt["RECV_PROPS_DEL"]
+	}
 
 	validate_datasets()
 	validate_snapshots()

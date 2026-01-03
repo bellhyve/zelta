@@ -223,7 +223,7 @@ The following unambiguous `zfs send` and `zfs recv` flags are passed through dir
 
 **zfs send:** `-b, --backup, --embed, --holds, -L, --largeblock, --proctitle, --props, --raw, --skipmissing, -V, -w`
 
-**zfs recv:** `-F, -M, -u`
+**zfs recv:** `-F, -M, -u, -o, -x`
 
 **Ambiguous or unsupported flags:**
 - Single-dash options with multiple meanings are **not supported**: `-c, -d, -e, -h, -s`
@@ -233,7 +233,7 @@ The following unambiguous `zfs send` and `zfs recv` flags are passed through dir
 ```
 # Recompress at target with zstd-5
 # WARNING: This disables encrypted sends!
-zelta backup -L --recv-override "-o compression=zstd-5" source target
+zelta backup -L -o compression=zstd-5 source target
 ```
 
 **When in doubt, use the granular override options instead.**
