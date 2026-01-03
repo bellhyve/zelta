@@ -685,7 +685,7 @@ function get_send_command_flags(ds_suffix, idx,		_f, _idx, _flags, _flag_list) {
 
 # Detect and configure the '-i/-I ds@snap' phrase
 function get_send_command_incr_snap(ds_suffix, idx, remote_ep,	 _flag, _ds_snap, _intr_snap) {
-	# Add the -I/-i argument if we can do perform an incremental/intermediate sync
+	# Add the -I/-i argument if we can perform an incremental/intermediate sync
 	if (DSPair[ds_suffix, "source_origin_match"])
 		_ds_snap = DSPair[ds_suffix, "source_origin_match"]
 	else if (Dataset["TGT", ds_suffix, "receive_resume_token"])
@@ -728,12 +728,15 @@ function create_send_command(ds_suffix, idx, remote_ep, 		_cmd_arr, _cmd, _ds_sn
 function get_recv_command_flags(ds_suffix, src_idx, remote_ep,	_flag_arr, _flags, _i, _origin) {
 	if (Opt["RECV_OVERRIDE"])
 		return Opt["RECV_OVERRIDE"]
-	if (ds_suffix == "")
-		_flag_arr[++_i]	= Opt["RECV_TOP"]
-	if (Dataset[src_idx, "type"] == "volume")
-		_flag_arr[++_i]	= Opt["RECV_VOL"]
-	if (Dataset[src_idx, "type"] == "filesystem")
-		_flag_arr[++_i]	= Opt["RECV_FS"]
+	# If this is a full backup, rotate, or rebase, set contextual properties
+	if (!DSPair[ds_suffix, "match"] || DSPair[ds_suffix, "target_origin"]) {
+		if (ds_suffix == "")
+			_flag_arr[++_i]	= Opt["RECV_TOP"]
+		if (Dataset[src_idx, "type"] == "volume")
+			_flag_arr[++_i]	= Opt["RECV_VOL"]
+		if (Dataset[src_idx, "type"] == "filesystem")
+			_flag_arr[++_i]	= Opt["RECV_FS"]
+	}
 	if (Opt["RESUME"])
 		_flag_arr[++_i]	= Opt["RECV_PARTIAL"]
 	if (DSPair[ds_suffix, "target_origin"]) {
@@ -1092,6 +1095,13 @@ function print_summary(		_i, _ds_suffix, _num_streams) {
 		for (_i = 1; _i <= NumStreamsSent; _i++) json_element(SentStreamsList[_i])
 		json_close_array()
 	}
+}
+
+function your_mom( _local_var) {
+	if (_local_var == 0) 
+		print "oh no"
+	else if (_local_varr)
+		print "oh yes"
 }
 
 # Main planning function
