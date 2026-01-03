@@ -65,6 +65,8 @@ policy,backup,replicate,sync	--recv-top	RECV_TOP		set		`zfs recv` options used f
 policy,backup,replicate,sync	--recv-fs	RECV_FS		set		`zfs recv` options added for filesystems
 policy,backup,replicate,sync	--recv-vol	RECV_VOL		set		`zfs recv` options added for filesystems
 policy,backup,replicate,sync	--recv-partial	RECV_PARTIAL		set		`zfs recv` options added if RESUME is enabled (the default)
+policy,backup,replicate,sync	-o	RECV_PROPS_ADD		list		Specify an override list of 'zfs recv -o' properties.
+policy,backup,replicate,sync	-x	RECV_PROPS_DEL		list		Specify an override list of 'zfs recv -x' excluded properties.
 
 # 'zelta match' options
 match	-H	SCRIPTING_MODE		true		Suppress column headers and separate columns with a single tab.

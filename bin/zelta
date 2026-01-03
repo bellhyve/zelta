@@ -167,7 +167,7 @@ zelta_init() {
 	# `zfs recv` defaults
 	: ${ZELTA_RECV_DEFAULT:=""}
 	: ${ZELTA_RECV_TOP:="-o readonly=on"}
-	: ${ZELTA_RECV_FS:="-u -o mountpoint=none -o canmount=noauto"}
+	: ${ZELTA_RECV_FS:="-u -x mountpoint -o canmount=noauto"}
 	: ${ZELTA_RECV_VOL:=""}
 	: ${ZELTA_RECV_PARTIAL:="-s"}
 

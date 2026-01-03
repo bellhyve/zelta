@@ -238,11 +238,11 @@ function create_assoc(list, assoc, sep,		_i, _arr) {
 ########################
 
 # Convert a user provided glob to a regex for pattern matching
-function glob_to_regex(_r) {
-    gsub(/[\\^$.|()\[\]{}+]/, "\\\\&", _r)
-    gsub(/\*/, ".*", _r)
-    gsub(/\?/, ".", _r)
-    return "^" _r "$"
+function glob_to_regex(r, s) {
+    gsub(/[\\^$.|()\[\]{}+]/, "\\\\&", r)
+    gsub(/\*/, ".*", r)
+    gsub(/\?/, ".", r)
+    return "^" r s "$"
 }
 
 # systime() doesn't work on a lot of systems despite being in the POSIX spec.
@@ -323,12 +323,35 @@ function build_command(action, vars, 		_remote_prefix, _cmd, _num_vars, _var_lis
         return _cmd
 }
 
+# Handle common feedback from sh, ssh, and zfs
+function log_common_command_feedback(cmd_id, cmd_pipe, should_stop) {
+	# Ignore a blank line
+	if (!$0)
+		return
+	# Send output to the right logging facility
+	if ($0 ~ COMMAND_ERRORS) {
+		if (should_stop) {
+			close(cmd_pipe)
+			stop(1, $0)
+		}
+		report(LOG_ERROR, $0)
+	}
+	else if ($0 ~ COMMAND_DEBUG)
+		report(LOG_DEBUG, $0)
+	else
+		report(LOG_WARNING,"unexpected '" cmd_id "' output: " $0)
+}
+
+
 BEGIN {
 	# Constants
 	ENV_PREFIX	= "ZELTA_"
 	COMMAND_ERRORS	= "([Nn]o route to host|[Cc]ould not resolve|[Cc]ommand not found|[Cc]onnection refused|[Nn]etwork.*unreachable|timed out|Permission denied.*publickey)"
+	COMMAND_DEBUG	= "Permanently added.*to the list"
 	CAPTURE_OUTPUT	= " 2>&1"
 	STDERR		= "/dev/stderr"
+
+	STOP_ON_ERROR   = 1
 	LOG_ERROR	= 0
 	LOG_WARNING	= 1
 	LOG_NOTICE	= 2
