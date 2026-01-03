@@ -24,10 +24,12 @@ echo "Step 2/3: Creating test dataset tree..."
 spec/bin/standard_test/standard_snap_tree.sh
 
 echo "Step 3/3: Running zelta tests..."
-shellspec spec/bin/standard_test/standard_test_spec.sh
-#shellspec -f d --xtrace spec/bin/standard_test/standard_test_spec.sh:@1
-#shellspec -f d --xtrace spec/bin/standard_test/standard_test_spec.sh:@2
-#shellspec -f d --xtrace spec/bin/standard_test/standard_test_spec.sh:@3
+
+OPTIONS="${OPTIONS:-}"
+#shellspec spec/bin/standard_test/standard_test_spec.sh
+shellspec -f d $OPTIONS spec/bin/standard_test/standard_test_spec.sh:@1
+shellspec -f d $OPTIONS spec/bin/standard_test/standard_test_spec.sh:@2
+shellspec -f d $OPTIONS spec/bin/standard_test/standard_test_spec.sh:@3
 
 echo ""
 echo "✓ Tests complete"
