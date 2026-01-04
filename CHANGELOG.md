@@ -2,7 +2,7 @@
 
 All notable changes to the Zelta will be documented in this file.
 
-## [1.1.beta1] - 2025-12-22
+## [1.1.beta2] - 2026-01-03
 This section will be modified until v1.1 is officially released.
 
 ### Added
@@ -11,15 +11,20 @@ This section will be modified until v1.1 is officially released.
 - **Core**: `zelta-args.awk` added as a separate argument preprocessor.
 - **Core**: `zelta-common.awk` library for centralized string/logging functions.
 - **Config**: Data-driven TSV configuration (`zelta-opts.tsv`, `zelta-cmds.tsv`).
-- **Docs**: New `zelta-options(7)` manpage.
+- **Docs**: New `zelta-options(7)`, zelta-revert(8), zelta-rollback(8) manpages.
+- **Docs**: Added tool to sync manpages with the zelta.space wiki.
 
 ### Changed
 - **Architecture**: Refactor of all core scripts for maintainability and simpler logic.
 - **Core**: `bin/zelta` controller improved with centralized logging and better option handling.
+- **Core**: More centralized error handling.
 - **Backup**: Rewritten `zelta backup` engine with improved state tracking and resume support.
 - **Backup**: Core script renamed from `zelta-replicate.awk` to `zelta-backup.awk`.
+- **Backup**: Granular options overrides, `zfs recv -o/-x`.
 - **Match**: `zelta match` now calls itself rather than a redundant script.
 - **Match**: Output columns are now data driven with a simpler and clearer 'info' column.
+- **Match**: Added exclusion patterns.
+- **Rotate**: Better handling of naming.
 - **Policy**: Better hierarchical scoping.
 - **Orchestration**: Zelta is no longer required to be installed on endpoints.
 - **Logging**: Better alerts, deprecation system, legacy option system, and warning messages.
