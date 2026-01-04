@@ -70,7 +70,7 @@ zelta_init() {
 
 	ZELTA_HOSTNAME="${HOSTNAME:-$(hostname)}"
 	: "${ZELTA_HOSTNAME:=localhost}"
-	
+
 	# Read zelta.env prepending ZELTA_ prefix when necessary
 	if [ -r "$ZELTA_ENV" ]; then
 		_env_settings=$($AWK -F= '
@@ -93,7 +93,7 @@ zelta_init() {
 			printf ": ${%s}\n", $0
 		}
 		' "$ZELTA_ENV")
-		
+
 		eval "$_env_settings"
 	fi
 
@@ -133,7 +133,7 @@ zelta_init() {
 			;;
 	esac
 
-	
+
 
 	: ${ZELTA_SHARE:="/usr/local/share/zelta"}	# Dir for helper scripts
 	: ${ZELTA_CONFIG:="$ZELTA_ETC/zelta.conf"}	# YAML for "zelta policy"
@@ -278,7 +278,7 @@ case "$script_name" in
 		zelta_usage
 	fi
 	;;
-*) 
+*)
 	zelta_verb="$script_name"
 	;;
 esac

@@ -101,7 +101,7 @@ function set_var(option_list, var, val) {
 		else if (val in False)
 			val = "0"
 	} else if ((PolicyOptType[var] == "incr") || (PolicyOptType[var] == "decr")) {
-		if (val !~ /^[0-9]$/) 
+		if (val !~ /^[0-9]$/)
 			report(LOG_WARNING, "option '" var "' is an integer; '"var"' invalid")
 		return
 	}
@@ -293,7 +293,7 @@ function xargs(		_xargs_cmd, _site, _echo_sites, _return_code) {
 	return _return_code
 }
 
-function backup_loop(		_site, _host, _hosts_arr, _job_status, _endpoint_key, 
+function backup_loop(		_site, _host, _hosts_arr, _job_status, _endpoint_key,
 		     		_site_hosts, _num_failed, _failed_arr, _source, _target) {
 	for (_site in Sites) {
 		sub_keys(HostsBySite, _site, Hosts, _site_hosts)

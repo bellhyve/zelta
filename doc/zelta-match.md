@@ -27,7 +27,7 @@
 :    Enable the specified log modes: 'text' and 'json' are currently supported.
 
 **\--text**
-:    Forces default output (notices) to print as plain text standard output. 
+:    Forces default output (notices) to print as plain text standard output.
 
 **-n,\--dryrun**
 :    Display 'zfs' commands related to the action rather than running them.
@@ -79,7 +79,7 @@
 | tgt_written | Target data written since last snap         |
 | tgt_snaps   | Total target snapshots                      |
 | info        | Sync state description                      |
-                         
+
 # EXAMPLES
 
 **Basic Comparison:** Compare snapshots between local source and target datasets.

@@ -163,7 +163,7 @@ function load_properties(ep,		_ds, _cmd_arr, _cmd, _cmd_id, _ds_suffix, _idx, _s
 			close(_cmd)
 			return 0
 		}
-		else 
+		else
 			log_common_command_feedback(_cmd_id, _cmd, STOP_ON_ERROR)
 	}
 	close(_cmd)
@@ -1097,13 +1097,6 @@ function print_summary(		_i, _ds_suffix, _num_streams) {
 		for (_i = 1; _i <= NumStreamsSent; _i++) json_element(SentStreamsList[_i])
 		json_close_array()
 	}
-}
-
-function your_mom( _local_var) {
-	if (_local_var == 0) 
-		print "oh no"
-	else if (_local_varr)
-		print "oh yes"
 }
 
 # Main planning function
