@@ -54,7 +54,7 @@ zelta_man() {
 		*)					_manpage=zelta-$1 ;;
 	esac
 	if [ -d "$ZELTA_DOC" ] ; then
-		man -m "$ZELTA_DOC" $_man_section $_manpage
+		man -M "$ZELTA_DOC" $_man_section $_manpage
 	else
 		man $_man_section $_manpage
 	fi
