@@ -23,7 +23,7 @@ NR == 1 {
 			col_end[i] = index($0, headers[i+1]) - 1
 	}
 	col_end[n] = length($0)
-	
+
 	print #CYAN $0 RESET
 	next
 }
@@ -35,7 +35,7 @@ NR == 1 {
 		# Trim trailing spaces for easier matching
 		gsub(/[[:space:]]+$/, "", col[i])
 	}
-	
+
 	# Now col[1], col[2], col[3] are your columns
 	# Color the whole line
 	if (NR % 2 == 0)

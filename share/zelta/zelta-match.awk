@@ -173,7 +173,7 @@ function process_row(ep,		_name, _guid, _written, _name_suffix, _ds_suffix, _sav
 	if ((_type == IS_SNAPSHOT) && (_ep_id == Source["ID"]))
 		if (regex_loop(_savepoint, ExcludeSnapPattern, NumExcludeSnap))
 			return
-	    
+
 	Row[_row_id, "exists"]     = 1
 	Row[_row_id, "guid"]       = _guid
 	Row[_row_id, "written"]    = _written
@@ -379,7 +379,7 @@ function process_datasets(		_src_id, _tgt_id, _num_src_ds, _num_tgt_ds, _d, _s,
 ## Postprocessing
 #################
 
-# Report up-to-date, syncable, blocked sync, or no source 
+# Report up-to-date, syncable, blocked sync, or no source
 function get_info(	_d, _ds_suffix, _src_ds, _tgt_ds, _info, _blocked, _s) {
 	for (_d = 1; _d <= NumDSPair; _d++) {
 		_ds_suffix          = DSPairList[_d]

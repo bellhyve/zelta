@@ -11,7 +11,7 @@ function validate_host(host,		_hostname_cmd) {
 }
 
 # TO-DO: Move to 'zelta-common.awk' as a generic endpoint calculator
-# Load and parse two endpoints, the source and target, sequentially 
+# Load and parse two endpoints, the source and target, sequentially
 # Create a set of variables from an scp-like host-dataset argument
 # [[user@]host:]dataset[@snapshot]
 function get_endpoint(		ep_type, _str_parts, _id, _remote ,_user, _host, _ds, _snap) {
@@ -54,7 +54,7 @@ function get_endpoint(		ep_type, _str_parts, _id, _remote ,_user, _host, _ds, _s
 function match_arg(arg, 	_flag) {
 	for (_flag in OptListFlags) {
 		if (arg == _flag) return OptListFlags[_flag]
-	} 
+	}
 	stop(1, "invalid option '"arg"'")
 }
 
