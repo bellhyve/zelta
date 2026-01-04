@@ -8,7 +8,7 @@
 # SYNOPSIS
 
 **zelta clone** [**-d** _depth_] _source/dataset[@snap]_ _target/dataset_
-  
+
 
 # DESCRIPTION
 `zelta clone` performs a recursive **zfs clone** operation on a dataset. This is useful for recursive duplication of dataset trees and backup inspection and recovery of a files replicated with `zelta backup`. The clones will reference the latest or indicated snapshot, and consume practically no additional space. Clones can be modified and destroyed without affecting their origin datasets.
@@ -56,7 +56,7 @@ _target_
 **Clone a dataset tree:**
 
 ```sh
-zelta clone tank/vm/myos tank/temp/myos-202404 
+zelta clone tank/vm/myos tank/temp/myos-202404
 ```
 
 **Recover a dataset tree, in place, to a previous snapshot's state:**

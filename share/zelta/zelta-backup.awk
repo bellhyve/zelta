@@ -163,7 +163,7 @@ function load_properties(ep,		_ds, _cmd_arr, _cmd, _cmd_id, _ds_suffix, _idx, _s
 			close(_cmd)
 			return 0
 		}
-		else 
+		else
 			log_common_command_feedback(_cmd_id, _cmd, STOP_ON_ERROR)
 	}
 	close(_cmd)
@@ -767,19 +767,20 @@ function create_recv_command(ds_suffix, src_idx, remote_ep,		 _cmd_arr, _cmd, _t
 ###############################
 
 # Runs a sync, collecting "zfs send" output
-function run_zfs_sync(ds_suffix,		_cmd, _stream_info, _message, _ds_snap, _size, _time, _streams, _sync_msg) {
+function run_zfs_sync(ds_suffix,		_cmd, _stream_info, _message, _ds_snap,
+		      				_size, _time, _streams, _sync_msg) {
 	# TO-DO: Make 'rotate' logic more explicit
 	# TO-DO: Dryrun mode probably goes here
 	if (Opt["VERB"] == "rotate" && !Action[ds_suffix, "can_rotate"]) return
 	if (Opt["VERB"] != "rotate" && !Action[ds_suffix, "can_sync"]) return
 	IGNORE_ZFS_SEND_OUTPUT = "^(incremental|full)| records (in|out)$|bytes.*transferred|(create|receive) mountpoint|ignoring$"
 	IGNORE_RESUME_OUTPUT = "^nvlist version|^\t(fromguid|object|offset|bytes|toguid|toname|embedok|compressok)"
-	WARN_ZFS_RECV_OUTPUT = "cannot receive (readonly|canmount) property"
+	WARN_ZFS_RECV_PROPS = "cannot receive .* property"
 	FAIL_ZFS_SEND_RECV_OUTPUT = "^(Host key verification failed|cannot receive .* stream|cannot send|missing.*argument)"
-	_message	= DSPair[ds_suffix, "source_start"] ? DSPair[ds_suffix, "source_start"]"::" : ""
-	_message	= _message DSPair[ds_suffix, "source_end"]
-	_ds_snap	= Opt["SRC_DS"] ds_suffix DSPair[ds_suffix, "source_end"]
-	_sync_msg	= "synced "
+	_message            = DSPair[ds_suffix, "source_start"] ? DSPair[ds_suffix, "source_start"]"::" : ""
+	_message            = _message DSPair[ds_suffix, "source_end"]
+	_ds_snap            = Opt["SRC_DS"] ds_suffix DSPair[ds_suffix, "source_end"]
+	_sync_msg           = "synced "
 	SentStreamsList[++NumStreamsSent] = _message
 	Summary["replicationStreamsSent"]++
 
@@ -818,16 +819,19 @@ function run_zfs_sync(ds_suffix,		_cmd, _stream_info, _message, _ds_snap, _size,
 			report(LOG_INFO, "to abort a failed resume, run: 'zfs receive -A " Opt["SRC_DS"] ds_suffix"'")
 		}
 		else if ($0 ~ FAIL_ZFS_SEND_RECV_OUTPUT) {
-			report(LOG_ERROR, $0)
+			report(LOG_ERROR, $0 ": " Opt["TGT_DS"] ds_suffix)
 			break
+		}
+		else if ($0 ~ WARN_ZFS_RECV_PROPS) {
+			report(LOG_DEBUG, $0 ": " Opt["TGT_DS"] ds_suffix)
+			if (!FailedProps[$3]++)
+				Summary["failed_props"] = str_add(Summary["failed_props"], $3, ",")
 		}
 		else if ($1 ~ /:/ && $2 ~ /^[0-9]+$/)
 			# SIGINFO: Is this still working?
 			report(LOG_INFO, $0)
 		else if ($0 ~ IGNORE_ZFS_SEND_OUTPUT) {}
 		else if ($0 ~ IGNORE_RESUME_OUTPUT) {}
-		else if ($0 ~ WARN_ZFS_RECV_OUTPUT)
-			report(LOG_WARNING, $0)
 		else
 			report(LOG_WARNING, $0)
 	}
@@ -908,7 +912,7 @@ function rename_dataset(endpoint,		_old_ds, _new_ds, _remote, _snap,
 	report(LOG_DEBUG, "`"_cmd"`")
 	_cmd = _cmd CAPTURE_OUTPUT
 	while (_cmd | getline) {
-		if (/cannot unmount/)
+		if (/cannot (rename|unmount)/)
 			stop(1, $0)
 		report(LOG_ERROR, "unexpected 'zfs rename' output: " $0)
 	}
@@ -980,11 +984,6 @@ function run_rotate(		_src_ds_snap, _up_to_date, _src_origin_ds, _origin_arr, _n
 	} else {
 		if (_up_to_date)
 			stop(1, "replica is up-to-date; source snapshot required for rotation: " Opt["SRC_DS"])
-		# If any single item is rotateable, warn that some snapshots require full restoration
-#		else if (!DSPair["","match"]) {
-#			report(LOG_ERROR, "to perform a full backup, rename the target dataset or sync to an empty target")
-#			stop(1, "top source dataset '" Opt["SRC_DS"] "' or its origin must match the target for rotation to continue")
-#		}
 		else if (DSTree["rotatable"])
 			report(LOG_WARNING, "insufficient snapshots; performing full backup for " _num_full_backup " datasets")
 		else {
@@ -993,10 +992,9 @@ function run_rotate(		_src_ds_snap, _up_to_date, _src_origin_ds, _origin_arr, _n
 		}
 	}
 
-	#for (_i = 1; _i <= NumDS; _i++) report(LOG_DEBUG, "dataset: "_src_origin_ds DSList[_i] ":  origin: " Dataset["SRC",DSList[_i],"origin"] "  source origin match: " DSPair[DSList[_i] "source_origin_match"]  "  match:" DSPair[DSList[_i],"match"] "  can_rotate?: " Action[DSList[_i],"can_rotate"] "  explain:" explain_sync_status(DSList[_i])
-
 	# Rename target dataset
 	_target_origin = rename_dataset("TGT")
+
 	# Sync match from source or source origin, or run a full backup
 	for (_i = 1; _i <= NumDS; _i++) {
 		_ds_suffix = DSList[_i]
@@ -1077,6 +1075,8 @@ function run_backup(		_i, _ds_suffix, _syncable) {
 }
 
 function print_summary(		_i, _ds_suffix, _num_streams) {
+	if(Summary["failed_props"])
+		report(LOG_WARNING, "missing `zfs allow` permissions: " Summary["failed_props"])
 	if (DSTree["up_to_date"] == NumDS) {
 		_status = (NumDS == 1) ? "dataset" : NumDS " datasets"
 		report(LOG_NOTICE, _status" up-to-date")
@@ -1097,13 +1097,6 @@ function print_summary(		_i, _ds_suffix, _num_streams) {
 		for (_i = 1; _i <= NumStreamsSent; _i++) json_element(SentStreamsList[_i])
 		json_close_array()
 	}
-}
-
-function your_mom( _local_var) {
-	if (_local_var == 0) 
-		print "oh no"
-	else if (_local_varr)
-		print "oh yes"
 }
 
 # Main planning function
