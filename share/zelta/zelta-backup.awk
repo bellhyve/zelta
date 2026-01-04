@@ -164,7 +164,7 @@ function load_properties(ep,		_ds, _cmd_arr, _cmd, _cmd_id, _ds_suffix, _idx, _s
 			return 0
 		}
 		else
-			log_common_command_feedback(_cmd_id, _cmd, STOP_ON_ERROR)
+			log_common_command_feedback(_cmd, STOP_ON_ERROR)
 	}
 	close(_cmd)
 	return Dataset[ep, "", "exists"]
@@ -773,14 +773,15 @@ function run_zfs_sync(ds_suffix,		_cmd, _stream_info, _message, _ds_snap,
 	# TO-DO: Dryrun mode probably goes here
 	if (Opt["VERB"] == "rotate" && !Action[ds_suffix, "can_rotate"]) return
 	if (Opt["VERB"] != "rotate" && !Action[ds_suffix, "can_sync"]) return
-	IGNORE_ZFS_SEND_OUTPUT = "^(incremental|full)| records (in|out)$|bytes.*transferred|(create|receive) mountpoint|ignoring$"
+	#IGNORE_ZFS_SEND_OUTPUT = "^(incremental|full)| records (in|out)$|bytes.*transferred|(create|receive) mountpoint|ignoring$"
+	IGNORE_ZFS_SEND_OUTPUT = "^(incremental|full)"
 	IGNORE_RESUME_OUTPUT = "^nvlist version|^\t(fromguid|object|offset|bytes|toguid|toname|embedok|compressok)"
 	WARN_ZFS_RECV_PROPS = "cannot receive .* property"
-	FAIL_ZFS_SEND_RECV_OUTPUT = "^(Host key verification failed|cannot receive .* stream|cannot send|missing.*argument)"
+	FAIL_ZFS_SEND_RECV_OUTPUT = "^(cannot receive .* stream|cannot send|missing.*argument)"
 	_message            = DSPair[ds_suffix, "source_start"] ? DSPair[ds_suffix, "source_start"]"::" : ""
 	_message            = _message DSPair[ds_suffix, "source_end"]
 	_ds_snap            = Opt["SRC_DS"] ds_suffix DSPair[ds_suffix, "source_end"]
-	_sync_msg           = "synced "
+	_sync_msg           = "synced"
 	SentStreamsList[++NumStreamsSent] = _message
 	Summary["replicationStreamsSent"]++
 
@@ -808,7 +809,7 @@ function run_zfs_sync(ds_suffix,		_cmd, _stream_info, _message, _ds_snap,
 			Summary["replicationStreamsReceived"]++
 		}
 		else if ($1 == "receiving")
-			_sync_msg = $2" "$3" "
+			_sync_msg = $2" "$3
 		else if (/using provided clone origin/)
 			Summary["targetsCloned"]++
 		else if (/resume token contents/) {
@@ -827,13 +828,13 @@ function run_zfs_sync(ds_suffix,		_cmd, _stream_info, _message, _ds_snap,
 			if (!FailedProps[$3]++)
 				Summary["failed_props"] = str_add(Summary["failed_props"], $3, ",")
 		}
+		# SIGINFO: Is this still working?
 		else if ($1 ~ /:/ && $2 ~ /^[0-9]+$/)
-			# SIGINFO: Is this still working?
 			report(LOG_INFO, $0)
 		else if ($0 ~ IGNORE_ZFS_SEND_OUTPUT) {}
 		else if ($0 ~ IGNORE_RESUME_OUTPUT) {}
-		else
-			report(LOG_WARNING, $0)
+		else if (log_common_command_feedback() == LOG_ERROR)
+			break
 	}
 	close(_cmd)
 	if (_streams) {

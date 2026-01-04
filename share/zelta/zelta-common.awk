@@ -324,29 +324,34 @@ function build_command(action, vars, 		_remote_prefix, _cmd, _num_vars, _var_lis
 }
 
 # Handle common feedback from sh, ssh, and zfs
-function log_common_command_feedback(cmd_id, cmd_pipe, should_stop) {
+function log_common_command_feedback(cmd_pipe, should_stop,     _log_level) {
+	_log_level = LOG_NOTICE
 	# Ignore a blank line
 	if (!$0)
-		return
+		return LOG_NOTICE
 	# Send output to the right logging facility
-	if ($0 ~ COMMAND_ERRORS) {
-		if (should_stop) {
-			close(cmd_pipe)
-			stop(1, $0)
-		}
-		report(LOG_ERROR, $0)
-	}
+	if ($0 ~ COMMAND_ERROR)
+		_log_level = LOG_ERROR
+	else if ($0 ~ COMMAND_INFO)
+		_log_level = LOG_INFO
 	else if ($0 ~ COMMAND_DEBUG)
-		report(LOG_DEBUG, $0)
+		_log_level = LOG_INFO
 	else
-		report(LOG_WARNING,"unexpected '" cmd_id "' output: " $0)
+		_log_level = LOG_WARNING
+	if (!_log_level && should_stop) {
+		print "got here"
+		close(cmd_pipe)
+		stop(1, $0)
+	}
+	report(_log_level, $0)
+	return _log_level
 }
 
 
 BEGIN {
 	# Constants
 	ENV_PREFIX	= "ZELTA_"
-	COMMAND_ERRORS	= "([Nn]o route to host|[Cc]ould not resolve|[Cc]ommand not found|[Cc]onnection refused|[Nn]etwork.*unreachable|timed out|Permission denied.*publickey)"
+	COMMAND_ERRORS	= "([Nn]o route to host|[Cc]ould not resolve|[Cc]ommand not found|[Cc]onnection refused|[Nn]etwork.*unreachable|timed out|Permission denied.*publickey|[Hh]ost key verification failed)"
 	COMMAND_DEBUG	= "Permanently added.*to the list"
 	CAPTURE_OUTPUT	= " 2>&1"
 	STDERR		= "/dev/stderr"
