@@ -53,7 +53,7 @@ zelta_man() {
 		zpull|zpush)				_manpage=zelta-backup ;;
 		*)					_manpage=zelta-$1 ;;
 	esac
-	if [ -s "$ZELTA_DOC" ] ; then
+	if [ -d "$ZELTA_DOC" ] ; then
 		man "$ZELTA_DOC/$_manpage.$_man_section"
 	else
 		man $_man_section $_manpage
