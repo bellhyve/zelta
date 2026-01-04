@@ -17,6 +17,14 @@ validate_options() {
     return 0
 }
 
+#snapshot_count() {
+#    local expected_count=$1
+#    local svr=$2
+#    snapshot_count=$(exec_on $svr zfs list -t snapshot | wc)
+#    return [ "$expected_count" -eq "$snapshot_count" ]
+#}
+
+
 # allow for 2 vaild matches for current shellspec line/subject being considered
 match_either() {
     case $SHELLSPEC_SUBJECT in
@@ -102,10 +110,21 @@ Describe 'try backup'
         When call exec_on "$TGT_SVR" zfs list -r "$TGT_POOL"
         The line 2 of output should match pattern "$TGT_POOL * /$TGT_POOL"
         The line 3 of output should match pattern "$TGT_POOL/$BACKUPS_DSN * /$TGT_POOL/$BACKUPS_DSN"
-        The line 4 of output should match pattern "$TGT_TREE * none"
-        The line 5 of output should match pattern "$TGT_TREE/one * none"
-        The line 6 of output should match pattern "$TGT_TREE/one/two * none"
-        The line 7 of output should match pattern "$TGT_TREE/one/two/three * none"
+        #The line 4 of output should match pattern "$TGT_TREE * none"
+        #The line 5 of output should match pattern "$TGT_TREE/one * none"
+        #The line 6 of output should match pattern "$TGT_TREE/one/two * none"
+        #The line 7 of output should match pattern "$TGT_TREE/one/two/three * none"
+        The line 4 of output should match pattern "$TGT_TREE * /$TGT_TREE"
+        The line 5 of output should match pattern "$TGT_TREE/one * /$TGT_TREE/one"
+        The line 6 of output should match pattern "$TGT_TREE/one/two * /$TGT_TREE/one/two"
+        The line 7 of output should match pattern "$TGT_TREE/one/two/three * /$TGT_TREE/one/two/three"
+
+        The stderr should be blank
+        The status should eq 0
+    End
+
+    It 'has 9 snapshots after backup'
+        When call snapshot_count 8 "$TGT_SVR"
         The stderr should be blank
         The status should eq 0
     End
@@ -128,6 +147,13 @@ Describe 'zelta rotate'
         The stderr should be blank
         The status should eq 0
     End
+
+    It 'has 17 snapshots after rotate'
+        When call snapshot_count 16 "$TGT_SVR"
+        The stderr should be blank
+        The status should eq 0
+    End
+
 End
 
 
