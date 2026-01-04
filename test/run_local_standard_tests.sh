@@ -31,10 +31,9 @@ echo "Step 3/3: Running zelta tests..."
 OPTIONS="--xtrace --shell bash"
 # unset OPTIONS
 
-#shellspec -f d $OPTIONS spec/bin/standard_test/standard_test_spec.sh
-shellspec $OPTIONS -f d spec/bin/standard_test/standard_test_spec.sh:@1
-shellspec $OPTIONS -f d spec/bin/standard_test/standard_test_spec.sh:@2-1
-shellspec $OPTIONS -f d spec/bin/standard_test/standard_test_spec.sh:@2-2
+shellspec -f d $OPTIONS spec/bin/standard_test/standard_test_spec.sh
+#shellspec $OPTIONS -f d spec/bin/standard_test/standard_test_spec.sh:@1
+#shellspec $OPTIONS -f d spec/bin/standard_test/standard_test_spec.sh:@2
 #shellspec $OPTIONS -f d spec/bin/standard_test/standard_test_spec.sh:@3
 
 echo ""
