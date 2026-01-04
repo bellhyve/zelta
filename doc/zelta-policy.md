@@ -30,7 +30,7 @@ In the **zelta policy** configuration file, you may override **zelta backup**'s 
 ## Backup Job Parameters
 Without additional parameters, **zelta policy** will run a **zelta backup** job for each dataset in the configuration file. Providing one of the following will limit the backup job.
 
-**_site_**  Run a backup job only for the _site_ listed. A _site_ is a user defined top-level parameter in the configuration file representing a list of one or more hosts. 
+**_site_**  Run a backup job only for the _site_ listed. A _site_ is a user defined top-level parameter in the configuration file representing a list of one or more hosts.
 
 **_host_**  Run a backup job only for the _host_ listed. Hosts must be accessible via SSH private-key authentication or **localhost**.
 
@@ -38,7 +38,7 @@ Without additional parameters, **zelta policy** will run a **zelta backup** job 
 
 **_host:dataset_**  Specify a _source_ or _backup_ dataset endpoint name, equivalent to the paramemters of **zelta backup**.
 
-**_dataset_pattern_**  Speicfy the final source or target dataset label. For example, `vm` would run all backup jobs with datasets ending in `/vm`.
+**_dataset_pattern_**  Specify the final source or target dataset label. For example, `vm` would run all backup jobs with datasets ending in `/vm`.
 
 # FILES
 For detailed documentation of the **zelta policy** configuration see `zelta.conf.example`.
