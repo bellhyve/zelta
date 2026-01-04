@@ -9,8 +9,8 @@ if [ "$(id -u)" -eq 0 ]; then
 	: ${ZELTA_BIN:="/usr/local/bin"}
 	: ${ZELTA_SHARE:="/usr/local/share/zelta"}
 	: ${ZELTA_ETC:="/usr/local/etc/zelta"}
-	: ${ZELTA_MAN:="/usr/local/share/man"}
-elif [ -z "$ZELTA_BIN$ZELTA_SHARE$ZELTA_ETC$ZELTA_DOC" ]; then
+	: ${ZELTA_DOC:="/usr/local/share/man"}
+elif [ -z "$ZELTA_BIN" ] || [ -z "$ZELTA_SHARE" ] || [ -z "$ZELTA_ETC" ] || [ -z "$ZELTA_DOC" ]; then
 	: ${ZELTA_BIN:="$HOME/bin"}
 	: ${ZELTA_SHARE:="$HOME/.local/share/zelta"}
 	: ${ZELTA_ETC:="$HOME/.config/zelta"}
@@ -63,21 +63,14 @@ for file in share/zelta/zelta-*; do
     copy_file "$file" "${ZELTA_SHARE}/${file##*/}"
 done
 
-if [ -n "$ZELTA_MAN" ]; then
+if [ -n "$ZELTA_DOC" ]; then
 	for section in 7 8; do
-		mandir="${ZELTA_MAN}/man${section}"
+		mandir="${ZELTA_DOC}/man${section}"
 		mkdir -p "$mandir"
 		for file in doc/*.${section}; do
 			copy_file "$file" "$mandir/${file##*/}"
 		done
 	done
-
-	# Check if manpath command exists and ZELTA_MAN is in the path
-	if ! manpath 2>/dev/null | grep -q "$ZELTA_MAN"; then
-		echo "Man pages installed to $ZELTA_MAN. Ensure this directory"
-		echo "is in your MANPATH: export MANPATH=\"\$MANPATH:$ZELTA_MAN\""
-	fi
-
 fi
 
 # Environment and default overrides
@@ -90,14 +83,6 @@ fi
 copy_file zelta.conf "${ZELTA_CONF}.example"
 if [ ! -s "$ZELTA_CONF" ]; then
 	copy_file zelta.conf "$ZELTA_CONF"
-fi
-
-# Add doc if requested
-if [ "$ZELTA_DOC" ]; then
-	mkdir -p "$ZELTA_DOC"
-	for file in doc/*.[78]; do
-		copy_file "$file" "${ZELTA_DOC}/${file##*/}"
-	done
 fi
 
 if ! command -v zelta >/dev/null 2>&1; then
