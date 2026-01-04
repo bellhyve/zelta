@@ -27,14 +27,15 @@ echo "Step 3/3: Running zelta tests..."
 
 # To show a trace and execute expectations, use bash
 
-#OPTIONS="${OPTIONS:-}"
-OPTIONS="--xtrace --shell bash"
-# unset OPTIONS
+#SHELLSPEC_TESTOPT="${SHELLSPEC_TESTOPT:-}"
+#SHELLSPEC_TESTOPT="--xtrace --shell bash"
+#SHELLSPEC_TESTOPT="--xtrace"
+unset SHELLSPEC_TESTOPT
 
-shellspec -f d $OPTIONS spec/bin/standard_test/standard_test_spec.sh
-#shellspec $OPTIONS -f d spec/bin/standard_test/standard_test_spec.sh:@1
-#shellspec $OPTIONS -f d spec/bin/standard_test/standard_test_spec.sh:@2
-#shellspec $OPTIONS -f d spec/bin/standard_test/standard_test_spec.sh:@3
+shellspec -f d $SHELLSPEC_TESTOPT spec/bin/standard_test/standard_test_spec.sh
+#shellspec $SHELLSPEC_TESTOPT -f d spec/bin/standard_test/standard_test_spec.sh:@1
+#shellspec $SHELLSPEC_TESTOPT -f d spec/bin/standard_test/standard_test_spec.sh:@2
+#shellspec $SHELLSPEC_TESTOPT -f d spec/bin/standard_test/standard_test_spec.sh:@3
 
 echo ""
 echo "✓ Tests complete"
