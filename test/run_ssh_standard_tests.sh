@@ -10,9 +10,10 @@ export TGT_SVR="dever@fzfsdev"
 
 echo "Running zelta tests..."
 OPTIONS="${OPTIONS:-}"
-#shellspec -f d $OPTIONS ./spec/bin/standard_test/standard_test_spec.sh
-shellspec -f d $OPTIONS spec/bin/standard_test/standard_test_spec.sh:@1
-shellspec -f d $OPTIONS spec/bin/standard_test/standard_test_spec.sh:@2
-shellspec -f d $OPTIONS spec/bin/standard_test/standard_test_spec.sh:@3
+shellspec -f d $OPTIONS ./spec/bin/standard_test/standard_test_spec.sh
+#shellspec -f d $OPTIONS spec/bin/standard_test/standard_test_spec.sh:@1
+#shellspec -f d $OPTIONS spec/bin/standard_test/standard_test_spec.sh:@2
+#shellspec -f d $OPTIONS spec/bin/standard_test/standard_test_spec.sh:@3
 
-
+echo ""
+echo "✓ Tests complete"
