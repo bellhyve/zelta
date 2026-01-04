@@ -141,7 +141,7 @@ Describe 'zelta rotate'
         The line 1 of output should match pattern "action requires a snapshot delta; snapshotting: @zelta_*"
         The line 2 of output should match pattern "rotating from source: ${SRC_TREE}@zelta_*"
         The line 3 of output should match pattern "renaming '${TGT_TREE}' to '${TGT_TREE}_zelta_*'"
-        The line 4 of output should match pattern "to ensure target is up-to-date, run: zelta backup ${SRC_TREE} ${TGT_TREE}"
+        The line 4 of output should match pattern "to ensure target is up-to-date, run: zelta backup ${SOURCE} ${TARGET}"
         The line 5 of output should match pattern "* datasets up-to-date"
         The line 6 of output should match pattern "* sent, * streams received in * seconds"
         The stderr should be blank
