@@ -818,7 +818,7 @@ function run_zfs_sync(ds_suffix,		_cmd, _stream_info, _message, _ds_snap, _size,
 			report(LOG_INFO, "to abort a failed resume, run: 'zfs receive -A " Opt["SRC_DS"] ds_suffix"'")
 		}
 		else if ($0 ~ FAIL_ZFS_SEND_RECV_OUTPUT) {
-			report(LOG_ERROR, $0)
+			report(LOG_ERROR, $0 ": " Opt["TGT_DS"] ds_suffix)
 			break
 		}
 		else if ($1 ~ /:/ && $2 ~ /^[0-9]+$/)
