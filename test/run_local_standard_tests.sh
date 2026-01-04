@@ -25,11 +25,12 @@ spec/bin/standard_test/standard_snap_tree.sh
 
 echo "Step 3/3: Running zelta tests..."
 
-# To show a trace and execute expectations, use bash
-
+# shellspec options to include
 #SHELLSPEC_TESTOPT="${SHELLSPEC_TESTOPT:-}"
+
+# this options will show a trace with expectation evaluation
 #SHELLSPEC_TESTOPT="--xtrace --shell bash"
-#SHELLSPEC_TESTOPT="--xtrace"
+
 unset SHELLSPEC_TESTOPT
 
 shellspec -f d $SHELLSPEC_TESTOPT spec/bin/standard_test/standard_test_spec.sh
