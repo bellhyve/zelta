@@ -339,7 +339,6 @@ function log_common_command_feedback(cmd_pipe, should_stop,     _log_level) {
 	else
 		_log_level = LOG_WARNING
 	if (!_log_level && should_stop) {
-		print "got here"
 		close(cmd_pipe)
 		stop(1, $0)
 	}
