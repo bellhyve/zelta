@@ -54,6 +54,50 @@ exec_on() {
 
 snapshot_count() {
     expected_count=$1
+    pattern=$2  # Optional regex pattern
+    svr=$3 # Optional server name
+
+    # Validate arguments
+    if [ -z "$expected_count" ]; then
+        echo "Error: snapshot_count requires expected_count argument" >&2
+        return 1
+    fi
+
+    # Validate expected_count is a number
+    case "$expected_count" in
+        ''|*[!0-9]*)
+            echo "Error: expected_count must be a number" >&2
+            return 1
+            ;;
+    esac
+
+    # Get snapshot list
+    snapshot_list=$(exec_on "$svr" zfs list -t snapshot -H -o name)
+
+    # Count snapshots, optionally filtering by pattern
+    if [ -n "$pattern" ]; then
+        # Count only snapshots matching the pattern
+        snapshot_count=$(echo "$snapshot_list" | grep -E "$pattern" | wc -l)
+    else
+        # Count all snapshots
+        snapshot_count=$(echo "$snapshot_list" | wc -l)
+    fi
+
+    # Test the count
+    if [ "$expected_count" -eq "$snapshot_count" ]; then
+        return 0
+    else
+        if [ -n "$pattern" ]; then
+            echo "Expected $expected_count snapshots matching pattern '$pattern', found $snapshot_count" >&2
+        else
+            echo "Expected $expected_count snapshots, found $snapshot_count" >&2
+        fi
+        return 1
+    fi
+}
+
+snapshot_count_v1() {
+    expected_count=$1
     svr=$2
 
     # Validate arguments
