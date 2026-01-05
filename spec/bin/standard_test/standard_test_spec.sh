@@ -110,11 +110,10 @@ Describe 'try backup'
         The status should eq 0
     End
 
-
     Parameters
-      8 '' $TGT_SVR
-      4 apool/treetop $TGT_SVR
-      4 bpool/backups/treetop $TGT_SVR
+      8          ''                     $TGT_SVR
+      4          apool/treetop          $TGT_SVR
+      4          bpool/backups/treetop  $TGT_SVR
     End
 
     It "has $1 snapshots on ${3:-localhost} ${2:+matching pattern '$2'}"
@@ -143,9 +142,9 @@ Describe 'zelta rotate'
     End
 
     Parameters
-      16 '' $TGT_SVR
-      8 apool/treetop $TGT_SVR
-      8 bpool/backups/treetop $TGT_SVR
+      16       ''                     $TGT_SVR
+      8        apool/treetop          $TGT_SVR
+      8        bpool/backups/treetop  $TGT_SVR
     End
 
     It "has $1 snapshots on ${3:-localhost} ${2:+matching pattern '$2'}"
