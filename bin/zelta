@@ -328,7 +328,8 @@ case $zelta_verb in
 	# Time
 	time)		"$@" | sh -c "time -p cat" ;;
 	# Info
-	-V |\
+	--help|\
+	-V|\
 	--version |\
 	version)	echo $ZELTA_VERSION ;;
 	''|-?|usage)	zelta_usage ;;

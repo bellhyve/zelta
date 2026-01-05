@@ -6,23 +6,20 @@
 # Checks both system-wide and user installation locations.
 
 remove_if_exists() {
-	if [ -w "$1" ] || [ -L "$1" ]; then
+	if [ -L "$1" ] || [ -f "$1" ] && [ -w "$1" ]; then
 		echo "- removing: $1"
 		rm -f "$1"
 		Tidied=1
-		return 0
 	fi
-	return 1
 }
 
 remove_dir_if_exists() {
 	if [ -d "$1" ] && [ -w "$1" ]; then
-		echo "- removing directory: $1"
-		rmdir "$1"
-		Tidied=1
-		return 0
+		if rmdir "$1" 2>/dev/null; then
+			echo "- removing directory: $1"
+			Tidied=1
+		fi
 	fi
-	return 1
 }
 
 find_zelta_symlinks() {
@@ -110,7 +107,7 @@ zelta_tidy() {
 			mandir="${doc_path}/man${section}"
 			if [ -d "$mandir" ]; then
 				for manpage in "$mandir"/zelta-*.${section}; do
-					[ -e "$manpage" ] && remove_if_exists "$manpage"
+					remove_if_exists "$manpage"
 				done
 			fi
 		done
@@ -122,7 +119,7 @@ zelta_tidy() {
 			mandir="${legacy_doc}/man${section}"
 			if [ -d "$mandir" ]; then
 				for manpage in "$mandir"/zelta-*.${section}; do
-					[ -e "$manpage" ] && remove_if_exists "$manpage"
+					remove_if_exists "$manpage"
 				done
 			fi
 		done
@@ -130,6 +127,9 @@ zelta_tidy() {
 	
 	# Remove share directory
 	if [ -d "$share_path" ] && ! is_in_git_repo "$share_path"; then
+		for share_file in "$share_path"/zelta-*; do
+			remove_if_exists "$share_file"
+		done
 		remove_dir_if_exists "$share_path"
 	fi
 	
@@ -191,6 +191,8 @@ zelta_tidy "Custom environment" \
 fi
 
 echo
-echo "For detailed reinstallation instructions, see:"
+echo "To reinstall, run: ./install.sh"
+echo
+echo "For detailed instructions, see:"
 echo
 echo "    https://zelta.space/home/install"
