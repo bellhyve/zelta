@@ -9,7 +9,7 @@ if [ "$(id -u)" -eq 0 ]; then
 	: ${ZELTA_BIN:="/usr/local/bin"}
 	: ${ZELTA_SHARE:="/usr/local/share/zelta"}
 	: ${ZELTA_ETC:="/usr/local/etc/zelta"}
-	: ${ZELTA_DOC:="/usr/local/share/man"}
+	: ${ZELTA_DOC:="/usr/local/man"}
 elif [ -z "$ZELTA_BIN" ] || [ -z "$ZELTA_SHARE" ] || [ -z "$ZELTA_ETC" ] || [ -z "$ZELTA_DOC" ]; then
 	: ${ZELTA_BIN:="$HOME/bin"}
 	: ${ZELTA_SHARE:="$HOME/.local/share/zelta"}
