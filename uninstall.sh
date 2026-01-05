@@ -87,43 +87,28 @@ zelta_tidy() {
 	
 	echo "$phase_name:"
 
-	# Remove main zelta binary
+	# Remove zelta binaries
 	remove_if_exists "$bin_path/zelta"
-	if [ -n "$sbin_path" ]; then
-		remove_if_exists "$sbin_path/zelta"
-	fi
+	[ -n "$sbin_path" ] && remove_if_exists "$sbin_path/zelta"
 	
-	# Remove zelta symlinks
-	if [ -d "$bin_path" ]; then
-		find_zelta_symlinks "$bin_path"
-	fi
-	if [ -n "$sbin_path" ] && [ -d "$sbin_path" ]; then
-		find_zelta_symlinks "$sbin_path"
-	fi
+	# Remove symlinks
+	find_zelta_symlinks "$bin_path"
+	find_zelta_symlinks "$sbin_path"
 	
 	# Remove man pages (current location)
-	if [ -n "$doc_path" ]; then
-		for section in 7 8; do
-			mandir="${doc_path}/man${section}"
-			if [ -d "$mandir" ]; then
-				for manpage in "$mandir"/zelta-*.${section}; do
-					remove_if_exists "$manpage"
-				done
-			fi
+	for manpath in "$doc_path" "$legacy_doc"; do
+		for file in "$manpath"/zelta*; do
+			remove_if_exists "$manpage"
 		done
-	fi
-	
-	# Remove man pages (legacy location)
-	if [ -n "$legacy_doc" ] && [ "$legacy_doc" != "$doc_path" ]; then
 		for section in 7 8; do
-			mandir="${legacy_doc}/man${section}"
-			if [ -d "$mandir" ]; then
-				for manpage in "$mandir"/zelta-*.${section}; do
-					remove_if_exists "$manpage"
-				done
-			fi
+			mandir="${manpath}/man${section}"
+			for manpage in "$mandir"/zelta*; do
+				remove_if_exists "$manpage"
+			done
+			remove_dir_if_exists "$mandir"
 		done
-	fi
+		remove_dir_if_exists "$manpath"
+	done
 	
 	# Remove share directory
 	if [ -d "$share_path" ] && ! is_in_git_repo "$share_path"; then
