@@ -35,7 +35,7 @@ function usage(message,		_counter, _c, _key) {
 	print "SOURCE and TARGET endpoints are in the form: [user@host:]pool[/dataset/][@snap]\n"  > STDERR
 	print "For complete documentation:  zelta help [<topic>]"                                  > STDERR
 	print "                             https://zelta.space"                                   > STDERR
-	exit 1
+	stop(1)
 }
 
 
@@ -623,6 +623,6 @@ END {
 		process_datasets()
 		get_info()
 		summary()
+		stop(0)
 	}
-	stop()
 }
