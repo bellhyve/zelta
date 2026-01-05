@@ -98,7 +98,7 @@ zelta_tidy() {
 	# Remove man pages (current location)
 	for manpath in "$doc_path" "$legacy_doc"; do
 		for file in "$manpath"/zelta*; do
-			remove_if_exists "$manpage"
+			remove_if_exists "$file"
 		done
 		for section in 7 8; do
 			mandir="${manpath}/man${section}"
