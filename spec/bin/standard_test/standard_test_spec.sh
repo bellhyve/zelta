@@ -110,8 +110,15 @@ Describe 'try backup'
         The status should eq 0
     End
 
-    It 'has 8 snapshots after backup'
-        When call snapshot_count 8 "$TGT_SVR"
+
+    Parameters
+      8 '' $TGT_SVR
+      4 apool/treetop $TGT_SVR
+      4 bpool/backups/treetop $TGT_SVR
+    End
+
+    It "has $1 snapshots on ${3:-localhost} ${2:+matching pattern '$2'}"
+        When call snapshot_count $1 $2 $3
         The stderr should be blank
         The status should eq 0
     End
@@ -135,12 +142,15 @@ Describe 'zelta rotate'
         The status should eq 0
     End
 
-    It 'has 16 snapshots after rotate'
-        When call snapshot_count 16 "$TGT_SVR"
+    Parameters
+      16 '' $TGT_SVR
+      8 apool/treetop $TGT_SVR
+      8 bpool/backups/treetop $TGT_SVR
+    End
+
+    It "has $1 snapshots on ${3:-localhost} ${2:+matching pattern '$2'}"
+        When call snapshot_count $1 $2 $3
         The stderr should be blank
         The status should eq 0
     End
-
 End
-
-
