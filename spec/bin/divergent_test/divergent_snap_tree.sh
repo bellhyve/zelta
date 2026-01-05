@@ -1,8 +1,6 @@
 #!/bin/sh
-SRCTOP='apool'
-TGTTOP='bpool'
-SRCTREE="$SRCTOP/treetop"
-TGTTREE="$TGTTOP/backups/treetop"
+
+. spec/bin/divergent_test/divergent_test_env.sh
 
 # Add deterministic data based on snapshot name
 etch () {
@@ -55,15 +53,6 @@ zfs snapshot "$TGTTREE/sub3/space name@blocker"
 
 # An unsyncable dataset
 zfs destroy "$TGTTREE"/vol1@go
-
-# Incremental source
-zelta snapshot "$SRCTREE"/sub3@two
-
-# Divergent snapshots of the same name
-zelta snapshot "$SRCTREE"/sub2@two
-zelta snapshot "$TGTTREE"/sub2@two
-
-zelta match $SRCTREE "$TGTTREE"
 
 set +x
 
