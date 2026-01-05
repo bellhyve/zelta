@@ -35,7 +35,8 @@ unset SHELLSPEC_TESTOPT
 
 shellspec -f d $SHELLSPEC_TESTOPT spec/bin/standard_test/standard_test_spec.sh
 #shellspec $SHELLSPEC_TESTOPT -f d spec/bin/standard_test/standard_test_spec.sh:@1
-#shellspec $SHELLSPEC_TESTOPT -f d spec/bin/standard_test/standard_test_spec.sh:@2
+#shellspec $SHELLSPEC_TESTOPT -f d spec/bin/standard_test/standard_test_spec.sh:@2-1
+#shellspec $SHELLSPEC_TESTOPT -f d spec/bin/standard_test/standard_test_spec.sh:@2-2
 #shellspec $SHELLSPEC_TESTOPT -f d spec/bin/standard_test/standard_test_spec.sh:@3
 
 echo ""
