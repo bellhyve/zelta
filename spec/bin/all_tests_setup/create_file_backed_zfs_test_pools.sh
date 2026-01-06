@@ -75,6 +75,10 @@ xxrm_img_and_its_loop_devices() {
 create_file_img() {
     pool_file_img=$1
 
+    # NOTE: important to remove the image file first so that all zfs metadata is removed.
+    # truncate on an existing file will resize it and leave the metadata in place leading to crashes
+    rm -f "${pool_file_img}"
+
     echo "Creating ${ZELTA_ZFS_TEST_POOL_SIZE}" "${pool_file_img}"
     truncate -s "${ZELTA_ZFS_TEST_POOL_SIZE}" "${pool_file_img}"
 
@@ -110,6 +114,7 @@ create_pool_from_image_file() {
     exec_cmd sudo zpool create -f -m "/${pool_name}" "${pool_name}" "${pool_file_img}"
 }
 
+
 create_test_pool() {
     pool_name="$1"
     if ! destroy_pool_if_exists "${pool_name}"; then
@@ -129,19 +134,6 @@ create_test_pool() {
     echo "Created ${pool_name}"
     exec_cmd sudo zpool list -v "${pool_name}"
 }
-
-
-#cleanup_loop_img() {
-#    pool=$1
-#    img=$2
-#    # remove the pool
-#    sudo zpool destroy -f "$pool" 2>/dev/null || true
-#
-#    # Detach all loops using this image
-#    sudo losetup -j "$img" | cut -d: -f1 | xargs -r sudo losetup -d
-#
-#    rm -f "$img"
-#}
 
 
 verify_pool_creation() {
