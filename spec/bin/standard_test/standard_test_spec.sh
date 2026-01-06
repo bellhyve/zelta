@@ -111,7 +111,7 @@ Describe 'try backup'
     End
 
     Parameters
-      8          ''                     $TGT_SVR
+      8         '^(apool|bpool)'        $TGT_SVR
       4          apool/treetop          $TGT_SVR
       4          bpool/backups/treetop  $TGT_SVR
     End
@@ -142,7 +142,7 @@ Describe 'zelta rotate'
     End
 
     Parameters
-      16       ''                     $TGT_SVR
+      16       '^(apool|bpool)'       $TGT_SVR
       8        apool/treetop          $TGT_SVR
       8        bpool/backups/treetop  $TGT_SVR
     End
