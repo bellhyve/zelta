@@ -1,5 +1,6 @@
 
-
+. spec/bin/divergent_test/divergent_test_env.sh
+. spec/lib/common.sh
 
 # TODO: setup tests for the following:
 ## Incremental source
@@ -62,7 +63,7 @@ Describe 'confirm zfs setup'
 
     Describe 'zfs list output validation'
       It 'matches expected pattern for each line'
-        When run zfs list -r
+        When call exec_on "$TGT_SVR" zfs list -r -H $SRC_POOL $TGT_POOL
 
         The output should satisfy validate_divergent_snap_tree_zfs_output
       End
