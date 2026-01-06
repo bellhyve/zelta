@@ -14,6 +14,16 @@ cd_to_git_clone_dir() {
 
 cd_to_git_clone_dir
 
+. spec/lib/script_util.sh
+
+if ! validate_tree_name "$@"; then
+    return 1
+fi
+
+echo "TREE_NAME is {$TREE_NAME}"
+
+
+
 cat <<EOF
 === Zelta Test Suite ===
 
@@ -26,8 +36,9 @@ You'll be prompted for your password for the setup steps.
 
 EOF
 
+
 echo "Step 1/3: Initializing test environment..."
 spec/bin/all_tests_setup/all_tests_setup.sh
 
 echo "Step 2/3: Creating test dataset tree..."
-spec/bin/standard_test/standard_snap_tree.sh
+spec/bin/${TREE_NAME}_test/${TREE_NAME}_snap_tree.sh
