@@ -53,8 +53,8 @@ zelta_man() {
 		zpull|zpush)				_manpage=zelta-backup ;;
 		*)					_manpage=zelta-$1 ;;
 	esac
-	if [ -s "$ZELTA_DOC" ] ; then
-		man "$ZELTA_DOC/$_manpage.$_man_section"
+	if [ -d "$ZELTA_DOC" ] ; then
+		man -M "$ZELTA_DOC" $_man_section $_manpage
 	else
 		man $_man_section $_manpage
 	fi
@@ -328,7 +328,8 @@ case $zelta_verb in
 	# Time
 	time)		"$@" | sh -c "time -p cat" ;;
 	# Info
-	-V |\
+	--help|\
+	-V|\
 	--version |\
 	version)	echo $ZELTA_VERSION ;;
 	''|-?|usage)	zelta_usage ;;

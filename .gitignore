@@ -12,3 +12,6 @@ spec/tmp
 TAGS
 .#*
 retired/
+doc/man8
+doc/man7
+
