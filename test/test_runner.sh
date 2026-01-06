@@ -43,7 +43,7 @@ exec_local_setup() {
     spec/bin/all_tests_setup/all_tests_setup.sh
 
     echo "Step 2/3: Creating test dataset tree..."
-    spec/bin/${TREE_NAME}_test/${TREE_NAME}_snap_tree.sh
+    sudo spec/bin/${TREE_NAME}_test/${TREE_NAME}_snap_tree.sh
 }
 
 exec_remote_setup() {
