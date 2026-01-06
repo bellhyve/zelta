@@ -1,6 +1,14 @@
 #!/bin/sh
 
 . spec/bin/all_tests_setup/common_test_env.sh
+. spec/lib/script_util.sh
+
+if ! validate_tree_name "$@"; then
+    return 1
+fi
+
+echo "TREE_NAME is {$TREE_NAME}"
+
 
 # pull down zelta from github
 printf "\n\n*** Enter sudo password to remove remote git clone directory ${BACKUP_USER}@${REMOTE_TEST_HOST}:${ZELTA_GIT_CLONE_DIR}\n"
