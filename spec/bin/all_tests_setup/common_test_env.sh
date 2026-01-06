@@ -4,20 +4,26 @@
 
 CUR_DIR=$(pwd)
 
+. spec/bin/all_tests_setup/env_constants.sh
+
 # backup username, should be configured for ssh access on remotes
 export BACKUP_USER="${BACKUP_USER:-dever}"
 #export BACKUP_USER="${SUDO_USER:-$(whoami)}"
 
 # location for git pulls of source for testing
 export ZELTA_GIT_CLONE_DIR="${ZELTA_GIT_CLONE_DIR:-/tmp/zelta-dev}"
-export GIT_TEST_BRANCH=feature/zelta-test
-export REMOTE_TEST_HOST=fzfsdev
+export GIT_TEST_BRANCH=${GIT_TEST_BRANCH:-feature/zelta-test}
+
+# remote test host is the machine we'll setup for remote testing
+# when a target server is specified, it should be the REMOTE_TEST_HOST
+
+# TODO: consider eliminating REMOTE_TEST_HOST, it looks redundant, consider TGT_SVR, updated dependencies, review, test
+
+export REMOTE_TEST_HOST=${REMOTE_TEST_HOST:-fzfsdev}
 
 # Zelta supports remote commands, by default SRC and TGT servers are the current host
 export SRC_SVR="${SRC_SVR:-}"
 export TGT_SVR="${TGT_SVR:-}"
-export SRC_POOL="apool"
-export TGT_POOL="bpool"
 
 
 if [ -z "$SRC_SVR" ]; then
@@ -54,9 +60,6 @@ export ZFS_MOUNT_BASE="${LOCAL_TMP}/zfs-test-mounts"
 export ZELTA_ZFS_STORE_TEST_DIR="${LOCAL_TMP}/zelta-zfs-store-test"
 export ZELTA_ZFS_TEST_POOL_SIZE="20G"
 
-# zfs pool creation strategy types
-export FILE_IMG_POOL=1
-export LOOP_DEV_POOL=2
 
 # set default pool type
 export POOL_TYPE=$FILE_IMG_POOL
