@@ -15,3 +15,14 @@ export TGT_POOL="bpool"
 # zfs pool creation strategy types
 export FILE_IMG_POOL=1
 export LOOP_DEV_POOL=2
+
+export TREETOP_DSN='treetop'
+export BACKUPS_DSN='backups'
+
+# zelta version for pool names will include the remote
+export SOURCE="${ZELTA_SRC_POOL}/${TREETOP_DSN}"
+export TARGET="${ZELTA_TGT_POOL}/${BACKUPS_DSN}/${TREETOP_DSN}"
+
+# zfs versions for pool names do not include th remote
+export SRC_TREE="$SRC_POOL/$TREETOP_DSN"
+export TGT_TREE="$TGT_POOL/$BACKUPS_DSN/$TREETOP_DSN"
