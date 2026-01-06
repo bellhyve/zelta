@@ -21,16 +21,30 @@ validate_divergent_snap_tree_zfs_output() {
     case "$line" in
       apool*"/apool"|\
       apool/treetop*"/apool/treetop"|\
+      apool/treetop/sub1*"/apool/treetop/sub1"|\
+      apool/treetop/sub1/child*"/apool/treetop/sub1/child"|\
       apool/treetop/sub2*"/apool/treetop/sub2"|\
+      apool/treetop/sub2/orphan*"/apool/treetop/sub2/orphan"|\
       apool/treetop/sub3*"/apool/treetop/sub3"|\
+      apool/treetop/sub3/space\ name*"/apool/treetop/sub3/space name"|\
+      apool/treetop/vol1*"-"|\
       bpool*"/bpool"|\
       bpool/backups*"/bpool/backups"|\
       bpool/backups/treetop*"/bpool/backups/treetop"|\
+      bpool/backups/treetop/sub1*"/bpool/backups/treetop/sub1"|\
+      bpool/backups/treetop/sub1/kid*"/bpool/backups/treetop/sub1/kid"|\
       bpool/backups/treetop/sub2*"/bpool/backups/treetop/sub2"|\
+      bpool/backups/treetop/sub2/orphan*"/bpool/backups/treetop/sub2/orphan"|\
       bpool/backups/treetop/sub3*"/bpool/backups/treetop/sub3"|\
+      bpool/backups/treetop/sub3/space\ name*"/bpool/backups/treetop/sub3/space name"|\
+      bpool/backups/treetop/vol1*"-"|\
       bpool/temp*"/bpool/temp"|\
+      bpool/temp/sub1*"/bpool/temp/sub1"|\
       bpool/temp/sub2*"/bpool/temp/sub2"|\
+      bpool/temp/sub2/orphan*"/bpool/temp/sub2/orphan"|\
       bpool/temp/sub3*"/bpool/temp/sub3"|\
+      bpool/temp/sub3/space\ name*"/bpool/temp/sub3/space name"|\
+      bpool/temp/vol1*"-"|\
       bpool/temp_set*"/bpool/temp_set"|\
       bpool/temp_set/sub1*"/bpool/temp_set/sub1"|\
       bpool/temp_set/sub2*"/bpool/temp_set/sub2"|\
