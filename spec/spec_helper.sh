@@ -6,12 +6,38 @@
 # so it is better to set them here.
 # set -eu
 
+
+#case_insensitive_equals() {
+#    $str=$1
+#    $str=$2
+#    if [ "$(echo "$str1" | tr '[:upper:]' '[:lower:]')" = "$(echo "$str2" | tr '[:upper:]' '[:lower:]')" ]; then
+#        return 0
+#    fi
+#    return 1
+#}
+
 # This callback function will be invoked only once before loading specfiles.
 spec_helper_precheck() {
     # Available functions: info, warn, error, abort, setenv, unsetenv
     # Available variables: VERSION, SHELL_TYPE, SHELL_VERSION
     : minimum_version "0.28.1"
     info "specshell precheck: version:$VERSION shell: $SHELL_TYPE $SHELL_VERSION"
+    info "*** TREE_NAME    is {$TREE_NAME}"
+    info "*** RUNNING_MODE is {$RUNNING_MODE}"
+    if [ "$RUNNING_MODE" = "$RUN_REMOTELY" ]; then
+        info "***"
+        info "*** Running Remotely"
+        info "*** Source Server is SRC_SVR:{$SRC_SVR}"
+        info "*** Target Server is TGT_SVR:{$TGT_SVR}"
+        info "***"
+    else
+        info "***"
+        info "*** Running Locally"
+        info "***"
+    fi
+
+    # Convert both to lowercase for comparison
+    #if case_insensitive_equals $RUNNING_MODE "remote"
 }
 
 # This callback function will be invoked after a specfile has been loaded.
