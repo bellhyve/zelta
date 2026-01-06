@@ -1,6 +1,6 @@
 # Create manpages. If installed for a particular user, these can be used
-# with `zelta help` by setting the path via ZELTA_MAN, e.g.,
-# `export ZELTA_MAN="${HOME}/.config/zelta/doc"`
+# with `zelta help` by setting the path via ZELTA_DOC, e.g.,
+# `export ZELTA_DOC="${HOME}/.config/zelta/doc"`
 
 SRC      = $(wildcard *.md)
 MAN7     = $(patsubst %.7.md,%.7,$(filter %.7.md,$(SRC)))
