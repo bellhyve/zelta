@@ -9,34 +9,30 @@ fi
 
 echo "TREE_NAME is {$TREE_NAME}"
 
-
-# pull down zelta from github
-printf "\n\n*** Enter sudo password to remove remote git clone directory ${BACKUP_USER}@${REMOTE_TEST_HOST}:${ZELTA_GIT_CLONE_DIR}\n"
-ssh -t ${BACKUP_USER}@${REMOTE_TEST_HOST} sudo rm -fr ${ZELTA_GIT_CLONE_DIR}
-
-ssh ${BACKUP_USER}@${REMOTE_TEST_HOST} << EOF
-set -x
-mkdir -p ${ZELTA_GIT_CLONE_DIR}
-chmod 777 ${ZELTA_GIT_CLONE_DIR}
-git clone https://github.com/bellhyve/zelta.git ${ZELTA_GIT_CLONE_DIR}
-cd ${ZELTA_GIT_CLONE_DIR}
-git checkout $GIT_TEST_BRANCH
-ls
-set +x
-EOF
-
-# scripts
-#onetime_setup=${ZELTA_GIT_CLONE_DIR}/test/one_time_test_env_setup.sh
-onetime_setup=${ZELTA_GIT_CLONE_DIR}/spec/bin/one_time_setup/setup_sudoers.sh
-setup_pools=${ZELTA_GIT_CLONE_DIR}/spec/bin/ssh_tests_setup/setup_zfs_pools_on_remote.sh
-
-# update sudo
-printf "\n\n*** Enter sudo password to perform remote sudo setup:\n"
-ssh -t ${BACKUP_USER}@${REMOTE_TEST_HOST} sudo "${onetime_setup}"
-
-# create pools
-printf "\n\n*** Enter sudo password to perform remote pools setup:\n"
-ssh -t ${BACKUP_USER}@${REMOTE_TEST_HOST} sudo "${setup_pools}"
+# Use a string for the following remote setup so sudo password only has to be entered once.
+# pull down zelta from github into a clean dir
+# checkout the test branch
+# update sudoers
+# setup the test env, install zelta, create pools
+# create the requested snap tree
 
 
+printf "\n*** Enter sudo password for remote setup:\n"
+ssh -t ${BACKUP_USER}@${REMOTE_TEST_HOST} "
+    set -e &&
+    set -x &&
 
+    sudo rm -fr ${ZELTA_GIT_CLONE_DIR} &&
+
+    mkdir -p ${ZELTA_GIT_CLONE_DIR} &&
+    chmod 777 ${ZELTA_GIT_CLONE_DIR} &&
+    git clone https://github.com/bellhyve/zelta.git ${ZELTA_GIT_CLONE_DIR} &&
+    cd ${ZELTA_GIT_CLONE_DIR} &&
+    git checkout ${GIT_TEST_BRANCH} &&
+
+    sudo ${ZELTA_GIT_CLONE_DIR}/spec/bin/one_time_setup/setup_sudoers.sh &&
+    sudo ${ZELTA_GIT_CLONE_DIR}/spec/bin/all_tests_setup/all_tests_setup.sh &&
+    sudo ${ZELTA_GIT_CLONE_DIR}/spec/bin/${TREE_NAME}_test/${TREE_NAME}_snap_tree.sh &&
+
+    echo 'Remote setup complete'
+"
