@@ -335,7 +335,7 @@ function log_common_command_feedback(cmd_pipe, should_stop,     _log_level) {
 	else if ($0 ~ COMMAND_INFO)
 		_log_level = LOG_INFO
 	else if ($0 ~ COMMAND_DEBUG)
-		_log_level = LOG_INFO
+		_log_level = LOG_DEBUG
 	else
 		_log_level = LOG_WARNING
 	if (!_log_level && should_stop) {
@@ -350,7 +350,7 @@ function log_common_command_feedback(cmd_pipe, should_stop,     _log_level) {
 BEGIN {
 	# Constants
 	ENV_PREFIX	= "ZELTA_"
-	COMMAND_ERRORS	= "([Nn]o route to host|[Cc]ould not resolve|[Cc]ommand not found|[Cc]onnection refused|[Nn]etwork.*unreachable|timed out|Permission denied.*publickey|[Hh]ost key verification failed)"
+	COMMAND_ERRORS	= "[Nn]o route to host|[Cc]ould not resolve|[Cc]ommand not found|[Cc]onnection (closed|refused)|[Nn]etwork.*unreachable|timed out|Permission denied.*publickey|[Hh]ost key verification failed"
 	COMMAND_DEBUG	= "Permanently added.*to the list"
 	CAPTURE_OUTPUT	= " 2>&1"
 	STDERR		= "/dev/stderr"

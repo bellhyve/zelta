@@ -300,6 +300,8 @@ function backup_loop(		_site, _host, _hosts_arr, _job_status, _endpoint_key,
 		for (_host in _site_hosts) {
 			sub_keys(datasets, _host, dataset_count, host_datasets)
 			for (_source in host_datasets) {
+				# TO-DO: Report what will be backed up, target:BACKUP_ROOT: Syncing [list_of_backups]
+				# DJB
 				_target = datasets[_host,_source]
 				_endpoint_key = _site SUBSEP _host SUBSEP _source
 				# The backup job should already be excluded before this point
@@ -313,7 +315,7 @@ function backup_loop(		_site, _host, _hosts_arr, _job_status, _endpoint_key,
 	}
 	while ((Global["RETRY"]-- > 0) && _num_failed) {
 		for (_endpoint_key in _failed_arr) {
-			report(LOG_WARNING, "retrying: " _failed_arr[_endpoint_key])
+			report(LOG_NOTICE, "retrying: " _failed_arr[_endpoint_key])
 			if (zelta_backup(_endpoint_key))
 				delete _failed_arr[_endpoint_key]
 		}
