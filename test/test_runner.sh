@@ -65,10 +65,12 @@ run_tests() {
     #unset SHELLSPEC_TESTOPT
 
     shellspec -f d $SHELLSPEC_TESTOPT spec/bin/${TREE_NAME}_test/${TREE_NAME}_test_spec.sh
-    #shellspec $SHELLSPEC_TESTOPT -f d spec/bin/standard_test/standard_test_spec.sh:@1
-    #shellspec $SHELLSPEC_TESTOPT -f d spec/bin/standard_test/standard_test_spec.sh:@2-1
-    #shellspec $SHELLSPEC_TESTOPT -f d spec/bin/standard_test/standard_test_spec.sh:@2-2
-    #shellspec $SHELLSPEC_TESTOPT -f d spec/bin/standard_test/standard_test_spec.sh:@3
+
+    # examples of selective tests runs
+    # shellspec -f d $SHELLSPEC_TESTOPT spec/bin/${TREE_NAME}_test/${TREE_NAME}_test_spec.sh:@1-1
+    # shellspec -f d $SHELLSPEC_TESTOPT spec/bin/${TREE_NAME}_test/${TREE_NAME}_test_spec.sh:@2
+    # shellspec -f d $SHELLSPEC_TESTOPT spec/bin/${TREE_NAME}_test/${TREE_NAME}_test_spec.sh:@2-1
+    # shellspec -f d $SHELLSPEC_TESTOPT spec/bin/${TREE_NAME}_test/${TREE_NAME}_test_spec.sh:@2-2
 
     echo ""
     echo "✓ Tests complete"
