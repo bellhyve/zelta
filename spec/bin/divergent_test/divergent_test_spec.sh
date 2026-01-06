@@ -1,17 +1,68 @@
-
 . spec/bin/divergent_test/divergent_test_env.sh
 . spec/lib/common.sh
 
-# TODO: setup tests for the following:
-## Incremental source
-#zelta snapshot "$SRCTREE"/sub3@two
-#
-## Divergent snapshots of the same name
-#zelta snapshot "$SRCTREE"/sub2@two
-#zelta snapshot "$TGTTREE"/sub2@two
-#
-#zelta match $SRCTREE "$TGTTREE"
-# Custom validation function
+# Custom validation functions
+
+match_after_divergent_snapshots_output() {
+  while IFS= read -r line; do
+      # normalize whitespace, remove leading/trailing spaces
+      normalized=$(echo "$line" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')
+
+     case "$normalized" in
+       "DS_SUFFIX MATCH SRC_LAST TGT_LAST INFO"|\
+       "[treetop] @go @go @go up-to-date"|\
+       "/sub1 @go @go @go up-to-date"|\
+       "/sub1/child - - - syncable (full)"|\
+       "/sub1/kid - - - no source (target only)"|\
+       "/sub2 @go @two @two blocked sync: target diverged"|\
+       "/sub2/orphan @go @two @two blocked sync: target diverged"|\
+       "/sub3 @go @two @go syncable (incremental)"|\
+       "/sub3/space name @go @two @blocker blocked sync: target diverged"|\
+       "/vol1 - @go - blocked sync: no target snapshots"|\
+       "2 up-to-date, 2 syncable, 5 blocked"|\
+       "9 total datasets compared")
+         # Pattern matches
+         ;;
+       *)
+         echo "Unexpected line format: $line" >&2
+         return 1
+         ;;
+     esac
+  done
+}
+
+
+
+divergent_initial_match_output() {
+  while IFS= read -r line; do
+      # normalize whitespace, remove leading/trailing spaces
+      normalized=$(echo "$line" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')
+
+      case "$normalized" in
+        "DS_SUFFIX MATCH SRC_LAST TGT_LAST INFO"|\
+        "[treetop] @go @go @go up-to-date"|\
+        "/sub1 @go @go @go up-to-date"|\
+        "/sub1/child - - - syncable (full)"|\
+        "/sub1/kid - - - no source (target only)"|\
+        "/sub2 @go @go @go up-to-date"|\
+        "/sub2/orphan @go @go @go up-to-date"|\
+        "/sub3 @go @go @go up-to-date"|\
+        "/sub3/space name @go @go @blocker blocked sync: target diverged"|\
+        "/vol1 - @go - blocked sync: no target snapshots"|\
+        "5 up-to-date, 1 syncable, 3 blocked"|\
+        "9 total datasets compared")
+          # Pattern matches
+          ;;
+        *)
+          echo "Unexpected line format: $line" >&2
+          return 1
+          ;;
+      esac
+  done
+}
+
+
+
 validate_divergent_snap_tree_zfs_output() {
   while IFS= read -r line; do
     # Skip header line
@@ -62,6 +113,11 @@ validate_divergent_snap_tree_zfs_output() {
   done
 }
 
+add_divergent_snapshots() {
+    zelta snapshot "$SOURCE"/sub2@two
+    zelta snapshot "$TARGET"/sub2@two
+}
+
 Describe 'confirm zfs setup'
     before_all() {
         %logger "-- before_all: confirm zfs setup"
@@ -80,6 +136,39 @@ Describe 'confirm zfs setup'
         When call exec_on "$TGT_SVR" zfs list -r -H $SRC_POOL $TGT_POOL
 
         The output should satisfy validate_divergent_snap_tree_zfs_output
+      End
+    End
+
+    Describe 'check initial zelta match state'
+      It "initial match has 5 up-to-date, 1 syncable, 3 blocked, with 9 total datasets compared"
+        When call zelta match $SOURCE $TARGET
+        The output should satisfy divergent_initial_match_output
+      End
+    End
+
+    Describe 'add incremental source snapshot'
+       It "adds $SOURCE/sub3@two snapshot"
+         When call zelta snapshot "$SOURCE"/sub3@two
+         The output should equal "snapshot created '$SRC_TREE/sub3@two'"
+         The stderr should be blank
+         The status should eq 0
+       End
+    End
+
+    Describe 'add divergent snapshots of same name'
+       It "adds divergent snapshots for $SOURCE/sub2@two and $TARGET/sub2@two"
+         When call add_divergent_snapshots
+         The line 1 of output should equal "snapshot created '$SRC_TREE/sub2@two'"
+         The line 2 of output should equal "snapshot created '$TGT_TREE/sub2@two'"
+         The stderr should be blank
+         The status should eq 0
+       End
+    End
+
+    Describe 'check zelta match after divergent snapshots'
+      It "after divergent snapshot match has 2 up-to-date, 2 syncable, 5 blocked, with 9 total datasets compared"
+        When call zelta match $SOURCE $TARGET
+        The output should satisfy match_after_divergent_snapshots_output
       End
     End
 End
