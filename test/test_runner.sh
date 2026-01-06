@@ -9,7 +9,7 @@ set -e
 test_setup() {
     if [ $# -ne 2 ]; then
         echo "Error: Expected 2 arguments: <target> <tree_name>" >&2
-        echo "Usage: $0 <local|remote> <divergent|standard>" >&2
+        echo "Usage: $0 <${RUN_LOCALLY}|${RUN_REMOTELY}> <${STANDARD_TREE}|${DIVERGENT_TREE}|${ENCRYPTED_TREE}>" >&2
         return 1
     fi
 
@@ -28,8 +28,8 @@ test_setup() {
             exec_local_setup
             ;;
         "$RUN_REMOTELY")
-            export SRC_SVR="dever@fzfsdev"
-            export TGT_SVR="dever@fzfsdev"
+            export SRC_SVR="${SRC_SVR:-dever@fzfsdev}"
+            export TGT_SVR="${TGT_SVR:-dever@fzfsdev}"
             exec_remote_setup
             ;;
     esac
