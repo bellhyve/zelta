@@ -96,37 +96,6 @@ snapshot_count() {
     fi
 }
 
-snapshot_count_v1() {
-    expected_count=$1
-    svr=$2
-
-    # Validate arguments
-    if [ -z "$expected_count" ]; then
-        echo "Error: snapshot_count requires expected_count argument" >&2
-        return 1
-    fi
-
-    # Validate expected_count is a number
-    case "$expected_count" in
-        ''|*[!0-9]*)
-            echo "Error: expected_count must be a number" >&2
-            return 1
-            ;;
-    esac
-
-    # Get snapshot count (use grep -c to count lines, wc outputs extra whitespace)
-    snapshot_count=$(exec_on "$svr" zfs list -t snapshot -H | wc -l)
-
-    # Test the count
-    if [ "$expected_count" -eq "$snapshot_count" ]; then
-        return 0
-    else
-        echo "Expected $expected_count snapshots, found $snapshot_count" >&2
-        return 1
-    fi
-}
-
-
 # Shellspec has a nice tracing feature when you specify --xtrace, but it doesn't execute
 # expectations unless you use --shell bash, and the bash shell has to be >= version 4.
 # Using --xtrace without --shell is an easy mistake to make and it looks like tests are
