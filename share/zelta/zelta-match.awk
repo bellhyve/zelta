@@ -1,10 +1,10 @@
-#!/usr/bin/awk -f
+#!env awk -f
 #
 # zelta-match.awk
 #
 # Describes the relationship between two trees of ZFS datasets. Run a "zfs list"
 # command on the source endpoint piping to itself for concurrency, run a second
-# target endpoint zfs list via 'getline', and comapre the results.
+# target endpoint zfs list via 'getline', and compare the results.
 #
 # Global: Settings and global telemetry
 # Source: The source endpoint
@@ -21,10 +21,10 @@
 function usage(message,		_counter, _c, _key) {
 	STDERR = "/dev/stderr"
 	usage_table = "\t%-13s%s\n"
-	printf (message ? message "\n" : "") "usage:"                                              > STDERR
-	print "\tmatch [-Hp] [-d max] [-o field[,...]] SOURCE TARGET\n"                            > STDERR
-	print "The following fields are supported:\n"                                              > STDERR
-	printf usage_table"\n",	"PROPERTY",	"VALUES"                                           > STDERR
+	printf (message ? message "\n" : "") "usage:"                    > STDERR
+	print "\tmatch [-Hp] [-d max] [-o field[,...]] SOURCE TARGET\n"  > STDERR
+	print "The following fields are supported:\n"                    > STDERR
+	printf usage_table"\n", "PROPERTY", "VALUES"                     > STDERR
 	for(_counter in ColInfo) {
 		_key = ColList[++_c]
 		if (ColWarn[_key])
@@ -449,21 +449,21 @@ function load_columns(		_tsv, _key, _opt_list, _opt, _idx, _c, _default_proplist
 	FS="\t"
 	while ((getline<_tsv)>0) {
 		if (/^#/) continue
-		_key		= $1
+		_key = $1
 		split($2, _opt_list, ",")
 		for (_idx in _opt_list) {
-			_opt		= _opt_list[_idx]
-			ColOpt[_opt]	= str_add(ColOpt[_opt], _key, S)
+			_opt          = _opt_list[_idx]
+			ColOpt[_opt]  = str_add(ColOpt[_opt], _key, S)
 		}
-		ColType[_key]	= $3
+		ColType[_key]       = $3
 		if ((ColType[_key] == "num") || (ColType[_key] == "bytes"))
-			ColNum[_key] = 1
+			ColNum[_key]    = 1
 		if (ColType[_key] == "bytes")
-			ColBytes[_key] = 1
-		ColInfo[_key]	= $4
-		ColWarn[_key]	= $5
+			ColBytes[_key]  = 1
+		ColInfo[_key]       = $4
+		ColWarn[_key]       = $5
 
-		ColList[++_c]	= _key
+		ColList[++_c]       = _key
 	}
 	close(_tsv)
 
@@ -575,20 +575,20 @@ function summary(	_r, _line, _ds_suffix, _c, _key, _val, _cell) {
 # Constant setup, validation, and fire concurrent 'zfs list' commands
 BEGIN {
 	# Row types
-	IS_UNKNOWN	= 0
-	IS_DATASET	= 1
-	IS_SNAPSHOT	= 2
-	IS_BOOKMARK	= 3
+	IS_UNKNOWN     = 0
+	IS_DATASET     = 1
+	IS_SNAPSHOT    = 2
+	IS_BOOKMARK    = 3
 
 	# DSPair types
-	PAIR_UNKNOWN	= 0
-	PAIR_EXISTS	= 1
-	PAIR_SRC_ONLY	= 2
-	PAIR_TGT_ONLY	= 3
+	PAIR_UNKNOWN   = 0
+	PAIR_EXISTS    = 1
+	PAIR_SRC_ONLY  = 2
+	PAIR_TGT_ONLY  = 3
 
-	S		= SUBSEP
-	FS		= "\t"
-	OFS		= "\t"
+	S              = SUBSEP
+	FS             = "\t"
+	OFS            = "\t"
 
 	load_endpoint(Operands[1], Source)
 	load_endpoint(Operands[2], Target)
@@ -597,11 +597,11 @@ BEGIN {
 	if (!Source["DS"] && !Target["DS"]) { usage("no datasets defined") }
 
 	if (Opt["MATCH_PIPE"]) {
-		Target["match_bookmarks"]	= 1
-		Target["ds_length"]		= length(Target["DS"]) + 1
-		Source["ds_length"]		= length(Source["DS"]) + 1
-		Source["list_time"] 		= 0
-		Target["list_name"] 		= 0
+		Target["match_bookmarks"]  = 1
+		Target["ds_length"]        = length(Target["DS"]) + 1
+		Source["ds_length"]        = length(Source["DS"]) + 1
+		Source["list_time"]        = 0
+		Target["list_name"]        = 0
 		load_exclude_patterns()
 		run_zfs_list_target()
 		# Continues to process the incoming pipes 'pipe_zfs_list_source()'

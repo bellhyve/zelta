@@ -1,6 +1,57 @@
 #!/usr/bin/awk -f
 
+function load_zelta_verbs() {
+	_cmd = "zelta 2>&1"
+	FS = "  +"
+	while (_cmd | getline) {
+		if (/^  [^ ]/) {
+			Verbs[$2] = tolower($3)
+		}
+	}
+	close(_cmd)
+	zelta
+}
+
+function case_zelta_help() {
+	_help_exclude["help"] = 1
+	_help_exclude["version"] = 1
+	_lpad = "\t\t\t"
+	_case_block = _case_block _lpad "(help)\n"
+	_case_block = _case_block _lpad "local -a help_topics\n"
+	_case_block = _case_block _lpad "help_topics=(\n"
+	_lpad = _lpad "\t'"
+	_rpad = "'\n"
+	for (_h in Verbs) {
+		if (_h in _help_exclude) continue
+		_case_block = _case_block _lpad _h ":" Verbs[_h] _rpad
+	}
+	_lpad = "\t\t\t"
+	_rpad = "\n"
+	_case_block = _case_block _lpad ")" _rpad
+	_case_block = _case_block _lpad "_arguments ':help topic:{_describe -t help-topics \"help topic\" help_topics}'" _rpad
+	_case_block = _case_block _lpad ";;" _rpad
+	return _case_block
+}
+
+function zelta_match_options(	_cmd, _opt, _descr, _match_options) {
+	# load zelta match -o options, comma delimited
+	_cmd = "zelta match 2>&1"
+	FS = "\t|  +"
+	while (_cmd | getline) {
+		if (/^\t/ && $3 && ($2 != "PROPERTY")) {
+			_opt = $2
+			_descr = tolower($3)
+			# construct comma list here bro
+			# _match_options =
+		}
+	}
+	close(_cmd)
+	return _match_options
+}
+
 BEGIN {
+	load_zelta_verbs()
+
 	FS = "\t"
 	
 	# Zsh Completion Header
@@ -26,7 +77,7 @@ BEGIN {
 { sub(/\r$/, "") }
 
 # Skip comments, empty lines, and the Header row
-/^#/ || /^[[:space:]]*$/ || $1 == "VERBS" || $8 { next }
+/^#/ || /^[[:space:]]*$/ || $1 == "VERBS" || $8 || !$7 { next }
 
 {
 	gsub(/'/, "\"")
@@ -37,6 +88,12 @@ BEGIN {
 	desc      = $7
 	warning   = $8
 
+	if (!$6 && (type ~ /^(set|list|arglist)$/))
+		subopt = 1
+	else
+		subopt = 0
+
+print $2 > "/dev/stderr"
 	# Ignore rows with no flags (config-only options)
 	if (flags_csv == "" || flags_csv == "-") next
 
@@ -47,13 +104,8 @@ BEGIN {
 	arg_action = ""
 	
 	# Heuristics for Zsh actions based on KEY name or Type
-	if (type ~ /^(set|list|arglist)$/) {
+	if (subopt) {
 		if (key == "CONFIG")         action = "_files"
-		else if (key == "LOG_LEVEL") action = "(0 1 2 3 4)"
-		else if (key == "LOG_MODE")  action = "(text json)"
-		else if (key ~ /DIRECTION/)  action = "(PUSH PULL)"
-		else if (key ~ /_ROOT$/)     action = "_files -/" # Directories only
-		else if (key ~ /FILE$/)      action = "_files"
 		else                         action = "" # Default text input
 
 		# Construct the action block
@@ -68,8 +120,8 @@ BEGIN {
 	
 	# Check for repeatability
 	# 'list', 'arglist', 'incr' can be repeated (*)
-	is_repeat = (type ~ /^(list|arglist|incr)$/)
-	prefix = (is_repeat ? "*" : "")
+	is_repeat = (type ~ /^(list|arglist|incr|decr)$/)
+	prefix = (is_repeat ? "\\*" : "")
 
 	# Build Exclusion String '(-a --alias)'
 	exclusion = ""
@@ -121,39 +173,46 @@ BEGIN {
 
 END {
 	# Finish the "verbs" section
-	for (i = 1; i <= verb_count; i++) {
-		print "\t\t\t\t" verb_list[i]
-	}
+	# for (i = 1; i <= verb_count; i++) {
+	# 	print "\t\t\t\t" verb_list[i]
+	# }
+	for (i in Verbs)
+		print "\t\t\t\t" i ":'"Verbs[i]"'"
 	print "\t\t\t)"
-	print "\t\t\t_describe -t commands '\''zelta verb'\'' verbs"
+	print "\t\t\t_describe -t commands 'zelta verb' verbs"
 	print "\t\t\t;;"
 	print ""
 	print "\t\t(options)"
 	# This context switch is critical for subcommand args
 	print "\t\t\tcase $line[1] in"
+	print case_zelta_help()
 
 	# Iterate verbs for specific options
-	for (i = 1; i <= verb_count; i++) {
-		v = verb_list[i]
+	# for (i = 1; i <= verb_count; i++) {
+	for (i in Verbs) { #print "\t\t\t\t" Verbs[i]
+		# v = verb_list[i]
+		v = i
 		print "\t\t\t\t(" v ")"
 		print "\t\t\t\t\t_arguments -s -S \\"
 		
 		# Print Globals
-		if (global_opts != "") print global_opts
+		if ((global_opts != "") && (v !~ /version|help/)) print global_opts
 
 		# Print Verb Specifics
 		if (verb_opts[v] != "") print verb_opts[v]
 
-		# Tail Argument Logic (Context specific)
-		if (v ~ /^(backup|sync|replicate|match|clone|rotate|revert|snapshot)$/) {
-			print "\t\t\t\t\t\047*:dataset:_zfs_dataset\047"
-		} else if (v == "policy") {
-			print "\t\t\t\t\t\047*:policy target:_files\047"
-		} else {
-			print "\t\t\t\t\t\047*:args:_files\047"
-		}
-		
-		print "\t\t\t\t\t;;"
+		# Tail Argument Logic (Context specific)  
+		# This needs work and I think does nothing right now. Policy does not accept files; probably needs to be
+		# data driven. zfs datasets scan need to be rewritten because the stock code is too greedy.
+	    if (v ~ /^(backup|sync|replicate|match|clone|rotate|revert|snapshot)$/) {  
+	      print "\t\t\t\t\t\047*:dataset:_zfs_dataset\047"  
+	    } else if (v == "policy") {  
+	      print "\t\t\t\t\t\047*:policy target:_files\047"  
+	    } else if (v == "version") {  
+			# Nothing
+	    } else {  
+	      print "\t\t\t\t\t\047*:args:\047"  
+	    }		print "\t\t\t\t\t;;"
 	}
 
 	print "\t\t\tesac"
