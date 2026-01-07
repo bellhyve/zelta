@@ -1,7 +1,46 @@
 . spec/bin/divergent_test/divergent_test_env.sh
-. spec/lib/common.sh
 
 # Custom validation functions
+
+
+match_after_first_backup_output() {
+  while IFS= read -r line; do
+      # normalize whitespace, remove leading/trailing spaces
+      normalized=$(echo "$line" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')
+
+        case "${normalized}" in
+            "source is written; snapshotting: @zelta_"*)
+                # New snapshot created on source
+                ;;
+            "syncing 9 datasets")
+                # Starting sync operation
+                ;;
+            "no source: $TGT_TREE/sub1/kid")
+                # Dataset exists on target but not on source
+                ;;
+            "target snapshots beyond the source match: $TGT_TREE/sub2")
+                # Target has snapshots newer than source's latest matching snapshot
+                ;;
+            "target snapshots beyond the source match: $TGT_TREE/sub2/orphan")
+                # Target has snapshots newer than source's latest matching snapshot
+                ;;
+            "target snapshots beyond the source match: $TGT_TREE/sub3/space name")
+                # Target has snapshots newer than source's latest matching snapshot
+                ;;
+            "no snapshot; target diverged: $TGT_TREE/vol1")
+                # No common snapshot found; target has diverged from source
+                ;;
+            "15K sent, 5 streams received in 0.09 seconds")
+                # Summary statistics
+                ;;
+           *)
+             echo "Unexpected line format: $line" >&2
+             return 1
+             ;;
+     esac
+  done
+}
+
 
 match_after_divergent_snapshots_output() {
   while IFS= read -r line; do
@@ -66,43 +105,45 @@ divergent_initial_match_output() {
 validate_divergent_snap_tree_zfs_output() {
   while IFS= read -r line; do
     # Skip header line
-    [ "$line" = "NAME                             USED  AVAIL  REFER  MOUNTPOINT" ] && continue
+    #[ "$line" = "NAME                             USED  AVAIL  REFER  MOUNTPOINT" ] && continue
+    #[[ "$line" = "NAME"*"USED"*"AVAIL"*"REFER"*"MOUNTPOINT" ]] && continue
 
     # Pattern: NAME * * * MOUNTPOINT
     case "$line" in
+      "NAME"*"USED"*"AVAIL"*"REFER"*"MOUNTPOINT") continue ;;
       apool*"/apool"|\
-      apool/treetop*"/apool/treetop"|\
-      apool/treetop/sub1*"/apool/treetop/sub1"|\
-      apool/treetop/sub1/child*"/apool/treetop/sub1/child"|\
-      apool/treetop/sub2*"/apool/treetop/sub2"|\
-      apool/treetop/sub2/orphan*"/apool/treetop/sub2/orphan"|\
-      apool/treetop/sub3*"/apool/treetop/sub3"|\
-      apool/treetop/sub3/space\ name*"/apool/treetop/sub3/space name"|\
-      apool/treetop/vol1*"-"|\
+      $SRC_TREE*"/$SRC_TREE"|\
+      $SRC_TREE/sub1*"/$SRC_TREE/sub1"|\
+      $SRC_TREE/sub1/child*"/$SRC_TREE/sub1/child"|\
+      $SRC_TREE/sub2*"/$SRC_TREE/sub2"|\
+      $SRC_TREE/sub2/orphan*"/$SRC_TREE/sub2/orphan"|\
+      $SRC_TREE/sub3*"/$SRC_TREE/sub3"|\
+      $SRC_TREE/sub3/space\ name*"/$SRC_TREE/sub3/space name"|\
+      $SRC_TREE/vol1*"-"|\
       bpool*"/bpool"|\
       bpool/backups*"/bpool/backups"|\
-      bpool/backups/treetop*"/bpool/backups/treetop"|\
-      bpool/backups/treetop/sub1*"/bpool/backups/treetop/sub1"|\
-      bpool/backups/treetop/sub1/kid*"/bpool/backups/treetop/sub1/kid"|\
-      bpool/backups/treetop/sub2*"/bpool/backups/treetop/sub2"|\
-      bpool/backups/treetop/sub2/orphan*"/bpool/backups/treetop/sub2/orphan"|\
-      bpool/backups/treetop/sub3*"/bpool/backups/treetop/sub3"|\
-      bpool/backups/treetop/sub3/space\ name*"/bpool/backups/treetop/sub3/space name"|\
-      bpool/backups/treetop/vol1*"-"|\
-      bpool/temp*"/bpool/temp"|\
-      bpool/temp/sub1*"/bpool/temp/sub1"|\
-      bpool/temp/sub2*"/bpool/temp/sub2"|\
-      bpool/temp/sub2/orphan*"/bpool/temp/sub2/orphan"|\
-      bpool/temp/sub3*"/bpool/temp/sub3"|\
-      bpool/temp/sub3/space\ name*"/bpool/temp/sub3/space name"|\
-      bpool/temp/vol1*"-"|\
-      bpool/temp_set*"/bpool/temp_set"|\
-      bpool/temp_set/sub1*"/bpool/temp_set/sub1"|\
-      bpool/temp_set/sub2*"/bpool/temp_set/sub2"|\
-      bpool/temp_set/sub2/orphan*"/bpool/temp_set/sub2/orphan"|\
-      bpool/temp_set/sub3*"/bpool/temp_set/sub3"|\
-      bpool/temp_set/sub3/space\ name*"/bpool/temp_set/sub3/space name"|\
-      bpool/temp_set/vol1*"-")
+      $TGT_TREE*"/$TGT_TREE"|\
+      $TGT_TREE/sub1*"/$TGT_TREE/sub1"|\
+      $TGT_TREE/sub1/kid*"/$TGT_TREE/sub1/kid"|\
+      $TGT_TREE/sub2*"/$TGT_TREE/sub2"|\
+      $TGT_TREE/sub2/orphan*"/$TGT_TREE/sub2/orphan"|\
+      $TGT_TREE/sub3*"/$TGT_TREE/sub3"|\
+      $TGT_TREE/sub3/space\ name*"/$TGT_TREE/sub3/space name"|\
+      $TGT_TREE/vol1*"-"|\
+      $TGT_SETUP*"/$TGT_SETUP"|\
+      $TGT_SETUP/sub1*"/$TGT_SETUP/sub1"|\
+      $TGT_SETUP/sub2*"/$TGT_SETUP/sub2"|\
+      $TGT_SETUP/sub2/orphan*"/$TGT_SETUP/sub2/orphan"|\
+      $TGT_SETUP/sub3*"/$TGT_SETUP/sub3"|\
+      $TGT_SETUP/sub3/space\ name*"/$TGT_SETUP/sub3/space name"|\
+      $TGT_SETUP/vol1*"-"|\
+      ${TGT_SETUP}_set*"/${TGT_SETUP}_set"|\
+      ${TGT_SETUP}_set/sub1*"/${TGT_SETUP}_set/sub1"|\
+      ${TGT_SETUP}_set/sub2*"/${TGT_SETUP}_set/sub2"|\
+      ${TGT_SETUP}_set/sub2/orphan*"/${TGT_SETUP}_set/sub2/orphan"|\
+      ${TGT_SETUP}_set/sub3*"/${TGT_SETUP}_set/sub3"|\
+      ${TGT_SETUP}_set/sub3/space\ name*"${TGT_SETUP}_set/sub3/space name"|\
+      ${TGT_SETUP}_set/vol1*"-")
         # Pattern matches
         ;;
       *)
@@ -170,5 +211,14 @@ Describe 'confirm zfs setup'
         When call zelta match $SOURCE $TARGET
         The output should satisfy match_after_divergent_snapshots_output
       End
+    End
+End
+
+
+
+Describe 'backup, rotate, revert, rotate'
+    It "backups $SOURCE to $TARGET"
+       When call zelta backup $SOURCE $TARGET
+       The output should satisfy match_after_first_backup_output
     End
 End
