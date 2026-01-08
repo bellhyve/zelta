@@ -27,26 +27,17 @@ create_freebsd_mem_disk_pool() {
     exec_cmd sudo zpool create "$pool_name" "/dev/$md_unit"
 
     # Store md unit for cleanup
-    #echo "$md_unit" > "/tmp/${pool_name}.md"
     md_file=$(md_unit_file "$pool_name")
     echo "$md_unit" > "$md_file"
 }
 
 ## Destroy image-backed pool on FreeBSD
-destroy_freebsd_mem_disk_pool() {
+# NOTE: the pool has already been destroyed
+destroy_freebsd_mem_disk_md_device_and_img() {
     pool_name=$1
     img_file=$(pool_image_file "$pool_name")
 
-    #img_file="/tmp/${pool_name}.img"
-    #img_file=$img_file
-    #md_file="/tmp/${pool_name}.md"
     md_file=$(md_unit_file "$pool_name")
-
-#    destroy_pool_if_exists "$pool_name"
-#    # Destroy pool
-#    if exec_cmd sudo zpool list "$pool_name" >/dev/null 2>&1; then
-#        exec_cmd sudo zpool export "$pool_name" || zpool destroy -f "$pool_name"
-#    fi
 
     # Detach md device
     if [ -f "$md_file" ]; then
@@ -62,7 +53,7 @@ destroy_freebsd_mem_disk_pool() {
 create_freebsd_test_pool() {
     pool_name=$1
     echo_alert "running create_freebsd_test_pool - pool_name {$pool_name}"
-    destroy_freebsd_mem_disk_pool $pool_name
+    destroy_freebsd_mem_disk_md_device_and_img $pool_name
     create_freebsd_mem_disk_pool $pool_name
 }
 
