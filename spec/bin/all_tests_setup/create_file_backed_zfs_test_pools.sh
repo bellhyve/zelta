@@ -79,8 +79,23 @@ check_pool_exists() {
 
 
 destroy_pool() {
+    pool_name=$1
     echo "Destroying pool '$pool_name'..."
-    exec_cmd sudo zpool export -f "$pool_name" && exec_cmd sudo zpool destroy -f "$pool_name"
+    if exec_cmd sudo zpool export -f "$pool_name"; then
+        # TODO: the export seems to remove the pool and then zpool destory fails
+        # TODO: research this
+        exec_cmd sudo zpool destroy -f "$pool_name"
+
+    fi
+
+    # since the above isn't working as expected, we check if the pool
+    # still exists and return an error if it does
+    if check_pool_exists $pool_name; then
+        return 1
+    fi
+
+    # forcing this to return 0 because of the above
+    #return 0
 
 #    if ! exec_cmd sudo zpool destroy -f "$pool_name"; then
 #        echo "Destroy for pool '$pool_name' failed, trying export then destroy"
