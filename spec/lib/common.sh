@@ -154,7 +154,7 @@ setup_linux_env() {
 
 setup_freebsd_env() {
     setup_freebsd_zfs_allow
-    export POOL_TYPE="$FILE_IMG_POOL"
+    export POOL_TYPE="$MEMORY_DISK_POOL"
 }
 
 setup_zfs_allow() {
@@ -166,23 +166,22 @@ setup_os_specific_env() {
     # uname is the most reliable cross‑platform starting point
     OS_TYPE=$(uname -s)
     echo "Settings OS specific environment for {$OS_TYPE}"
+
+    # Check for Ubuntu specifically
+    if [ -f /etc/os-release ]; then
+        . /etc/os-release
+        if [ "$ID" = "ubuntu" ]; then
+            # NOTE: This isn't being used currently
+            export LINUX_DISTRO_IS_UBUNTU=1
+        fi
+    fi
+
     case "$OS_TYPE" in
         Linux)
-            # Check for Ubuntu specifically
-            if [ -f /etc/os-release ]; then
-                . /etc/os-release
-                if [ "$ID" = "ubuntu" ]; then
-                    echo "$OS_TYPE: setting: POOL_TYPE=\$LOOP_DEV_POOL:$LOOP_DEV_POOL"
-                    setup_linux_env
-                    return
-                fi
-            fi
-            # fallback for other Linux distros
-            echo "$OS_TYPE: setting: POOL_TYPE=\$LOOP_DEV_POOL:$LOOP_DEV_POOL"
+            # Linux distros
             setup_linux_env
             ;;
         FreeBSD|Darwin)
-            echo "$OS_TYPE: setting: POOL_TYPE=\$FILE_IMG_POOL:$FILE_IMG_POOL"
             setup_freebsd_env
             ;;
         *)
@@ -190,6 +189,8 @@ setup_os_specific_env() {
             return 1
             ;;
     esac
+
+    echo "OS_TYPE: $OS_TYPE: set POOL_TYPE={$POOL_TYPE}"
 }
 
 
