@@ -261,7 +261,7 @@ create_pools() {
 
     return $((SRC_STATUS || TGT_STATUS))
 }
-set -x
+#set -x
 rm -fR "${ZFS_MOUNT_BASE}"
 mkdir -p "${ZFS_MOUNT_BASE}"
 chmod 777 "${ZFS_MOUNT_BASE}"
@@ -274,7 +274,7 @@ mkdir -p "${ZELTA_ZFS_STORE_TEST_DIR}"
 create_pools
 setup_zfs_allow
 
-set +x
+#set +x
 #setup_loop_img "${SRC_POOL}"
 #setup_loop_img "${TGT_POOL}"
 
