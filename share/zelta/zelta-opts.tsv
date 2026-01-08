@@ -1,17 +1,17 @@
- zelta-opts.tsv
+# VERBS	# FLAGS	# KEY	# KEY_ALIAS	# TYPE	# VALUE	# DESCRIPTION	# WARNING
+# all | comma,separated,verbs	--comma,--separated-flag,-s	ZELTA_VARIABLE	"ZELTA_LEGACY
+"	type	env_value	point-of-use description	use warning or error
 #
-# Format: VERBS (comma sep) | FLAGS (comma sep) | KEY | TYPE | VALUE | MSG
 # Types:
-#   true    : Set KEY="yes"
-#   false   : Set KEY="no"
-#   set     : Set KEY="VALUE" else KEY="subopt"
-#   arglist : Append argument sent to KEY separated by " "
-#   list    : Append subopt to KEY separated by ","
-#   incr    : Increment
-#   decr    : Decrement
-#   invalid : Report error and quit
+"#   true    : Set KEY=""yes"""				true
+"#   false   : Set KEY=""no"""				false
+"#   set     : Set KEY=""VALUE"" else KEY=""subopt"""				set
+"#   arglist : Append argument sent to KEY separated by "" """				arglist
+"#   list    : Append subopt to KEY separated by "","""				list
+#   incr    : Increment				incr
+#   decr    : Decrement				decr
+#   invalid : Report error and quit				invalid
 # =============================================================================
-# VERBS	FLAGS	KEY	KEY_ALIAS	TYPE	VALUE	DESCRIPTION	WARNING
 # -------------------------------------------------------------
 # Global/Generic Options
 all	--verbose,-v	LOG_LEVEL		incr		increase verbosity

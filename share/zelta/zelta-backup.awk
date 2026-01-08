@@ -134,7 +134,7 @@ function check_snapshot_needed(endpoint, ds_suffix, prop_key, prop_val) {
 
 
 # Load zfs properties for an endpoint
-function load_properties(ep,		_ds, _cmd_arr, _cmd, _cmd_id, _ds_suffix, _idx, _seen) {
+function load_properties(ep,		_ds, _cmd_arr, _cmd, _cmd_id, _ds_suffix, _idx, _seen, _log_level) {
 	_cmd_id                 = "zfs get"
 	_ds			= Opt[ep "_DS"]
 	_cmd_arr["endpoint"]	= ep
@@ -163,8 +163,11 @@ function load_properties(ep,		_ds, _cmd_arr, _cmd, _cmd_id, _ds_suffix, _idx, _s
 			close(_cmd)
 			return 0
 		}
-		else
-			log_common_command_feedback(_cmd, STOP_ON_ERROR)
+		else {
+			_log_level = log_common_feedback()
+			if (_log_level == LOG_ERROR)
+				stop(1)
+		}
 	}
 	close(_cmd)
 	return Dataset[ep, "", "exists"]
