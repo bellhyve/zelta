@@ -164,9 +164,8 @@ function load_properties(ep,		_ds, _cmd_arr, _cmd, _cmd_id, _ds_suffix, _idx, _s
 			return 0
 		}
 		else {
-			_log_level == log_common_command_feedback()
-			if (_log_level == LOG_ERROR)
-				stop(1)
+			_log_level = log_common_command_feedback()
+			if (_log_level == LOG_ERROR) stop(1)
 		}
 	}
 	close(_cmd)
