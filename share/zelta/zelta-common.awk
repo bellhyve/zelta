@@ -324,7 +324,7 @@ function build_command(action, vars, 		_remote_prefix, _cmd, _num_vars, _var_lis
 }
 
 # Handle common feedback from sh, ssh, and zfs
-function log_common_command_feedback(cmd_pipe, should_stop,     _log_level) {
+function log_common_command_feedback(		_log_level) {
 	_log_level = LOG_NOTICE
 	# Ignore a blank line
 	if (!$0)
@@ -338,10 +338,6 @@ function log_common_command_feedback(cmd_pipe, should_stop,     _log_level) {
 		_log_level = LOG_DEBUG
 	else
 		_log_level = LOG_WARNING
-	if (!_log_level && should_stop) {
-		close(cmd_pipe)
-		stop(1, $0)
-	}
 	report(_log_level, $0)
 	return _log_level
 }

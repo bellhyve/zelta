@@ -1,5 +1,5 @@
+# ACTION	# REMOTE	# COMMAND	# ARGUMENTS	# VARIABLES
 # zelta-cmds.tsv
-# 
 # Format:
 # ACTION: Which command to construct
 # REMOTE: Remote (ssh) prefix for SEND, RECV, DEFAULT, or blank for none 
@@ -7,7 +7,6 @@
 # ARGS: Hardcoded arguments.
 # VARS: List of options provided from a referenced associative array.
 #
-## ACTION	REMOTE	COMMAND	ARGS	VARS
 # =============================================================================
 CHECK	DEFAULT	zfs list	-Ho name	ds
 LIST	DEFAULT	zfs list	 -Hpr -t all -Screatetxg -o	props flags ds
