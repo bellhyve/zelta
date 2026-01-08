@@ -14,7 +14,12 @@ export TGT_POOL="bpool"
 
 # zfs pool creation strategy types
 export FILE_IMG_POOL=1
+
+# On Ubuntu we use a loop device backed by a file
 export LOOP_DEV_POOL=2
+
+# On FreeBSD we use a memory disk backed by a file
+export MEMORY_DISK_POOL=3
 
 export TREETOP_DSN='treetop'
 export BACKUPS_DSN='backups'
