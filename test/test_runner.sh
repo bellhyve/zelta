@@ -29,6 +29,8 @@ test_setup() {
             ;;
         "$RUN_REMOTELY")
             export SRC_SVR="${SRC_SVR:-dever@fzfsdev}"
+            # TODO: sort out 2nd server send/receive with host alias fzfsdev2
+            # export TGT_SVR="${TGT_SVR:-dever@fzfsdev2}"
             export TGT_SVR="${TGT_SVR:-dever@fzfsdev}"
             exec_remote_setup
             ;;
@@ -60,14 +62,14 @@ run_tests() {
     #SHELLSPEC_TESTOPT="${SHELLSPEC_TESTOPT:-}"
 
     # this options will show a trace with expectation evaluation
-    SHELLSPEC_TESTOPT="--xtrace --shell bash"
+    #SHELLSPEC_TESTOPT="--xtrace --shell bash"
 
-    #unset SHELLSPEC_TESTOPT
+    unset SHELLSPEC_TESTOPT
 
     shellspec -f d $SHELLSPEC_TESTOPT spec/bin/${TREE_NAME}_test/${TREE_NAME}_test_spec.sh
 
     # examples of selective tests runs
-    # shellspec -f d $SHELLSPEC_TESTOPT spec/bin/${TREE_NAME}_test/${TREE_NAME}_test_spec.sh:@1-1
+    # shellspec -f d $SHELLSPEC_TESTOPT spec/bin/${TREE_NAME}_test/${TREE_NAME}_test_spec.sh:@1
     # shellspec -f d $SHELLSPEC_TESTOPT spec/bin/${TREE_NAME}_test/${TREE_NAME}_test_spec.sh:@2
     # shellspec -f d $SHELLSPEC_TESTOPT spec/bin/${TREE_NAME}_test/${TREE_NAME}_test_spec.sh:@2-1
     # shellspec -f d $SHELLSPEC_TESTOPT spec/bin/${TREE_NAME}_test/${TREE_NAME}_test_spec.sh:@2-2
