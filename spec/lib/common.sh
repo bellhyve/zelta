@@ -38,11 +38,11 @@ exec_cmd() {
     CMD=${CMD% }    # trim trailing space
     #CMD="$@"
     if "$@"; then
-        [ "${EXEC_CMD_QUIET:-}" != "1" ] && printf "${GREEN}[success] ${CMD}${NC}\n"
+        [ "${EXEC_CMD_QUIET:-}" != "1" ] && printf "${GREEN}[success] %s${NC}\n" "${CMD}"
         return 0
     else
         _exit_code=$?
-        [ "${EXEC_CMD_QUIET:-}" != "1" ] && printf "${RED}[failed] ${CMD}${NC}\n" "$_exit_code"
+        [ "${EXEC_CMD_QUIET:-}" != "1" ] && printf "${RED}[failed] %s returned %d${NC}\n" "${CMD}" "$_exit_code"
         return "$_exit_code"
     fi
 }
