@@ -27,6 +27,12 @@ check_zfs_installed() {
     fi
 }
 
+
+echo_alert() {
+    msg=$1
+    printf "${RED}[** alert **] %s${NC}\n", "$msg"
+}
+
 exec_cmd() {
     CMD=$(printf "%s " "$@")
     CMD=${CMD% }    # trim trailing space
