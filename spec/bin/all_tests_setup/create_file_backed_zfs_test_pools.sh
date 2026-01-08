@@ -270,11 +270,11 @@ chgrp ${BACKUP_USER} "${ZFS_MOUNT_BASE}"
 
 ls -ld "${ZFS_MOUNT_BASE}"
 mkdir -p "${ZELTA_ZFS_STORE_TEST_DIR}"
-set +x
+
 create_pools
 setup_zfs_allow
 
-
+set +x
 #setup_loop_img "${SRC_POOL}"
 #setup_loop_img "${TGT_POOL}"
 
