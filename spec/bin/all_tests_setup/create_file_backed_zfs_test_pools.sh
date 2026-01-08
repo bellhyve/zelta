@@ -61,6 +61,7 @@ destroy_freebsd_mem_disk_pool() {
 
 create_freebsd_test_pool() {
     pool_name=$1
+    echo_alert "running create_freebsd_test_pool - pool_name {$pool_name}"
     destroy_freebsd_mem_disk_pool $pool_name
     create_freebsd_mem_disk_pool $pool_name
 }
@@ -181,6 +182,9 @@ create_file_img() {
 
 create_linux_loop_device_pool() {
     pool_name=$1
+
+    echo_alert "running create_linux_loop_device_pool - pool {$pool_name}"
+
     img_file=$(pool_image_file $pool_name)
 
     rm_img_and_its_loop_devices "$img_file"
@@ -195,7 +199,6 @@ create_linux_loop_device_pool() {
 
     echo "create pool {$pool_name} for loop device {$loop_device}"
     exec_cmd sudo zpool create -f -m "/${pool_name}" "${pool_name}" "${loop_device}"
-
 }
 
 create_pool_from_image_file() {
@@ -214,7 +217,7 @@ create_test_pool() {
         return 1
     fi
 
-    if [ "$POOL_TYPE" = "$MEM_DISK_POOL" ]; then
+    if [ "$POOL_TYPE" = "$MEMORY_DISK_POOL" ]; then
         create_freebsd_test_pool $pool_name
     elif [ "$POOL_TYPE" = "$LOOP_DEV_POOL" ]; then
         create_linux_loop_device_pool "$pool_name"
