@@ -49,10 +49,10 @@ function usage(message,		_ep_spec, _verb, _clone, _revert) {
 	_verb     = Opt["VERB"]
 	_revert   = (_verb == "revert")
 	_clone    = (_verb == "clone")
-	if (message) print message                                             > STDERR
-	printf "usage: " _verb " [OPTIONS] "                                   > STDERR
-	print _revert ? "ENDPOINT" : "SOURCE TARGET"                           > STDERR
-	print "\nRequired Arguments:"                                          > STDERR
+	if (message) print message                                         > STDERR
+	printf "usage: " _verb " [OPTIONS] "                               > STDERR
+	print _revert ? "ENDPOINT" : "SOURCE TARGET"                       > STDERR
+	print "\nRequired Arguments:"                                      > STDERR
 	if (_revert)
 		print "  ENDPOINT  " _ep_spec                                  > STDERR
 	else {
@@ -63,10 +63,10 @@ function usage(message,		_ep_spec, _verb, _clone, _revert) {
 		printf "Clone endpoints require the same 'user', "             > STDERR
 		print "'host', and 'pool'."                                    > STDERR
 	}
-	print "\nCommon Options:"                                              > STDERR
-        print "  -v, -vv                    Verbose/debug output"              > STDERR
-        print "  -q, -qq                    Suppress warnings/errors"          > STDERR
-        print "  -j, --json                 JSON output"                       > STDERR
+	print "\nCommon Options:"                                          > STDERR
+        print "  -v, -vv                    Verbose/debug output"      > STDERR
+        print "  -q, -qq                    Suppress warnings/errors"  > STDERR
+        print "  -j, --json                 JSON output"               > STDERR
 	if (!_revert) {
 		print "  --snapshot                 Always create snapshot"    > STDERR
 		print "  --snap-name NAME           Set snapshot name"         > STDERR
@@ -74,12 +74,12 @@ function usage(message,		_ep_spec, _verb, _clone, _revert) {
 	if (!_clone) {
 		print "\nAdvanced Options:"                                    > STDERR
 		if (_verb == "backup")
-			print "  -i, --incremental          Incremental sync"  > STDERR
+			print "  -i, --incremental          Incremental sync"      > STDERR
 		print "  -d, --depth NUM            Set max dataset depth"     > STDERR
 	}
 
-	print "\nFor complete documentation:  zelta help " _verb               > STDERR
-	print "                             https://zelta.space"               > STDERR
+	print "\nFor complete documentation:  zelta help " _verb           > STDERR
+	print "                             https://zelta.space"           > STDERR
 
 	exit 1
 }
@@ -332,7 +332,7 @@ function compute_eligibility(           _i, _ds_suffix, _src_idx, _tgt_idx,
 		_src_idx        = "SRC" SUBSEP _ds_suffix
 		_tgt_idx        = "TGT" SUBSEP _ds_suffix
 
-		# Gather all the state we need in one fucking place
+		# Gather all the state we need in one place
 		_has_next       = !!Dataset[_src_idx, "next_snapshot"]
 		_has_match      = !!DSPair[_ds_suffix, "match"]
 		_src_exists     = !!Dataset[_src_idx, "exists"]

@@ -27,20 +27,20 @@
 function usage(message) {
 	if (message)
 		print message > STDERR
-	print "usage:  policy [backup-override-options] [site|host|dataset] ...\n"  > STDERR
-	print "Runs replication jobs defined in: " Opt["CONFIG"] "\n"               > STDERR
-	print "Without operands, run 'zelta backup' jobs for all configured"        > STDERR
-	print "datasets. With operands, process the specified objects.\n"           > STDERR
-	print "Common Options:"                                                     > STDERR
+	print "usage:  policy [backup-override-options] [site|host|dataset] ...\n"      > STDERR
+	print "Runs replication jobs defined in: " Opt["CONFIG"] "\n"                   > STDERR
+	print "Without operands, run 'zelta backup' jobs for all configured"            > STDERR
+	print "datasets. With operands, process the specified objects.\n"               > STDERR
+	print "Common Options:"                                                         > STDERR
         print "  -v, -vv                    Verbose/debug output"                   > STDERR
         print "  -q, -qq                    Suppress warnings/errors"               > STDERR
         print "  -j, --json                 JSON output"                            > STDERR
         print "  -n, --dryrun               Show 'zelta backup' commands and exit"  > STDERR
         print "  --snapshot                 Always snapshot"                        > STDERR
         print "  --no-snapshot              Never snapshot\n"                       > STDERR
-	print "For complete documentation:  zelta help policy"                      > STDERR
-	print "                             zelta help options"                     > STDERR
-	print "                             https://zelta.space"                    > STDERR
+	print "For complete documentation:  zelta help policy"                          > STDERR
+	print "                             zelta help options"                         > STDERR
+	print "                             https://zelta.space"                        > STDERR
 	exit(1)
 }
 
@@ -220,12 +220,12 @@ function load_config(		_conf_error, _arr, _context,
 	close(Opt["CONFIG"])
 	if (!total_datasets) {
 		if (NumOperands)
-			usage("no matching policy objects found")
+			stop(1, "policy object(s) not found: " arr_join(Operands, ", "))
 		else
 			usage("no datasets defined in " Opt["CONFIG"])
 	}
 	#for (key in cli_options) Global[key] = cli_options[key]
-	FS = "[ \t]+";
+	FS = "[ \t]+"
 }
 
 function sub_keys(key_pair, key1, key2_list, key2_subset) {

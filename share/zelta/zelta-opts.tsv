@@ -11,8 +11,7 @@
 #   incr    : Increment				incr
 #   decr    : Decrement				decr
 #   invalid : Report error and quit				invalid
-# =============================================================================
-# -------------------------------------------------------------
+
 # Global/Generic Options
 all	--verbose,-v	LOG_LEVEL		incr		increase verbosity
 all	--quiet,-q	LOG_LEVEL		decr		decrease verbosity

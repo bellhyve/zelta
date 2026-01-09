@@ -1,4 +1,4 @@
-# COLNAME	SYNONYMS	TYPE	DESCRIPTION	DEPRECATION
+# COLNAME	# SYNONYMS	# TYPE	# DESCRIPTION	# DEPRECATION
 ds_suffix	relname,dssuffix	ds	Relative dataset name
 match	match	snap	Latest matching snapshot
 num_matches	nummatches,matches,count	num	Total number of matches
