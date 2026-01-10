@@ -211,23 +211,35 @@ function load_config(		_conf_error, _arr, _context,
 				report(LOG_WARNING,"no target defined for " source)
 			} else target = resolve_target(source, target, host)
 
+
+			# Maybe this should just be a freaking number??
+			#_endpoint_key = site OFS host OFS source OFS target
+
 			if (!should_backup(site, host, source, target)) continue
-			total_datasets++
 			datasets[host, source] = target
 			dataset_count[source]++
 			Host["LOG_PREFIX"] = "["site": "target"] "host":"source": "
 			backup_command[site,host,source,target] = create_backup_command(host, source)
+
+			# Correctly ordered job tracking
+			NumJobs++
+			for (_key in Host)
+				Job[_key] = Host[NumJobs, _key]
+			Job[NumJobs, "site"]         = site
+			Job[NumJobs, "source"]       = source
+			Job[NumJobs, "target"]       = target
+			Job[NumJobs, "source_host"]  = host
+			Job[NumJobs, "command"]      = create_backup_command(host, source)
+			Job[NumJobs, "log_prefix"]   = "["site": "target"] "host":"source": "
 		} else usage(_conf_error _line_num)
 	}
 	close(Opt["CONFIG"])
-	if (!total_datasets) {
+	if (!NumJobs) {
 		if (NumOperands)
 			stop(1, "policy object(s) not found: " arr_join(Operands, ", "))
 		else
 			usage("no datasets defined in " Opt["CONFIG"])
 	}
-	#for (key in cli_options) Global[key] = cli_options[key]
-	FS = "[ \t]+"
 }
 
 function sub_keys(key_pair, key1, key2_list, key2_subset) {
@@ -265,12 +277,12 @@ function should_backup(site, host, source, target,	_host_source, _target_stub, _
 	return 0
 }
 
-function zelta_backup(endpoint_key,		_cmd, _return_code) {
+function zelta_backup(job_num,		_cmd, _return_code) {
 	# Removed explicit output modes: LIST, ACTIVE, DEFAULT, VERBOSE
 	# LIST is undocumented
 	# ACTIVE creates a simplified indented print style
 	#_cmd = backup_command[site,host,source]
-	_cmd = backup_command[endpoint_key]
+	_cmd = Job[job_num, "command"]
 	if (Opt["DRYRUN"]) {
 		report(LOG_NOTICE, "+ " _cmd)
 		return
@@ -297,22 +309,26 @@ function xargs(		_xargs_cmd, _site, _echo_sites, _return_code) {
 
 function backup_loop(		_site, _host, _hosts_arr, _job_status, _endpoint_key,
 		     		_site_hosts, _num_failed, _failed_arr, _source, _target) {
-	for (_site in Sites) {
-		sub_keys(HostsBySite, _site, Hosts, _site_hosts)
-		for (_host in _site_hosts) {
-			sub_keys(datasets, _host, dataset_count, host_datasets)
-			for (_source in host_datasets) {
-				# TO-DO: Report what will be backed up, target:BACKUP_ROOT: Syncing [list_of_backups]
-				# DJB
-				_target = datasets[_host,_source]
-				_endpoint_key = _site SUBSEP _host SUBSEP _source SUBSEP _target
-				# The backup job should already be excluded before this point
-				if (!should_backup(_site, _host, _source, _target)) continue
-				if (zelta_backup(_endpoint_key)) {
-					_num_failed++
-					_failed_arr[_endpoint_key] = _host ":" _source
-				}
-			}
+	# for (_site in Sites) {
+	# 	sub_keys(HostsBySite, _site, Hosts, _site_hosts)
+	# 	for (_host in _site_hosts) {
+	# 		sub_keys(datasets, _host, dataset_count, host_datasets)
+	# 		for (_source in host_datasets) {
+	# 			_target = datasets[_host,_source]
+	# 			_endpoint_key = _site SUBSEP _host SUBSEP _source SUBSEP _target
+	# 			# The backup job should already be excluded before this point
+	# 			if (!should_backup(_site, _host, _source, _target)) continue
+	# 			if (zelta_backup(_endpoint_key)) {
+	# 				_num_failed++
+	# 				_failed_arr[_endpoint_key] = _host ":" _source
+	# 			}
+	# 		}
+	# 	}
+	# }
+	for (_j = 1; _j <= NumJobs; _j++) {
+		if (zelta_backup(_j)) {
+			_num_failed++
+			_failed_arr[_j] = Job[_j, "source_host"] ":" Job[_j, "source"]
 		}
 	}
 	while ((Global["RETRY"]-- > 0) && _num_failed) {
