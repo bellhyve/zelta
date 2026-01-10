@@ -44,14 +44,14 @@ function usage(message) {
 	exit(1)
 }
 
-function resolve_target(src, tgt, host,		_n, _i, _segments) {
+function resolve_target(tgt, opt, job,		_n, _i, _segments) {
 	if (tgt) { return tgt }
-	tgt = Host["BACKUP_ROOT"]
-	if (Host["ADD_HOST_PREFIX"] && host) {
-		tgt = tgt "/" host
+	tgt = opt["BACKUP_ROOT"]
+	if (opt["ADD_HOST_PREFIX"] && job["host"]) {
+		tgt = tgt "/" job["host"]
 	}
-	_n = split(src, _segments, "/")
-	for (_i = _n - Host["ADD_DATASET_PREFIX"]; _i <= _n; _i++) {
+	_n = split(job["source"], _segments, "/")
+	for (_i = _n - opt["ADD_DATASET_PREFIX"]; _i <= _n; _i++) {
 		if (_segments[_i]) {
 			tgt = tgt "/" _segments[_i]
 		}
@@ -59,23 +59,22 @@ function resolve_target(src, tgt, host,		_n, _i, _segments) {
 	return tgt
 }
 
-function create_backup_command(host, source,    _key, _cmd_arr, _i, _src, _tgt, _cmd) {
-	for (_key in Host) {
+function create_backup_command(job, opts,		_key, _cmd_prefix, _cmd_arr, _i, _src, _tgt, _cmd) {
+	for (_key in opts) {
 		# Don't forward 'zelta policy' options
 		if (PolicyOptScope[_key]) continue
-		else if (Host[_key])
-			_cmd_arr[++_i] = ENV_PREFIX _key "=" dq(Host[_key])
+		# TO-DO: Resolve flags for prettier commands?
+		else if (opts[_key])
+			_cmd_prefix = str_add(_cmd_prefix, ENV_PREFIX _key "=" dq(opts[_key]))
 	}
-	# Construct the endpoint strings
-	# Switch to use the command_builder
-	_src = q(host":"source)
-	# I think we can drop the following
-	#_src = q((host in LOCALHOST) ? source : (host":"source))
-	_tgt = q(datasets[host, source])
-	_cmd_arr[++_i] = Host["BACKUP_COMMAND"]
-	_cmd_arr[++_i] = _src
-	_cmd_arr[++_i] = _tgt
-	_cmd = arr_join(_cmd_arr)
+	# Construct command using command builder
+	_src = q(job["host"]":"job["source"])
+	_tgt = q(job["target"])
+	_cmd_arr["command_prefix"] = _cmd_prefix
+	_cmd_arr["source"] = _src
+	_cmd_arr["target"] = _tgt
+	_cmd = build_command("BACKUP", _cmd_arr)
+
 	return _cmd
 }
 
@@ -149,8 +148,7 @@ function get_global_overrides(		_key) {
 	create_assoc(Opt["OPERANDS"], Patterns, SUBSEP)
 }
 
-function load_config(		_conf_error, _arr, _context,
-		     		host, site, source, target) {
+function load_config(		_conf_error, _arr, _context, _job,		host, site, source, target) {
 	# TO-DO: Fix _local _var _style for the above
 	# Split for YAML: Leading space, "- list item", "key: value", and "EOL:"
 	FS = "^ +|- |:[[:space:]]+|:$"
@@ -175,62 +173,48 @@ function load_config(		_conf_error, _arr, _context,
 
 		# Global options
 		if (/^[^ ]+: +[^ ]/) {
-			if (!_context == "global") usage(_conf_error _line_num)
 			set_var(Global, $1, $2)
 
 		# Sites:
 		} else if (/^[^ ]+:$/) {
 			_context = "site"
-			site = $1
-			Sites[site]++
+			_job["site"] = $1
+			Sites[$1]++
 			NumSites++
-			arr_copy(Global, site_conf)
+			arr_copy(Global, _site_opt)
 		} else if (/^  [^ ]+: +[^ ]/) {
-			set_var(site_conf, $2, $3)
+			set_var(_site_opt, $2, $3)
 
 		# Hosts:
 		} else if (/^  [^ ]+:$/) {
 			if (_context == "global") usage(_conf_error _line_num)
 			_context = "host"
-			host = $2
-			Hosts[host] = 1
-			HostsBySite[site,host] = 1
-			arr_copy(site_conf, Host)
+			_job["host"] = $2
+			arr_copy(_site_opt, _opt)
 		} else if ($2 == "options") {
 			_context = "options"
 		} else if ($2 == "datasets") {
 			_context = "datasets"
 		} else if (/^      [^ ]+: +[^ ]/) {
 			if (_context != "options") usage(_conf_error _line_num)
-			set_var(Host, $2, $3)
+			set_var(_opt, $2, $3)
 		} else if ((/^  - [^ ]/) || (/^    - [^ ]/)) {
 			if (!(_context ~ /^(datasets|host)$/)) usage(_conf_error _line_num)
+			_job["source"] = $3
+			_job["target"] = resolve_target($4, _opt, _job)
 			source = $3
-			target = resolve_target(source, $4, host)
-			if (!target) {
+			target = _job["target"]
+			if (!_job["target"]) {
 				report(LOG_WARNING,"no target defined for " source)
-			} else target = resolve_target(source, target, host)
+				continue
+			}
 
+			if (!should_backup(_job)) continue
+			_opt["LOG_PREFIX"] = "[" _job["site"] ": " _job["target"] "] " _job["host"] ":" _job["source"]": "
 
-			# Maybe this should just be a freaking number??
-			#_endpoint_key = site OFS host OFS source OFS target
-
-			if (!should_backup(site, host, source, target)) continue
-			datasets[host, source] = target
-			dataset_count[source]++
-			Host["LOG_PREFIX"] = "["site": "target"] "host":"source": "
-			backup_command[site,host,source,target] = create_backup_command(host, source)
-
-			# Correctly ordered job tracking
 			NumJobs++
-			for (_key in Host)
-				Job[_key] = Host[NumJobs, _key]
-			Job[NumJobs, "site"]         = site
-			Job[NumJobs, "source"]       = source
-			Job[NumJobs, "target"]       = target
-			Job[NumJobs, "source_host"]  = host
-			Job[NumJobs, "command"]      = create_backup_command(host, source)
-			Job[NumJobs, "log_prefix"]   = "["site": "target"] "host":"source": "
+			Job[NumJobs, "name"] = "[" _job["site"] ": " _job["target"] "] " _job["host"] ":" _job["source"]
+			Job[NumJobs, "command"]      = create_backup_command(_job, _opt)
 		} else usage(_conf_error _line_num)
 	}
 	close(Opt["CONFIG"])
@@ -242,32 +226,23 @@ function load_config(		_conf_error, _arr, _context,
 	}
 }
 
-function sub_keys(key_pair, key1, key2_list, key2_subset) {
-	delete key2_subset
-	for (key2 in key2_list) {
-		if ((key1,key2) in key_pair) {
-			key2_subset[key2]++
-		}
-	}
-}
-
 function should_xargs() {
 	return ((Global["JOBS"] > 1) && (NumOperands > 1) && (NumSites > 1))
 }
 
-# If a parameter is given
-function should_backup(site, host, source, target,	_host_source, _target_stub, _list_, _match_arr, _i) {
+# filter jobs by operand behavior
+function should_backup(job,		_host_ep, _leaf, _list, _match_arr, _i) {
 	if (!NumOperands) return 1
-	_host_source = host":"source
-	_target_stub = target
-	sub(/.*\//,"",_target_stub)
+	_host_ep = job["host"]":"job["source"]
+	_leaf = job["source"]
+	sub(/.*\//,"",_leaf)
 
 	# Assemble possible match criteria; str_add() discards blank criteria
-	_list = str_add(site, host, SUBSEP)
-	_list = str_add(_list, source, SUBSEP)
-	_list = str_add(_list, target, SUBSEP)
-	_list = str_add(_list, _host_source, SUBSEP)
-	_list = str_add(_list, _target_stub, SUBSEP)
+	_list = str_add(job["site"], job["host"], SUBSEP)
+	_list = str_add(_list, job["source"], SUBSEP)
+	_list = str_add(_list, job["target"], SUBSEP)
+	_list = str_add(_list, _host_ep, SUBSEP)
+	_list = str_add(_list, _leaf, SUBSEP)
 	create_assoc(_list, _match_arr, SUBSEP)
 
 	# Match the operands to any of the above
@@ -309,31 +284,15 @@ function xargs(		_xargs_cmd, _site, _echo_sites, _return_code) {
 
 function backup_loop(		_site, _host, _hosts_arr, _job_status, _endpoint_key,
 		     		_site_hosts, _num_failed, _failed_arr, _source, _target) {
-	# for (_site in Sites) {
-	# 	sub_keys(HostsBySite, _site, Hosts, _site_hosts)
-	# 	for (_host in _site_hosts) {
-	# 		sub_keys(datasets, _host, dataset_count, host_datasets)
-	# 		for (_source in host_datasets) {
-	# 			_target = datasets[_host,_source]
-	# 			_endpoint_key = _site SUBSEP _host SUBSEP _source SUBSEP _target
-	# 			# The backup job should already be excluded before this point
-	# 			if (!should_backup(_site, _host, _source, _target)) continue
-	# 			if (zelta_backup(_endpoint_key)) {
-	# 				_num_failed++
-	# 				_failed_arr[_endpoint_key] = _host ":" _source
-	# 			}
-	# 		}
-	# 	}
-	# }
 	for (_j = 1; _j <= NumJobs; _j++) {
 		if (zelta_backup(_j)) {
 			_num_failed++
-			_failed_arr[_j] = Job[_j, "source_host"] ":" Job[_j, "source"]
+			_failed_arr[_j] = 1
 		}
 	}
 	while ((Global["RETRY"]-- > 0) && _num_failed) {
 		for (_endpoint_key in _failed_arr) {
-			report(LOG_NOTICE, "retrying: " _failed_arr[_endpoint_key])
+			report(LOG_NOTICE, "retrying: " Job["name"])
 			if (zelta_backup(_endpoint_key))
 				delete _failed_arr[_endpoint_key]
 		}
@@ -343,6 +302,7 @@ function backup_loop(		_site, _host, _hosts_arr, _job_status, _endpoint_key,
 BEGIN {
 	if (Opt["USAGE"])
 		usage()
+	load_build_commands()
 	load_option_list()
 	get_global_overrides()
 	load_config()

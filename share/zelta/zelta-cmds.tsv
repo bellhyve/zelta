@@ -19,3 +19,4 @@ SEND	SEND	zfs send	-P	flags intr_snap ds_snap
 RECV	RECV	zfs recv	-v	flags origin ds
 SYNC	DEFAULT			zfs_send zfs_recv
 RENAME	DEFAULT	zfs rename	-fp	old_ds new_ds
+BACKUP		zelta backup		flags source target
