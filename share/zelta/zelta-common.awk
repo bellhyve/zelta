@@ -345,19 +345,19 @@ function log_common_command_feedback(		_log_level) {
 
 BEGIN {
 	# Constants
-	ENV_PREFIX	= "ZELTA_"
-	COMMAND_ERROR	= "[Nn]o route to host|[Cc]ould not resolve|[Cc]ommand not found|[Cc]onnection (closed|refused)|[Nn]etwork.*unreachable|timed out|Permission denied.*publickey|[Hh]ost key verification failed"
-	COMMAND_DEBUG	= "Permanently added.*to the list"
-	CAPTURE_OUTPUT	= " 2>&1"
-	STDERR		= "/dev/stderr"
+	ENV_PREFIX      = "ZELTA_"
+	COMMAND_ERROR   = "[Nn]o route to host|[Cc]ould not resolve|[Cc]ommand not found|[Cc]onnection (closed|refused)|[Nn]etwork.*unreachable|timed out|Permission denied.*publickey|[Hh]ost key verification failed"
+	COMMAND_DEBUG   = "Permanently added.*to the list"
+	CAPTURE_OUTPUT  = " 2>&1"
+	STDERR          = "/dev/stderr"
 
-	STOP_ON_ERROR   = 1
-	LOG_ERROR	= 0
-	LOG_WARNING	= 1
-	LOG_NOTICE	= 2
-	LOG_INFO	= 3
-	LOG_DEBUG	= 4
-	LOG_JSON	= LOG_NOTICE
+	STOP_ON_ERROR  = 1
+	LOG_ERROR	   = 0
+	LOG_WARNING	   = 1
+	LOG_NOTICE	   = 2
+	LOG_INFO	   = 3
+	LOG_DEBUG	   = 4
+	LOG_JSON	   = LOG_NOTICE
 
 	create_assoc("no false 0", False)
 	create_assoc("yes true 1", True)

@@ -9,7 +9,6 @@ function load_zelta_verbs() {
 		}
 	}
 	close(_cmd)
-	zelta
 }
 
 function case_zelta_help() {

@@ -27,20 +27,20 @@
 function usage(message) {
 	if (message)
 		print message > STDERR
-	print "usage:  policy [backup-override-options] [site|host|dataset] ...\n"      > STDERR
-	print "Runs replication jobs defined in: " Opt["CONFIG"] "\n"                   > STDERR
-	print "Without operands, run 'zelta backup' jobs for all configured"            > STDERR
-	print "datasets. With operands, process the specified objects.\n"               > STDERR
-	print "Common Options:"                                                         > STDERR
-        print "  -v, -vv                    Verbose/debug output"                   > STDERR
-        print "  -q, -qq                    Suppress warnings/errors"               > STDERR
-        print "  -j, --json                 JSON output"                            > STDERR
-        print "  -n, --dryrun               Show 'zelta backup' commands and exit"  > STDERR
-        print "  --snapshot                 Always snapshot"                        > STDERR
-        print "  --no-snapshot              Never snapshot\n"                       > STDERR
-	print "For complete documentation:  zelta help policy"                          > STDERR
-	print "                             zelta help options"                         > STDERR
-	print "                             https://zelta.space"                        > STDERR
+	print "usage:  policy [backup-override-options] [site|host|dataset] ...\n"  > STDERR
+	print "Runs replication jobs defined in: " Opt["CONFIG"] "\n"               > STDERR
+	print "Without operands, run 'zelta backup' jobs for all configured"        > STDERR
+	print "datasets. With operands, process the specified objects.\n"           > STDERR
+	print "Common Options:"                                                     > STDERR
+	print "  -v, -vv                    Verbose/debug output"                   > STDERR
+	print "  -q, -qq                    Suppress warnings/errors"               > STDERR
+	print "  -j, --json                 JSON output"                            > STDERR
+	print "  -n, --dryrun               Show 'zelta backup' commands and exit"  > STDERR
+	print "  --snapshot                 Always snapshot"                        > STDERR
+	print "  --no-snapshot              Never snapshot\n"                       > STDERR
+	print "For complete documentation:  zelta help policy"                      > STDERR
+	print "                             zelta help options"                     > STDERR
+	print "                             https://zelta.space"                    > STDERR
 	exit(1)
 }
 
@@ -59,7 +59,7 @@ function resolve_target(src, tgt, host,		_n, _i, _segments) {
 	return tgt
 }
 
-function create_backup_command(site, host, source,		_key, _cmd_arr, _i, _src, _tgt) {
+function create_backup_command(host, source,    _key, _cmd_arr, _i, _src, _tgt, _cmd) {
 	for (_key in Host) {
 		# Don't forward 'zelta policy' options
 		if (PolicyOptScope[_key]) continue
@@ -75,12 +75,14 @@ function create_backup_command(site, host, source,		_key, _cmd_arr, _i, _src, _t
 	_cmd_arr[++_i] = Host["BACKUP_COMMAND"]
 	_cmd_arr[++_i] = _src
 	_cmd_arr[++_i] = _tgt
-	backup_command[site,host,source] = arr_join(_cmd_arr)
+	_cmd = arr_join(_cmd_arr)
+	return _cmd
 }
 
 function set_var(option_list, var, val) {
 	gsub(/-/,"_",var)
 	gsub(/^ +/,"",var)
+	gsub(/^ZELTA_/,"",var)
 	var = toupper(var)
 	if (var in PolicyLegacy) {
 		# TO-DO: Legacy warning
@@ -213,8 +215,8 @@ function load_config(		_conf_error, _arr, _context,
 			total_datasets++
 			datasets[host, source] = target
 			dataset_count[source]++
-			Host["LOG_PREFIX"] = host":"source": "
-			backup_command[host, source] = create_backup_command(site, host, source)
+			Host["LOG_PREFIX"] = "["site": "target"] "host":"source": "
+			backup_command[site,host,source,target] = create_backup_command(host, source)
 		} else usage(_conf_error _line_num)
 	}
 	close(Opt["CONFIG"])
@@ -303,7 +305,7 @@ function backup_loop(		_site, _host, _hosts_arr, _job_status, _endpoint_key,
 				# TO-DO: Report what will be backed up, target:BACKUP_ROOT: Syncing [list_of_backups]
 				# DJB
 				_target = datasets[_host,_source]
-				_endpoint_key = _site SUBSEP _host SUBSEP _source
+				_endpoint_key = _site SUBSEP _host SUBSEP _source SUBSEP _target
 				# The backup job should already be excluded before this point
 				if (!should_backup(_site, _host, _source, _target)) continue
 				if (zelta_backup(_endpoint_key)) {

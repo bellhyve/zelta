@@ -55,8 +55,8 @@ policy,backup,replicate,sync,rotate	-z			invalid			option '-z' is deprecated; co
 policy,backup,replicate,sync,rotate	-h	USAGE		true		option '-h' is ambiguous; use '--holds' or see SEND/RECV options in 'zelta help options'
 
 # `zfs send/zfs recv` options
-policy,backup,replicate,sync	-I	SEND_INTR	INTERMEDIATE	true		intermediate mode: sync all possible snapshots
-policy,backup,replicate,sync	-i	SEND_INTR	INTERMEDIATE	false		incremental mode: sync only the latest snapshots
+policy,backup,replicate,sync	-I,--intermediate	SEND_INTR	INTERMEDIATE	true		intermediate mode: sync all possible snapshots
+policy,backup,replicate,sync	-i,--incremental	SEND_INTR	INTERMEDIATE	false		incremental mode: sync only the latest snapshots
 policy,backup,replicate,sync	--send-default	SEND_DEFAULT		set
 policy,backup,replicate,sync	--send-raw	SEND_RAW		set
 policy,backup,replicate,sync	--send-new	SEND_NEW		set
@@ -78,7 +78,7 @@ match	--no-target,--notarget	TGT_ID		false
 match	--time	CHECK_TIME		true
 
 # 'zelta policy' options
-policy	--conifg,-C	CONFIG		set		specify the policy configuration file
+policy	--config,-C	CONFIG		set		specify the policy configuration file
 policy	--retry	RETRY		true		retry failed syncs the indicated number of times
 policy	--no-retry,--noretry	RETRY		false
 policy	--jobs	JOBS	THREADS	set		run policy jobs concurrently per Site
@@ -88,8 +88,8 @@ policy	--archive-root	ARCHIVE_ROOT		set
 policy	--host-prefix	ADD_HOST_PREFIX	HOST_PREFIX		set
 policy	--ds-prefix,--prefix	ADD_DATASET_PREFIX	PREFIX	set
 policy	--backup-command	BACKUP_COMMAND		set
-legacy		SEND_INTR	INTR_FLAGS	set			INTR_FLAGS will be depcreated and renamed to SEND_INTR.
-legacy		SEND_OVERRIDE	SEND_FLAGS	set			SEND_FLAGS will be depcreated. See 'zelta help options' for new SEND options.
-legacy		RECV_OVERRIDE	RECEIVE_FLAGS	set			RECEIVE_FLAGS will be depcreated. See 'zelta help options' for new RECV options.
+legacy		SEND_INTR	INTR_FLAGS	set			INTR_FLAGS will be deprecated and renamed to SEND_INTR.
+legacy		SEND_OVERRIDE	SEND_FLAGS	set			SEND_FLAGS will be deprecated. See 'zelta help options' for new SEND options.
+legacy		RECV_OVERRIDE	RECEIVE_FLAGS	set			RECEIVE_FLAGS will be deprecated. See 'zelta help options' for new RECV options.
 legacy		REMOTE_SEND	REMOTE_SEND_COMMAND	set
 legacy		REMOTE_RECV	REMOTE_RECV_COMMAND	set
