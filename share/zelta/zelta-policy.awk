@@ -1,28 +1,23 @@
-#!/usr/bin/awk -f
+#!/usr/bin/env awk
 #
-# zelta policy, zp - iterates through sync commands indicated in a policy file
+# zelta-policy.awk, zelta policy - executes backup jobs from configuration files
 #
-# usage: zelta policy [-flags] [site, host, dataset, dataset_last_element, or source host:dataset] ...
+# Implements policy-driven backup orchestration by parsing YAML-like configuration files,
+# resolving backup targets, generating zelta backup commands, and executing jobs with
+# retry logic and parallel execution support.
 #
-# requires: zelta-sync.awk, zelta-match.awk, or a compatible pipe
+# CONCEPTS
+# site: A logical grouping of hosts (e.g., "production", "development")
+# host: A specific machine with datasets to backup
+# job: A single backup operation from source to target
+# target resolution: Computing backup destination paths from templates and job context
 #
-# zelta reads a YAML-style configuration file. The minimal conifguration is:
-#
-# 	site:
-#   	  host:
-#   	  - data/set: pool/target
-#
-# See the example confiuguration for details.
-#
-# Arguments can be any site, host, dataset, last dataset element, or a host:dataset pair, separated by
-# whitespace.
-#
-# By default, "zelta policy" attempts to sync from every site, host, and dataset.
-# This behavior can be overridden by adding one or more unique item names from the
-# configuration file to the argument list. For example, entering a site name will
-# replicate all datasets from all hosts of a site. Keep this in mind when reusing
-# host or dataset names. For example, "zelta policy zroot" will back up every dataset
-# ending in "zroot".
+# GLOBALS
+# Global: Policy-wide settings and overrides from config file
+# Job: Array of backup jobs indexed by job number
+# Sites: List of configured sites for parallel execution
+# PolicyOpt: Valid policy option names for validation
+# PolicyOptScope: Whether an option applies to policy vs backup commands
 
 function usage(message) {
 	if (message)
@@ -44,6 +39,7 @@ function usage(message) {
 	exit(1)
 }
 
+# Resolve the backup target path based on options and job details
 function resolve_target(tgt, opt, job,		_n, _i, _segments) {
 	if (tgt) { return tgt }
 	tgt = opt["BACKUP_ROOT"]
@@ -59,7 +55,8 @@ function resolve_target(tgt, opt, job,		_n, _i, _segments) {
 	return tgt
 }
 
-function create_backup_command(job, opts,		_key, _cmd_prefix, _cmd_arr, _i, _src, _tgt, _cmd) {
+# Generate the backup command string for a given job and options
+function create_backup_command(job, opts,		_key, _cmd_prefix, _cmd_arr, _src, _tgt, _cmd) {
 	for (_key in opts) {
 		# Don't forward 'zelta policy' options
 		if (PolicyOptScope[_key]) continue
@@ -78,6 +75,7 @@ function create_backup_command(job, opts,		_key, _cmd_prefix, _cmd_arr, _i, _src
 	return _cmd
 }
 
+# Set a variable in the option list, handling legacy mappings and validation
 function set_var(option_list, var, val) {
 	gsub(/-/,"_",var)
 	gsub(/^ +/,"",var)
@@ -90,7 +88,7 @@ function set_var(option_list, var, val) {
 	}
 	if (!(var in PolicyOpt)) usage("unknown option: "var)
 	if (var in Opt) {
-		# Var is overriden by envorinment
+		# Var is overriden by environment
 		report(LOG_DEBUG, "skipping " var "; already in args/user env")
 		return
 	}
@@ -103,13 +101,13 @@ function set_var(option_list, var, val) {
 			val = "0"
 	} else if ((PolicyOptType[var] == "incr") || (PolicyOptType[var] == "decr")) {
 		if (val !~ /^[0-9]$/)
-			report(LOG_WARNING, "option '" var "' is an integer; '"var"' invalid")
+			report(LOG_WARNING, "option '" var "' is an integer; '"val"' invalid")
 		return
 	}
 	option_list[var] = val
 }
 
-# Use the option list keys to create hierarchical config for the backup policy
+# Load policy options from TSV file into global arrays for scope and type tracking
 function load_option_list(	_tsv, _key, _idx, _flags, _flag_arr) {
 	_tsv = Opt["SHARE"]"/zelta-opts.tsv"
 	# TO-DO: Complain if TSV doesn't load
@@ -131,7 +129,7 @@ function load_option_list(	_tsv, _key, _idx, _flags, _flag_arr) {
 	close(_tsv)
 }
 
-# Differentiate between backup and policy options
+# Extract global overrides from options and restore logging settings
 function get_global_overrides(		_key) {
 	for (_key in Opt)
 		if (PolicyOptScope[_key])
@@ -148,16 +146,15 @@ function get_global_overrides(		_key) {
 	create_assoc(Opt["OPERANDS"], Patterns, SUBSEP)
 }
 
-function load_config(		_conf_error, _arr, _context, _job,		host, site, source, target) {
-	# TO-DO: Fix _local _var _style for the above
+# Parse the configuration file to build job lists and options
+function load_config(		_conf_error, _arr, _context, _job, _line_num,
+				_site_opt, _opt, _legacy_arr) {
 	# Split for YAML: Leading space, "- list item", "key: value", and "EOL:"
 	FS = "^ +|- |:[[:space:]]+|:$"
 	OFS=","
 	_conf_error = "configuration parse error at line: "
 	BACKUP_COMMAND = "zelta backup"
 
-	#get_options()
-	#set_mode()
 	_context = "global"
 	Global["BACKUP_COMMAND"] = BACKUP_COMMAND
 
@@ -202,10 +199,8 @@ function load_config(		_conf_error, _arr, _context, _job,		host, site, source, t
 			if (!(_context ~ /^(datasets|host)$/)) usage(_conf_error _line_num)
 			_job["source"] = $3
 			_job["target"] = resolve_target($4, _opt, _job)
-			source = $3
-			target = _job["target"]
 			if (!_job["target"]) {
-				report(LOG_WARNING,"no target defined for " source)
+				report(LOG_WARNING,"no target defined for " _job["source"])
 				continue
 			}
 
@@ -226,11 +221,12 @@ function load_config(		_conf_error, _arr, _context, _job,		host, site, source, t
 	}
 }
 
+# Determine if xargs should be used for parallel execution
 function should_xargs() {
 	return ((Global["JOBS"] > 1) && (NumOperands > 1) && (NumSites > 1))
 }
 
-# filter jobs by operand behavior
+# Check if a job should be backed up based on operands/patterns
 function should_backup(job,		_host_ep, _leaf, _list, _match_arr, _i) {
 	if (!NumOperands) return 1
 	_host_ep = job["host"]":"job["source"]
@@ -252,15 +248,15 @@ function should_backup(job,		_host_ep, _leaf, _list, _match_arr, _i) {
 	return 0
 }
 
+# Execute a single backup job and return success/failure
 function zelta_backup(job_num,		_cmd, _return_code) {
 	# Removed explicit output modes: LIST, ACTIVE, DEFAULT, VERBOSE
 	# LIST is undocumented
 	# ACTIVE creates a simplified indented print style
-	#_cmd = backup_command[site,host,source]
 	_cmd = Job[job_num, "command"]
 	if (Opt["DRYRUN"]) {
 		report(LOG_NOTICE, "+ " _cmd)
-		return
+		return 0
 	}
 	_return_code = system(_cmd)
 	close(_cmd)
@@ -268,6 +264,7 @@ function zelta_backup(job_num,		_cmd, _return_code) {
 	return !!_return_code
 }
 
+# Run policy in parallel using xargs for multiple sites
 function xargs(		_xargs_cmd, _site, _echo_sites, _return_code) {
 	_policy_cmd = "zelta policy"
 	_echo_sites = "echo"
@@ -282,8 +279,8 @@ function xargs(		_xargs_cmd, _site, _echo_sites, _return_code) {
 	return _return_code
 }
 
-function backup_loop(		_site, _host, _hosts_arr, _job_status, _endpoint_key,
-		     		_site_hosts, _num_failed, _failed_arr, _source, _target) {
+# Main loop to execute backup jobs with retry logic
+function backup_loop(		_j, _num_failed, _failed_arr, _endpoint_key) {
 	for (_j = 1; _j <= NumJobs; _j++) {
 		if (zelta_backup(_j)) {
 			_num_failed++
@@ -292,13 +289,16 @@ function backup_loop(		_site, _host, _hosts_arr, _job_status, _endpoint_key,
 	}
 	while ((Global["RETRY"]-- > 0) && _num_failed) {
 		for (_endpoint_key in _failed_arr) {
-			report(LOG_NOTICE, "retrying: " Job["name"])
-			if (zelta_backup(_endpoint_key))
+			report(LOG_NOTICE, "retrying: " Job[_endpoint_key, "name"])
+			if (!zelta_backup(_endpoint_key)) {
 				delete _failed_arr[_endpoint_key]
+				_num_failed--
+			}
 		}
 	}
 }
 
+# Main entry point: initialize, load config, and execute jobs
 BEGIN {
 	if (Opt["USAGE"])
 		usage()
