@@ -5,3 +5,4 @@
 .DS_Store
 doc/man8
 doc/man7
+.aider*
