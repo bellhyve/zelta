@@ -57,7 +57,7 @@ function usage(message,		_ep_spec, _verb, _clone, _revert) {
 		print "  ENDPOINT  " _ep_spec                                  > STDERR
 	else {
 		print "  SOURCE    " _src_spec                                 > STDERR
-		print "  TARGET    " _ep_spec                                  > STDERR
+		# print "  TARGET    " _ep_spec                                  > STDERR
 	}
 	if (_clone) {
 		printf "Clone endpoints require the same 'user', "             > STDERR

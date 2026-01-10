@@ -1,40 +1,45 @@
 % zelta-options(7) | System Manager's Manual
 
-# NAME
-**zelta-options** - environment and policy options for Zelta behavior
-
-# SYNOPSIS
-Environment variables and policy configuration options for controlling Zelta's behavior across all commands.
-
 # DESCRIPTION
 Zelta's behavior can be modified through environment variables, command-line arguments, and policy configuration files. This manual documents all available options and their effects.
 
-Options set in the user environment must be prefixed with the string `ZELTA_`. For example, to override the default `zelta.env`, export the variable `ZELTA_ENV="/path/to/env"`. In other contexts (like `zelta.env` or `zelta.conf`), the `ZELTA_` prefix can be omitted.
+Options are set differently based on context:
 
-Options follow a hierarchy:
+- **Shell environemnt**: Environment variables must be prefixed with `ZELTA_` (e.g., `ZELTA_DEPTH=2`)
+- **Environment file**: In `zelta.env`, use `KEY=value` pairs (e.g., `DEPTH=2`)
+- **Policy file**: `zelta policy` additionally uses the YAML-like `zelta.conf` for granular settings per backup job with `KEY: value` pairs (e.g., `DEPTH: 1`)
+- **Command-line arguments**: Options map to double-dash arguments (e.g., `--depth`)
 
-    1. Defaults
-    2. `zelta.env`
-    3. `zelta.conf` (`zelta policy` only)
-    4. Environment variables (must prefix names with `ZELTA_`)
-    5. Command-line arguments
+For on/off variable assignments, use "1" for true and "0" for false.
 
-# SETUP OPTIONS
-The following options are often modified for user-specific installations and testing purposes. Note that if `ENV` and/or `ETC` need to be overridden, this must typically be done in the user environment using `ZELTA_ENV` and `ZELTA_ETC` respectively.
+## Option Hierarchy
 
-**AWK**
-:   The **awk** executable. The default is the awk in the path. Example: `AWK='mawk -Wi'`.
+Options follow an override hierarchy to provide flexibility in all contexts.
 
-**SHARE**
+1. **Defaults** - Built-in defaults in the `zelta` controller script
+2. **`zelta.env`** - System-wide environment file (default: `/usr/local/etc/zelta/zelta.env`)
+3. **`zelta.conf`** - Policy configuration file (`zelta policy` only, default: `/usr/local/etc/zelta/zelta.conf`)
+4. **Environment variables** - User environment (must prefix names with `ZELTA_`)
+5. **Command-line arguments** - Highest priority, overrides all other sources
+
+For example, running `zelta policy --no-snapshot` will ensure the all configured backups will run without taking snapshots regardless of snapshot configuration in other contexts.
+
+# SETUP AND ENVIRONMENT-ONLY OPTIONS
+The following options should be modified in the environment to ensure proper installation and startup of the `zelta` script. Typically, these should be defined in the user's shell rc script. In particular, `ZELTA_AWK` and `ZELTA_ENV` will be used prior to loading `zelta.env` so they must be exported beforehand.
+
+**ZELTA_AWK**
+:   The **awk** executable. The default is the awk in the path. Example: `ZELTA_AWK='mawk -Wi'`.
+
+**ZELTA_SHARE**
 :   The location of Zelta assets including the AWK scripts and data files. The default is `/usr/local/share/zelta`.
 
-**ETC**
+**ZELTA_ETC**
 :   The location of `zelta.env` and `zelta.conf`. The default is `/usr/local/etc/zelta`.
 
-**ENV**
+**ZELTA_ENV**
 :   The exact path of `zelta.env`.
 
-**DOC**
+**ZELTA_DOC**
 :   The location of Zelta's manpages. Default is unset, using the system-wide manual.
 
 # LOGGING OPTIONS
@@ -266,7 +271,7 @@ Configure `zelta.conf`:
       RETRY: 3
 
 # SEE ALSO
-**zelta(8)**, **zelta-backup(8)**, **zelta-clone(8)**, **zelta-match(8)**, **zelta-policy(8)**, **zelta-rotate(8)**, **zelta-sync(8)**, **cron(8)**, **ssh(1)**, **zfs(8)**
+zelta(8), zelta-backup(8), zelta-clone(8), zelta-match(8), zelta-policy(8), zelta-rotate(8), zelta-sync(8), cron(8), ssh(1), zfs(8)
 
 # AUTHORS
 Daniel J. Bell <_bellhyve@zelta.space_>
