@@ -91,3 +91,64 @@ Compares a dataset and its replica counterpart.
 *   Assume the environment is hostile.
 *   Assume `grep` logic varies.
 *   Do not assume GNU or BSD extensions are present.
+
+---
+
+## 5. Comments & Documentation
+
+Good comments explain **why** and **what**, not just **how**. They should help future maintainers understand the intent and context.
+
+### Comment Styles
+
+| Style | Usage | Example |
+| :--- | :--- | :--- |
+| `##` | **Section Headers** | `## Loading and setting properties` |
+| `#` | **Function Headers** | `# Evaluate properties needed for snapshot decision` |
+| `#` | **Inline Explanations** | `_idx = endpoint SUBSEP ds_suffix  # Build array key` |
+| `# TO-DO:` | **Future Work** | `# TO-DO: This should be its own function` |
+
+### What to Comment
+
+*   **Complex Array Indexing:** Explain multi-dimensional array structures.
+    ```awk
+    # Dataset properties indexed by: (endpoint, ds_suffix, property)
+    Dataset[_idx, "latest_snapshot"] = snap_name
+    ```
+
+*   **Business Logic:** Explain the reasoning behind complex conditionals.
+    ```awk
+    # If this is the first snapshot for the source, update the snap counter
+    if (!_src_latest)
+        Dataset[_idx, "earliest_snapshot"] = snap_name
+    ```
+
+*   **State Changes:** Document when and why global state is modified.
+    ```awk
+    # The target is updated via a sync and becomes our new match
+    DSPair[ds_suffix, "match"] = snap_name
+    ```
+
+*   **External Dependencies:** Explain interactions with external commands.
+    ```awk
+    # Run 'zfs match' and pass to parser
+    _cmd = build_command("MATCH", _cmd_arr)
+    ```
+
+### What NOT to Comment
+
+*   **Obvious Operations:** Don't comment simple assignments or standard patterns.
+*   **Redundant Descriptions:** Avoid comments that just restate the code.
+
+### Section Organization
+
+Use `##` headers to create logical code sections:
+```awk
+## Usage
+########
+
+## Loading and setting properties  
+#################################
+
+## Compute derived data from properties and snapshots
+#####################################################
+```
