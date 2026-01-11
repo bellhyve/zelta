@@ -174,6 +174,11 @@ zelta_init() {
 	# `zfs clone` defaults
 	: ${ZELTA_CLONE_DEFAULT:="-po readonly=off"}
 
+	# `zelta match` defaults
+	: ${ZELTA_KEEP_SNAP_NUM:="100"}
+	: ${ZELTA_KEEP_SNAP_DAYS:="90"}
+	: ${ZELTA_KEEP_SNAP_SECONDS:=""}
+
 	# Remote (ssh) options
 	: ${ZELTA_REMOTE_COMMAND:="ssh"}
 	: ${ZELTA_REMOTE_DEFAULT:="${ZELTA_REMOTE_COMMAND} -n"}
@@ -311,6 +316,7 @@ zelta_args "$@"
 case $zelta_verb in
 	# zelta-match.awk
 	zmatch |\
+	prune |\
 	match)		zelta_run_awk "match" ;;
 	# zelta-backup.awk
 	clone |\

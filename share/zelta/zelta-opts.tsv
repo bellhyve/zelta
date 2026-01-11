@@ -77,6 +77,10 @@ match	--no-written,--nowritten	WRITTEN		false
 match	--no-target,--notarget	TGT_ID		false
 match	--time	CHECK_TIME		true
 
+# 'zelta prune' options
+prune	--keep-snap-days	KEEP_SNAP_DAYS		set
+prune	--keep-snap-num	KEEP_SNAP_NUM		set
+
 # 'zelta policy' options
 policy	--config,-C	CONFIG		set		specify the policy configuration file
 policy	--retry	RETRY		true		retry failed syncs the indicated number of times
