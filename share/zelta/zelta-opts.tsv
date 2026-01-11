@@ -78,8 +78,9 @@ match	--no-target,--notarget	TGT_ID		false
 match	--time	CHECK_TIME		true
 
 # 'zelta prune' options
-prune	--keep-snap-days	KEEP_SNAP_DAYS		set
-prune	--keep-snap-num	KEEP_SNAP_NUM		set
+prune	--keep-snap-days	KEEP_SNAP_DAYS		set		days of older matches to skip
+prune	--keep-snap-num	KEEP_SNAP_NUM		set		number of old matches to skip
+prune	--no-ranges	NO_RANGES		true		disable range compression (output individual snapshots)
 
 # 'zelta policy' options
 policy	--config,-C	CONFIG		set		specify the policy configuration file
