@@ -44,7 +44,7 @@ function usage_prune(message) {
 	STDERR = "/dev/stderr"
 	printf (message ? message "\n" : "") "usage:"                                                       > STDERR
 	print "\tprune [--keep-snap-num=N] [--keep-snap-days=N] [-X pattern] SOURCE TARGET\n"               > STDERR
-	print "Identifies snapshots on SOURCE that are safe to prune based on TARGET replication state.\n"  > STDERR
+	print "Identifies snapshots on SOURCE that exist on TARGET\n"                                       > STDERR
 	print "Options:"                                                                                    > STDERR
 	print "\t--keep-snap-num=N    Minimum number of snapshots to keep after match (default: 10)"        > STDERR
 	print "\t--keep-snap-days=N   Minimum age in days for snapshot deletion (default: 90)"              > STDERR
@@ -469,6 +469,7 @@ function analyze_prune_candidates(		_d, _ds_suffix, _src_ds_id, _tgt_ds_id, _num
 						_s, _src_row, _savepoint, _guid, _creation,
 						_match_idx, _snap_seconds, _min_age, _keep_after_match) {
 
+	# SECONDS overrides DAYS if set
 	if (Opt["KEEP_SNAP_SECONDS"])
 		_snap_seconds = Opt["KEEP_SNAP_SECONDS"]
 	else
@@ -482,10 +483,6 @@ function analyze_prune_candidates(		_d, _ds_suffix, _src_ds_id, _tgt_ds_id, _num
 		_tgt_ds_id = Target["ID"] S _ds_suffix S ""
 		_num_snaps = NumSnaps[_src_ds_id]
 
-		# Skip if no match exists
-		if (!DSPair[_ds_suffix, "match"]) continue
-
-		# Use cached match index
 		_match_idx = DSPair[_ds_suffix, "match_idx"]
 		if (!_match_idx) continue
 
@@ -499,20 +496,15 @@ function analyze_prune_candidates(		_d, _ds_suffix, _src_ds_id, _tgt_ds_id, _num
 			# Only consider snapshots (not bookmarks)
 			if (Row[_src_row, "type"] != IS_SNAPSHOT) continue
 
-			# SAFETY: Only prune if replicated to target (GUID exists on target)
+			# Only prune if replicated to target (GUID exists on target)
 			if (!Guid[_tgt_ds_id, _guid]) continue
 
-			# Check minimum keep count (snapshots after match toward latest)
-			if ((_s - _match_idx) <= _keep_after_match) {
-				KeptSnap[_src_ds_id, ++KeptSnapNum[_src_ds_id]] = _savepoint
-				KeptReason[_src_ds_id, KeptSnapNum[_src_ds_id]] = "within keep window"
-				continue
-			}
-
-			# Check minimum age
-			if (_min_age && (_creation >= _min_age)) {
-				KeptSnap[_src_ds_id, ++KeptSnapNum[_src_ds_id]] = _savepoint
-				KeptReason[_src_ds_id, KeptSnapNum[_src_ds_id]] = "too recent"
+			# List of kept snapshots
+			if (((_s - _match_idx) <= _keep_after_match) || (_min_age && (_creation >= _min_age))) {
+				NumTotalKeptSnaps++
+				TotalKeptSnaps = str_add(TotalKeptSnaps, Source["DS"] _ds_suffix _savepoint, ",")
+				KeptSnap[_src_ds_id, ++NumKeptSnap[_src_ds_id]] = _savepoint
+				KeptSnapIdx[_src_ds_id, NumKeptSnap[_src_ds_id]] = _s
 				continue
 			}
 
@@ -599,16 +591,14 @@ function output_prune(		_d, _ds_suffix, _src_ds_id, _p, _range, _base_name) {
 	if (!Opt["NO_RANGES"])
 		compress_prune_ranges()
 
+	_output = "keeping: " TotalKeptSnaps
+	report(LOG_VERBOSE, _output)
+
 	# Output one snapshot or range per line (oldest first)
 	for (_d = 1; _d <= NumDSPair; _d++) {
 		_ds_suffix = DSPairList[_d]
 		_src_ds_id = Source["ID"] S _ds_suffix S ""
 		_base_name = Row[_src_ds_id, "name"]
-
-		# Verbose output: report kept snapshots
-		if (Opt["VERBOSE"] && KeptSnapNum[_src_ds_id]) {
-			report(LOG_INFO, _base_name ": keeping " KeptSnapNum[_src_ds_id] " snapshots")
-		}
 
 		if (Opt["NO_RANGES"]) {
 			# Output individual snapshots
