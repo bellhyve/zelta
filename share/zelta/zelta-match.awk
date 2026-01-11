@@ -328,7 +328,7 @@ function validate_match(src_row, tgt_row, ds_suffix, savepoint, snap_idx) {
 }
 
 # Step through snapshots for counters and to find common snapshots
-function compare_snapshots(src_row,	_src_row_arr, _ds_suffix, _savepoint, _src_guid, _tgt_ds_id, _tgt_match) {
+function compare_snapshots(src_row, idx,	_src_row_arr, _ds_suffix, _savepoint, _src_guid, _tgt_ds_id, _tgt_match) {
 	# Identify a match candidate by GUID
 	split(src_row, _src_row_arr, S)
 	_ds_suffix	= _src_row_arr[2]
@@ -337,7 +337,7 @@ function compare_snapshots(src_row,	_src_row_arr, _ds_suffix, _savepoint, _src_g
 	_tgt_ds_id	= Target["ID"] S _ds_suffix S ""
 	_tgt_match	= Guid[_tgt_ds_id, _src_guid]
 	if (_tgt_match)
-		validate_match(src_row, _tgt_match, _ds_suffix, _savepoint, _src_row_arr[4])
+		validate_match(src_row, _tgt_match, _ds_suffix, _savepoint, idx)
 	else {
 		if (!DSPair[_ds_suffix, "match"]) {
 			DSPair[_ds_suffix, "src_next"] = _savepoint
@@ -387,7 +387,7 @@ function process_datasets(		_src_id, _tgt_id, _num_src_ds, _num_tgt_ds, _d, _s,
 		_match = compare_datasets(_src_ds_id)
 		_num_snaps = NumSnaps[_src_ds_id]
 		for (_s = 1; _s <= _num_snaps; _s++)
-			compare_snapshots(Snap[_src_ds_id,_s] S _s)
+			compare_snapshots(Snap[_src_ds_id,_s], _s)
 	}
 
 	# Step through target objects
