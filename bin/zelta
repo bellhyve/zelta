@@ -177,7 +177,6 @@ zelta_init() {
 	# `zelta match` defaults
 	: ${ZELTA_KEEP_SNAP_NUM:="100"}
 	: ${ZELTA_KEEP_SNAP_DAYS:="90"}
-	: ${ZELTA_KEEP_SNAP_SECONDS:=""}
 
 	# Remote (ssh) options
 	: ${ZELTA_REMOTE_COMMAND:="ssh"}
