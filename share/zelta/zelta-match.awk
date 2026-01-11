@@ -38,6 +38,22 @@ function usage(message,		_counter, _c, _key) {
 	stop(1)
 }
 
+function usage_prune(message) {
+	STDERR = "/dev/stderr"
+	printf (message ? message "\n" : "") "usage:"                    > STDERR
+	print "\tprune [--keep-snap-num=N] [--keep-snap-days=N] [-x pattern] SOURCE TARGET\n"  > STDERR
+	print "Identifies snapshots on SOURCE that are safe to prune based on TARGET replication state.\n" > STDERR
+	print "Options:" > STDERR
+	print "\t--keep-snap-num=N    Minimum number of snapshots to keep after match (default: 10)" > STDERR
+	print "\t--keep-snap-days=N   Minimum age in days for snapshot deletion (default: 90)" > STDERR
+	print "\t-x pattern           Exclude datasets matching pattern\n" > STDERR
+	print "Only snapshots older than the common match point and replicated to TARGET are considered." > STDERR
+	print "Output shows 'zfs destroy' commands for safe pruning.\n" > STDERR
+	print "For complete documentation:  zelta help prune" > STDERR
+	print "                             https://zelta.space" > STDERR
+	stop(1)
+}
+
 
 ## Command Building
 ###################
@@ -442,6 +458,117 @@ function get_info(	_d, _ds_suffix, _src_ds, _tgt_ds, _info, _blocked, _s) {
 	Global["summary"] = arr_join(_sum_arr, ", ")
 }
 
+# Analyze snapshots for pruning eligibility
+# This runs after all matching is complete and uses the existing Guid[] and DSPair[] data
+function analyze_prune_candidates(		_d, _ds_suffix, _src_ds_id, _tgt_ds_id, _num_snaps,
+						_s, _src_row, _savepoint, _guid, _creation,
+						_match_idx, _min_age, _keep_after_match) {
+	_min_age = Opt["KEEP_SNAP_DAYS"] ? (sys_time() - (Opt["KEEP_SNAP_DAYS"] * 86400)) : 0
+	_keep_after_match = Opt["KEEP_SNAP_NUM"] ? Opt["KEEP_SNAP_NUM"] : 10
+	
+	for (_d = 1; _d <= NumDSPair; _d++) {
+		_ds_suffix = DSPairList[_d]
+		_src_ds_id = Source["ID"] S _ds_suffix S ""
+		_tgt_ds_id = Target["ID"] S _ds_suffix S ""
+		_num_snaps = NumSnaps[_src_ds_id]
+		_match_idx = 0
+		
+		# Skip if no match exists
+		if (!DSPair[_ds_suffix, "match"]) continue
+		
+		# Find the match point index in the snapshot array
+		for (_s = 1; _s <= _num_snaps; _s++) {
+			_src_row = Snap[_src_ds_id, _s]
+			_savepoint = Row[_src_row, "savepoint"]
+			if (_savepoint == DSPair[_ds_suffix, "match"]) {
+				_match_idx = _s
+				break
+			}
+		}
+		
+		if (!_match_idx) continue
+		
+		# Analyze snapshots older than match (higher index = older)
+		for (_s = _match_idx + 1; _s <= _num_snaps; _s++) {
+			_src_row = Snap[_src_ds_id, _s]
+			_savepoint = Row[_src_row, "savepoint"]
+			_guid = Row[_src_row, "guid"]
+			_creation = Row[_src_row, "creation"]
+			
+			# Only consider snapshots (not bookmarks)
+			if (Row[_src_row, "type"] != IS_SNAPSHOT) continue
+			
+			# Check if replicated to target by GUID
+			if (!Guid[_tgt_ds_id, _guid]) continue
+			
+			# Check minimum keep count (snapshots after match)
+			if ((_num_snaps - _s) < _keep_after_match) continue
+			
+			# Check minimum age
+			if (_min_age && (_creation >= _min_age)) continue
+			
+			# Mark as prune candidate (store oldest first)
+			PruneSnap[_src_ds_id, ++PruneSnapNum[_src_ds_id]] = _savepoint
+		}
+	}
+}
+
+# Output prune commands
+function output_prune(		_d, _ds_suffix, _src_ds_id, _oldest_prune, _first_prune,
+				_can_simplify, _cmd) {
+	if (!NumDSPair) {
+		report(LOG_ERROR, "datasets inaccessible or do not exist")
+		return
+	}
+	
+	# Check if we can use simplified recursive output
+	# Conditions: no exclusions, multiple datasets, all have same oldest prune candidate
+	_can_simplify = (!Opt["EXCLUDE"] && NumDSPair > 1)
+	
+	if (_can_simplify) {
+		for (_d = 1; _d <= NumDSPair; _d++) {
+			_ds_suffix = DSPairList[_d]
+			_src_ds_id = Source["ID"] S _ds_suffix S ""
+			
+			if (PruneSnapNum[_src_ds_id]) {
+				# Get the oldest (last in array)
+				_first_prune = PruneSnap[_src_ds_id, PruneSnapNum[_src_ds_id]]
+				
+				if (!_oldest_prune) {
+					_oldest_prune = _first_prune
+				} else if (_oldest_prune != _first_prune) {
+					_can_simplify = 0
+					break
+				}
+			} else {
+				# If any dataset has no prune candidates, can't simplify
+				_can_simplify = 0
+				break
+			}
+		}
+	}
+	
+	# Simplified output for uniform tree
+	if (_can_simplify && _oldest_prune) {
+		_cmd = "zfs destroy -r " Source["DS"] substr(_oldest_prune, 1, 1) "%" substr(_oldest_prune, 2)
+		report(LOG_NOTICE, _cmd)
+		return
+	}
+	
+	# Per-dataset output
+	for (_d = 1; _d <= NumDSPair; _d++) {
+		_ds_suffix = DSPairList[_d]
+		_src_ds_id = Source["ID"] S _ds_suffix S ""
+		
+		if (PruneSnapNum[_src_ds_id]) {
+			# Get the oldest snapshot to prune (last in array)
+			_oldest_prune = PruneSnap[_src_ds_id, PruneSnapNum[_src_ds_id]]
+			_cmd = "zfs destroy -r " Row[_src_ds_id, "name"] substr(_oldest_prune, 1, 1) "%" substr(_oldest_prune, 2)
+			report(LOG_NOTICE, _cmd)
+		}
+	}
+}
+
 ## Output
 #########
 
@@ -595,7 +722,12 @@ BEGIN {
 	load_endpoint(Operands[1], Source)
 	load_endpoint(Operands[2], Target)
 	load_columns()
-	if (Opt["USAGE"]) { usage() }
+	if (Opt["USAGE"]) {
+		if (Opt["VERB"] == "prune")
+			usage_prune()
+		else
+			usage()
+	}
 	if (!Source["DS"] && !Target["DS"]) { usage("no datasets defined") }
 
 	if (Opt["MATCH_PIPE"]) {
@@ -623,8 +755,18 @@ NR > 1 {
 END {
 	if (Opt["MATCH_PIPE"]) {
 		process_datasets()
-		get_info()
-		summary()
+		
+		if (Opt["VERB"] == "prune") {
+			# Set defaults for prune mode
+			if (!Opt["KEEP_SNAP_NUM"]) Opt["KEEP_SNAP_NUM"] = 10
+			if (!Opt["KEEP_SNAP_DAYS"]) Opt["KEEP_SNAP_DAYS"] = 90
+			
+			analyze_prune_candidates()
+			output_prune()
+		} else {
+			get_info()
+			summary()
+		}
 		stop(0)
 	}
 }
