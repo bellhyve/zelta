@@ -315,13 +315,15 @@ function compare_datasets(src_ds_id,		_ds_suffix, _row_arr, _tgt_ds_id) {
 }
 
 # TO-DO: Add user-defined filters
-function validate_match(src_row, tgt_row, ds_suffix, savepoint) {
+function validate_match(src_row, tgt_row, ds_suffix, savepoint, snap_idx) {
 	# Exclude if the target isn't a snapshot
 	if (Row[tgt_row, "type"] != IS_SNAPSHOT)
 		return
 	if (!DSPair[ds_suffix, "num_matches"]++) {
 		# TO-DO: Validate by filter
 		DSPair[ds_suffix, "match"] = savepoint
+		# Record match index for pruning
+		DSPair[ds_suffix, "match_idx"] = snap_idx
 	}
 }
 
@@ -335,7 +337,7 @@ function compare_snapshots(src_row,	_src_row_arr, _ds_suffix, _savepoint, _src_g
 	_tgt_ds_id	= Target["ID"] S _ds_suffix S ""
 	_tgt_match	= Guid[_tgt_ds_id, _src_guid]
 	if (_tgt_match)
-		validate_match(src_row, _tgt_match, _ds_suffix, _savepoint)
+		validate_match(src_row, _tgt_match, _ds_suffix, _savepoint, _src_row_arr[4])
 	else {
 		if (!DSPair[_ds_suffix, "match"]) {
 			DSPair[_ds_suffix, "src_next"] = _savepoint
@@ -385,7 +387,7 @@ function process_datasets(		_src_id, _tgt_id, _num_src_ds, _num_tgt_ds, _d, _s,
 		_match = compare_datasets(_src_ds_id)
 		_num_snaps = NumSnaps[_src_ds_id]
 		for (_s = 1; _s <= _num_snaps; _s++)
-			compare_snapshots(Snap[_src_ds_id,_s])
+			compare_snapshots(Snap[_src_ds_id,_s] S _s)
 	}
 
 	# Step through target objects
@@ -479,21 +481,12 @@ function analyze_prune_candidates(		_d, _ds_suffix, _src_ds_id, _tgt_ds_id, _num
 		_src_ds_id = Source["ID"] S _ds_suffix S ""
 		_tgt_ds_id = Target["ID"] S _ds_suffix S ""
 		_num_snaps = NumSnaps[_src_ds_id]
-		_match_idx = 0
 
 		# Skip if no match exists
 		if (!DSPair[_ds_suffix, "match"]) continue
 
-		# Find the match point index in the snapshot array
-		for (_s = 1; _s <= _num_snaps; _s++) {
-			_src_row = Snap[_src_ds_id, _s]
-			_savepoint = Row[_src_row, "savepoint"]
-			if (_savepoint == DSPair[_ds_suffix, "match"]) {
-				_match_idx = _s
-				break
-			}
-		}
-
+		# Use cached match index
+		_match_idx = DSPair[_ds_suffix, "match_idx"]
 		if (!_match_idx) continue
 
 		# Analyze snapshots older than match (higher index = older)
@@ -510,10 +503,18 @@ function analyze_prune_candidates(		_d, _ds_suffix, _src_ds_id, _tgt_ds_id, _num
 			if (!Guid[_tgt_ds_id, _guid]) continue
 
 			# Check minimum keep count (snapshots after match toward latest)
-			if ((_s - _match_idx) <= _keep_after_match) continue
+			if ((_s - _match_idx) <= _keep_after_match) {
+				KeptSnap[_src_ds_id, ++KeptSnapNum[_src_ds_id]] = _savepoint
+				KeptReason[_src_ds_id, KeptSnapNum[_src_ds_id]] = "within keep window"
+				continue
+			}
 
 			# Check minimum age
-			if (_min_age && (_creation >= _min_age)) continue
+			if (_min_age && (_creation >= _min_age)) {
+				KeptSnap[_src_ds_id, ++KeptSnapNum[_src_ds_id]] = _savepoint
+				KeptReason[_src_ds_id, KeptSnapNum[_src_ds_id]] = "too recent"
+				continue
+			}
 
 			# Mark as prune candidate (store with index for range compression)
 			PruneSnap[_src_ds_id, ++PruneSnapNum[_src_ds_id]] = _savepoint
@@ -588,7 +589,7 @@ function compress_prune_ranges(		_d, _ds_suffix, _src_ds_id, _p, _range_start, _
 }
 
 # Output prune candidates - just snapshot names, one per line
-function output_prune(		_d, _ds_suffix, _src_ds_id, _p, _range, _full_name) {
+function output_prune(		_d, _ds_suffix, _src_ds_id, _p, _range, _base_name) {
 	if (!NumDSPair) {
 		report(LOG_ERROR, "datasets inaccessible or do not exist")
 		return
@@ -602,23 +603,24 @@ function output_prune(		_d, _ds_suffix, _src_ds_id, _p, _range, _full_name) {
 	for (_d = 1; _d <= NumDSPair; _d++) {
 		_ds_suffix = DSPairList[_d]
 		_src_ds_id = Source["ID"] S _ds_suffix S ""
+		_base_name = Row[_src_ds_id, "name"]
+
+		# Verbose output: report kept snapshots
+		if (Opt["VERBOSE"] && KeptSnapNum[_src_ds_id]) {
+			report(LOG_INFO, _base_name ": keeping " KeptSnapNum[_src_ds_id] " snapshots")
+		}
 
 		if (Opt["NO_RANGES"]) {
 			# Output individual snapshots
 			if (PruneSnapNum[_src_ds_id]) {
-				for (_p = PruneSnapNum[_src_ds_id]; _p >= 1; _p--) {
-					_full_name = Row[_src_ds_id, "name"] PruneSnap[_src_ds_id, _p]
-					report(LOG_NOTICE, _full_name)
-				}
+				for (_p = PruneSnapNum[_src_ds_id]; _p >= 1; _p--)
+					report(LOG_NOTICE, _base_name PruneSnap[_src_ds_id, _p])
 			}
 		} else {
 			# Output compressed ranges
 			if (PruneRangeNum[_src_ds_id]) {
-				for (_p = PruneRangeNum[_src_ds_id]; _p >= 1; _p--) {
-					_range = PruneRange[_src_ds_id, _p]
-					_full_name = Row[_src_ds_id, "name"] _range
-					report(LOG_NOTICE, _full_name)
-				}
+				for (_p = PruneRangeNum[_src_ds_id]; _p >= 1; _p--)
+					report(LOG_NOTICE, _base_name PruneRange[_src_ds_id, _p])
 			}
 		}
 	}
