@@ -466,11 +466,13 @@ function analyze_prune_candidates(		_d, _ds_suffix, _src_ds_id, _tgt_ds_id, _num
 						_s, _src_row, _savepoint, _guid, _creation,
 						_match_idx, _snap_seconds, _min_age, _keep_after_match) {
 
-	_snap_seconds = Opt["KEEP_SNAP_DAYS"] * 86400
-	if (Opt["KEEP_SNAP_SECONDS"] > _snap_seconds)
+	if (Opt["KEEP_SNAP_SECONDS"])
 		_snap_seconds = Opt["KEEP_SNAP_SECONDS"]
+	else
+		_snap_seconds = Opt["KEEP_SNAP_DAYS"] * 86400
 	_min_age = sys_time() - _snap_seconds
 	_keep_after_match = Opt["KEEP_SNAP_NUM"]
+report(LOG_ERROR, Opt["KEEP_SNAP_DAYS"] " " Opt["KEEP_SNAP_SECONDS"])
 
 	for (_d = 1; _d <= NumDSPair; _d++) {
 		_ds_suffix = DSPairList[_d]
