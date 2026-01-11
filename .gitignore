@@ -1,7 +1,5 @@
 *.swp
 *.swo
-.zeport-hook
-.vscode
-.DS_Store
-doc/man8
-doc/man7
+.*
+!.gitignore
+doc/man?
