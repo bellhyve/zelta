@@ -48,7 +48,7 @@ function add_written() {
 		if (Opt["PARSABLE"] && (Opt["PROPLIST"] !~ /(all|written|size)/))
 			return ""
 	}
-	return Opt["LIST_WRITTEN"] ? ",written" : ""
+	return Opt["LIST_WRITTEN"] ? ",written,creation" : ""
 }
 
 # TO-DO: Add this feature to build_command()
@@ -143,9 +143,10 @@ function object_type(symbol) {
 function process_row(ep,		_name, _guid, _written, _name_suffix, _ds_suffix, _savepoint,
 		     			_type, _ep_id, _ds_id, _ds_snap, _row_id, _tmp_arr, _num_snaps) {
 	# Read the row data
-	_name			= $1
-	_guid			= $2
-	_written		= $3
+	_name      = $1
+	_guid      = $2
+	_written   = $3
+	_creation  = $4
 
 	# Get the relative dataset suffix and then split to dataset and snapshot/bookmark name
 	_name_suffix		= substr(_name, ep["ds_length"])
@@ -177,6 +178,7 @@ function process_row(ep,		_name, _guid, _written, _name_suffix, _ds_suffix, _sav
 	Row[_row_id, "exists"]     = 1
 	Row[_row_id, "guid"]       = _guid
 	Row[_row_id, "written"]    = _written
+	Row[_row_id, "creation"]   = _creation
 	Row[_row_id, "name"]       = _name
 	Row[_row_id, "type"]       = _type
 	Row[_row_id, "ds_suffix"]  = _ds_suffix
