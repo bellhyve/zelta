@@ -48,6 +48,7 @@ function usage_prune(message) {
 	print "Options:"                                                                                    > STDERR
 	print "\t--keep-snap-num=N    Minimum number of snapshots to keep after match (default: 10)"        > STDERR
 	print "\t--keep-snap-days=N   Minimum age in days for snapshot deletion (default: 90)"              > STDERR
+	print "\t--no-ranges          Disable range compression (output individual snapshots)"              > STDERR
 	print "\t-x pattern           Exclude datasets matching pattern\n"                                  > STDERR
 	print "Only snapshots older than the common match point and replicated to TARGET are considered."   > STDERR
 	print "Output shows snapshot names (one per line) that are safe to prune.\n"                        > STDERR
@@ -472,7 +473,6 @@ function analyze_prune_candidates(		_d, _ds_suffix, _src_ds_id, _tgt_ds_id, _num
 		_snap_seconds = Opt["KEEP_SNAP_DAYS"] * 86400
 	_min_age = sys_time() - _snap_seconds
 	_keep_after_match = Opt["KEEP_SNAP_NUM"]
-report(LOG_ERROR, Opt["KEEP_SNAP_DAYS"] " " Opt["KEEP_SNAP_SECONDS"])
 
 	for (_d = 1; _d <= NumDSPair; _d++) {
 		_ds_suffix = DSPairList[_d]
@@ -515,30 +515,110 @@ report(LOG_ERROR, Opt["KEEP_SNAP_DAYS"] " " Opt["KEEP_SNAP_SECONDS"])
 			# Check minimum age
 			if (_min_age && (_creation >= _min_age)) continue
 
-			# Mark as prune candidate (store oldest first)
+			# Mark as prune candidate (store with index for range compression)
 			PruneSnap[_src_ds_id, ++PruneSnapNum[_src_ds_id]] = _savepoint
+			PruneSnapIdx[_src_ds_id, PruneSnapNum[_src_ds_id]] = _s
 		}
 	}
 }
 
+# Compress contiguous snapshots into ranges
+# Input: PruneSnap[ds_id, n] = "@snap1", "@snap2", "@snap3"
+# Output: PruneRange[ds_id, n] = "@snap1%snap3" (if contiguous)
+function compress_prune_ranges(		_d, _ds_suffix, _src_ds_id, _p, _range_start, _range_end,
+					_range_start_idx, _prev_idx, _curr_idx, _num_ranges) {
+
+	for (_d = 1; _d <= NumDSPair; _d++) {
+		_ds_suffix = DSPairList[_d]
+		_src_ds_id = Source["ID"] S _ds_suffix S ""
+
+		if (!PruneSnapNum[_src_ds_id]) continue
+
+		_range_start = ""
+		_range_end = ""
+		_range_start_idx = 0
+		_prev_idx = 0
+		_num_ranges = 0
+
+		# Iterate through prune candidates (oldest to newest, reverse order)
+		for (_p = PruneSnapNum[_src_ds_id]; _p >= 1; _p--) {
+			_curr_idx = PruneSnapIdx[_src_ds_id, _p]
+
+			# Start a new range
+			if (!_range_start) {
+				_range_start = PruneSnap[_src_ds_id, _p]
+				_range_start_idx = _curr_idx
+				_range_end = _range_start
+				_prev_idx = _curr_idx
+				continue
+			}
+
+			# Check if contiguous (indices differ by 1)
+			if (_curr_idx == _prev_idx - 1) {
+				# Extend the range
+				_range_end = PruneSnap[_src_ds_id, _p]
+				_prev_idx = _curr_idx
+			} else {
+				# Non-contiguous: save current range and start new one
+				if (_range_start == _range_end) {
+					# Single snapshot
+					PruneRange[_src_ds_id, ++_num_ranges] = _range_start
+				} else {
+					# Range of snapshots
+					PruneRange[_src_ds_id, ++_num_ranges] = _range_start "%" _range_end
+				}
+				_range_start = PruneSnap[_src_ds_id, _p]
+				_range_start_idx = _curr_idx
+				_range_end = _range_start
+				_prev_idx = _curr_idx
+			}
+		}
+
+		# Save final range
+		if (_range_start) {
+			if (_range_start == _range_end) {
+				PruneRange[_src_ds_id, ++_num_ranges] = _range_start
+			} else {
+				PruneRange[_src_ds_id, ++_num_ranges] = _range_start "%" _range_end
+			}
+		}
+
+		PruneRangeNum[_src_ds_id] = _num_ranges
+	}
+}
+
 # Output prune candidates - just snapshot names, one per line
-function output_prune(		_d, _ds_suffix, _src_ds_id, _p, _savepoint, _full_name) {
+function output_prune(		_d, _ds_suffix, _src_ds_id, _p, _range, _full_name) {
 	if (!NumDSPair) {
 		report(LOG_ERROR, "datasets inaccessible or do not exist")
 		return
 	}
 
-	# Output one snapshot per line (oldest first)
+	# Compress ranges unless disabled
+	if (!Opt["NO_RANGES"])
+		compress_prune_ranges()
+
+	# Output one snapshot or range per line (oldest first)
 	for (_d = 1; _d <= NumDSPair; _d++) {
 		_ds_suffix = DSPairList[_d]
 		_src_ds_id = Source["ID"] S _ds_suffix S ""
 
-		if (PruneSnapNum[_src_ds_id]) {
-			# Iterate from oldest to newest (reverse order in array)
-			for (_p = PruneSnapNum[_src_ds_id]; _p >= 1; _p--) {
-				_savepoint = PruneSnap[_src_ds_id, _p]
-				_full_name = Row[_src_ds_id, "name"] _savepoint
-				report(LOG_NOTICE, _full_name)
+		if (Opt["NO_RANGES"]) {
+			# Output individual snapshots
+			if (PruneSnapNum[_src_ds_id]) {
+				for (_p = PruneSnapNum[_src_ds_id]; _p >= 1; _p--) {
+					_full_name = Row[_src_ds_id, "name"] PruneSnap[_src_ds_id, _p]
+					report(LOG_NOTICE, _full_name)
+				}
+			}
+		} else {
+			# Output compressed ranges
+			if (PruneRangeNum[_src_ds_id]) {
+				for (_p = PruneRangeNum[_src_ds_id]; _p >= 1; _p--) {
+					_range = PruneRange[_src_ds_id, _p]
+					_full_name = Row[_src_ds_id, "name"] _range
+					report(LOG_NOTICE, _full_name)
+				}
 			}
 		}
 	}
