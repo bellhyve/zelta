@@ -516,16 +516,20 @@ function analyze_prune_candidates(		_d, _ds_suffix, _src_ds_id, _tgt_ds_id, _num
 }
 
 # Compress contiguous snapshots into ranges
-# Input: PruneSnap[ds_id, n] = "@snap1", "@snap2", "@snap3"
-# Output: PruneRange[ds_id, n] = "@snap1%snap3" (if contiguous)
-function compress_prune_ranges(		_d, _ds_suffix, _src_ds_id, _p, _range_start, _range_end,
+# Input: snap_arr[ds_id, n] = "@snap1", "@snap2", "@snap3"
+#        snap_idx_arr[ds_id, n] = index positions
+#        snap_num_arr[ds_id] = count
+# Output: range_arr[ds_id, n] = "@snap1%snap3" (if contiguous)
+#         range_num_arr[ds_id] = count of ranges
+function compress_snapshot_ranges(snap_arr, snap_idx_arr, snap_num_arr, range_arr, range_num_arr,
+					_d, _ds_suffix, _src_ds_id, _p, _range_start, _range_end,
 					_range_start_idx, _prev_idx, _curr_idx, _num_ranges) {
 
 	for (_d = 1; _d <= NumDSPair; _d++) {
 		_ds_suffix = DSPairList[_d]
 		_src_ds_id = Source["ID"] S _ds_suffix S ""
 
-		if (!PruneSnapNum[_src_ds_id]) continue
+		if (!snap_num_arr[_src_ds_id]) continue
 
 		_range_start = ""
 		_range_end = ""
@@ -533,13 +537,13 @@ function compress_prune_ranges(		_d, _ds_suffix, _src_ds_id, _p, _range_start, _
 		_prev_idx = 0
 		_num_ranges = 0
 
-		# Iterate through prune candidates (oldest to newest, reverse order)
-		for (_p = PruneSnapNum[_src_ds_id]; _p >= 1; _p--) {
-			_curr_idx = PruneSnapIdx[_src_ds_id, _p]
+		# Iterate through snapshots (oldest to newest, reverse order)
+		for (_p = snap_num_arr[_src_ds_id]; _p >= 1; _p--) {
+			_curr_idx = snap_idx_arr[_src_ds_id, _p]
 
 			# Start a new range
 			if (!_range_start) {
-				_range_start = PruneSnap[_src_ds_id, _p]
+				_range_start = snap_arr[_src_ds_id, _p]
 				_range_start_idx = _curr_idx
 				_range_end = _range_start
 				_prev_idx = _curr_idx
@@ -549,18 +553,18 @@ function compress_prune_ranges(		_d, _ds_suffix, _src_ds_id, _p, _range_start, _
 			# Check if contiguous (indices differ by 1)
 			if (_curr_idx == _prev_idx - 1) {
 				# Extend the range
-				_range_end = PruneSnap[_src_ds_id, _p]
+				_range_end = snap_arr[_src_ds_id, _p]
 				_prev_idx = _curr_idx
 			} else {
 				# Non-contiguous: save current range and start new one
 				if (_range_start == _range_end) {
 					# Single snapshot
-					PruneRange[_src_ds_id, ++_num_ranges] = _range_start
+					range_arr[_src_ds_id, ++_num_ranges] = _range_start
 				} else {
 					# Range of snapshots
-					PruneRange[_src_ds_id, ++_num_ranges] = _range_start "%" _range_end
+					range_arr[_src_ds_id, ++_num_ranges] = _range_start "%" _range_end
 				}
-				_range_start = PruneSnap[_src_ds_id, _p]
+				_range_start = snap_arr[_src_ds_id, _p]
 				_range_start_idx = _curr_idx
 				_range_end = _range_start
 				_prev_idx = _curr_idx
@@ -570,13 +574,13 @@ function compress_prune_ranges(		_d, _ds_suffix, _src_ds_id, _p, _range_start, _
 		# Save final range
 		if (_range_start) {
 			if (_range_start == _range_end) {
-				PruneRange[_src_ds_id, ++_num_ranges] = _range_start
+				range_arr[_src_ds_id, ++_num_ranges] = _range_start
 			} else {
-				PruneRange[_src_ds_id, ++_num_ranges] = _range_start "%" _range_end
+				range_arr[_src_ds_id, ++_num_ranges] = _range_start "%" _range_end
 			}
 		}
 
-		PruneRangeNum[_src_ds_id] = _num_ranges
+		range_num_arr[_src_ds_id] = _num_ranges
 	}
 }
 
@@ -589,7 +593,7 @@ function output_prune(		_d, _ds_suffix, _src_ds_id, _p, _range, _base_name) {
 
 	# Compress ranges unless disabled
 	if (!Opt["NO_RANGES"])
-		compress_prune_ranges()
+		compress_snapshot_ranges(PruneSnap, PruneSnapIdx, PruneSnapNum, PruneRange, PruneRangeNum)
 
 	_output = "keeping: " TotalKeptSnaps
 	report(LOG_VERBOSE, _output)
