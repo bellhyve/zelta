@@ -1,12 +1,12 @@
 #!/usr/bin/awk -f
 #
-# zelta-backup.awk, zelta (replicate|backup|sync|rotate|clone) - replicates remote or local trees
-#   of zfs datasets
+# zelta-rebase.awk - updates a customized dataset from a new base image
 #
-# After using "zelta match" to identify out-of-date snapshots on the target, this script creates
-# replication streams to synchronize the snapshots of a dataset and its children. This script is
-# useful for backup, migration, and failover scenarios. It intentionally does not have a rollback
-# feature, and instead uses a "rotate" feature to rename and clone the diverged replica.
+# This is a proof of concept for 'zelta rebase', which performs a reverse rotation:
+# instead of preserving a divergent replica by rotating the target, it updates a 
+# customized production dataset by rotating the source (base image) underneath it,
+# then selectively applying block clones from the new base to update unchanged files
+# while preserving local modifications.
 #
 # CONCEPTS
 # endpoint or ep: "SRC" or "TGT"
@@ -33,10 +33,6 @@
 # DSTree: Properties about the global state or overrides
 # 	ep,"count"       number of datasets for each endpoint
 # Summary: Totals and other summary information
-#
-# FOR RELEASE NOTES:
-# Dropped: summary message "replicationErrorCode"
-# Changed "replicate" terminology to "sync" to avoid confusion with 'zfs send --replicate'
 
 
 ## Usage
@@ -1063,6 +1059,212 @@ function run_revert(		_ds) {
 	report(LOG_NOTICE, "to retain replica history, run: zelta rotate '"Opt["SRC_DS"]"' 'TARGET'")
 }
 
+## 'zelta rebase' - Proof of Concept
+#####################################
+
+# Get current block clone usage from pool
+function get_bclone_usage(		_cmd, _pool, _usage) {
+	_pool = DSTree["target_pool"]
+	_cmd = "zpool list -Hp -o bcloneused " _pool
+	_cmd = _cmd CAPTURE_OUTPUT
+	_cmd | getline _usage
+	close(_cmd)
+	return _usage ? _usage : 0
+}
+
+# Ensure a dataset is mounted
+function ensure_mounted(endpoint, ds,		_cmd_arr, _cmd, _remote, _mountpoint) {
+	_remote = Opt[endpoint "_REMOTE"]
+	delete _cmd_arr
+	_cmd_arr["endpoint"] = endpoint
+	_cmd_arr["ds"] = rq(_remote, ds)
+	_cmd_arr["flags"] = "mountpoint"
+	_cmd = build_command("PROPS", _cmd_arr)
+	
+	report(LOG_DEBUG, "checking mount status: " ds)
+	_cmd = _cmd CAPTURE_OUTPUT
+	FS = "\t"
+	while (_cmd | getline) {
+		if (NF == 3 && $2 == "mountpoint") {
+			_mountpoint = $3
+			if (_mountpoint == "none" || _mountpoint == "legacy") {
+				report(LOG_WARNING, "dataset not mountable: " ds)
+				close(_cmd)
+				return 0
+			}
+		}
+	}
+	close(_cmd)
+	
+	# Mount if needed
+	delete _cmd_arr
+	_cmd_arr["endpoint"] = endpoint
+	_cmd_arr["ds"] = rq(_remote, ds)
+	_cmd = build_command("MOUNT", _cmd_arr)
+	report(LOG_DEBUG, "`" _cmd "`")
+	_cmd = _cmd CAPTURE_OUTPUT
+	while (_cmd | getline) {
+		if (!/already mounted/)
+			report(LOG_DEBUG, "mount output: " $0)
+	}
+	close(_cmd)
+	return 1
+}
+
+# Set a dataset to readonly
+function set_readonly(endpoint, ds,		_cmd, _remote) {
+	_remote = Opt[endpoint "_REMOTE"]
+	_cmd = "zfs set readonly=on " rq(_remote, ds)
+	report(LOG_INFO, "setting readonly: " ds)
+	report(LOG_DEBUG, "`" _cmd "`")
+	_cmd = _cmd CAPTURE_OUTPUT
+	while (_cmd | getline) {
+		report(LOG_WARNING, "unexpected 'zfs set' output: " $0)
+	}
+	close(_cmd)
+}
+
+# Get mountpoint for a dataset
+function get_mountpoint(ds,		_cmd, _mountpoint) {
+	_cmd = "zfs get -H -o value mountpoint " q(ds)
+	_cmd | getline _mountpoint
+	close(_cmd)
+	return _mountpoint
+}
+
+# Clone a file using cp --reflink (requires GNU coreutils or FreeBSD 14+)
+function clone_file(source, dest,		_cmd, _success) {
+	# Try cp --reflink=always first (GNU/Linux)
+	_cmd = "cp --reflink=always " q(source) " " q(dest) " 2>&1"
+	_cmd | getline
+	_success = !close(_cmd)
+	
+	if (!_success) {
+		# Fallback to cp -c (FreeBSD)
+		_cmd = "cp -c " q(source) " " q(dest) " 2>&1"
+		_cmd | getline  
+		_success = !close(_cmd)
+	}
+	
+	if (_success) {
+		report(LOG_DEBUG, "cloned: " source " -> " dest)
+	} else {
+		report(LOG_WARNING, "failed to clone: " source)
+	}
+	
+	return _success
+}
+
+# Apply customizations from rotated target to new base using zfs diff + cp --reflink
+function apply_customizations(ds_suffix, rotated_target, match_snap,
+			       _cmd_arr, _cmd, _file_count, _target_ds, _rotated_ds,
+			       _change_type, _file_type, _file_path, _source_file, _dest_file,
+			       _source_mount, _dest_mount) {
+	
+	_target_ds = Opt["TGT_DS"] ds_suffix
+	_rotated_ds = rotated_target ds_suffix
+	
+	report(LOG_INFO, "analyzing customizations for: " _target_ds)
+	
+	# Get mountpoints once
+	_source_mount = get_mountpoint(_rotated_ds)
+	_dest_mount = get_mountpoint(_target_ds)
+	
+	# Build zfs diff command
+	delete _cmd_arr
+	_cmd_arr["endpoint"] = "TGT"
+	_cmd_arr["ds_snap"] = rq(Opt["TGT_REMOTE"], _rotated_ds match_snap)
+	_cmd_arr["ds"] = rq(Opt["TGT_REMOTE"], _rotated_ds)
+	_cmd = build_command("DIFF", _cmd_arr)
+	
+	report(LOG_DEBUG, "`" _cmd "`")
+	_cmd = _cmd CAPTURE_OUTPUT
+	FS = "\t"
+	
+	# Process diff output and clone modified files
+	while (_cmd | getline) {
+		if (NF != 3) continue
+		
+		_change_type = $1  # M (modified), + (added), - (removed), R (renamed)
+		_file_type = $2    # F (file), / (directory)
+		_file_path = $3
+		
+		# Only process modified or added files
+		if (_change_type !~ /^[M+]$/) continue
+		if (_file_type != "F") continue
+		
+		# Build file paths
+		_source_file = _source_mount "/" _file_path
+		_dest_file = _dest_mount "/" _file_path
+		
+		# Clone the customized file back to new base
+		if (clone_file(_source_file, _dest_file))
+			_file_count++
+	}
+	close(_cmd)
+	
+	if (_file_count)
+		report(LOG_NOTICE, "cloned " _file_count " customized files for: " _target_ds)
+	
+	return _file_count
+}
+
+# 'zelta rebase' updates a customized dataset from a new base image
+function run_rebase(		_i, _ds_suffix, _rotated_target, _match_snap,
+				_bclone_before, _bclone_after, _files_cloned) {
+	
+	# Validate we have a common snapshot to work from
+	if (!DSPair["", "match"])
+		stop(1, "no common snapshot between source and target; cannot rebase")
+	
+	_match_snap = DSPair["", "match"]
+	report(LOG_NOTICE, "rebasing from common snapshot: " _match_snap)
+	
+	# Get initial block clone usage
+	_bclone_before = get_bclone_usage()
+	report(LOG_INFO, "block clone usage before rebase: " h_num(_bclone_before))
+	
+	# Rotate the target dataset (preserves customizations)
+	_rotated_target = rename_dataset("TGT")
+	report(LOG_NOTICE, "preserved customized target as: " _rotated_target)
+	
+	# Clone the new source to the target location
+	report(LOG_NOTICE, "cloning new base to target location")
+	for (_i = 1; _i <= NumDS; _i++) {
+		_ds_suffix = DSList[_i]
+		if (Dataset["SRC", _ds_suffix, "exists"]) {
+			# This will create the new target from source
+			DSPair[_ds_suffix, "target_origin"] = ""
+			Action[_ds_suffix, "can_sync"] = 1
+		}
+	}
+	
+	# Perform the sync to create new target from source
+	run_backup()
+	
+	# Ensure both datasets are mounted for diff/clone operations
+	ensure_mounted("TGT", Opt["TGT_DS"])
+	ensure_mounted("TGT", _rotated_target)
+	
+	# Set rotated target to readonly for safety
+	set_readonly("TGT", _rotated_target)
+	
+	# Process each dataset in the tree
+	for (_i = 1; _i <= NumDS; _i++) {
+		_ds_suffix = DSList[_i]
+		_files_cloned += apply_customizations(_ds_suffix, _rotated_target, _match_snap)
+	}
+	
+	# Get final block clone usage
+	_bclone_after = get_bclone_usage()
+	report(LOG_NOTICE, "block clone usage after rebase: " h_num(_bclone_after))
+	report(LOG_NOTICE, "block clone savings: " h_num(_bclone_after - _bclone_before))
+	report(LOG_NOTICE, "files cloned from customizations: " _files_cloned)
+	
+	report(LOG_NOTICE, "rebase complete; customized target preserved at: " _rotated_target)
+	report(LOG_NOTICE, "to rollback, run: zelta rotate '" _rotated_target "' '" Opt["TGT_DS"] "'")
+}
+
 # 'zelta backup' and 'zelta sync' orchestration
 function run_backup(		_i, _ds_suffix, _syncable) {
 	if (DSTree["syncable"])
@@ -1148,6 +1350,7 @@ BEGIN {
 	if (Opt["VERB"] == "clone")		create_recursive_clone("SRC", Opt["SRC_DS"], Opt["TGT_DS"])
 	else if (Opt["VERB"] == "revert")	run_revert()
 	else if (Opt["VERB"] == "rotate")	run_rotate()
+	else if (Opt["VERB"] == "rebase")	run_rebase()
 	else					run_backup()
 
 	Summary["endTime"]			= sys_time()
