@@ -1,6 +1,31 @@
 . spec/bin/divergent_test/divergent_test_env.sh
 
 # Custom validation functions
+zelta_match_after_backup_output() {
+  while IFS= read -r line; do
+    # normalize whitespace, remove leading/trailing spaces
+    normalized=$(echo "$line" | tr -s '[:space:]' ' ' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
+    case "$normalized" in
+        "DS_SUFFIX MATCH SRC_LAST TGT_LAST INFO"|\
+        "[treetop] @zelta_"*" @zelta_"*" @zelta_"*" up-to-date"|\
+        "/sub1 @zelta_"*" @zelta_"*" @zelta_"*" up-to-date"|\
+        "/sub1/child @zelta_"*" @zelta_"*" @zelta_"*" up-to-date"|\
+        "/sub2 @zelta_"*" @zelta_"*" @zelta_"*" up-to-date"|\
+        "/sub2/orphan @zelta_"*" @zelta_"*" @zelta_"*" up-to-date"|\
+        "/sub3 @zelta_"*" @zelta_"*" @zelta_"*" up-to-date"|\
+        "/sub3/space name @zelta_"*" @zelta_"*" @zelta_"*" up-to-date"|\
+        "/vol1 @zelta_"*" @zelta_"*" @zelta_"*" up-to-date"|\
+        "8 up-to-date")
+        ;;
+      *)
+        printf "Unexpected line format: %s\n" "$line" >&2
+        return 1
+        ;;
+    esac
+  done
+  return 0
+}
+
 match_after_rotate_output() {
   while IFS= read -r line; do
     # normalize whitespace, remove leading/trailing spaces
@@ -215,6 +240,7 @@ Describe 'confirm zfs setup'
         %logger "-- after_all: confirm zfs setup"
     }
 
+
     #BeforeAll before_all
     #AfterAll  after_all
 
@@ -261,23 +287,41 @@ Describe 'confirm zfs setup'
 End
 
 
-Describe 'match, rotate, match'
-    It "shows current match for $SOURCE and $TARGET"
+Describe 'Divergent match, rotate, match'
+    It "shows current match for divergent $SOURCE and $TARGET"
        When call zelta match $SOURCE $TARGET
        The output should satisfy match_after_divergent_snapshots_output
     End
 
-    It "rotate $SOURCE and $TARGET"
+    It "rotate divergent $SOURCE and $TARGET"
        When call zelta rotate $SOURCE $TARGET
        The output should satisfy match_rotate_output
        The stderr should equal "warning: insufficient snapshots; performing full backup for 2 datasets"
        The status should equal 0
     End
 
-    It "match $SOURCE and $TARGET"
+    It "match $SOURCE and $TARGET after divergent rotate"
        When call zelta match $SOURCE $TARGET
        The output should satisfy match_after_rotate_output
        The status should equal 0
     End
-
 End
+
+
+Describe 'Divergent backup, then match'
+    It "backup divergent $SOURCE to $TARGET"
+       When call zelta backup $SOURCE $TARGET
+       The output line 1 should equal "syncing 8 datasets"
+       The output line 2 should equal "8 datasets up-to-date"
+       The output line 3 should match pattern "* sent, 5 streams received in * seconds"
+       The status should equal 0
+    End
+
+    It "match after backup"
+       When call zelta backup $SOURCE $TARGET
+       The output should satisfy zelta_match_after_backup_output
+       The status should equal 0
+    End
+End
+
+
