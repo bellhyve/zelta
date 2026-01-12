@@ -28,6 +28,7 @@ Though we follow OpenZFS's language concepts when possible, some terms aren't cl
 *   **endpoint (ep):** The location and name of a ZFS object.
 *   **dataset (ds):** A specific individual ZFS dataset.
 *   **tree:** A dataset and its recursive children.
+*   **dataset tree:** The preferred term when describing recursive operations on a dataset and all its descendants.
 *   **ds_snap:** A specific snapshot instance (e.g., `pool/data@snap1`).
 *   **ds_suffix:** The relative path of a child element within a tree with a leading `/` (formerly referred to as `rel_name`).
     *   *Example:* If root is `zroot/usr`, and we process `zroot/usr/local`, the `ds_suffix` is `/local`.
@@ -152,3 +153,135 @@ Use `##` headers to create logical code sections:
 ## Compute derived data from properties and snapshots
 #####################################################
 ```
+
+---
+
+## 6. Documentation Standards
+
+Zelta documentation serves different audiences with different needs. Maintain appropriate tone and style for each context.
+
+### Documentation Hierarchy
+
+| Document Type | Audience | Tone | Purpose |
+| :--- | :--- | :--- | :--- |
+| **Man Pages** | Sysadmins at 4am | Strictly technical, no personality | Complete reference, troubleshooting |
+| **README.md** | Evaluators, new users | Professional but approachable | "What" and "why", getting started |
+| **Wiki Pages** | Community, learners | Conversational, tutorial-focused | How-to guides, examples, discussion |
+| **Code Comments** | Developers, maintainers | Technical, explanatory | Intent and context |
+
+### Man Page Standards
+
+Man pages are reference documentation. They must be:
+
+*   **Complete:** Cover all options, arguments, and behaviors
+*   **Precise:** Use exact terminology consistently
+*   **Scannable:** Use clear headers, tables, and formatting
+*   **Example-driven:** Show common use cases with realistic examples
+
+**Man Page Structure:**
+```
+NAME - Brief description
+SYNOPSIS - Command syntax
+DESCRIPTION - What it does and how
+OPTIONS - All flags and arguments
+EXAMPLES - Common use cases
+EXIT STATUS - Return codes
+NOTES - Important caveats
+SEE ALSO - Related commands
+AUTHORS - Credit
+WWW - Project URL
+```
+
+**Man Page Formatting:**
+*   Use `**bold**` for commands, options, and user input
+*   Use `*italic*` for arguments and placeholders
+*   Use `:` for definition lists
+*   Escape dashes in options: `**\--verbose**`
+*   Use tables for complex option lists
+
+### README.md Standards
+
+The README serves as the project's front door. It should be:
+
+*   **Welcoming:** Professional tone, avoid jargon where possible
+*   **Focused:** Lead with value proposition and quickstart
+*   **Honest:** State limitations and beta status clearly
+*   **Actionable:** Clear next steps for different user types
+
+**Avoid in README.md:**
+*   Marketing hyperbole ("revolutionary", "game-changing")
+*   Antagonistic comparisons ("unlike X which is terrible")
+*   Excessive casualness ("no bull", "ridiculously simple")
+*   Unsubstantiated claims
+
+**Prefer in README.md:**
+*   Concrete examples with realistic scenarios
+*   Factual statements about capabilities
+*   Clear, direct language ("simple", "straightforward")
+*   Specific technical advantages
+
+### Terminology Consistency
+
+Use these terms consistently across all documentation:
+
+| Preferred | Avoid | Context |
+| :--- | :--- | :--- |
+| dataset tree | recursive datasets | When describing parent + children |
+| endpoint | location, target system | For `user@host:pool/dataset` |
+| replication | backup, sync | For `zelta backup` operations |
+| snapshot | snap | Except in code/options |
+
+### Example Formatting
+
+**Endpoint Examples:**
+Always use realistic, complete examples:
+*   Good: `user@backup.example.com:tank/backups/dataset`
+*   Avoid: `host:pool/ds`, `remote:tank/backup`
+
+**Command Examples:**
+Show complete, working commands:
+```sh
+# Good: Complete with context
+zelta backup rpool/data backup@storage.example.com:tank/backups/data
+
+# Avoid: Incomplete or unclear
+zelta backup source target
+```
+
+### Writing Style Guidelines
+
+**Do:**
+*   Use active voice ("Zelta creates snapshots" not "Snapshots are created")
+*   Start with the most common use case
+*   Explain *why* before *how* when introducing concepts
+*   Use parallel structure in lists
+*   Define acronyms on first use
+
+**Don't:**
+*   Use exclamation points in technical documentation
+*   Make unverifiable claims
+*   Use marketing language in man pages
+*   Assume prior knowledge of ZFS internals
+*   Mix casual and formal tone in the same document
+
+### Cross-Reference Standards
+
+When referencing other documentation:
+
+*   Man pages: Use standard notation `**command(section)**` (e.g., `**zfs(8)**`)
+*   Internal docs: Use relative links in markdown
+*   External docs: Use full URLs with descriptive text
+*   Be specific: "See the EXCLUSION PATTERNS section in **zelta-options(7)**" not "See zelta-options"
+
+### Consistency Checklist
+
+Before committing documentation changes, verify:
+
+- [ ] Terminology matches STYLE.md vocabulary
+- [ ] Tone appropriate for document type
+- [ ] Examples use realistic hostnames (*.example.com)
+- [ ] Command formatting consistent (escaped dashes in man pages)
+- [ ] Cross-references use correct notation
+- [ ] No marketing language in technical docs
+- [ ] Tables formatted consistently
+- [ ] Code blocks use appropriate syntax highlighting
