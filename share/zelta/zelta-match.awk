@@ -463,11 +463,25 @@ function get_info(	_d, _ds_suffix, _src_ds, _tgt_ds, _info, _blocked, _s) {
 	Global["summary"] = arr_join(_sum_arr, ", ")
 }
 
+# Check if target has a snapshot with the same name (not just same GUID)
+function target_has_snap_name(tgt_ds_id, savepoint,		_num_snaps, _s, _tgt_row, _tgt_savepoint) {
+	_num_snaps = NumSnaps[tgt_ds_id]
+	for (_s = 1; _s <= _num_snaps; _s++) {
+		_tgt_row = Snap[tgt_ds_id, _s]
+		_tgt_savepoint = Row[_tgt_row, "savepoint"]
+		if (_tgt_savepoint == savepoint)
+			return 1
+	}
+	return 0
+}
+
 # Analyze snapshots for pruning eligibility
 # Only outputs snapshots that ARE replicated to target (safe to prune)
+# Requires both GUID match AND name match for deletion
 function analyze_prune_candidates(		_d, _ds_suffix, _src_ds_id, _tgt_ds_id, _num_snaps,
 						_s, _src_row, _savepoint, _guid, _creation,
-						_match_idx, _snap_seconds, _min_age, _keep_after_match) {
+						_match_idx, _snap_seconds, _min_age, _keep_after_match,
+						_has_name_match) {
 
 	# SECONDS overrides DAYS if set
 	if (Opt["KEEP_SNAP_SECONDS"])
@@ -499,10 +513,11 @@ function analyze_prune_candidates(		_d, _ds_suffix, _src_ds_id, _tgt_ds_id, _num
 			# Only prune if replicated to target (GUID exists on target)
 			if (!Guid[_tgt_ds_id, _guid]) continue
 
-			# List of kept snapshots
-			if (((_s - _match_idx) <= _keep_after_match) || (_min_age && (_creation >= _min_age))) {
-				NumTotalKeptSnaps++
-				TotalKeptSnaps = str_add(TotalKeptSnaps, Source["DS"] _ds_suffix _savepoint, ",")
+			# Check if target has snapshot with same name
+			_has_name_match = target_has_snap_name(_tgt_ds_id, _savepoint)
+
+			# Keep if within retention window OR if name doesn't match on target
+			if (((_s - _match_idx) <= _keep_after_match) || (_min_age && (_creation >= _min_age)) || !_has_name_match) {
 				KeptSnap[_src_ds_id, ++NumKeptSnap[_src_ds_id]] = _savepoint
 				KeptSnapIdx[_src_ds_id, NumKeptSnap[_src_ds_id]] = _s
 				continue
@@ -584,8 +599,27 @@ function compress_snapshot_ranges(snap_arr, snap_idx_arr, snap_num_arr, range_ar
 	}
 }
 
+# Build kept snapshots string with range compression
+function build_kept_string(		_d, _ds_suffix, _src_ds_id, _k, _kept_str, _base_name) {
+	# Compress kept ranges
+	compress_snapshot_ranges(KeptSnap, KeptSnapIdx, NumKeptSnap, KeptRange, KeptRangeNum)
+
+	for (_d = 1; _d <= NumDSPair; _d++) {
+		_ds_suffix = DSPairList[_d]
+		_src_ds_id = Source["ID"] S _ds_suffix S ""
+		_base_name = Source["DS"] _ds_suffix
+
+		if (KeptRangeNum[_src_ds_id]) {
+			for (_k = KeptRangeNum[_src_ds_id]; _k >= 1; _k--) {
+				_kept_str = str_add(_kept_str, _base_name KeptRange[_src_ds_id, _k], ",")
+			}
+		}
+	}
+	return _kept_str
+}
+
 # Output prune candidates - just snapshot names, one per line
-function output_prune(		_d, _ds_suffix, _src_ds_id, _p, _range, _base_name) {
+function output_prune(		_d, _ds_suffix, _src_ds_id, _p, _range, _base_name, _kept_str) {
 	if (!NumDSPair) {
 		report(LOG_ERROR, "datasets inaccessible or do not exist")
 		return
@@ -595,8 +629,10 @@ function output_prune(		_d, _ds_suffix, _src_ds_id, _p, _range, _base_name) {
 	if (!Opt["NO_RANGES"])
 		compress_snapshot_ranges(PruneSnap, PruneSnapIdx, PruneSnapNum, PruneRange, PruneRangeNum)
 
-	_output = "keeping: " TotalKeptSnaps
-	report(LOG_INFO, _output)
+	# Build and output kept snapshots with range compression
+	_kept_str = build_kept_string()
+	if (_kept_str)
+		report(LOG_INFO, "keeping: " _kept_str)
 
 	# Output one snapshot or range per line (oldest first)
 	for (_d = 1; _d <= NumDSPair; _d++) {
