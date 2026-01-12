@@ -1,0 +1,11 @@
+DS_SUFFIX         MATCH                       SRC_LAST                    TGT_LAST                    INFO
+[treetop]         @zelta_2026-01-11_21.50.46  @zelta_2026-01-11_21.50.46  @zelta_2026-01-11_21.50.46  up-to-date
+/sub1             @zelta_2026-01-11_21.50.46  @zelta_2026-01-11_21.50.46  @zelta_2026-01-11_21.50.46  up-to-date
+/sub1/child       @zelta_2026-01-11_21.50.46  @zelta_2026-01-11_21.50.46  @zelta_2026-01-11_21.50.46  up-to-date
+/sub2             @two                        @zelta_2026-01-11_21.50.46  @two                        syncable (incremental)
+/sub2/orphan      @two                        @zelta_2026-01-11_21.50.46  @two                        syncable (incremental)
+/sub3             @two                        @zelta_2026-01-11_21.50.46  @two                        syncable (incremental)
+/sub3/space name  @two                        @zelta_2026-01-11_21.50.46  @two                        syncable (incremental)
+/vol1             @go                         @zelta_2026-01-11_21.50.46  @go                         syncable (incremental)
+3 up-to-date, 5 syncable
+8 total datasets compared

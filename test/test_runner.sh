@@ -62,7 +62,7 @@ run_tests() {
     #SHELLSPEC_TESTOPT="${SHELLSPEC_TESTOPT:-}"
 
     # this options will show a trace with expectation evaluation
-    #SHELLSPEC_TESTOPT="--xtrace --shell bash"
+    SHELLSPEC_TESTOPT="--xtrace --shell bash"
 
     unset SHELLSPEC_TESTOPT
 
