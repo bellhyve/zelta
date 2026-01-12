@@ -30,7 +30,7 @@ This section will be modified until v1.1 is officially released.
 - **Rotate**: Better handling of naming.
 - **Policy**: Better hierarchical scoping.
 - **Policy**: Refactored internal job handling with clearer variable naming and improved function documentation.
- **Orchestration**: Zelta is no longer required to be installed on endpoints.
+- **Orchestration**: Zelta is no longer required to be installed on endpoints.
 - **Logging**: Better alerts, deprecation system, legacy option system, and warning messages.
 
 ### Fixed

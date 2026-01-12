@@ -1,7 +1,7 @@
 ![Zelta Logo](https://zelta.space/index/zelta-banner.svg)
 
 # The Zelta Backup and Recovery Suite
-*Version v1.1-beta3, 2026-01-03
+*Version v1.1-beta3, 2026-01-12
 
 ---
 
@@ -123,6 +123,9 @@ Carefully rewinds a dataset in place by renaming and cloning. Ideal for forensic
 ### `zelta rotate`
 Performs a multi-way rename and clone operation to keep backups rolling even after source or target has diverged. Preserves all versions without destructive receives. Your team is already telling your regulators you do this, but Zelta makes the process practical—and easy.
 
+### `zelta prune` *(Experimental)*
+Identifies snapshots eligible for deletion based on replication state and retention windows. Only suggests snapshots that are safely replicated to the target. Output is in `zfs destroy` range syntax for review before execution.
+
 ## Misc Tools and Synonyms
 
 Zelta can be used with a few synonyms and shortcuts.
@@ -192,6 +195,6 @@ Zelta 1.1 represents a major refactor improving POSIX compliance, portability, a
 ### Features In Development
 - **zelta lock/unlock**: Simplify failover by confirming the correct twin is read-only before promoting a read-write primary.
 - **zelta rebase**: Update base images across filesystems while preserving customizations, sidestepping container problems that Docker was invented to work around.
-- **zelta prune**: Identify snapshots for deletion based on flexible, metadata-driven policies such as creation dates, snapshot density, and actual usage patterns.
+- **zelta prune**: Improve to identify snapshots based on additional metadata-driven policies such as snapshot density and usage patterns.
 - **Metadata-Aware Sync Protection**: Ensure backup continuity using automatic holds and bookmarks based on replica relationships, and track property changes with ZFS user properties.
 - **Flexible API**: Although `zelta backup` has a JSON output mode useful for telemetry, we intend to match ZFS's new native JSON output styles for more integration options. To support larger fleets, `zelta policy` configurations are being updated to support JSON, SQLite, and other database formats.
