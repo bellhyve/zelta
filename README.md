@@ -11,8 +11,6 @@
 > - **Stable Release:** For the most tried-and-true version of Zelta see the [March 2024 release (v1.0)](https://github.com/bellhyve/zelta/tree/release/1.0)
 > - **What's New:** Check [CHANGELOG.md](CHANGELOG.md) for the latest changes
 > - **Found a Bug?** Please [open an issue](https://github.com/bellhyve/zelta/issues)
-> 
-> We're excited for the new changes and encourage you to try it out. Your feedback helps make Zelta better.
 
 ---
 
@@ -49,7 +47,7 @@ pkg install zelta
 
 ## Quickstart: Developer Workflow
 
-Zelta makes operations that are tricky or dangerous with raw ZFS commands ridiculously simple. Here's a real-world developer scenario showing backup, recovery, and time travel—all without destroying data.
+Zelta makes operations that are tricky or dangerous with raw ZFS commands straightforward and safe. Here's a real-world developer scenario showing backup, recovery, and time travel—all without destroying data.
 
 ### 1. Back Up Your Development Machine
 
@@ -75,7 +73,7 @@ zfs allow -u developer receive:append,create,mount,canmount,volmode,readonly,clo
 zelta backup opt/datasource/big-database-thing tank/Backups/big-database-thing
 ```
 
-Run the same command again later to update incrementally. No configuration files, no daemon, no bull.
+Run the same command again later to update incrementally. No configuration files, no daemon required.
 
 ### 3. Time Travel: Revert to Previous State
 
@@ -97,9 +95,7 @@ Now your source has diverged from your backup. Normally this requires manual ZFS
 zelta rotate opt/datasource/big-database-thing tank/Backups/big-database-thing
 ```
 
-Done. You now have **both versions** preserved in your backup. No force flags, no data loss, no bull. And it even works between remote datasets!
-
-**Your cloud cannot do this.**
+Done. You now have **both versions** preserved in your backup. No force flags, no data loss. And it even works between remote datasets!
 
 *These commands use modern ZFS delegation features including `receive:append` (which rejects dangerous `zfs receive -F` operations) and `volmode` for safety and consistency.*
 
@@ -199,9 +195,3 @@ Zelta 1.1 represents a major refactor improving POSIX compliance, portability, a
 - **zelta prune**: Identify snapshots for deletion based on flexible, metadata-driven policies such as creation dates, snapshot density, and actual usage patterns.
 - **Metadata-Aware Sync Protection**: Ensure backup continuity using automatic holds and bookmarks based on replica relationships, and track property changes with ZFS user properties.
 - **Flexible API**: Although `zelta backup` has a JSON output mode useful for telemetry, we intend to match ZFS's new native JSON output styles for more integration options. To support larger fleets, `zelta policy` configurations are being updated to support JSON, SQLite, and other database formats.
-
----
-
-## History
-
-Zelta evolved from a series of Bourne scripts first deployed on October 7, 2019. The first production AWK version, which forms the basis of the current tool, was deployed on September 1, 2021.
