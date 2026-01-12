@@ -228,8 +228,11 @@ Use these terms consistently across all documentation:
 | :--- | :--- | :--- |
 | dataset tree | recursive datasets | When describing parent + children |
 | endpoint | location, target system | For `user@host:pool/dataset` |
-| replication | backup, sync | For `zelta backup` operations |
+| backup | replication, sync | User-facing docs; matches command name and ZFS "backup stream" |
+| replicate | sync, copy | Technical docs when describing ZFS `--replicate` behavior specifically |
 | snapshot | snap | Except in code/options |
+
+**Note on "backup" vs "replicate":** User documentation prefers "backup" because it describes intent and matches the command name. Reserve "replicate" for contexts where the ZFS `--replicate` (`-R`) flag behavior is specifically relevant, as this term has a precise technical meaning in ZFS that differs from common English usage.
 
 ### Example Formatting
 
