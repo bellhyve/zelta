@@ -577,7 +577,7 @@ function compress_snapshot_ranges(snap_arr, snap_idx_arr, snap_num_arr, range_ar
 					range_arr[_src_ds_id, ++_num_ranges] = _range_start
 				} else {
 					# Range of snapshots
-					range_arr[_src_ds_id, ++_num_ranges] = _range_start "%" _range_end
+					range_arr[_src_ds_id, ++_num_ranges] = _range_start "%" substr(_range_end, 2)
 				}
 				_range_start = snap_arr[_src_ds_id, _p]
 				_range_start_idx = _curr_idx
@@ -591,7 +591,7 @@ function compress_snapshot_ranges(snap_arr, snap_idx_arr, snap_num_arr, range_ar
 			if (_range_start == _range_end) {
 				range_arr[_src_ds_id, ++_num_ranges] = _range_start
 			} else {
-				range_arr[_src_ds_id, ++_num_ranges] = _range_start "%" _range_end
+				range_arr[_src_ds_id, ++_num_ranges] = _range_start "%" substr(_range_end, 2)
 			}
 		}
 
