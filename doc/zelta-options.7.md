@@ -1,11 +1,17 @@
 % zelta-options(7) | System Manager's Manual
 
+# NAME
+**zelta-options** - environment and policy options for Zelta behavior
+
+# SYNOPSIS
+Environment variables and policy configuration options.
+
 # DESCRIPTION
 Zelta's behavior can be modified through environment variables, command-line arguments, and policy configuration files. This manual documents all available options and their effects.
 
 Options are set differently based on context:
 
-- **Shell environemnt**: Environment variables must be prefixed with `ZELTA_` (e.g., `ZELTA_DEPTH=2`)
+- **Shell environment**: Environment variables must be prefixed with `ZELTA_` (e.g., `ZELTA_DEPTH=2`)
 - **Environment file**: In `zelta.env`, use `KEY=value` pairs (e.g., `DEPTH=2`)
 - **Policy file**: `zelta policy` additionally uses the YAML-like `zelta.conf` for granular settings per backup job with `KEY: value` pairs (e.g., `DEPTH: 1`)
 - **Command-line arguments**: Options map to double-dash arguments (e.g., `--depth`)

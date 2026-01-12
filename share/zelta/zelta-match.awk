@@ -1,4 +1,4 @@
-#!env awk -f
+#!/usr/bin/env awk -f
 #
 # zelta-match.awk
 #
