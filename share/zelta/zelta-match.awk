@@ -596,7 +596,7 @@ function output_prune(		_d, _ds_suffix, _src_ds_id, _p, _range, _base_name) {
 		compress_snapshot_ranges(PruneSnap, PruneSnapIdx, PruneSnapNum, PruneRange, PruneRangeNum)
 
 	_output = "keeping: " TotalKeptSnaps
-	report(LOG_VERBOSE, _output)
+	report(LOG_INFO, _output)
 
 	# Output one snapshot or range per line (oldest first)
 	for (_d = 1; _d <= NumDSPair; _d++) {
