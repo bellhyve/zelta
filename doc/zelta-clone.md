@@ -8,7 +8,7 @@
 # SYNOPSIS
 
 **zelta clone** [**-d** _depth_] _source/dataset[@snap]_ _target/dataset_
-  
+
 
 # DESCRIPTION
 `zelta clone` performs a recursive **zfs clone** operation on a dataset. This is useful for recursive duplication of dataset trees and backup inspection and recovery of a files replicated with `zelta backup`. The clones will reference the latest or indicated snapshot, and consume practically no additional space. Clones can be modified and destroyed without affecting their origin datasets.
@@ -56,7 +56,7 @@ _target_
 **Clone a dataset tree:**
 
 ```sh
-zelta clone tank/vm/myos tank/temp/myos-202404 
+zelta clone tank/vm/myos tank/temp/myos-202404
 ```
 
 **Recover a dataset tree, in place, to a previous snapshot's state:**
@@ -73,7 +73,7 @@ zelta clone -n tank/source/dataset tank/target/dataset
 ```
 
 # SEE ALSO
-zelta(8), zelta-backup(8), zelta-match(8), zelta-options(8), zelta-policy(8), zelta-revert(8), zelta-rotate(8), zelta-sync(8), cron(8), ssh(1), zfs(8), zfs-clone(8), zfs-promote(8)
+zelta(8), zelta-backup(8), zelta-match(8), zelta-options(7), zelta-policy(8), zelta-revert(8), zelta-rotate(8), cron(8), ssh(1), zfs(8), zfs-clone(8), zfs-promote(8)
 
 # AUTHORS
 Daniel J. Bell <_bellhyve@zelta.space_>

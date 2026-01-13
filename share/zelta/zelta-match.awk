@@ -1,10 +1,10 @@
-#!/usr/bin/awk -f
+#!/usr/bin/env awk -f
 #
 # zelta-match.awk
 #
 # Describes the relationship between two trees of ZFS datasets. Run a "zfs list"
 # command on the source endpoint piping to itself for concurrency, run a second
-# target endpoint zfs list via 'getline', and comapre the results.
+# target endpoint zfs list via 'getline', and compare the results.
 #
 # Global: Settings and global telemetry
 # Source: The source endpoint
@@ -19,12 +19,14 @@
 ########
 
 function usage(message,		_counter, _c, _key) {
+	if (Opt["VERB"]== "prune")
+		usage_prune(message)
 	STDERR = "/dev/stderr"
 	usage_table = "\t%-13s%s\n"
-	printf (message ? message "\n" : "") "usage:"                                              > STDERR
-	print "\tmatch [-Hp] [-d max] [-o field[,...]] SOURCE TARGET\n"                            > STDERR
-	print "The following fields are supported:\n"                                              > STDERR
-	printf usage_table"\n",	"PROPERTY",	"VALUES"                                           > STDERR
+	printf (message ? message "\n" : "") "usage:"                    > STDERR
+	print "\tmatch [-Hp] [-d max] [-o field[,...]] SOURCE TARGET\n"  > STDERR
+	print "The following fields are supported:\n"                    > STDERR
+	printf usage_table"\n", "PROPERTY", "VALUES"                     > STDERR
 	for(_counter in ColInfo) {
 		_key = ColList[++_c]
 		if (ColWarn[_key])
@@ -35,7 +37,24 @@ function usage(message,		_counter, _c, _key) {
 	print "SOURCE and TARGET endpoints are in the form: [user@host:]pool[/dataset/][@snap]\n"  > STDERR
 	print "For complete documentation:  zelta help [<topic>]"                                  > STDERR
 	print "                             https://zelta.space"                                   > STDERR
-	exit 1
+	stop(1)
+}
+
+function usage_prune(message) {
+	STDERR = "/dev/stderr"
+	printf (message ? message "\n" : "") "usage:"                                                       > STDERR
+	print "\tprune [--keep-snap-num=N] [--keep-snap-days=N] [-X pattern] SOURCE TARGET\n"               > STDERR
+	print "Identifies snapshots on SOURCE that exist on TARGET\n"                                       > STDERR
+	print "Options:"                                                                                    > STDERR
+	print "\t--keep-snap-num=N    Minimum number of snapshots to keep after match (default: 10)"        > STDERR
+	print "\t--keep-snap-days=N   Minimum age in days for snapshot deletion (default: 90)"              > STDERR
+	print "\t--no-ranges          Disable range compression (output individual snapshots)"              > STDERR
+	print "\t-x pattern           Exclude datasets matching pattern\n"                                  > STDERR
+	print "Only snapshots older than the common match point and replicated to TARGET are considered."   > STDERR
+	print "Output shows snapshot names (one per line) that are safe to prune.\n"                        > STDERR
+	print "For complete documentation:  zelta help prune"                                               > STDERR
+	print "                             https://zelta.space"                                            > STDERR
+	stop(1)
 }
 
 
@@ -48,7 +67,7 @@ function add_written() {
 		if (Opt["PARSABLE"] && (Opt["PROPLIST"] !~ /(all|written|size)/))
 			return ""
 	}
-	return Opt["LIST_WRITTEN"] ? ",written" : ""
+	return Opt["LIST_WRITTEN"] ? ",written,creation" : ""
 }
 
 # TO-DO: Add this feature to build_command()
@@ -82,7 +101,7 @@ function zfs_list_cmd(endpoint,		_ep, _ds, _remote, _cmd) {
 #  Send the Source 'zfs list' to a second process for concurrency
 #  (Our biggest bottleneck is waiting for the lists to complete and buffer)
 function pipe_zfs_list_source(		_match_cmd, _src_list_cmd) {
-	_match_cmd	= "ZELTA_MATCH_PIPE=yes zelta ipc-run match"
+	_match_cmd	= "ZELTA_MATCH_PIPE=yes zelta ipc-run " Opt["VERB"]
 	_src_list_cmd	= zfs_list_cmd(Source)
 	if (Opt["DRYRUN"]) {
 		zfs_list_cmd(Target)
@@ -143,9 +162,10 @@ function object_type(symbol) {
 function process_row(ep,		_name, _guid, _written, _name_suffix, _ds_suffix, _savepoint,
 		     			_type, _ep_id, _ds_id, _ds_snap, _row_id, _tmp_arr, _num_snaps) {
 	# Read the row data
-	_name			= $1
-	_guid			= $2
-	_written		= $3
+	_name      = $1
+	_guid      = $2
+	_written   = $3
+	_creation  = $4
 
 	# Get the relative dataset suffix and then split to dataset and snapshot/bookmark name
 	_name_suffix		= substr(_name, ep["ds_length"])
@@ -165,7 +185,7 @@ function process_row(ep,		_name, _guid, _written, _name_suffix, _ds_suffix, _sav
 
 	# Check for exclusion
 	if (_type == IS_DATASET) {
-		if (_name in ExcludeDS)
+		if (is_ds_excluded(_name))
 			return
 		if (regex_loop(_ds_suffix, ExcludeDSPattern, NumExcludeDS))
 			return
@@ -173,10 +193,11 @@ function process_row(ep,		_name, _guid, _written, _name_suffix, _ds_suffix, _sav
 	if ((_type == IS_SNAPSHOT) && (_ep_id == Source["ID"]))
 		if (regex_loop(_savepoint, ExcludeSnapPattern, NumExcludeSnap))
 			return
-	    
+
 	Row[_row_id, "exists"]     = 1
 	Row[_row_id, "guid"]       = _guid
 	Row[_row_id, "written"]    = _written
+	Row[_row_id, "creation"]   = _creation
 	Row[_row_id, "name"]       = _name
 	Row[_row_id, "type"]       = _type
 	Row[_row_id, "ds_suffix"]  = _ds_suffix
@@ -221,30 +242,40 @@ function load_zfs_list_row(ep) {
 
 
 # Exclude patterns
-function load_exclude_patterns(    _i, _n, _pat_arr, _val, _leader, _pat) {
+function load_exclude_patterns(    _i, _n, _pat_arr, _pat, _g2r) {
 	if (!Opt["EXCLUDE"]) return
 
 	_n = split(Opt["EXCLUDE"], _pat_arr, ",")
 	for (_i = 1; _i <= _n; _i++) {
 		_pat = _pat_arr[_i]
-		_leader = substr(_pat, 1, 1)
 
-		if (_leader == "/")
-			ExcludeDSPattern[++NumExcludeDS] = glob_to_regex(_pat)
-		else if (_leader == "@")
+		if (_pat ~ /^\/|^\*.*\//)
+			ExcludeDSPattern[++NumExcludeDS] = glob_to_regex(_pat, "(/.*)?")
+		else if (_pat ~ /^@/)
 			ExcludeSnapPattern[++NumExcludeSnap] = glob_to_regex(_pat)
-		# Dropping bookmark exclusions since they can't be incremental targets
-		#else if (_leader == "#")
-		#	ExcludeBookPattern[++NumExcludeBook] = glob_to_regex(_pat)
+		else if (_pat ~ /[\*\?]/)
+			report(LOG_WARNING, "invalid exclusion pattern '"_pat"' must start with '@' or include '/'")
 		else
 			ExcludeDS[_pat] = 1
 	}
 }
 
-function regex_loop(string, pat_arr, n,	_i) {
+function regex_loop(string, pat_arr,        n, _i) {
 	for (_i = 1; _i <= n; _i++)
 		if (string ~ pat_arr[_i])
 			return 1
+}
+
+function is_ds_excluded(string,             _i, _pat) {
+	if (string in ExcludeDS)
+		return 1
+	# Check for descendents
+	for (_i in ExcludeDS) {
+		if (!_i) continue
+		_pat = _i "/"
+		if (index(string, _pat) == 1)
+			return 1
+	}
 }
 
 # Load DSPair keys for summary output
@@ -284,18 +315,20 @@ function compare_datasets(src_ds_id,		_ds_suffix, _row_arr, _tgt_ds_id) {
 }
 
 # TO-DO: Add user-defined filters
-function validate_match(src_row, tgt_row, ds_suffix, savepoint) {
+function validate_match(src_row, tgt_row, ds_suffix, savepoint, snap_idx) {
 	# Exclude if the target isn't a snapshot
 	if (Row[tgt_row, "type"] != IS_SNAPSHOT)
 		return
 	if (!DSPair[ds_suffix, "num_matches"]++) {
 		# TO-DO: Validate by filter
 		DSPair[ds_suffix, "match"] = savepoint
+		# Record match index for pruning
+		DSPair[ds_suffix, "match_idx"] = snap_idx
 	}
 }
 
 # Step through snapshots for counters and to find common snapshots
-function compare_snapshots(src_row,	_src_row_arr, _ds_suffix, _savepoint, _src_guid, _tgt_ds_id, _tgt_match) {
+function compare_snapshots(src_row, idx,	_src_row_arr, _ds_suffix, _savepoint, _src_guid, _tgt_ds_id, _tgt_match) {
 	# Identify a match candidate by GUID
 	split(src_row, _src_row_arr, S)
 	_ds_suffix	= _src_row_arr[2]
@@ -304,7 +337,7 @@ function compare_snapshots(src_row,	_src_row_arr, _ds_suffix, _savepoint, _src_g
 	_tgt_ds_id	= Target["ID"] S _ds_suffix S ""
 	_tgt_match	= Guid[_tgt_ds_id, _src_guid]
 	if (_tgt_match)
-		validate_match(src_row, _tgt_match, _ds_suffix, _savepoint)
+		validate_match(src_row, _tgt_match, _ds_suffix, _savepoint, idx)
 	else {
 		if (!DSPair[_ds_suffix, "match"]) {
 			DSPair[_ds_suffix, "src_next"] = _savepoint
@@ -354,7 +387,7 @@ function process_datasets(		_src_id, _tgt_id, _num_src_ds, _num_tgt_ds, _d, _s,
 		_match = compare_datasets(_src_ds_id)
 		_num_snaps = NumSnaps[_src_ds_id]
 		for (_s = 1; _s <= _num_snaps; _s++)
-			compare_snapshots(Snap[_src_ds_id,_s])
+			compare_snapshots(Snap[_src_ds_id,_s], _s)
 	}
 
 	# Step through target objects
@@ -369,7 +402,7 @@ function process_datasets(		_src_id, _tgt_id, _num_src_ds, _num_tgt_ds, _d, _s,
 ## Postprocessing
 #################
 
-# Report up-to-date, syncable, blocked sync, or no source 
+# Report up-to-date, syncable, blocked sync, or no source
 function get_info(	_d, _ds_suffix, _src_ds, _tgt_ds, _info, _blocked, _s) {
 	for (_d = 1; _d <= NumDSPair; _d++) {
 		_ds_suffix          = DSPairList[_d]
@@ -430,6 +463,199 @@ function get_info(	_d, _ds_suffix, _src_ds, _tgt_ds, _info, _blocked, _s) {
 	Global["summary"] = arr_join(_sum_arr, ", ")
 }
 
+# Check if target has a snapshot with the same name (not just same GUID)
+function target_has_snap_name(tgt_ds_id, savepoint,		_num_snaps, _s, _tgt_row, _tgt_savepoint) {
+	_num_snaps = NumSnaps[tgt_ds_id]
+	for (_s = 1; _s <= _num_snaps; _s++) {
+		_tgt_row = Snap[tgt_ds_id, _s]
+		_tgt_savepoint = Row[_tgt_row, "savepoint"]
+		if (_tgt_savepoint == savepoint)
+			return 1
+	}
+	return 0
+}
+
+# Analyze snapshots for pruning eligibility
+# Only outputs snapshots that ARE replicated to target (safe to prune)
+# Requires both GUID match AND name match for deletion
+function analyze_prune_candidates(		_d, _ds_suffix, _src_ds_id, _tgt_ds_id, _num_snaps,
+						_s, _src_row, _savepoint, _guid, _creation,
+						_match_idx, _snap_seconds, _min_age, _keep_after_match,
+						_has_name_match) {
+
+	# SECONDS overrides DAYS if set
+	if (Opt["KEEP_SNAP_SECONDS"])
+		_snap_seconds = Opt["KEEP_SNAP_SECONDS"]
+	else
+		_snap_seconds = Opt["KEEP_SNAP_DAYS"] * 86400
+	_min_age = sys_time() - _snap_seconds
+	_keep_after_match = Opt["KEEP_SNAP_NUM"]
+
+	for (_d = 1; _d <= NumDSPair; _d++) {
+		_ds_suffix = DSPairList[_d]
+		_src_ds_id = Source["ID"] S _ds_suffix S ""
+		_tgt_ds_id = Target["ID"] S _ds_suffix S ""
+		_num_snaps = NumSnaps[_src_ds_id]
+
+		_match_idx = DSPair[_ds_suffix, "match_idx"]
+		if (!_match_idx) continue
+
+		# Analyze snapshots older than match (higher index = older)
+		for (_s = _match_idx + 1; _s <= _num_snaps; _s++) {
+			_src_row = Snap[_src_ds_id, _s]
+			_savepoint = Row[_src_row, "savepoint"]
+			_guid = Row[_src_row, "guid"]
+			_creation = Row[_src_row, "creation"]
+
+			# Only consider snapshots (not bookmarks)
+			if (Row[_src_row, "type"] != IS_SNAPSHOT) continue
+
+			# Only prune if replicated to target (GUID exists on target)
+			if (!Guid[_tgt_ds_id, _guid]) continue
+
+			# Check if target has snapshot with same name
+			_has_name_match = target_has_snap_name(_tgt_ds_id, _savepoint)
+
+			# Keep if within retention window OR if name doesn't match on target
+			if (((_s - _match_idx) <= _keep_after_match) || (_min_age && (_creation >= _min_age)) || !_has_name_match) {
+				KeptSnap[_src_ds_id, ++NumKeptSnap[_src_ds_id]] = _savepoint
+				KeptSnapIdx[_src_ds_id, NumKeptSnap[_src_ds_id]] = _s
+				continue
+			}
+
+			# Mark as prune candidate (store with index for range compression)
+			PruneSnap[_src_ds_id, ++PruneSnapNum[_src_ds_id]] = _savepoint
+			PruneSnapIdx[_src_ds_id, PruneSnapNum[_src_ds_id]] = _s
+		}
+	}
+}
+
+# Compress contiguous snapshots into ranges
+# Input: snap_arr[ds_id, n] = "@snap1", "@snap2", "@snap3"
+#        snap_idx_arr[ds_id, n] = index positions
+#        snap_num_arr[ds_id] = count
+# Output: range_arr[ds_id, n] = "@snap1%snap3" (if contiguous)
+#         range_num_arr[ds_id] = count of ranges
+function compress_snapshot_ranges(snap_arr, snap_idx_arr, snap_num_arr, range_arr, range_num_arr,
+					_d, _ds_suffix, _src_ds_id, _p, _range_start, _range_end,
+					_range_start_idx, _prev_idx, _curr_idx, _num_ranges) {
+
+	for (_d = 1; _d <= NumDSPair; _d++) {
+		_ds_suffix = DSPairList[_d]
+		_src_ds_id = Source["ID"] S _ds_suffix S ""
+
+		if (!snap_num_arr[_src_ds_id]) continue
+
+		_range_start = ""
+		_range_end = ""
+		_range_start_idx = 0
+		_prev_idx = 0
+		_num_ranges = 0
+
+		# Iterate through snapshots (oldest to newest, reverse order)
+		for (_p = snap_num_arr[_src_ds_id]; _p >= 1; _p--) {
+			_curr_idx = snap_idx_arr[_src_ds_id, _p]
+
+			# Start a new range
+			if (!_range_start) {
+				_range_start = snap_arr[_src_ds_id, _p]
+				_range_start_idx = _curr_idx
+				_range_end = _range_start
+				_prev_idx = _curr_idx
+				continue
+			}
+
+			# Check if contiguous (indices differ by 1)
+			if (_curr_idx == _prev_idx - 1) {
+				# Extend the range
+				_range_end = snap_arr[_src_ds_id, _p]
+				_prev_idx = _curr_idx
+			} else {
+				# Non-contiguous: save current range and start new one
+				if (_range_start == _range_end) {
+					# Single snapshot
+					range_arr[_src_ds_id, ++_num_ranges] = _range_start
+				} else {
+					# Range of snapshots
+					range_arr[_src_ds_id, ++_num_ranges] = _range_start "%" substr(_range_end, 2)
+				}
+				_range_start = snap_arr[_src_ds_id, _p]
+				_range_start_idx = _curr_idx
+				_range_end = _range_start
+				_prev_idx = _curr_idx
+			}
+		}
+
+		# Save final range
+		if (_range_start) {
+			if (_range_start == _range_end) {
+				range_arr[_src_ds_id, ++_num_ranges] = _range_start
+			} else {
+				range_arr[_src_ds_id, ++_num_ranges] = _range_start "%" substr(_range_end, 2)
+			}
+		}
+
+		range_num_arr[_src_ds_id] = _num_ranges
+	}
+}
+
+# Build kept snapshots string with range compression
+function build_kept_string(		_d, _ds_suffix, _src_ds_id, _k, _kept_str, _base_name) {
+	# Compress kept ranges
+	compress_snapshot_ranges(KeptSnap, KeptSnapIdx, NumKeptSnap, KeptRange, KeptRangeNum)
+
+	for (_d = 1; _d <= NumDSPair; _d++) {
+		_ds_suffix = DSPairList[_d]
+		_src_ds_id = Source["ID"] S _ds_suffix S ""
+		_base_name = Source["DS"] _ds_suffix
+
+		if (KeptRangeNum[_src_ds_id]) {
+			for (_k = KeptRangeNum[_src_ds_id]; _k >= 1; _k--) {
+				_kept_str = str_add(_kept_str, _base_name KeptRange[_src_ds_id, _k], ",")
+			}
+		}
+	}
+	return _kept_str
+}
+
+# Output prune candidates - just snapshot names, one per line
+function output_prune(		_d, _ds_suffix, _src_ds_id, _p, _range, _base_name, _kept_str) {
+	if (!NumDSPair) {
+		report(LOG_ERROR, "datasets inaccessible or do not exist")
+		return
+	}
+
+	# Compress ranges unless disabled
+	if (!Opt["NO_RANGES"])
+		compress_snapshot_ranges(PruneSnap, PruneSnapIdx, PruneSnapNum, PruneRange, PruneRangeNum)
+
+	# Build and output kept snapshots with range compression
+	_kept_str = build_kept_string()
+	if (_kept_str)
+		report(LOG_INFO, "keeping: " _kept_str)
+
+	# Output one snapshot or range per line (oldest first)
+	for (_d = 1; _d <= NumDSPair; _d++) {
+		_ds_suffix = DSPairList[_d]
+		_src_ds_id = Source["ID"] S _ds_suffix S ""
+		_base_name = Row[_src_ds_id, "name"]
+
+		if (Opt["NO_RANGES"]) {
+			# Output individual snapshots
+			if (PruneSnapNum[_src_ds_id]) {
+				for (_p = PruneSnapNum[_src_ds_id]; _p >= 1; _p--)
+					report(LOG_NOTICE, _base_name PruneSnap[_src_ds_id, _p])
+			}
+		} else {
+			# Output compressed ranges
+			if (PruneRangeNum[_src_ds_id]) {
+				for (_p = PruneRangeNum[_src_ds_id]; _p >= 1; _p--)
+					report(LOG_NOTICE, _base_name PruneRange[_src_ds_id, _p])
+			}
+		}
+	}
+}
+
 ## Output
 #########
 
@@ -439,21 +665,21 @@ function load_columns(		_tsv, _key, _opt_list, _opt, _idx, _c, _default_proplist
 	FS="\t"
 	while ((getline<_tsv)>0) {
 		if (/^#/) continue
-		_key		= $1
+		_key = $1
 		split($2, _opt_list, ",")
 		for (_idx in _opt_list) {
-			_opt		= _opt_list[_idx]
-			ColOpt[_opt]	= str_add(ColOpt[_opt], _key, S)
+			_opt          = _opt_list[_idx]
+			ColOpt[_opt]  = str_add(ColOpt[_opt], _key, S)
 		}
-		ColType[_key]	= $3
+		ColType[_key]       = $3
 		if ((ColType[_key] == "num") || (ColType[_key] == "bytes"))
-			ColNum[_key] = 1
+			ColNum[_key]    = 1
 		if (ColType[_key] == "bytes")
-			ColBytes[_key] = 1
-		ColInfo[_key]	= $4
-		ColWarn[_key]	= $5
+			ColBytes[_key]  = 1
+		ColInfo[_key]       = $4
+		ColWarn[_key]       = $5
 
-		ColList[++_c]	= _key
+		ColList[++_c]       = _key
 	}
 	close(_tsv)
 
@@ -565,33 +791,38 @@ function summary(	_r, _line, _ds_suffix, _c, _key, _val, _cell) {
 # Constant setup, validation, and fire concurrent 'zfs list' commands
 BEGIN {
 	# Row types
-	IS_UNKNOWN	= 0
-	IS_DATASET	= 1
-	IS_SNAPSHOT	= 2
-	IS_BOOKMARK	= 3
+	IS_UNKNOWN     = 0
+	IS_DATASET     = 1
+	IS_SNAPSHOT    = 2
+	IS_BOOKMARK    = 3
 
 	# DSPair types
-	PAIR_UNKNOWN	= 0
-	PAIR_EXISTS	= 1
-	PAIR_SRC_ONLY	= 2
-	PAIR_TGT_ONLY	= 3
+	PAIR_UNKNOWN   = 0
+	PAIR_EXISTS    = 1
+	PAIR_SRC_ONLY  = 2
+	PAIR_TGT_ONLY  = 3
 
-	S		= SUBSEP
-	FS		= "\t"
-	OFS		= "\t"
+	S              = SUBSEP
+	FS             = "\t"
+	OFS            = "\t"
 
 	load_endpoint(Operands[1], Source)
 	load_endpoint(Operands[2], Target)
 	load_columns()
-	if (Opt["USAGE"]) { usage() }
+	if (Opt["USAGE"]) {
+		if (Opt["VERB"] == "prune")
+			usage_prune()
+		else
+			usage()
+	}
 	if (!Source["DS"] && !Target["DS"]) { usage("no datasets defined") }
 
 	if (Opt["MATCH_PIPE"]) {
-		Target["match_bookmarks"]	= 1
-		Target["ds_length"]		= length(Target["DS"]) + 1
-		Source["ds_length"]		= length(Source["DS"]) + 1
-		Source["list_time"] 		= 0
-		Target["list_name"] 		= 0
+		Target["match_bookmarks"]  = 1
+		Target["ds_length"]        = length(Target["DS"]) + 1
+		Source["ds_length"]        = length(Source["DS"]) + 1
+		Source["list_time"]        = 0
+		Target["list_name"]        = 0
 		load_exclude_patterns()
 		run_zfs_list_target()
 		# Continues to process the incoming pipes 'pipe_zfs_list_source()'
@@ -611,8 +842,14 @@ NR > 1 {
 END {
 	if (Opt["MATCH_PIPE"]) {
 		process_datasets()
-		get_info()
-		summary()
+
+		if (Opt["VERB"] == "prune") {
+			analyze_prune_candidates()
+			output_prune()
+		} else {
+			get_info()
+			summary()
+		}
+		stop(0)
 	}
-	stop()
 }

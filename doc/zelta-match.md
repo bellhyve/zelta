@@ -14,10 +14,10 @@
 
 **Logging Options**
 
-**-v,\--verbose**
+**-v, \--verbose**
 :    Increase verbosity. Specify once for operational detail and twice (-vv) for debug output.
 
-**-q,\--quiet**
+**-q, \--quiet**
 :    Quiet output. Specify once to suppress warnings and twice (-qq) to suppress errors.
 
 **\--log-level**
@@ -27,18 +27,18 @@
 :    Enable the specified log modes: 'text' and 'json' are currently supported.
 
 **\--text**
-:    Forces default output (notices) to print as plain text standard output. 
+:    Forces default output (notices) to print as plain text standard output.
 
-**-n,\--dryrun**
+**-n, \--dryrun**
 :    Display 'zfs' commands related to the action rather than running them.
 
-** Dataset and Snapshot Options**
+**Dataset and Snapshot Options**
 
-**-d,\--depth**
+**-d, \--depth**
 :    Limit the recursion depth of operations to the number of levels indicated. For example, a depth of 1 will only include the indicated dataset.
 
-**\--exclude,-X**
-:    Exclude datasets or source snapshots matching the specified exclusion pattern. This option can be include multiple patters separated by commas and can be specified multiple times. See _EXCLUSION PATTERNS_ in **zelta help options** for details.
+**\--exclude, -X**
+:    Exclude datasets or source snapshots matching the specified exclusion pattern. This option can include multiple patterns separated by commas and can be specified multiple times. See _EXCLUSION PATTERNS_ in **zelta-options(7)** for details.
 
 **Columns and Summary Behavior**
 
@@ -46,7 +46,7 @@
 :    Suppress column headers and separate columns with a single tab.
 
 **-p**
-:    Out sizes in exact numbers instead of human-readable values like '1M'.
+:    Output sizes in exact numbers instead of human-readable values like '1M'.
 
 **-o**
 :    Specify a list of 'zelta match' columns. See _FIELD OPTIONS_ below for detail.
@@ -79,7 +79,7 @@
 | tgt_written | Target data written since last snap         |
 | tgt_snaps   | Total target snapshots                      |
 | info        | Sync state description                      |
-                         
+
 # EXAMPLES
 
 **Basic Comparison:** Compare snapshots between local source and target datasets.
@@ -100,14 +100,14 @@ zelta match user@remote.host1:tank/source/dataset user2@remote.host2:tank/target
 zelta match -d2 backuphost:rust101/Backups rust000/Backups
 ```
 
-**Dry Run:** Display the `zfs list` commands that woud be used without executing them.
+**Dry Run:** Display the `zfs list` commands that would be used without executing them.
 
 ```sh
 zelta match -n tank/source/dataset tank/target/dataset
 ```
 
 # SEE ALSO
-zelta(8), zelta-backup(8), zelta-policy(8), zelta-clone(8), zelta-options(8), zelta-revert(8), zelta-rotate(8), cron(8), ssh(1), zfs(8)
+zelta(8), zelta-backup(8), zelta-policy(8), zelta-clone(8), zelta-options(7), zelta-revert(8), zelta-rotate(8), cron(8), ssh(1), zfs(8)
 
 # AUTHORS
 Daniel J. Bell <_bellhyve@zelta.space_>

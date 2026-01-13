@@ -238,11 +238,11 @@ function create_assoc(list, assoc, sep,		_i, _arr) {
 ########################
 
 # Convert a user provided glob to a regex for pattern matching
-function glob_to_regex(_r) {
-    gsub(/[\\^$.|()\[\]{}+]/, "\\\\&", _r)
-    gsub(/\*/, ".*", _r)
-    gsub(/\?/, ".", _r)
-    return "^" _r "$"
+function glob_to_regex(r, s) {
+    gsub(/[\\^$.|()\[\]{}+]/, "\\\\&", r)
+    gsub(/\*/, ".*", r)
+    gsub(/\?/, ".", r)
+    return "^" r s "$"
 }
 
 # systime() doesn't work on a lot of systems despite being in the POSIX spec.
@@ -323,18 +323,41 @@ function build_command(action, vars, 		_remote_prefix, _cmd, _num_vars, _var_lis
         return _cmd
 }
 
+# Handle common feedback from sh, ssh, and zfs
+function log_common_command_feedback(		_log_level) {
+	_log_level = LOG_NOTICE
+	# Ignore a blank line
+	if (!$0)
+		return LOG_NOTICE
+	# Send output to the right logging facility
+	if ($0 ~ COMMAND_ERROR)
+		_log_level = LOG_ERROR
+	else if ($0 ~ COMMAND_INFO)
+		_log_level = LOG_INFO
+	else if ($0 ~ COMMAND_DEBUG)
+		_log_level = LOG_DEBUG
+	else
+		_log_level = LOG_WARNING
+	report(_log_level, $0)
+	return _log_level
+}
+
+
 BEGIN {
 	# Constants
-	ENV_PREFIX	= "ZELTA_"
-	COMMAND_ERRORS	= "([Nn]o route to host|[Cc]ould not resolve|[Cc]ommand not found|[Cc]onnection refused|[Nn]etwork.*unreachable|timed out|Permission denied.*publickey)"
-	CAPTURE_OUTPUT	= " 2>&1"
-	STDERR		= "/dev/stderr"
-	LOG_ERROR	= 0
-	LOG_WARNING	= 1
-	LOG_NOTICE	= 2
-	LOG_INFO	= 3
-	LOG_DEBUG	= 4
-	LOG_JSON	= LOG_NOTICE
+	ENV_PREFIX      = "ZELTA_"
+	COMMAND_ERROR   = "[Nn]o route to host|[Cc]ould not resolve|[Cc]ommand not found|[Cc]onnection (closed|refused)|[Nn]etwork.*unreachable|timed out|Permission denied.*publickey|[Hh]ost key verification failed"
+	COMMAND_DEBUG   = "Permanently added.*to the list"
+	CAPTURE_OUTPUT  = " 2>&1"
+	STDERR          = "/dev/stderr"
+
+	STOP_ON_ERROR  = 1
+	LOG_ERROR	   = 0
+	LOG_WARNING	   = 1
+	LOG_NOTICE	   = 2
+	LOG_INFO	   = 3
+	LOG_DEBUG	   = 4
+	LOG_JSON	   = LOG_NOTICE
 
 	create_assoc("no false 0", False)
 	create_assoc("yes true 1", True)
