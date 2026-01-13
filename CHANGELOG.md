@@ -2,7 +2,7 @@
 
 All notable changes to the Zelta will be documented in this file.
 
-## [1.1.beta3] - 2026-01-12
+## [1.1.beta4] - 2026-01-12
 This section will be modified until v1.1 is officially released.
 
 ### Added
@@ -34,6 +34,7 @@ This section will be modified until v1.1 is officially released.
 - **Logging**: Better alerts, deprecation system, legacy option system, and warning messages.
 
 ### Fixed
+- Option regressions including legacy overrides, and backup depth
 - Better handling of dataset names with spaces/special characters.
 - Dataset type detection with environment variables for each (TOP, NEW, FS, VOL, RAW, etc.).
 - Improved option hierarchy for `zelta policy`.

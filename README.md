@@ -1,7 +1,7 @@
 ![Zelta Logo](https://zelta.space/index/zelta-banner.svg)
 
 # The Zelta Backup and Recovery Suite
-*Version v1.1-beta3, 2026-01-12*
+*Version v1.1-beta4, 2026-01-13*
 
 ---
 
