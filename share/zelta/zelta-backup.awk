@@ -445,21 +445,6 @@ function should_snapshot() {
 	else return 0
 }
 
-function get_snap_name(		_snap_name, _snap_cmd) {
-	_snap_name = Opt["SNAP_NAME"]
-	if (_snap_name ~ /[[:space:]]/)  {
-		report(LOG_WARNING, "to define dynamic snapshot names, use this format: \"$(" _snap_name ")\"")
-		_snap_cmd = _snap_name
-		_snap_cmd | getline _snap_name
-		close(_snap_cmd)
-	}
-	if (!_snap_name)
-		_snap_name = Summary["startTime"]
-	if (_snap_name !~ "^@")
-		_snap_name = "@" _snap_name
-	return _snap_name
-}
-
 # This function replaces the original 'zelta snapshot' command
 function create_source_snapshot(force_snap,	_snap_name, _ds_snap, _cmd_arr, _cmd, _snap_failed, _should_snap, _i) {
 	_should_snap = force_snap ? force_snap : should_snapshot()

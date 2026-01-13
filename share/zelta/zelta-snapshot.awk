@@ -4,29 +4,20 @@
 #
 # Make a snapshot
 
-function get_snap_name(		_snap_name) {
-	_snap_name = Opt["SRC_SNAP"] ? Opt["SRC_SNAP"] : Opt["SNAP_NAME"]
-	if (!_snap_name) {
-		srand()
-		_snap_name = "@" srand()
-	}
-	_snap_name = (_snap_name ~ /^@/) ? _snap_name : "@" _snap_name
-	return _snap_name
-}
-
 function snapshot(	_snap_name, _ds_snap, _cmd_arr, _cmdk) {
-	_snap_name = get_snap_name()
-        _ds_snap = Opt["SRC_DS"] _snap_name
-        _cmd_arr["endpoint"] = "SRC"
-        _cmd_arr["ds_snap"] = _ds_snap
-        _cmd = build_command("SNAP", _cmd_arr)
+	_snap_name = Opt["SRC_SNAP"] ? Opt["SRC_SNAP"] : get_snap_name()
 
-        if (Opt["DRYRUN"]) {
-                report(LOG_NOTICE, "+ "_cmd)
-                stop()
-        }
+	_ds_snap = Opt["SRC_DS"] _snap_name
+	_cmd_arr["endpoint"] = "SRC"
+	_cmd_arr["ds_snap"] = _ds_snap
+	_cmd = build_command("SNAP", _cmd_arr)
 
-        report(LOG_DEBUG, "`"_cmd"`")
+	if (Opt["DRYRUN"]) {
+		report(LOG_NOTICE, "+ "_cmd)
+		stop()
+	}
+
+	report(LOG_DEBUG, "`"_cmd"`")
 	if (system(_cmd))
 		report(LOG_ERROR, "error creating '" _ds_snap "'")
 	else

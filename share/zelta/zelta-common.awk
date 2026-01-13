@@ -323,6 +323,30 @@ function build_command(action, vars, 		_remote_prefix, _cmd, _num_vars, _var_lis
         return _cmd
 }
 
+### ZFS Utilities
+#################
+
+function get_snap_name(		_snap_name, _snap_cmd) {
+	_snap_name = Opt["SNAP_NAME"]
+	if (sub(/^['\"]*[$][(]/, "", _snap_name)) {
+		sub(/[])]['\"]*$/, "", _snap_name)
+		_snap_cmd = _snap_name
+		_snap_cmd | getline _snap_name
+		close(_snap_cmd)
+	}
+	if (_snap_name ~ /[[:space:]]/)  {
+		report(LOG_WARNING, "to define dynamic snapshot names, use this format: \"$(" _snap_name ")\"")
+		_snap_cmd = _snap_name
+		_snap_cmd | getline _snap_name
+		close(_snap_cmd)
+	}
+	if (!_snap_name)
+		_snap_name = Summary["startTime"]
+	if (_snap_name !~ "^@")
+		_snap_name = "@" _snap_name
+	return _snap_name
+}
+
 # Handle common feedback from sh, ssh, and zfs
 function log_common_command_feedback(		_log_level) {
 	_log_level = LOG_NOTICE
