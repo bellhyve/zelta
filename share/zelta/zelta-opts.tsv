@@ -26,7 +26,7 @@ all	--yule	YULE		true
 
 # Options for 'zelta backup' and other 'zfs send/recv/clone' verbs
 policy,backup,replicate,sync,rotate	--json,-j	LOG_MODE		set	json	json output
-policy,backup,replicate,sync,rotate	-b,--backup,-c,--compressed,-D,--dedup,-e,--embed,--holds,-L,--largeblock,-p,--parsable,--proctitle,--props,--raw,--skipmissing,-V,-w	SEND_OVERRIDE	arglist
+policy,backup,replicate,sync,rotate	-b,--backup,-c,--compressed,-D,--dedup,-e,--embed,--holds,-L,--largeblock,-p,--parsable,--proctitle,--props,--raw,--skipmissing,-V,-w	SEND_OVERRIDE		arglist
 policy,backup,replicate,sync,rotate	--send-check	SEND_CHECK		true
 policy,backup,replicate,sync,rotate	-F	SEND_OVERRIDE		arglist	 		destructive option 'F' used; consider 'zelta rotate' when possible
 policy,backup,replicate,sync,rotate	-e,-M,-u	RECV_OVERRIDE		arglist
@@ -98,3 +98,4 @@ legacy		SEND_OVERRIDE	SEND_FLAGS	set			SEND_FLAGS will be deprecated. See 'zelta
 legacy		RECV_OVERRIDE	RECEIVE_FLAGS	set			RECEIVE_FLAGS will be deprecated. See 'zelta help options' for new RECV options.
 legacy		REMOTE_SEND	REMOTE_SEND_COMMAND	set
 legacy		REMOTE_RECV	REMOTE_RECV_COMMAND	set
+
