@@ -207,8 +207,8 @@ function load_snapshot_deltas(_cmd_arr, _cmd) {
 	if (Opt["DRYRUN"])
 		_cmd_arr["command_prefix"]	= str_add(_cmd_arr["command_prefix"], "ZELTA_DRYRUN=''")
 	# Depth is already in the environment
-	# if (Opt["DEPTH"])
-	# 	_cmd_arr["flags"]		= "-d" Opt["DEPTH"]
+	if (Opt["DEPTH"])
+		_cmd_arr["flags"]		= "-d" Opt["DEPTH"]
 	_cmd					= build_command("MATCH", _cmd_arr)
 	report(LOG_INFO, "checking replica deltas")
 	report(LOG_DEBUG, "`"_cmd"`")
@@ -1111,27 +1111,27 @@ BEGIN {
 	########################
 
 	# Snasphot "IF_NEEDED" reason codes
-	SNAP_ALWAYS				= 1
-	SNAP_WRITTEN				= 2
-	SNAP_MISSING				= 3
-	SNAP_LATEST				= 4
+	SNAP_ALWAYS   = 1
+	SNAP_WRITTEN  = 2
+	SNAP_MISSING  = 3
+	SNAP_LATEST   = 4
 
 	# Telemetry
-	DSTree["vers_major"]		= 1
-	DSTree["vers_minor"]		= 1
-	Summary["startTime"]			= sys_time()
+	DSTree["vers_major"]  = 1
+	DSTree["vers_minor"]  = 1
+	Summary["startTime"]  = sys_time()
 
 	# Misc variables
-	DSTree["final_snapshot"]		= Opt["SRC_SNAP"]
-	DSTree["target_exists"]		= 0
-	DSTree["sync_passes"]		= 0
+	DSTree["final_snapshot"]  = Opt["SRC_SNAP"]
+	DSTree["target_exists"]   = 0
+	DSTree["sync_passes"]     = 0
 	split(Opt["SRC_DS"], _src_ds_tree, "/")
 	split(Opt["TGT_DS"], _tgt_ds_tree, "/")
-	DSTree["source_pool"] = _src_ds_tree[1]
-	DSTree["target_pool"] = _tgt_ds_tree[1]
+	DSTree["source_pool"]     = _src_ds_tree[1]
+	DSTree["target_pool"]     = _tgt_ds_tree[1]
 	if (Opt["SNAP_MODE"] == "ALWAYS")
 		DSTree["snapshot_needed"]	= SNAP_ALWAYS
-	if (Opt["VERB"] == "REPLICATE")
+	if (Opt["VERB"] == "replicate")
 		Opt["DEPTH"] = 1
 	if (Opt["RECV_PROPS_ADD"]) {
 		gsub(/,/, " -o ", Opt["RECV_PROPS_ADD"])
