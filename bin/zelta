@@ -4,7 +4,7 @@
 #
 # Initialize the environment for Zelta subcommands
 
-ZELTA_VERSION="Zelta Replication Suite v1.1-beta2"
+ZELTA_VERSION="Zelta Replication Suite v1.1-beta3"
 
 zelta_usage() {
 	exec >&2
