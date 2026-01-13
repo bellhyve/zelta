@@ -139,7 +139,7 @@ function load_properties(ep,		_ds, _cmd_arr, _cmd, _cmd_id, _ds_suffix, _idx, _s
 	_ds			= Opt[ep "_DS"]
 	_cmd_arr["endpoint"]	= ep
 	_cmd_arr["ds"]		= rq(Opt[ep"_REMOTE"],_ds)
-	if (Opt["DEPTH"]) _cmd_arr["flags"] = "-d" (Depth-1)
+	if (Opt["DEPTH"]) _cmd_arr["flags"] = "-d" (Opt["DEPTH"]-1)
 	_cmd = build_command("PROPS", _cmd_arr)
 	report(LOG_INFO, "checking properties for " Opt[ep"_ID"])
 	report(LOG_DEBUG, "`"_cmd"`")
@@ -206,8 +206,9 @@ function load_snapshot_deltas(_cmd_arr, _cmd) {
 		_cmd_arr["command_prefix"]	= "ZELTA_TGT_ID=''"
 	if (Opt["DRYRUN"])
 		_cmd_arr["command_prefix"]	= str_add(_cmd_arr["command_prefix"], "ZELTA_DRYRUN=''")
-	if (Opt["DEPTH"])
-		_cmd_arr["flags"]		= "-d" Depth
+	# Depth is already in the environment
+	# if (Opt["DEPTH"])
+	# 	_cmd_arr["flags"]		= "-d" Opt["DEPTH"]
 	_cmd					= build_command("MATCH", _cmd_arr)
 	report(LOG_INFO, "checking replica deltas")
 	report(LOG_DEBUG, "`"_cmd"`")

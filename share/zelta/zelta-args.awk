@@ -61,7 +61,7 @@ function match_arg(arg, 	_flag) {
 function set_arg(flag, subopt,		_type, key) {
 	_type = OptListType[flag]
 	_key  = OptListKey[flag]
-	if (_type == "arglist")       NewOpt[_key] = str_add(NewOpt[_key])
+	if (_type == "arglist")       NewOpt[_key] = str_add(NewOpt[_key], $0)
 	else if (_type == "list")     NewOpt[_key] = str_add(NewOpt[_key], subopt, ",")
 	else if (_type == "true")     NewOpt[_key] = "1"
 	else if (_type == "false")    NewOpt[_key] = "0"
