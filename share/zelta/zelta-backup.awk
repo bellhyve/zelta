@@ -49,24 +49,24 @@ function usage(message,		_ep_spec, _verb, _clone, _revert) {
 	_verb     = Opt["VERB"]
 	_revert   = (_verb == "revert")
 	_clone    = (_verb == "clone")
-	if (message) print message                                             > STDERR
-	printf "usage: " _verb " [OPTIONS] "                                   > STDERR
-	print _revert ? "ENDPOINT" : "SOURCE TARGET"                           > STDERR
-	print "\nRequired Arguments:"                                          > STDERR
+	if (message) print message                                         > STDERR
+	printf "usage: " _verb " [OPTIONS] "                               > STDERR
+	print _revert ? "ENDPOINT" : "SOURCE TARGET"                       > STDERR
+	print "\nRequired Arguments:"                                      > STDERR
 	if (_revert)
 		print "  ENDPOINT  " _ep_spec                                  > STDERR
 	else {
 		print "  SOURCE    " _src_spec                                 > STDERR
-		print "  TARGET    " _ep_spec                                  > STDERR
+		# print "  TARGET    " _ep_spec                                  > STDERR
 	}
 	if (_clone) {
 		printf "Clone endpoints require the same 'user', "             > STDERR
 		print "'host', and 'pool'."                                    > STDERR
 	}
-	print "\nCommon Options:"                                              > STDERR
-        print "  -v, -vv                    Verbose/debug output"              > STDERR
-        print "  -q, -qq                    Suppress warnings/errors"          > STDERR
-        print "  -j, --json                 JSON output"                       > STDERR
+	print "\nCommon Options:"                                          > STDERR
+        print "  -v, -vv                    Verbose/debug output"      > STDERR
+        print "  -q, -qq                    Suppress warnings/errors"  > STDERR
+        print "  -j, --json                 JSON output"               > STDERR
 	if (!_revert) {
 		print "  --snapshot                 Always create snapshot"    > STDERR
 		print "  --snap-name NAME           Set snapshot name"         > STDERR
@@ -74,12 +74,12 @@ function usage(message,		_ep_spec, _verb, _clone, _revert) {
 	if (!_clone) {
 		print "\nAdvanced Options:"                                    > STDERR
 		if (_verb == "backup")
-			print "  -i, --incremental          Incremental sync"  > STDERR
+			print "  -i, --incremental          Incremental sync"      > STDERR
 		print "  -d, --depth NUM            Set max dataset depth"     > STDERR
 	}
 
-	print "\nFor complete documentation:  zelta help " _verb               > STDERR
-	print "                             https://zelta.space"               > STDERR
+	print "\nFor complete documentation:  zelta help " _verb           > STDERR
+	print "                             https://zelta.space"           > STDERR
 
 	exit 1
 }
@@ -134,12 +134,12 @@ function check_snapshot_needed(endpoint, ds_suffix, prop_key, prop_val) {
 
 
 # Load zfs properties for an endpoint
-function load_properties(ep,		_ds, _cmd_arr, _cmd, _cmd_id, _ds_suffix, _idx, _seen) {
+function load_properties(ep,		_ds, _cmd_arr, _cmd, _cmd_id, _ds_suffix, _idx, _seen, _log_level) {
 	_cmd_id                 = "zfs get"
 	_ds			= Opt[ep "_DS"]
 	_cmd_arr["endpoint"]	= ep
 	_cmd_arr["ds"]		= rq(Opt[ep"_REMOTE"],_ds)
-	if (Opt["DEPTH"]) _cmd_arr["flags"] = "-d" (Depth-1)
+	if (Opt["DEPTH"]) _cmd_arr["flags"] = "-d" (Opt["DEPTH"]-1)
 	_cmd = build_command("PROPS", _cmd_arr)
 	report(LOG_INFO, "checking properties for " Opt[ep"_ID"])
 	report(LOG_DEBUG, "`"_cmd"`")
@@ -163,8 +163,10 @@ function load_properties(ep,		_ds, _cmd_arr, _cmd, _cmd_id, _ds_suffix, _idx, _s
 			close(_cmd)
 			return 0
 		}
-		else
-			log_common_command_feedback(_cmd, STOP_ON_ERROR)
+		else {
+			_log_level = log_common_command_feedback()
+			if (_log_level == LOG_ERROR) stop(1)
+		}
 	}
 	close(_cmd)
 	return Dataset[ep, "", "exists"]
@@ -204,8 +206,9 @@ function load_snapshot_deltas(_cmd_arr, _cmd) {
 		_cmd_arr["command_prefix"]	= "ZELTA_TGT_ID=''"
 	if (Opt["DRYRUN"])
 		_cmd_arr["command_prefix"]	= str_add(_cmd_arr["command_prefix"], "ZELTA_DRYRUN=''")
+	# Depth is already in the environment
 	if (Opt["DEPTH"])
-		_cmd_arr["flags"]		= "-d" Depth
+		_cmd_arr["flags"]		= "-d" Opt["DEPTH"]
 	_cmd					= build_command("MATCH", _cmd_arr)
 	report(LOG_INFO, "checking replica deltas")
 	report(LOG_DEBUG, "`"_cmd"`")
@@ -330,7 +333,7 @@ function compute_eligibility(           _i, _ds_suffix, _src_idx, _tgt_idx,
 		_src_idx        = "SRC" SUBSEP _ds_suffix
 		_tgt_idx        = "TGT" SUBSEP _ds_suffix
 
-		# Gather all the state we need in one fucking place
+		# Gather all the state we need in one place
 		_has_next       = !!Dataset[_src_idx, "next_snapshot"]
 		_has_match      = !!DSPair[_ds_suffix, "match"]
 		_src_exists     = !!Dataset[_src_idx, "exists"]
@@ -440,21 +443,6 @@ function should_snapshot() {
 	else if (DSTree["snapshot_needed"] == SNAP_LATEST)
 		return "action requires a snapshot delta; snapshotting: "
 	else return 0
-}
-
-function get_snap_name(		_snap_name, _snap_cmd) {
-	_snap_name = Opt["SNAP_NAME"]
-	if (_snap_name ~ /[[:space:]]/)  {
-		report(LOG_WARNING, "to define dynamic snapshot names, use this format: \"$(" _snap_name ")\"")
-		_snap_cmd = _snap_name
-		_snap_cmd | getline _snap_name
-		close(_snap_cmd)
-	}
-	if (!_snap_name)
-		_snap_name = Summary["startTime"]
-	if (_snap_name !~ "^@")
-		_snap_name = "@" _snap_name
-	return _snap_name
 }
 
 # This function replaces the original 'zelta snapshot' command
@@ -1108,27 +1096,27 @@ BEGIN {
 	########################
 
 	# Snasphot "IF_NEEDED" reason codes
-	SNAP_ALWAYS				= 1
-	SNAP_WRITTEN				= 2
-	SNAP_MISSING				= 3
-	SNAP_LATEST				= 4
+	SNAP_ALWAYS   = 1
+	SNAP_WRITTEN  = 2
+	SNAP_MISSING  = 3
+	SNAP_LATEST   = 4
 
 	# Telemetry
-	DSTree["vers_major"]		= 1
-	DSTree["vers_minor"]		= 1
-	Summary["startTime"]			= sys_time()
+	DSTree["vers_major"]  = 1
+	DSTree["vers_minor"]  = 1
+	Summary["startTime"]  = sys_time()
 
 	# Misc variables
-	DSTree["final_snapshot"]		= Opt["SRC_SNAP"]
-	DSTree["target_exists"]		= 0
-	DSTree["sync_passes"]		= 0
+	DSTree["final_snapshot"]  = Opt["SRC_SNAP"]
+	DSTree["target_exists"]   = 0
+	DSTree["sync_passes"]     = 0
 	split(Opt["SRC_DS"], _src_ds_tree, "/")
 	split(Opt["TGT_DS"], _tgt_ds_tree, "/")
-	DSTree["source_pool"] = _src_ds_tree[1]
-	DSTree["target_pool"] = _tgt_ds_tree[1]
+	DSTree["source_pool"]     = _src_ds_tree[1]
+	DSTree["target_pool"]     = _tgt_ds_tree[1]
 	if (Opt["SNAP_MODE"] == "ALWAYS")
 		DSTree["snapshot_needed"]	= SNAP_ALWAYS
-	if (Opt["VERB"] == "REPLICATE")
+	if (Opt["VERB"] == "replicate")
 		Opt["DEPTH"] = 1
 	if (Opt["RECV_PROPS_ADD"]) {
 		gsub(/,/, " -o ", Opt["RECV_PROPS_ADD"])

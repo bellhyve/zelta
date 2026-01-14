@@ -2,7 +2,7 @@
 #
 # Zelta Uninstaller
 #
-# Removes Zelta installation files, including legacy paths from beta versions.
+# Removes Zelta installation files, including legacy paths.
 # Checks both system-wide and user installation locations.
 
 remove_if_exists() {
