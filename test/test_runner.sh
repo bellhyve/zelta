@@ -64,6 +64,7 @@ run_tests() {
     # this options will show a trace with expectation evaluation
     SHELLSPEC_TESTOPT="--xtrace --shell bash"
 
+    # comment out this line to show the trace
     unset SHELLSPEC_TESTOPT
 
     shellspec -f d $SHELLSPEC_TESTOPT spec/bin/${TREE_NAME}_test/${TREE_NAME}_test_spec.sh
