@@ -74,15 +74,18 @@ function set_arg(flag, subopt,		_type, key) {
 }
 
 # Handle 'set' and 'list' action logic
-function get_subopt(flag, m,	_subopt) {
+function get_subopt(flag, m,	_subopt, _has_equals) {
+	# Check if the original input had an '=' (for --key= or --key=value)
+	_has_equals = index($0, "=")
+
 	# If a key=value is given out of context, stop
-	if ($2 && (!(OptListType[flag] in SUBOPT_TYPES) || OptListValue[flag])) {
+	if (_has_equals && (!(OptListType[flag] in SUBOPT_TYPES) || OptListValue[flag])) {
 		stop(1, "invalid option assignment '"$0"'")
 	}
 	# Not a subopt type
 	else if (!(OptListType[flag] in SUBOPT_TYPES)) return ""
-	# --key=value
-	else if ($2) return $2
+	# --key=value or --key= (empty value is valid)
+	else if (_has_equals) return $2
 	# Value is defined upstream
 	else if (OptListValue[flag]) return OptListValue[flag]
 	# Single dash option
@@ -93,11 +96,11 @@ function get_subopt(flag, m,	_subopt) {
 	}
 	# Note, we're modifying ARGV's 'Idx' as a global because the logic to reconcile
 	# this otherwise would be gnarly and inefficient.
-	# Find '--key value' or '-k 1'
-	_subopt = ARGV[++Idx]
-	if (!_subopt) {
+	# Find '--key value' or '-k 1' (where value may be empty string)
+	if (++Idx >= ARGC) {
 		stop(1, "option '"$1"' requires an argument")
-	} else return _subopt
+	}
+	return ARGV[Idx]
 }
 
 function get_args(		_i, _flag, _arg, _m, _subopt, _opts_done) {

@@ -221,18 +221,17 @@ function process_row(ep,		_name, _guid, _written, _name_suffix, _ds_suffix, _sav
 }
 
 # Check for exceptions or time(1) output, or process the row
-function load_zfs_list_row(ep) {
+function load_zfs_list_row(ep,		_time_arr) {
 	IGNORE_ZFS_LIST_OUTPUT="(sys|user)[ \t]+[0-9]|dataset does not exist"
 	if ($0 ~ IGNORE_ZFS_LIST_OUTPUT) return
 	if (/^real[ \t]+[0-9]/) {
-		split($0, time_arr, /[ \t]+/)
-		ep["list_time"] += time_arr[2]
+		split($0, _time_arr, /[ \t]+/)
+		ep["list_time"] += _time_arr[2]
 	}
 	else if ($2 ~ /^[0-9]+$/) {
 		process_row(ep)
 	} else {
 		report(LOG_WARNING, "stream output unexpected: "$0)
-		exit_code = 1
 	}
 }
 
