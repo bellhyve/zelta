@@ -8,17 +8,7 @@
 ## Initialization
 #################
 
-function init_report(	_endpoint_str) {
-	# Get backup root from options or first operand
-	_endpoint_str = Opt["BACKUP_ROOT"]
-	if (!_endpoint_str && NumOperands >= 1)
-		_endpoint_str = Operands[1]
-	if (!_endpoint_str)
-		stop(1, "BACKUP_ROOT not set")
-
-	# Parse the endpoint to handle remote targets
-	load_endpoint(_endpoint_str, BackupRoot)
-
+function init_report() {
 	# Get Slack hook from options
 	SlackHook = Opt["SLACK_HOOK"]
 	if (!SlackHook)
@@ -28,11 +18,24 @@ function init_report(	_endpoint_str) {
 	TooOld = sys_time() - 86400
 }
 
+# Initialize state for processing a single endpoint
+function init_endpoint(_endpoint_str) {
+	# Clear previous endpoint state
+	delete BackupRoot
+	delete SeenDS
+	delete OldList
+	OutOfDateCount = 0
+	UpToDateCount = 0
+
+	# Parse the endpoint to handle remote targets
+	load_endpoint(_endpoint_str, BackupRoot)
+}
+
 ## ZFS List
 ###########
 
 # Build and run the zfs list command for the backup root
-function get_snapshot_ages(	_cmd_arr, _cmd, _remote) {
+function get_snapshot_ages(	_cmd, _remote) {
 	_remote = get_remote_cmd(BackupRoot)
 	_cmd = "zfs list -t filesystem,volume -Hpr -o name,snapshots_changed -S snapshots_changed"
 	_cmd = str_add(_cmd, qq(BackupRoot["DS"]))
@@ -50,12 +53,14 @@ function parse_snapshot_list(	_cmd, _ds, _changed, _rel_name) {
 		# Skip if we've already seen this dataset
 		if (_ds in SeenDS) continue
 		SeenDS[_ds] = 1
-		# Skip datasets without snapshot info
-		if (_changed == "-") continue
 		# Get relative name by removing backup root prefix
 		_rel_name = _ds
 		sub("^" BackupRoot["DS"] "/?", "", _rel_name)
 		if (!_rel_name) _rel_name = BackupRoot["LEAF"]
+		# Skip top-level dataset if it has no snapshots (that's OK)
+		if (_rel_name == BackupRoot["LEAF"] && _changed == "-") continue
+		# Skip datasets without snapshot info
+		if (_changed == "-") continue
 		# Categorize by age
 		if (_changed < TooOld) {
 			OldList[++OutOfDateCount] = _rel_name
@@ -92,9 +97,17 @@ function send_slack_message(message,	_curl) {
 	_curl = "curl -s -X POST -H 'Content-type: application/json; charset=utf-8' " \
 		"--data '{ \"username\": \"zeport\", \"icon_emoji\": \":camera_with_flash:\", \"text\": \"" \
 		message "\" }' " SlackHook
-print _curl
 	_curl | getline
 	close(_curl)
+}
+
+# Process a single endpoint
+function process_endpoint(_endpoint_str,	_msg) {
+	init_endpoint(_endpoint_str)
+	parse_snapshot_list()
+	_msg = build_slack_message()
+	report(LOG_NOTICE, _msg)
+	send_slack_message(_msg)
 }
 
 ## Main
@@ -102,8 +115,15 @@ print _curl
 
 BEGIN {
 	init_report()
-	parse_snapshot_list()
-	SlackMessage = build_slack_message()
-	report(LOG_NOTICE, SlackMessage)
-	send_slack_message(SlackMessage)
+
+	# Process BACKUP_ROOT if set, otherwise use operands
+	if (Opt["BACKUP_ROOT"]) {
+		process_endpoint(Opt["BACKUP_ROOT"])
+	} else if (NumOperands >= 1) {
+		for (_i = 1; _i <= NumOperands; _i++) {
+			process_endpoint(Operands[_i])
+		}
+	} else {
+		stop(1, "BACKUP_ROOT not set and no endpoints provided")
+	}
 }
