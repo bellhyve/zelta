@@ -109,9 +109,9 @@ Describe 'try backup'
     End
 
     Parameters
-      8         '^(apool|bpool)'        $TGT_SVR
-      4          apool/treetop          $TGT_SVR
-      4          bpool/backups/treetop  $TGT_SVR
+      8         "^($SRC_POOL|$TGT_TREE)"        $TGT_SVR
+      4          $SRC_TREE                      $TGT_SVR
+      4          $TGT_TREE                      $TGT_SVR
     End
 
     It "has $1 snapshots on ${3:-localhost} ${2:+matching pattern '$2'}"
