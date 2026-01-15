@@ -1,0 +1,66 @@
+#!/bin/sh
+
+echo "check SRC_SVR:{$SRC_SVR}"
+echo "check TGT_SVR:{$SRC_SVR}"
+
+set -x
+. spec/bin/all_tests_setup/common_test_env.sh
+set +x
+
+. spec/lib/common.sh
+
+
+verify_root() {
+    # Check if running as root
+    if [ "$(id -u)" -ne 0 ]; then
+        echo "Error: You must run as root or with sudo" >&2
+        return 1
+    fi
+}
+
+initialize_zelta_test() {
+    echo "-- BeforeAll setup"
+
+    echo "-- installing zelta"
+    "${ALL_TESTS_SETUP_DIR}"/install_local_zelta.sh
+    INSTALL_STATUS=$?
+    if [ $INSTALL_STATUS -ne 0 ]; then
+        echo "** Error: zelta install failed"
+    fi
+
+    #"${INITIALIZE_DIR}"/create_device_backed_zfs_test_pools.sh
+    #"${INITIALIZE_DIR}"/create_file_backed_zfs_test_pools.sh
+    #TREE_STATUS=$?
+
+#    echo "-- creating test pools"
+    if "${ALL_TESTS_SETUP_DIR}"/create_file_backed_zfs_test_pools.sh; then
+    #if "${INITIALIZE_DIR}"/create_device_backed_zfs_test_pools.sh; then
+        #echo "-- setting up snap tree"
+        #"${INITIALIZE_DIR}"/setup_simple_snap_tree.sh
+        TREE_STATUS=$?
+        # NOTE: moving create snap tree into test specs, we'll have different kinds of trees
+        #TREE_STATUS=0
+    else
+        echo "** Error: failed to setup zfs pool" >&2
+        TREE_STATUS=1
+    fi
+
+    #CREATE_STATUS=$?
+
+    #echo "-- Create pool status:    {$CREATE_STATUS}"
+    echo "-- Install Zelta status:  {$INSTALL_STATUS}"
+    echo "-- Make snap tree status: {$TREE_STATUS}"
+
+    #SETUP_STATUS=$((CREATE_STATUS || INSTALL_STATUS || TREE_STATUS))
+    SETUP_STATUS=$((INSTALL_STATUS || TREE_STATUS))
+    echo "-- returning SETUP_STATUS:{$SETUP_STATUS}"
+
+    if [ $SETUP_STATUS -ne 0 ]; then
+        echo "** Error: zfs pool and/or zelta install failed!" >&2
+    fi
+
+    return $SETUP_STATUS
+}
+
+# NOTE: root is no longer required, unless there is a sloppy state left by improper sudo use
+initialize_zelta_test
