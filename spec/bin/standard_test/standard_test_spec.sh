@@ -109,7 +109,7 @@ Describe 'try backup'
     End
 
     Parameters
-      8         "^($SRC_POOL|$TGT_TREE)"        $TGT_SVR
+      8         "^($SRC_POOL|$TGT_POOL)"        $TGT_SVR
       4          $SRC_TREE                      $TGT_SVR
       4          $TGT_TREE                      $TGT_SVR
     End
