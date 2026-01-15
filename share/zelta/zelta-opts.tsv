@@ -1,95 +1,101 @@
- zelta-opts.tsv
+# VERBS	# FLAGS	# KEY	# KEY_ALIAS	# TYPE	# VALUE	# DESCRIPTION	# WARNING
+# all | comma,separated,verbs	--comma,--separated-flag,-s	ZELTA_VARIABLE	"ZELTA_LEGACY
+"	type	env_value	point-of-use description	use warning or error
 #
-# Format: VERBS (comma sep) | FLAGS (comma sep) | KEY | TYPE | VALUE | MSG
 # Types:
-#   true    : Set KEY="yes"
-#   false   : Set KEY="no"
-#   set     : Set KEY="VALUE" else KEY="subopt"
-#   arglist : Append argument sent to KEY separated by " "
-#   list    : Append subopt to KEY separated by ","
-#   incr    : Increment
-#   decr    : Decrement
-#   invalid : Report error and quit
-# =============================================================================
-# VERBS	FLAGS	KEY	KEY_ALIAS	TYPE	VALUE	DESCRIPTION	WARNING
-# -------------------------------------------------------------
+"#   true    : Set KEY=""yes"""				true
+"#   false   : Set KEY=""no"""				false
+"#   set     : Set KEY=""VALUE"" else KEY=""subopt"""				set
+"#   arglist : Append argument sent to KEY separated by "" """				arglist
+"#   list    : Append subopt to KEY separated by "","""				list
+#   incr    : Increment				incr
+#   decr    : Decrement				decr
+#   invalid : Report error and quit				invalid
+
 # Global/Generic Options
-all	-v,--verbose	LOG_LEVEL		incr		Increase verbosity. Specify once for operational detail and twice (-vv) for debug output.
-all	-q,--quiet	LOG_LEVEL		decr		Quiet output. Specify once to suppress warnings and twice (-qq) to suppress errors.
-all	--log-level	LOG_LEVEL		set		Specify a log level value 0-4: errors (0), warnings (1), notices (2, default), info (3, verbose), and debug (4).
-all	--log-mode	LOG_MODE		set		Enable the specified log modes: 'text' and 'json' are currently supported.
-all	--text	LOG_MODE		set	text	Force default output (notices) to print as plain text standard output.
-all	--help,-h,-?	USAGE		true		Show usage output for the current verb. Also consider 'zelta help <topic>' to view a manual.
-all	-n,--dryrun,--dry-run	DRYRUN		true		Display 'zfs' commands related to the action rather than running them.
-all	-d,--depth	DEPTH		set		Limit the recursion depth of operations to the number of levels indicated. For example, a depth of 1 will only include the indicated dataset.
-all	--exclude,-X	EXCLUDE		list		Exclude a /dataset/suffix, @snapshot, or #bookmark, beginning with the symbol indicated. Wild card matches with '?' and '*' are permitted. See 'zelta help match' for more details.
+all	--verbose,-v	LOG_LEVEL		incr		increase verbosity
+all	--quiet,-q	LOG_LEVEL		decr		decrease verbosity
+all	--log-level	LOG_LEVEL		set
+all	--log-mode	LOG_MODE		set
+all	--text	LOG_MODE		set	text
+all	--help,-h,-?	USAGE		true
+all	--dryrun,-n	DRYRUN		true		show commands but do not run them
+all	--depth,-d	DEPTH		set		limit the recursion depth
+all	--exclude,-X	EXCLUDE		list		exclude source dataset or snapshot patterns
 all	--yule	YULE		true
 
 # Options for 'zelta backup' and other 'zfs send/recv/clone' verbs
-policy,backup,replicate,sync,rotate	-j,--json	LOG_MODE		set	json	Print JSON output. Only 'zelta backup' is supported. See the 'zelta help backup' for details.
-policy,backup,replicate,sync,rotate	-b,--backup,-c,--compressed,-D,--dedup,-e,--embed,--holds,-L,--largeblock,-p,--parsable,--proctitle,--props,--raw,--skipmissing,-V,-w	SEND_OVERRIDE	arglist			Override all 'zfs send' options with those indicated. For precise and flexible configuration, use the ZELTA_SEND_* environment variables instead.
-policy,backup,replicate,sync,rotate	--send-check	SEND_CHECK		true		Attempt to drop unsupported 'zfs send' options using a no-op test prior to replication. This feature is not fully implemented.
+policy,backup,replicate,sync,rotate	--json,-j	LOG_MODE		set	json	json output
+policy,backup,replicate,sync,rotate	-b,--backup,-c,--compressed,-D,--dedup,-e,--embed,--holds,-L,--largeblock,-p,--parsable,--proctitle,--props,--raw,--skipmissing,-V,-w	SEND_OVERRIDE		arglist
+policy,backup,replicate,sync,rotate	--send-check	SEND_CHECK		true
 policy,backup,replicate,sync,rotate	-F	SEND_OVERRIDE		arglist	 		destructive option 'F' used; consider 'zelta rotate' when possible
-policy,backup,replicate,sync,rotate	-e,-M,-u	RECV_OVERRIDE		arglist		Override all 'zfs receive' options with those indicated. For precise and flexible configuration, use the ZELTA_RECV* environment variables instead.
-policy,backup,replicate,sync,rotate	--rotate	VERB		set	rotate	Rename the target dataset and attempt to sync a clone via a delta provided by the source or source origin clone.
-policy,backup,replicate,sync,rotate	-R,--replicate	VERB		set	replicate	Use 'zfs send --replicate' in a backup operation.
-policy,backup,replicate,sync,rotate	--resume	RESUME		true		Enable (the default) or disable automatic resume of interrupted syncs.
-policy,backup,replicate,sync,rotate	--no-resume	RESUME		false
-policy,backup,replicate,snapshot,sync,revert,rotate,clone	--snap-name	SNAP_NAME		set		Specify a snapshot name. Use the form '$(my_snapshot_program)' to use a dynamically generated snapshot. The default is '$(date -u +zelta_%Y-%m-%d_%H.%M.%S)'.
-policy,backup,replicate,sync,rotate,clone	--snap-mode	SNAP_MODE	SNAPSHOT	set		Specify when to snapshot during a 'zelta backup' operation. Specify '0' for never, 'IF_NEEDED', or 'ALWAYS'. 'IF_NEEDED', the default, does not snapshot if the source has no new data.
-policy,backup,replicate,sync,rotate,clone	--no-snapshot	SNAP_MODE		false
-policy,backup,replicate,sync,rotate,clone	--snapshot,--snapshot-always	SNAP_MODE		set	ALWAYS
+policy,backup,replicate,sync,rotate	-e,-M,-u	RECV_OVERRIDE		arglist
+policy,backup,replicate,sync,rotate	--rotate	VERB		set	rotate
+policy,backup,replicate,sync,rotate	--replicate,-R	VERB		set	replicate
+policy,backup,replicate,sync,rotate	--resume	RESUME		true		save partial transfers (default)
+policy,backup,replicate,sync,rotate	--no-resume	RESUME		false		discard failed partial transfers
+policy,backup,replicate,snapshot,sync,revert,rotate,clone	--snap-name	SNAP_NAME		set		specify a snapshot name
+policy,backup,replicate,sync,rotate,clone	--snap-mode	SNAP_MODE	SNAPSHOT	set
+policy,backup,replicate,sync,rotate,clone	--no-snapshot	SNAP_MODE		false	do not snapshot
+policy,backup,replicate,sync,rotate,clone	--snapshot	SNAP_MODE		set	ALWAYS	take a snapshot
 policy,backup,replicate,sync,rotate,clone	--snapshot-skip	SNAP_MODE		set	SKIP
 policy,backup,replicate,sync,rotate,clone	-s	SNAP_MODE		set	IF_NEEDED		option '-s' for '--snapshot' is ambiguous and will be deprecated; use --snapshot, --snapshot-skip, --partial, or --skip-missing
 policy,backup,replicate,sync,rotate,clone	-S	SNAP_MODE		set	ALWAYS		option '-S' is ambiguous and will be deprecated; use --snapshot or --partial
-policy,backup,replicate,sync,rotate	--sync-direction	SYNC_DIRECTION		set		If both endpoints are remote, use 'PULL' (the default) or 'PUSH' sync. See 'zelta help backup' for more details.
-policy,backup,replicate,sync,rotate	--push	SYNC_DIRECTION		set	PUSH
+policy,backup,replicate,sync,rotate	--sync-direction	SYNC_DIRECTION		set
+policy,backup,replicate,sync,rotate	--push	SYNC_DIRECTION		set	PUSH	remote source connects to remote target
 policy,backup,replicate,sync,rotate	-t	SYNC_DIRECTION		set	PUSH		option '-t' is deprecated; use '--push'
-policy,backup,replicate,sync,rotate	--pull	SYNC_DIRECTION		set	PULL
+policy,backup,replicate,sync,rotate	--pull	SYNC_DIRECTION		set	PULL	remote target connects to remote source
+policy,backup,replicate,sync,rotate	--no-pull	SYNC_DIRECTION		false		proxy sync between remote endpoints
 policy,backup,replicate,sync,rotate	-T	SYNC_DIRECTION		set	PULL		option '-T' is deprecated; use '--pull' (default)
 policy,backup,replicate,sync,rotate	--initiator	INITIATOR		invalid			--initiator is deprecated; use '--pull' (default) or '--push'
-policy,backup,replicate,sync,rotate	--recv-pipe	RECV_PIPE		set		Pipe output through the indicated command, such as 'dd status=progress'
+policy,backup,replicate,sync,rotate	--recv-pipe	RECV_PIPE		set		pipe output through the indicated command such as 'pv'
 policy,backup,replicate,sync,rotate	--progress			invalid			option '--progress' is deprecated; use '--recv-pipe'
 policy,backup,replicate,sync,rotate	--rate-limit			invalid			option '--rate-limit' is deprecated; use '--recv-pipe'
 policy,backup,replicate,sync,rotate	-z			invalid			option '-z' is deprecated; consider '--json'
 policy,backup,replicate,sync,rotate	-h	USAGE		true		option '-h' is ambiguous; use '--holds' or see SEND/RECV options in 'zelta help options'
 
 # `zfs send/zfs recv` options
-policy,backup,replicate,sync	-I	SEND_INTR	INTERMEDIATE	true		Sync all possible source snapshots, using 'zfs send -I' for updates. When disabled, only the newest snapshots will be synced.
-policy,backup,replicate,sync	-i	SEND_INTR	INTERMEDIATE	false
-policy,backup,replicate,sync	--send-default	SEND_DEFAULT		set		`zfs send` options used when the dataset is not encrypted
-policy,backup,replicate,sync	--send-raw	SEND_RAW		set		`zfs send` options used when the dataset is encrypted
-policy,backup,replicate,sync	--send-new	SEND_NEW		set		`zfs send` options added during a full backup
-policy,backup,replicate,sync	--recv-default	RECV_DEFAULT		set		`zfs recv` options used for all datasets
-policy,backup,replicate,sync	--recv-top	RECV_TOP		set		`zfs recv` options used for the topmost indicated dataset
-policy,backup,replicate,sync	--recv-fs	RECV_FS		set		`zfs recv` options added for filesystems
-policy,backup,replicate,sync	--recv-vol	RECV_VOL		set		`zfs recv` options added for filesystems
-policy,backup,replicate,sync	--recv-partial	RECV_PARTIAL		set		`zfs recv` options added if RESUME is enabled (the default)
-policy,backup,replicate,sync	-o	RECV_PROPS_ADD		list		Specify an override list of 'zfs recv -o' properties.
-policy,backup,replicate,sync	-x	RECV_PROPS_DEL		list		Specify an override list of 'zfs recv -x' excluded properties.
+policy,backup,replicate,sync	-I,--intermediate	SEND_INTR	INTERMEDIATE	true		intermediate mode: sync all possible snapshots
+policy,backup,replicate,sync	-i,--incremental	SEND_INTR	INTERMEDIATE	false		incremental mode: sync only the latest snapshots
+policy,backup,replicate,sync	--send-default	SEND_DEFAULT		set
+policy,backup,replicate,sync	--send-raw	SEND_RAW		set
+policy,backup,replicate,sync	--send-new	SEND_NEW		set
+policy,backup,replicate,sync	--recv-default	RECV_DEFAULT		set
+policy,backup,replicate,sync	--recv-top	RECV_TOP		set
+policy,backup,replicate,sync	--recv-fs	RECV_FS		set
+policy,backup,replicate,sync	--recv-vol	RECV_VOL		set
+policy,backup,replicate,sync	--recv-partial	RECV_PARTIAL		set
+policy,backup,replicate,sync	-o	RECV_PROPS_ADD		list		add 'zfs recv -o' property options
+policy,backup,replicate,sync	-x	RECV_PROPS_DEL		list		add 'zfs recv -x' excluded properties
 
 # 'zelta match' options
-match	-H	SCRIPTING_MODE		true		Suppress column headers and separate columns with a single tab.
-match	-p	PARSABLE		true		Out sizes in exact numbers instead of human-readable values like '1M'.
-match	-o	PROPLIST		set		Specify a list of 'zelta match' columns. See 'zelta match -h' or 'zelta help match' for more detail.
-match	--written	LIST_WRITTEN		true		Calculate data sizes for datasets and snapshots. Enabled by default, but it can impact list time.
+match	-H	SCRIPTING_MODE		true		suppress headers and separate columns with a tab
+match	-p	PARSABLE		true		show file sizes in exact numbers
+match	-o	PROPLIST		set		specify a list of match columns
+match	--written	LIST_WRITTEN		true		calculate sizes for datasets and snapshots
 match	--no-written,--nowritten	WRITTEN		false
 match	--no-target,--notarget	TGT_ID		false
-match	--time	CHECK_TIME		true		Calculate the time of each 'zfs list' operation.
+match	--time	CHECK_TIME		true
+
+# 'zelta prune' options
+prune	--keep-snap-days	KEEP_SNAP_DAYS		set		days of older matches to skip
+prune	--keep-snap-num	KEEP_SNAP_NUM		set		number of old matches to skip
+prune	--no-ranges	NO_RANGES		true		disable range compression (output individual snapshots)
 
 # 'zelta policy' options
-policy	--conifg,-C	CONFIG		set		The YAML-style Zelta Policy configuration file
-policy	--retry	RETRY		true		Retry failed syncs the indicated number of times.
+policy	--config,-C	CONFIG		set		specify the policy configuration file
+policy	--retry	RETRY		true		retry failed syncs the indicated number of times
 policy	--no-retry,--noretry	RETRY		false
-policy	--jobs	JOBS	THREADS	true		Run the indicated number of policy jobs concurrently, one for each Site in the configuration.
-policy	--no-threads	JOBS	THREADS	false			
-policy	--backup-root	BACKUP_ROOT		set		The relative target path for the target job. For example 'bkhost:tank/Backups' would place backups below that dataset (if not overridden).
-policy	--archive-root	ARCHIVE_ROOT		set		NOT YET IMPLEMENTED. The relative target path used for rotated clones.
-policy	--host-prefix	ADD_HOST_PREFIX	HOST_PREFIX		set		Include the source hostname as a parent of the synced target, for example, 'tank/Backups/source.host/backup-dataset'.
-policy	--ds-prefix,--prefix	ADD_DATASET_PREFIX	PREFIX	set		Similar to 'zfs recv -d' and '-e', include the indicated number of parent labels for the target's synced name. See 'zelta help backup' for more detail.
+policy	--jobs	JOBS	THREADS	set		run policy jobs concurrently per Site
+policy	--no-threads	JOBS	THREADS	false		disable current policy jobs
+policy	--backup-root	BACKUP_ROOT		set
+policy	--archive-root	ARCHIVE_ROOT		set
+policy	--host-prefix	ADD_HOST_PREFIX	HOST_PREFIX		set
+policy	--ds-prefix,--prefix	ADD_DATASET_PREFIX	PREFIX	set
 policy	--backup-command	BACKUP_COMMAND		set
-legacy		SEND_INTR	INTR_FLAGS	set			INTR_FLAGS will be depcreated and renamed to SEND_INTR.
-legacy		SEND_OVERRIDE	SEND_FLAGS	set			SEND_FLAGS will be depcreated. See 'zelta help options' for new SEND options.
-legacy		RECV_OVERRIDE	RECEIVE_FLAGS	set			RECEIVE_FLAGS will be depcreated. See 'zelta help options' for new RECV options.
+legacy		SEND_INTR	INTR_FLAGS	set			INTR_FLAGS will be deprecated and renamed to SEND_INTR.
+legacy		SEND_OVERRIDE	SEND_FLAGS	set			SEND_FLAGS will be deprecated. See 'zelta help options' for new SEND options.
+legacy		RECV_OVERRIDE	RECEIVE_FLAGS	set			RECEIVE_FLAGS will be deprecated. See 'zelta help options' for new RECV options.
 legacy		REMOTE_SEND	REMOTE_SEND_COMMAND	set
 legacy		REMOTE_RECV	REMOTE_RECV_COMMAND	set
+

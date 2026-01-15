@@ -50,7 +50,7 @@ For detailed documentation of the **zelta policy** configuration see `zelta.conf
 For detailed documentation of the **zelta** environment variables see `zelta help options`.
 
 # SEE ALSO
-zelta(8), zelta-clone(8), zelta-backup(8), zelta-options(8), zelta-match(8), zelta-revert(8), zelta-rotate(8), zelta-sync(8), ssh(1), zfs(8), zfs-list(8)
+zelta(8), zelta-clone(8), zelta-backup(8), zelta-options(7), zelta-match(8), zelta-revert(8), zelta-rotate(8), ssh(1), zfs(8), zfs-list(8)
 
 # AUTHORS
 Daniel J. Bell <_bellhyve@zelta.space_>
