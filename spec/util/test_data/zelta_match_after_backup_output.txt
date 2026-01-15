@@ -1,0 +1,10 @@
+DS_SUFFIX         MATCH                       SRC_LAST                    TGT_LAST                    INFO
+[treetop]         @zelta_2026-01-11_21.50.46  @zelta_2026-01-11_21.50.46  @zelta_2026-01-11_21.50.46  up-to-date
+/sub1             @zelta_2026-01-11_21.50.46  @zelta_2026-01-11_21.50.46  @zelta_2026-01-11_21.50.46  up-to-date
+/sub1/child       @zelta_2026-01-11_21.50.46  @zelta_2026-01-11_21.50.46  @zelta_2026-01-11_21.50.46  up-to-date
+/sub2             @zelta_2026-01-11_21.50.46  @zelta_2026-01-11_21.50.46  @zelta_2026-01-11_21.50.46  up-to-date
+/sub2/orphan      @zelta_2026-01-11_21.50.46  @zelta_2026-01-11_21.50.46  @zelta_2026-01-11_21.50.46  up-to-date
+/sub3             @zelta_2026-01-11_21.50.46  @zelta_2026-01-11_21.50.46  @zelta_2026-01-11_21.50.46  up-to-date
+/sub3/space name  @zelta_2026-01-11_21.50.46  @zelta_2026-01-11_21.50.46  @zelta_2026-01-11_21.50.46  up-to-date
+/vol1             @zelta_2026-01-11_21.50.46  @zelta_2026-01-11_21.50.46  @zelta_2026-01-11_21.50.46  up-to-date
+8 up-to-date
