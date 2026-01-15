@@ -108,7 +108,7 @@ function set_var(option_list, var, val) {
 }
 
 # Load policy options from TSV file into global arrays for scope and type tracking
-function load_option_list(	_tsv, _key, _idx, _flags, _flag_arr) {
+function load_option_list(	_tsv, _key, _idx, _flags, _flag_arr, _legacy_arr) {
 	_tsv = Opt["SHARE"]"/zelta-opts.tsv"
 	# TO-DO: Complain if TSV doesn't load
 	FS="\t"

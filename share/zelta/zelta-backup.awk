@@ -19,6 +19,7 @@
 # Opt: User settings (see the 'zelta' sh script and zelta-opts.tsv)
 # NumDS: Number of datasets in the tree
 # DSList: List of "ds_suffix" elements in replication order
+# FailedProps: List of "permission denied" messages received during sync
 # Dataset: Properties of each dataset, indexed by: ("ENDPOINT", ds_suffix, element)
 # 	[zfsprops]:  ZFS properties from the property-source 'local' or 'none'
 # 	exists
@@ -293,7 +294,7 @@ function explain_sync_status(ds_suffix, 		_src_idx, _tgt_idx, _src_ds, _tgt_ds) 
 }
 
 # Ensure source snapshots are avialable and load snapshot relationship data
-function validate_snapshots(		_i, _ds_suffix, _src_idx, _match, _src_latest) {
+function validate_snapshots(		_i, _ds_suffix, _src_idx, _match, _src_exists, _src_latest) {
 	create_source_snapshot()
 	load_snapshot_deltas()
 	for (_i in DSList) {
@@ -516,8 +517,8 @@ function dataset_exists(ep, ds,		_cmd_arr, _cmd, _ds_exists, _remote) {
 # so this is a perfect test and it's a requirement if the CHECK_PARENT option is given. Unfortunately,
 # a nasty ZFS bug means that 'zfs create' won't work with readonly datasets, or datasets the user doesn't
 # have access to. Thus, we cannot avoid the following gnarly logic.
-function validate_target_parent_dataset(		_parent, _cmd, _cmd_arr, _depth,
-							_ds_exists, _retry, _null_arr) {
+function validate_target_parent_dataset(		_parent, _cmd, _cmd_arr, _depth, _hit_readonly,
+												_attempts, _ds_exists, _retry, _success, _null_arr) {
 	if (DSTree["target_exists"]) return 1
 	_parent = Opt["TGT_DS"]
 	sub(/\/[^\/]*$/, "", _parent) # Strip last child element
@@ -1063,7 +1064,7 @@ function run_backup(		_i, _ds_suffix, _syncable) {
 	}
 }
 
-function print_summary(		_i, _ds_suffix, _num_streams) {
+function print_summary(		_status, _i, _ds_suffix, _num_streams) {
 	if(Summary["failed_props"])
 		report(LOG_WARNING, "missing `zfs allow` permissions: " Summary["failed_props"])
 	if (DSTree["up_to_date"] == NumDS) {
