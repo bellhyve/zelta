@@ -7,6 +7,8 @@
       * [🔰 Making your first test - a simple Example](#-making-your-first-test---a-simple-example)
     * [Setting up a local development environment](#setting-up-a-local-development-environment)
   * [Testing `zelta`](#testing-zelta)
+    * [:star: Using the test helper](#star-using-the-test-helper)
+    * [Example test_runner.sh output](#example-test_runnersh-output)
     * [:zap: To run the standard Zelta test](#zap-to-run-the-standard-zelta-test-)
     * [:zap: To run all tests](#zap-to-run-all-tests)
     * [🔰 shellspec examples](#-shellspec-examples)
