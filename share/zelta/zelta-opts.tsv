@@ -26,10 +26,12 @@ all	--yule	YULE		true
 
 # Options for 'zelta backup' and other 'zfs send/recv/clone' verbs
 policy,backup,replicate,sync,rotate	--json,-j	LOG_MODE		set	json	json output
-policy,backup,replicate,sync,rotate	-b,--backup,-c,--compressed,-D,--dedup,-e,--embed,--holds,-L,--largeblock,-p,--parsable,--proctitle,--props,--raw,--skipmissing,-V,-w	SEND_OVERRIDE		arglist
 policy,backup,replicate,sync,rotate	--send-check	SEND_CHECK		true
+policy,backup,replicate,sync,rotate	-b,--backup,-c,--compressed,-D,--dedup,-e,--embed,--holds,-L,--largeblock,-p,--parsable,--proctitle,--props,--raw,--skipmissing,-V,-w	SEND_OVERRIDE		arglist
 policy,backup,replicate,sync,rotate	-F	SEND_OVERRIDE		arglist	 		destructive option 'F' used; consider 'zelta rotate' when possible
+policy,backup,replicate,sync,rotate	--send-override	SEND_OVERRIDE		set	 
 policy,backup,replicate,sync,rotate	-e,-M,-u	RECV_OVERRIDE		arglist
+policy,backup,replicate,sync,rotate	--recv-override	RECV_OVERRIDE		set
 policy,backup,replicate,sync,rotate	--rotate	VERB		set	rotate
 policy,backup,replicate,sync,rotate	--replicate,-R	VERB		set	replicate
 policy,backup,replicate,sync,rotate	--resume	RESUME		true		save partial transfers (default)

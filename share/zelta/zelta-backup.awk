@@ -900,6 +900,11 @@ function rename_dataset(endpoint,		_old_ds, _new_ds, _remote, _snap,
 	_cmd_arr["old_ds"]		= rq(_remote, _old_ds)
 	_cmd_arr["new_ds"]		= rq(_remote, _new_ds)
 	_cmd				= build_command("RENAME", _cmd_arr)
+	if (Opt["DRYRUN"]) {
+		report(LOG_NOTICE, "would rename '" _old_ds "' to '" _new_ds"'")
+		report(LOG_NOTICE, "+ "_cmd)
+		return _new_ds
+	}
 	report(LOG_NOTICE, "renaming '" _old_ds "' to '" _new_ds"'")
 	report(LOG_DEBUG, "`"_cmd"`")
 	_cmd = _cmd CAPTURE_OUTPUT
