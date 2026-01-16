@@ -5,12 +5,9 @@
 
 ---
 
-> **⚠️ RELEASE CANDIDATE**  
-> This is a release has significant improvements over the stable 1.0 branch. Documentation and QA are near completion, and the codebase is solid and is actively being used in production for thousands of backup workflows.
-> 
-> - **Stable Release:** For the most tried-and-true version of Zelta see the [March 2024 release (v1.0)](https://github.com/bellhyve/zelta/tree/release/1.0)
 > - **What's New:** Check [CHANGELOG.md](CHANGELOG.md) for the latest changes
 > - **Found a Bug?** Please [open an issue](https://github.com/bellhyve/zelta/issues)
+> - **Previous Release:** [March 2024, Zelta v1.0](https://github.com/bellhyve/zelta/tree/release/1.0)
 
 ---
 
