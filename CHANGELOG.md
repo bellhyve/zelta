@@ -2,7 +2,7 @@
 
 All notable changes to the Zelta will be documented in this file.
 
-## [1.1.beta4] - 2026-01-12
+## [1.1.rc1] - 2026-01-15
 This section will be modified until v1.1 is officially released.
 
 ### Added

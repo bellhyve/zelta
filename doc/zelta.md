@@ -63,7 +63,7 @@ Configuration follows a hierarchy from lowest to highest precedence:
     4. Environment variables
     5. Command-line arguments
 
-See **zelta-options(8)** for details.
+See **zelta-options(7)** for details.
 
 # FILES
 **/usr/local/etc/zelta/zelta.conf**
@@ -99,7 +99,7 @@ Back up everything defined in policy settings (**zelta.conf**).
 Returns 0 on success, non-zero on error.
 
 # SEE ALSO
-zelta-match(8), zelta-backup(8), zelta-policy(8), zelta-clone(8), zelta-options(8), zelta-revert(8), zelta-rotate(8), cron(8), ssh(1), zfs(8)
+zelta-match(8), zelta-backup(8), zelta-policy(8), zelta-clone(8), zelta-options(7), zelta-revert(8), zelta-rotate(8), cron(8), ssh(1), zfs(8)
 
 # AUTHORS
 Daniel J. Bell <_bellhyve@zelta.space_>

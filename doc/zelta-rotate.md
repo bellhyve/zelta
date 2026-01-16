@@ -95,7 +95,7 @@ The original diverged datasets remain accessible as `sink/source/dataset_<snapsh
 Returns 0 on success, non-zero on error.
 
 # NOTES
-See **zelta-options(8)** for environment variables, `zelta.env` configuration, and `zelta policy` integration.
+See **zelta-options(7)** for environment variables, `zelta.env` configuration, and `zelta policy` integration.
 
 # SEE ALSO
 zelta(8), zelta-options(7), zelta-match(8), zelta-backup(8), zelta-policy(8), zelta-clone(8), zelta-revert(8), ssh(1), zfs(8), zfs-allow(8)

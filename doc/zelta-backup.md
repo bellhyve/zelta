@@ -76,7 +76,7 @@ _target_
 : Quiet output. Specify once to suppress warnings, twice (`-qq`) to suppress errors.
 
 **-j, \--json**
-: Output results in JSON format. See **zelta-options(8)** for details.
+: Output results in JSON format. See **zelta-options(7)** for details.
 
 **-n, \--dryrun, \--dry-run**
 : Display `zfs` commands without executing them.
@@ -273,7 +273,7 @@ Returns 0 on success, non-zero on error.
 
 # NOTES
 
-See **zelta-options(8)** for environment variables, `zelta.env` configuration, and `zelta policy` integration.
+See **zelta-options(7)** for environment variables, `zelta.env` configuration, and `zelta policy` integration.
 
 The `zelta sync` command is a convenience alias for `zelta backup -i` and may be extended in future versions with additional optimizations for continuous replication workflows.
 
