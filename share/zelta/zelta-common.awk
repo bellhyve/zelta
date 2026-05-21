@@ -315,6 +315,7 @@ function parse_duration(str,	_num, _unit) {
 	if (str == "") return ""
 	if (substr(str, 1, 1) == "+" || substr(str, 1, 1) == "-")
 		str = substr(str, 2)
+	gsub(/[ 	]+/, "", str)
 	_num = str
 	_unit = str
 	sub(/[A-Za-z].*/, "", _num)

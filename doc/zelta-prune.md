@@ -12,7 +12,7 @@
 
 **zelta prune** reports snapshots on a source dataset tree that are candidates for pruning. It is nondestructive. To destroy snapshots, use **zprune(8)** with identical prune options.
 
-Pruning is built from filters which describe the retention shape or narrow the dataset tree, snapshot names, target-safety requirement, or minimum useful size.
+Pruning is built from filters which describe the retention shape or narrow the dataset tree, snapshot names, target-safety requirement, or size recovery target.
 
 By default, **zelta prune** applies this failsafe filter:
 
@@ -43,21 +43,6 @@ Common options:
 - **--keep-snap-num** _N_: keep the newest _N_ snapshots.
 - **--keep-snap-time** _TIME_: keep snapshots newer than _TIME_.
 
-## Prune Window
-
-Prune windows count from the earliest snapshots. They select a bounded amount of old history.
-
-```text
-oldest                                      latest
-x x x x o o o o o o o o o o o o o o o o o o
-prune 4
-```
-
-Common options:
-
-- **--prune-snap-num** _N_: consider the oldest _N_ snapshots.
-- **--prune-snap-time** _TIME_: consider snapshots older than _TIME_.
-
 ## GFS Grid
 
 The grid keeps sparse historical points and prunes snapshots between them.
@@ -68,13 +53,15 @@ o x x x o x x x o x o x o x o o o o o o o o
 weekly      daily      hourly       recent
 ```
 
-Grid terms use _COUNT_`x`_INTERVAL_. Delimiters are intentionally loose; commas, spaces, and vertical bars may be mixed.
+Grid terms use _COUNT_`x`_INTERVAL_. A term without `x` keeps one snapshot per interval forever from that point onward. Separate terms with commas or vertical bars. Whitespace is allowed around `x` and between interval numbers and units.
 
 ```sh
-zelta prune --prune-grid='24x1h | 7x1d | 4x1w | 12x1mo' source target
+zelta prune --prune-grid='30x1 day, 52x1 week, 1 year' source target
 ```
 
-Grid intervals use the same duration syntax as **--keep-snap-time** and **--prune-snap-time**.
+Grid intervals use the same duration syntax as **--keep-snap-time**.
+
+Snapshots older than a bounded grid span are prune candidates unless protected by another filter. An unbounded term such as `1 year` keeps one snapshot per year for all older history. Zelta recommends putting unbounded terms last, but does not enforce it.
 
 ## Duration Syntax
 
@@ -110,14 +97,8 @@ _target_
 **--keep-snap-time** _TIME_
 : Keep snapshots newer than _TIME_. Bare numbers are seconds.
 
-**--prune-snap-num** _N_
-: Consider the oldest _N_ snapshots after the match point.
-
-**--prune-snap-time** _TIME_
-: Consider snapshots older than _TIME_. Bare numbers are seconds.
-
 **--prune-grid** _GRID_
-: Apply GFS-style grid retention. Example: `24x1h | 7x1d | 4x1w`.
+: Apply GFS-style grid retention. Example: `30x1 day, 52x1 week, 1 year`.
 
 ## Safety And Selection Filters
 
@@ -137,7 +118,7 @@ _target_
 : Equivalent to **--prune-synced=never**.
 
 **--prune-size** _SIZE_
-: Only report candidates whose snapshot `used` value is at least _SIZE_. This filter is off by default. _SIZE_ accepts byte counts and suffixes such as `K`, `M`, `G`, and `T`.
+: Select oldest eligible snapshots until their cumulative snapshot `used` values reach at least _SIZE_. This planner target is off by default. _SIZE_ accepts byte counts and suffixes such as `K`, `M`, `G`, and `T`.
 
 **-d**, **--depth** _LEVELS_
 : Limit dataset-tree recursion depth. A depth of `1` includes only the specified dataset.
@@ -211,16 +192,10 @@ zelta prune --keep-snap-num=200 --keep-snap-time=180days \
     tank/data backup:tank/data
 ```
 
-Prune only the oldest 20 snapshots:
-
-```sh
-zelta prune --prune-snap-num=20 tank/data backup:tank/data
-```
-
 Apply GFS-style retention:
 
 ```sh
-zelta prune --prune-grid='24x1h | 7x1d | 4x1w | 12x1mo' \
+zelta prune --prune-grid='30x1 day, 52x1 week, 1 year' \
     tank/data backup:tank/data
 ```
 
@@ -231,7 +206,7 @@ zelta prune --exclude='*/tmp' --include='@daily-*' \
     tank/data backup:tank/data
 ```
 
-Only report candidates using at least 1 GiB:
+Prune from the oldest eligible snapshots until at least 1 GiB is selected:
 
 ```sh
 zelta prune --prune-size=1G tank/data backup:tank/data

@@ -84,12 +84,10 @@ match	--time	CHECK_TIME		true
 # 'zelta prune' options
 prune	--keep-snap-time	KEEP_SNAP_TIME		set		duration of recent snapshots to keep
 prune	--keep-snap-num	KEEP_SNAP_NUM		set		number of old matches to skip
-prune	--prune-snap-time	PRUNE_SNAP_TIME		set		duration of oldest snapshots eligible to prune
-prune	--prune-snap-num	PRUNE_SNAP_NUM		set		maximum older matches eligible to prune
-prune	--prune-grid	PRUNE_GRID		set		GFS grid retention such as '24x1h | 7x1d | 4x1w'
+prune	--prune-grid	PRUNE_GRID		set		GFS grid retention such as '30x1 day, 52x1 week, 1 year'
 prune	--prune-synced	PRUNE_SYNCED		set		prune sync safety: match, always, or never
 prune	--no-prune-synced	PRUNE_SYNCED		set	never	disable target safety checks
-prune	--prune-size	PRUNE_SIZE		set		minimum snapshot used bytes worth pruning
+prune	--prune-size	PRUNE_SIZE		set		select oldest eligible snapshots until size is reached
 prune	--no-ranges	NO_RANGES		true		disable range compression (output individual snapshots)
 prune	--prune-policy	PRUNE_POLICY		set		pruning strategy: trim (default), force-trim, thin, space, name
 prune	--prune-name	PRUNE_NAME		set		snapshot name pattern: zfsnap, truenas, sanoid, or custom pattern

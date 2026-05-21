@@ -107,7 +107,7 @@ parse_args() {
 
 		if [ -z "$ZPRUNE_SOURCE" ]; then
 			case "$1" in
-				--log-level|--log-mode|--depth|-d|--exclude|-X|--include|--keep-snap-num|--keep-snap-time|--prune-snap-num|--prune-snap-time|--prune-grid|--prune-synced|--prune-size|--prune-policy|--prune-name)
+				--log-level|--log-mode|--depth|-d|--exclude|-X|--include|--keep-snap-num|--keep-snap-time|--prune-grid|--prune-synced|--prune-size|--prune-policy|--prune-name)
 					append_prune_arg "$1"
 					shift
 					[ $# -gt 0 ] || { error "missing argument after option"; exit 1; }

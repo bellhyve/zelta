@@ -48,10 +48,9 @@ function usage_prune(message) {
 	print "Options:"                                                                                    > STDERR
 	print "\t--keep-snap-num=N    Minimum number of snapshots to keep after match (default: 30)"        > STDERR
 	print "\t--keep-snap-time=T   Keep snapshots newer than duration T (default: 30days)"              > STDERR
-	print "\t--prune-snap-time=T  Prune snapshots older than duration T"                               > STDERR
-	print "\t--prune-grid=GRID    GFS grid such as '24x1h | 7x1d | 4x1w'"                              > STDERR
+	print "\t--prune-grid=GRID    GFS grid such as '30x1 day, 52x1 week, 1 year'"                       > STDERR
 	print "\t--prune-synced=MODE  Safety mode: match (default), always, never"                         > STDERR
-	print "\t--prune-size=N       Minimum snapshot used bytes worth pruning"                           > STDERR
+	print "\t--prune-size=N       Select oldest eligible snapshots until N bytes are reached"           > STDERR
 	print "\t--no-ranges          Disable range compression (output individual snapshots)"              > STDERR
 	print "\t-X pattern           Exclude datasets or snapshots matching pattern"                       > STDERR
 	print "\t--include pattern    Include only datasets or snapshots matching pattern\n"                > STDERR
@@ -524,9 +523,7 @@ function prune_init(		_prune_size) {
 	if ((Opt["PRUNE_SYNCED"] != "match") && (Opt["PRUNE_SYNCED"] != "always") && (Opt["PRUNE_SYNCED"] != "never"))
 		usage_prune("invalid --prune-synced: " Opt["PRUNE_SYNCED"])
 
-	if (!Opt["KEEP_SNAP_NUM"] && !Opt["KEEP_SNAP_TIME"] &&
-	    !Opt["PRUNE_SNAP_NUM"] && !Opt["PRUNE_SNAP_TIME"] &&
-	    !Opt["PRUNE_GRID"]) {
+	if (!Opt["KEEP_SNAP_NUM"] && !Opt["KEEP_SNAP_TIME"] && !Opt["PRUNE_GRID"]) {
 		Opt["KEEP_SNAP_NUM"] = 30
 		Opt["KEEP_SNAP_TIME"] = "30days"
 	}
@@ -545,16 +542,21 @@ function prune_init(		_prune_size) {
 function parse_prune_grid(	_grid, _parts, _n, _i, _term, _x, _count, _interval) {
 	_grid = Opt["PRUNE_GRID"]
 	gsub(/[ 	]*x[ 	]*/, "x", _grid)
-	_n = split(_grid, _parts, /[, |]+/)
+	_n = split(_grid, _parts, /[,|]+/)
 	for (_i = 1; _i <= _n; _i++) {
 		_term = _parts[_i]
+		sub(/^[ 	]+/, "", _term)
+		sub(/[ 	]+$/, "", _term)
 		if (!_term) continue
 		_x = index(_term, "x")
-		if (!_x)
-			usage_prune("invalid --prune-grid term: " _term)
-		_count = substr(_term, 1, _x - 1)
-		_interval = parse_duration(substr(_term, _x + 1))
-		if ((_count !~ /^[0-9]+$/) || !_interval)
+		if (_x) {
+			_count = substr(_term, 1, _x - 1)
+			_interval = parse_duration(substr(_term, _x + 1))
+		} else {
+			_count = -1
+			_interval = parse_duration(_term)
+		}
+		if (((_count != -1) && (_count !~ /^[0-9]+$/)) || !_interval)
 			usage_prune("invalid --prune-grid term: " _term)
 		PruneGridCount[++NumPruneGrid] = _count
 		PruneGridInterval[NumPruneGrid] = _interval
@@ -567,6 +569,14 @@ function grid_keeps_snapshot(creation,	_age, _g, _start, _end, _bucket) {
 	_age = Global["now"] - creation
 	_start = 0
 	for (_g = 1; _g <= NumPruneGrid; _g++) {
+		if (PruneGridCount[_g] == -1) {
+			if (_age < _start)
+				return 0
+			_bucket = _g S int((_age - _start) / PruneGridInterval[_g])
+			if (!PruneGridBucket[_bucket]++)
+				return 1
+			return 0
+		}
 		_end = _start + (PruneGridCount[_g] * PruneGridInterval[_g])
 		if ((_age >= _start) && (_age < _end)) {
 			_bucket = _g S int((_age - _start) / PruneGridInterval[_g])
@@ -587,18 +597,14 @@ function synced_allows_prune(tgt_ds_id, guid, savepoint) {
 	return 1
 }
 
-function space_allows_prune(src_row) {
-	if (!Opt["PRUNE_SIZE_BYTES"])
-		return 1
-	return (Row[src_row, "used"] >= Opt["PRUNE_SIZE_BYTES"])
-}
-
 # Analyze snapshots for pruning eligibility.
 # Target safety is controlled by --prune-synced.
 function analyze_prune_candidates(		_d, _ds_suffix, _src_ds_id, _tgt_ds_id, _num_snaps,
 						_s, _src_row, _savepoint, _guid, _creation,
 						_match_idx, _snap_seconds, _min_age, _keep_after_match,
-						_prune_seconds, _prune_min_age, _prune_limit, _seen_after_match) {
+						_seen_after_match, _eligible_num, _used_total, _p,
+						_selected_num, SelectedSnap, SelectedSnapIdx,
+						EligibleSnap, EligibleSnapIdx, EligibleSnapUsed) {
 
 	prune_init()
 	Global["now"] = sys_time()
@@ -610,13 +616,6 @@ function analyze_prune_candidates(		_d, _ds_suffix, _src_ds_id, _tgt_ds_id, _num
 	}
 	_min_age = Global["now"] - _snap_seconds
 	_keep_after_match = Opt["KEEP_SNAP_NUM"]
-	if (Opt["PRUNE_SNAP_TIME"]) {
-		_prune_seconds = parse_duration(Opt["PRUNE_SNAP_TIME"])
-		if (_prune_seconds == "")
-			usage_prune("invalid --prune-snap-time: " Opt["PRUNE_SNAP_TIME"])
-	}
-	_prune_min_age = _prune_seconds ? Global["now"] - _prune_seconds : 0
-	_prune_limit = Opt["PRUNE_SNAP_NUM"]
 
 	for (_d = 1; _d <= NumDSPair; _d++) {
 		_ds_suffix = DSPairList[_d]
@@ -624,6 +623,14 @@ function analyze_prune_candidates(		_d, _ds_suffix, _src_ds_id, _tgt_ds_id, _num
 		_tgt_ds_id = Target["ID"] S _ds_suffix S ""
 		_num_snaps = NumSnaps[_src_ds_id]
 		delete PruneGridBucket
+		delete EligibleSnap
+		delete EligibleSnapIdx
+		delete EligibleSnapUsed
+		delete SelectedSnap
+		delete SelectedSnapIdx
+		_eligible_num = 0
+		_selected_num = 0
+		_used_total = 0
 
 		_match_idx = DSPair[_ds_suffix, "match_idx"]
 		if (!_match_idx && (Opt["PRUNE_SYNCED"] != "never")) {
@@ -657,18 +664,32 @@ function analyze_prune_candidates(		_d, _ds_suffix, _src_ds_id, _tgt_ds_id, _num
 
 			if ((NumPruneGrid && grid_keeps_snapshot(_creation)) ||
 			    (_keep_after_match && (_seen_after_match <= _keep_after_match)) ||
-			    (_min_age && (_creation >= _min_age)) ||
-			    (_prune_limit && ((_num_snaps - _s + 1) > _prune_limit)) ||
-			    (_prune_min_age && (_creation >= _prune_min_age)) ||
-			    !space_allows_prune(_src_row)) {
+			    (_min_age && (_creation >= _min_age))) {
 				KeptSnap[_src_ds_id, ++NumKeptSnap[_src_ds_id]] = _savepoint
 				KeptSnapIdx[_src_ds_id, NumKeptSnap[_src_ds_id]] = _s
 				continue
 			}
 
-			# Mark as prune candidate (store with index for range compression)
-			PruneSnap[_src_ds_id, ++PruneSnapNum[_src_ds_id]] = _savepoint
-			PruneSnapIdx[_src_ds_id, PruneSnapNum[_src_ds_id]] = _s
+			if (Opt["PRUNE_SIZE_BYTES"]) {
+				EligibleSnap[++_eligible_num] = _savepoint
+				EligibleSnapIdx[_eligible_num] = _s
+				EligibleSnapUsed[_eligible_num] = Row[_src_row, "used"]
+			} else {
+				PruneSnap[_src_ds_id, ++PruneSnapNum[_src_ds_id]] = _savepoint
+				PruneSnapIdx[_src_ds_id, PruneSnapNum[_src_ds_id]] = _s
+			}
+		}
+
+		for (_p = _eligible_num; Opt["PRUNE_SIZE_BYTES"] && (_p >= 1); _p--) {
+			SelectedSnap[++_selected_num] = EligibleSnap[_p]
+			SelectedSnapIdx[_selected_num] = EligibleSnapIdx[_p]
+			_used_total += EligibleSnapUsed[_p]
+			if (_used_total >= Opt["PRUNE_SIZE_BYTES"])
+				break
+		}
+		for (_p = _selected_num; _p >= 1; _p--) {
+			PruneSnap[_src_ds_id, ++PruneSnapNum[_src_ds_id]] = SelectedSnap[_p]
+			PruneSnapIdx[_src_ds_id, PruneSnapNum[_src_ds_id]] = SelectedSnapIdx[_p]
 		}
 	}
 }
