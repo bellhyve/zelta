@@ -20,6 +20,7 @@ fi
 : ${ZELTA_CONFIG:="$ZELTA_ETC/zelta.conf"}
 : ${ZELTA_ENV:="$ZELTA_ETC/zelta.env"}
 ZELTA="$ZELTA_BIN/zelta"
+ZPRUNE="$ZELTA_BIN/zprune"
 
 copy_file() {
 	if [ -z "$3" ]; then
@@ -40,6 +41,7 @@ mkdir -p "$ZELTA_BIN" "$ZELTA_SHARE" "$ZELTA_ETC" || {
 }
 
 copy_file bin/zelta "$ZELTA" 755
+copy_file bin/zprune "$ZPRUNE" 755
 for file in share/zelta/zelta-*; do
     copy_file "$file" "${ZELTA_SHARE}/${file##*/}"
 done
