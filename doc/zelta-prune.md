@@ -45,7 +45,7 @@ Common options:
 
 ## GFS Grid
 
-The grid keeps sparse historical points and prunes snapshots between them.
+The grid keeps sparse historical points and prunes snapshots between them. Grid mode always protects the oldest and newest snapshots in each dataset.
 
 ```text
 oldest                                      latest

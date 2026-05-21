@@ -9,7 +9,7 @@ prune
 .SH DESCRIPTION
 \f[B]zprune\f[R] is the destructive companion to \f[B]zelta prune\f[R].
 It runs \f[B]zelta prune\f[R] with the supplied options, previews each
-reported candidate with \f[B]zfs destroy \-nv\f[R], asks for
+reported candidate with \f[B]zfs destroy \-nvp\f[R], asks for
 confirmation, and then destroys the same candidates with \f[B]zfs
 destroy\f[R].
 .PP
@@ -28,7 +28,7 @@ which defaults to \f[B]ssh(1)\f[R].
 \f[B]\-f\f[R], \f[B]\(enforce\f[R]
 Destroy previewed candidates without asking for confirmation.
 Candidates are still selected by \f[B]zelta prune\f[R] and previewed
-with \f[B]zfs destroy \-nv\f[R] before destruction.
+with \f[B]zfs destroy \-nvp\f[R] before destruction.
 .TP
 \f[B]\-h\f[R], \f[B]\(enhelp\f[R]
 Show command usage.
@@ -75,10 +75,12 @@ candidates are selected by \f[B]zelta prune\f[R];
 .IP \(bu 2
 candidates are validated before preview;
 .IP \(bu 2
-each candidate is previewed with \f[B]zfs destroy \-nv\f[R];
+each candidate is previewed with \f[B]zfs destroy \-nvp\f[R];
 .IP \(bu 2
-the operator must type \f[CR]destroy\f[R] unless \f[B]\(enforce\f[R] is
-used;
+the prompt summarizes snapshot count and estimated reclaimed space;
+.IP \(bu 2
+the operator must answer \f[CR]y\f[R] or \f[CR]yes\f[R] unless
+\f[B]\(enforce\f[R] is used;
 .IP \(bu 2
 \f[B]zfs destroy \-R\f[R] is never used.
 .PP
@@ -135,8 +137,8 @@ For non\-destructive reporting, use \f[B]zelta prune\f[R] directly.
 .PP
 Manual piping from \f[B]zelta prune\f[R] to \f[B]zfs destroy\f[R] is
 discouraged.
-\f[B]zprune\f[R] preserves the review, preview, and confirmation
-workflow.
+\f[B]zprune\f[R] preserves the review, preview, summary, and
+confirmation workflow.
 .SH SEE ALSO
 \f[B]zelta\-prune(8)\f[R], \f[B]zelta(8)\f[R],
 \f[B]zelta\-options(7)\f[R], \f[B]zfs(8)\f[R],

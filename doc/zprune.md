@@ -10,7 +10,7 @@
 
 # DESCRIPTION
 
-**zprune** is the destructive companion to **zelta prune**. It runs **zelta prune** with the supplied options, previews each reported candidate with **zfs destroy -nv**, asks for confirmation, and then destroys the same candidates with **zfs destroy**.
+**zprune** is the destructive companion to **zelta prune**. It runs **zelta prune** with the supplied options, previews each reported candidate with **zfs destroy -nvp**, asks for confirmation, and then destroys the same candidates with **zfs destroy**.
 
 Candidate selection belongs to **zelta prune**. Destruction belongs to **zprune**. This keeps the safety boundary explicit: **zelta prune** reports, **zprune** destroys.
 
@@ -21,7 +21,7 @@ The _source_ and optional _target_ operands have the same meaning as in **zelta-
 ## zprune Options
 
 **-f**, **--force**
-: Destroy previewed candidates without asking for confirmation. Candidates are still selected by **zelta prune** and previewed with **zfs destroy -nv** before destruction.
+: Destroy previewed candidates without asking for confirmation. Candidates are still selected by **zelta prune** and previewed with **zfs destroy -nvp** before destruction.
 
 **-h**, **--help**
 : Show command usage.
@@ -68,8 +68,9 @@ Common prune options:
 
 - candidates are selected by **zelta prune**;
 - candidates are validated before preview;
-- each candidate is previewed with **zfs destroy -nv**;
-- the operator must type `destroy` unless **--force** is used;
+- each candidate is previewed with **zfs destroy -nvp**;
+- the prompt summarizes snapshot count and estimated reclaimed space;
+- the operator must answer `y` or `yes` unless **--force** is used;
 - **zfs destroy -R** is never used.
 
 If the source is remote, destruction is executed on that source host through **ZELTA_REMOTE_COMMAND**. The default remote command is **ssh**.
@@ -123,7 +124,7 @@ Returns 0 on success and non-zero on error, aborted confirmation, failed candida
 
 For non-destructive reporting, use **zelta prune** directly.
 
-Manual piping from **zelta prune** to **zfs destroy** is discouraged. **zprune** preserves the review, preview, and confirmation workflow.
+Manual piping from **zelta prune** to **zfs destroy** is discouraged. **zprune** preserves the review, preview, summary, and confirmation workflow.
 
 # SEE ALSO
 

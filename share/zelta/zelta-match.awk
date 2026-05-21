@@ -662,7 +662,7 @@ function analyze_prune_candidates(		_d, _ds_suffix, _src_ds_id, _tgt_ds_id, _num
 				continue
 			}
 
-			if ((NumPruneGrid && grid_keeps_snapshot(_creation)) ||
+			if ((NumPruneGrid && ((_s == 1) || (_s == _num_snaps) || grid_keeps_snapshot(_creation))) ||
 			    (_keep_after_match && (_seen_after_match <= _keep_after_match)) ||
 			    (_min_age && (_creation >= _min_age))) {
 				KeptSnap[_src_ds_id, ++NumKeptSnap[_src_ds_id]] = _savepoint
