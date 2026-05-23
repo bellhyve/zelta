@@ -118,7 +118,9 @@ _target_
 : Equivalent to **--prune-synced=never**.
 
 **--prune-size** _SIZE_
-: Select oldest eligible snapshots until their cumulative snapshot `used` values reach at least _SIZE_. This planner target is off by default. _SIZE_ accepts ZFS-style byte counts and suffixes such as `K`, `KB`, `M`, `GB`, and `T`.
+: Select oldest eligible snapshots until their estimated reclaim reaches at least _SIZE_. This planner target is off by default. _SIZE_ accepts ZFS-style byte counts and suffixes such as `K`, `KB`, `M`, `GB`, and `T`.
+
+The estimate is based on sequential oldest-first pruning. It does not factor in other retention shapes; if other filters create gaps, run pruning in multiple passes or use **zprune(8)** preview as the final authority.
 
 **-d**, **--depth** _LEVELS_
 : Limit dataset-tree recursion depth. A depth of `1` includes only the specified dataset.

@@ -236,8 +236,8 @@ count_source_snapshots() {
 	run_zfs_list "-H -r -t snapshot -o name" 2>/dev/null | awk 'END { print NR + 0 }'
 }
 
-sum_source_snapshot_used() {
-	run_zfs_list "-H -r -p -t snapshot -o used" 2>/dev/null |
+sum_source_snapshot_written() {
+	run_zfs_list "-H -r -p -t snapshot -o written" 2>/dev/null |
 	awk '{ total += $1 } END { print total + 0 }'
 }
 
@@ -348,7 +348,7 @@ print_summary() {
 	echo ""
 	printf '%s snapshots (%s%% of %s) will be destroyed\n' \
 		"$_destroy_count" "$(percent_of "$_destroy_count" "$_total_count")" "$_total_count"
-	printf '~%s freed (%s%% of snapshot space)\n' \
+	printf '~%s freed (%s%% of used dataset space)\n' \
 		"$(human_size "$_reclaim_bytes")" "$(percent_of "$_reclaim_bytes" "$_total_bytes")"
 
 }
@@ -402,7 +402,7 @@ main() {
 	_reclaim_bytes=$(preview_reclaim_bytes "$_preview_file")
 	rm -f "$_preview_file"
 	_total_count=$(count_source_snapshots)
-	_total_bytes=$(sum_source_snapshot_used)
+	_total_bytes=$(sum_source_snapshot_written)
 	print_summary "$_destroy_count" "$_total_count" "$_reclaim_bytes" "$_total_bytes"
 
 	if [ -z "$ZPRUNE_FORCE" ]; then

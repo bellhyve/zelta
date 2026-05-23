@@ -68,7 +68,7 @@ function usage_prune(message) {
 # Default to 'zfs list ... -o written', but implicitly avoid since it's slow
 function add_written() {
 	if (Opt["VERB"] == "prune")
-		return ",written,creation,used"
+		return ",written,creation,used,referenced"
 	if (Opt["LIST_WRITTEN"] && Opt["PROPLIST"]) {
 		if (Opt["PARSABLE"] && (Opt["PROPLIST"] !~ /(all|written|size)/))
 			return ""
@@ -165,7 +165,7 @@ function object_type(symbol) {
 }
 
 # Load each row into memory
-function process_row(ep,		_name, _guid, _written, _name_suffix, _ds_suffix, _savepoint,
+function process_row(ep,		_name, _guid, _written, _referenced, _name_suffix, _ds_suffix, _savepoint,
 		     			_type, _ep_id, _ds_id, _ds_snap, _row_id, _tmp_arr, _num_snaps) {
 	# Read the row data
 	_name      = $1
@@ -173,6 +173,7 @@ function process_row(ep,		_name, _guid, _written, _name_suffix, _ds_suffix, _sav
 	_written   = $3
 	_creation  = $4
 	_used      = $5
+	_referenced = $6
 
 	# Get the relative dataset suffix and then split to dataset and snapshot/bookmark name
 	_name_suffix		= substr(_name, ep["ds_length"])
@@ -211,6 +212,7 @@ function process_row(ep,		_name, _guid, _written, _name_suffix, _ds_suffix, _sav
 	Row[_row_id, "written"]    = _written
 	Row[_row_id, "creation"]   = _creation
 	Row[_row_id, "used"]       = _used
+	Row[_row_id, "referenced"] = _referenced
 	Row[_row_id, "name"]       = _name
 	Row[_row_id, "type"]       = _type
 	Row[_row_id, "ds_suffix"]  = _ds_suffix
@@ -603,9 +605,9 @@ function synced_allows_prune(tgt_ds_id, guid, savepoint) {
 function analyze_prune_candidates(		_d, _ds_suffix, _src_ds_id, _tgt_ds_id, _num_snaps,
 						_s, _src_row, _savepoint, _guid, _creation,
 						_match_idx, _snap_seconds, _min_age, _keep_after_match,
-						_seen_after_match, _eligible_num, _used_total, _p,
+						_seen_after_match, _eligible_num, _written_total, _prune_estimate, _p,
 						_selected_num, SelectedSnap, SelectedSnapIdx,
-						EligibleSnap, EligibleSnapIdx, EligibleSnapUsed) {
+						EligibleSnap, EligibleSnapIdx, EligibleSnapWritten, EligibleSnapReferenced) {
 
 	prune_init()
 	Global["now"] = sys_time()
@@ -626,12 +628,14 @@ function analyze_prune_candidates(		_d, _ds_suffix, _src_ds_id, _tgt_ds_id, _num
 		delete PruneGridBucket
 		delete EligibleSnap
 		delete EligibleSnapIdx
-		delete EligibleSnapUsed
+		delete EligibleSnapWritten
+		delete EligibleSnapReferenced
 		delete SelectedSnap
 		delete SelectedSnapIdx
 		_eligible_num = 0
 		_selected_num = 0
-		_used_total = 0
+		_written_total = 0
+		_prune_estimate = 0
 
 		_match_idx = DSPair[_ds_suffix, "match_idx"]
 		if (!_match_idx && (Opt["PRUNE_SYNCED"] != "never")) {
@@ -674,7 +678,8 @@ function analyze_prune_candidates(		_d, _ds_suffix, _src_ds_id, _tgt_ds_id, _num
 			if (Opt["PRUNE_SIZE_BYTES"]) {
 				EligibleSnap[++_eligible_num] = _savepoint
 				EligibleSnapIdx[_eligible_num] = _s
-				EligibleSnapUsed[_eligible_num] = Row[_src_row, "used"]
+				EligibleSnapWritten[_eligible_num] = Row[_src_row, "written"]
+				EligibleSnapReferenced[_eligible_num] = Row[_src_row, "referenced"]
 			} else {
 				PruneSnap[_src_ds_id, ++PruneSnapNum[_src_ds_id]] = _savepoint
 				PruneSnapIdx[_src_ds_id, PruneSnapNum[_src_ds_id]] = _s
@@ -684,8 +689,9 @@ function analyze_prune_candidates(		_d, _ds_suffix, _src_ds_id, _tgt_ds_id, _num
 		for (_p = _eligible_num; Opt["PRUNE_SIZE_BYTES"] && (_p >= 1); _p--) {
 			SelectedSnap[++_selected_num] = EligibleSnap[_p]
 			SelectedSnapIdx[_selected_num] = EligibleSnapIdx[_p]
-			_used_total += EligibleSnapUsed[_p]
-			if (_used_total >= Opt["PRUNE_SIZE_BYTES"])
+			_written_total += EligibleSnapWritten[_p]
+			_prune_estimate = _written_total - EligibleSnapReferenced[_p]
+			if (_prune_estimate >= Opt["PRUNE_SIZE_BYTES"])
 				break
 		}
 		for (_p = _selected_num; _p >= 1; _p--) {
