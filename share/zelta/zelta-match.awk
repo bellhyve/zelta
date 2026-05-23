@@ -523,12 +523,13 @@ function prune_init(		_prune_size) {
 	if ((Opt["PRUNE_SYNCED"] != "match") && (Opt["PRUNE_SYNCED"] != "always") && (Opt["PRUNE_SYNCED"] != "never"))
 		usage_prune("invalid --prune-synced: " Opt["PRUNE_SYNCED"])
 
-	if (!Opt["PRUNE_NUM"] && !Opt["PRUNE_TIME"] && !Opt["PRUNE_GRID"]) {
+	if (Opt["PRUNE_NUM"] == "" && Opt["PRUNE_TIME"] == "" &&
+	    Opt["PRUNE_GRID"] == "" && Opt["PRUNE_SIZE"] == "") {
 		Opt["PRUNE_NUM"] = 30
 		Opt["PRUNE_TIME"] = "30days"
 	}
 
-	if (Opt["PRUNE_SIZE"]) {
+	if (Opt["PRUNE_SIZE"] != "") {
 		_prune_size = parse_size(Opt["PRUNE_SIZE"])
 		if (_prune_size == "")
 			usage_prune("invalid --prune-size: " Opt["PRUNE_SIZE"])
@@ -609,7 +610,7 @@ function analyze_prune_candidates(		_d, _ds_suffix, _src_ds_id, _tgt_ds_id, _num
 	prune_init()
 	Global["now"] = sys_time()
 
-	if (Opt["PRUNE_TIME"]) {
+	if (Opt["PRUNE_TIME"] != "") {
 		_snap_seconds = parse_duration(Opt["PRUNE_TIME"])
 		if (_snap_seconds == "")
 			stop(1, "invalid --prune-time: " Opt["PRUNE_TIME"])
@@ -663,8 +664,8 @@ function analyze_prune_candidates(		_d, _ds_suffix, _src_ds_id, _tgt_ds_id, _num
 			}
 
 			if ((NumPruneGrid && ((_s == 1) || (_s == _num_snaps) || grid_keeps_snapshot(_creation))) ||
-			    (_keep_after_match && (_seen_after_match <= _keep_after_match)) ||
-			    (_min_age && (_creation >= _min_age))) {
+			    (_keep_after_match != "" && (_keep_after_match > 0) && (_seen_after_match <= _keep_after_match)) ||
+			    (_snap_seconds != "" && (_creation >= _min_age))) {
 				KeptSnap[_src_ds_id, ++NumKeptSnap[_src_ds_id]] = _savepoint
 				KeptSnapIdx[_src_ds_id, NumKeptSnap[_src_ds_id]] = _s
 				continue
