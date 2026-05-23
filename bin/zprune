@@ -256,9 +256,23 @@ human_size() {
 	}'
 }
 
-preview_candidates() {
+destroy_candidate_group() {
+	_flags=$1
+	_candidate_arg=$2
+
+	[ -n "$_candidate_arg" ] || return 0
+	if [ -n "$_flags" ]; then
+		printf '%s\n' "$_candidate_arg"
+	fi
+	run_zfs_destroy "$_flags" "$_candidate_arg"
+}
+
+run_grouped_destroy() {
 	_candidates=$1
+	_flags=$2
 	_failed=0
+	_ds=""
+	_arg=""
 
 	IFS='
 '
@@ -269,23 +283,56 @@ preview_candidates() {
 			*) continue ;;
 		esac
 
-		printf '%s\n' "$_candidate"
-		if ! run_zfs_destroy "-nvp" "$_candidate"; then
-			error "preview failed: $_candidate"
-			_failed=1
+		_candidate_ds=${_candidate%@*}
+		_candidate_spec=${_candidate#*@}
+		if [ -z "$_ds" ]; then
+			_ds=$_candidate_ds
+			_arg=$_candidate
+		elif [ "$_candidate_ds" = "$_ds" ]; then
+			_arg=$_arg,$_candidate_spec
+		else
+			if ! destroy_candidate_group "$_flags" "$_arg"; then
+				error "destroy command failed: $_arg"
+				_failed=1
+			fi
+			_ds=$_candidate_ds
+			_arg=$_candidate
 		fi
 	done
 	unset IFS
 
+	if ! destroy_candidate_group "$_flags" "$_arg"; then
+		error "destroy command failed: $_arg"
+		_failed=1
+	fi
+
 	return $_failed
 }
 
+preview_candidates() {
+	_candidates=$1
+
+	if ! run_grouped_destroy "$_candidates" "-nvp"; then
+		return 1
+	fi
+	return 0
+}
+
+destroy_candidates() {
+	_candidates=$1
+
+	if ! run_grouped_destroy "$_candidates" ""; then
+		return 1
+	fi
+	return 0
+}
+
 preview_destroy_count() {
-	awk '/would destroy / { count++ } END { print count + 0 }' "$1"
+	awk '/^destroy[ 	]/ || /^would destroy / { count++ } END { print count + 0 }' "$1"
 }
 
 preview_reclaim_bytes() {
-	awk '/would reclaim / { bytes = $NF } END { print bytes + 0 }' "$1"
+	awk '/^reclaim[ 	]/ { bytes += $2 } /would reclaim / { bytes += $NF } END { print bytes + 0 }' "$1"
 }
 
 percent_of() {
@@ -317,28 +364,6 @@ confirm_destruction() {
 		exit 1
 		;;
 	esac
-}
-
-destroy_candidates() {
-	_candidates=$1
-	_failed=0
-
-	IFS='
-'
-	for _candidate in $_candidates; do
-		[ -n "$_candidate" ] || continue
-		case "$_candidate" in
-			*@*) ;;
-			*) continue ;;
-		esac
-		if ! run_zfs_destroy "" "$_candidate"; then
-			error "failed to destroy: $_candidate"
-			_failed=1
-		fi
-	done
-	unset IFS
-
-	return $_failed
 }
 
 main() {

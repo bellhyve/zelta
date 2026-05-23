@@ -10,7 +10,7 @@
 
 # DESCRIPTION
 
-**zprune** is the destructive companion to **zelta prune**. It runs **zelta prune** with the supplied options, previews each reported candidate with **zfs destroy -nvp**, asks for confirmation, and then destroys the same candidates with **zfs destroy**.
+**zprune** is the destructive companion to **zelta prune**. It runs **zelta prune** with the supplied options, previews reported candidates with **zfs destroy -nvp**, asks for confirmation, and then destroys the same candidates with **zfs destroy**.
 
 Candidate selection belongs to **zelta prune**. Destruction belongs to **zprune**. This keeps the safety boundary explicit: **zelta prune** reports, **zprune** destroys.
 
@@ -68,7 +68,8 @@ Common prune options:
 
 - candidates are selected by **zelta prune**;
 - candidates are validated before preview;
-- each candidate is previewed with **zfs destroy -nvp**;
+- candidates are grouped per dataset and previewed with **zfs destroy -nvp**;
+- destruction uses the same grouped candidate form as the preview;
 - the prompt summarizes snapshot count and estimated reclaimed space;
 - the operator must answer `y` or `yes` unless **--force** is used;
 - **zfs destroy -R** is never used.

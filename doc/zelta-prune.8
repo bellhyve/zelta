@@ -2,162 +2,272 @@
 .\"
 .TH "zelta\-prune" "8" "" "" "System Manager\(cqs Manual"
 .SH NAME
-\f[B]zelta prune\f[R] \- identify snapshots safe for deletion based on
-backup state
+\f[B]zelta prune\f[R] \- report snapshot prune candidates
 .SH SYNOPSIS
 \f[B]zelta prune\f[R] [\f[I]OPTIONS\f[R]] \f[I]source\f[R]
-\f[I]target\f[R]
+[\f[I]target\f[R]]
 .SH DESCRIPTION
-\f[B]zelta prune\f[R] identifies snapshots on a source dataset that have
-been safely replicated to a target and are eligible for deletion based
-on retention policies.
-This command is useful for managing snapshot accumulation on production
-systems while ensuring backup integrity.
+\f[B]zelta prune\f[R] reports snapshots on a source dataset tree that
+are candidates for pruning.
+It is nondestructive.
+To destroy snapshots, use \f[B]zprune(8)\f[R] with identical prune
+options.
 .PP
-\f[B]zelta prune\f[R] only suggests snapshots for deletion\(emit does
-not delete them.
-Output is provided in a format suitable for review before execution.
+Pruning is built from filters which describe the retention shape or
+narrow the dataset tree, snapshot names, target\-safety requirement, or
+size recovery target.
+.PP
+By default, \f[B]zelta prune\f[R] applies this failsafe filter:
+.IP \(bu 2
+keep the newest 30 snapshots;
+.IP \(bu 2
+keep snapshots newer than 30 days;
+.IP \(bu 2
+warn if target match safety cannot be confirmed.
+.PP
+Defining any explicit retention shape replaces the 30/30 default.
+Filters can be combined; a snapshot is reported only when all selected
+filters allow it.
 .PP
 As with other Zelta commands, \f[B]zelta prune\f[R] works recursively on
 dataset trees.
-Both source and target may be local or remote via \f[B]ssh(1)\f[R].
-.SS Safety Criteria
-\f[B]WARNING:\f[R] \f[CR]zelta prune\f[R] is a new feature currently in
-production testing and will be formally released in Zelta 1.2 (May
-2026).
+Source and target endpoints may be local or remote using
+\f[B]scp(1)\f[R]\-style syntax.
+.SH RETENTION SHAPES
+The examples below show time moving left to right.
+\f[CR]o\f[R] means kept.
+\f[CR]x\f[R] means selected as a prune candidate.
+.SS Keep Window
+Keep windows count from the latest snapshots.
+They protect recent history and prune older history.
+.IP
+.EX
+oldest                                      latest
+x x x x x x x x x x x x x x x x x x o o o o
+                                      keep 4
+.EE
 .PP
-A snapshot is considered safe to prune only if:
-.IP "1." 3
-The snapshot exists on the target (has been replicated)
-.IP "2." 3
-The snapshot is older than the most recent common match point
-.IP "3." 3
-The snapshot meets the minimum retention requirements
+Common options:
+.IP \(bu 2
+\f[B]\(enkeep\-snap\-num\f[R] \f[I]N\f[R]: keep the newest \f[I]N\f[R]
+snapshots.
+.IP \(bu 2
+\f[B]\(enkeep\-snap\-time\f[R] \f[I]TIME\f[R]: keep snapshots newer than
+\f[I]TIME\f[R].
+.SS GFS Grid
+The grid keeps sparse historical points and prunes snapshots between
+them.
+Grid mode always protects the oldest and newest snapshots in each
+dataset.
+.IP
+.EX
+oldest                                      latest
+o x x x o x x x o x o x o x o o o o o o o o
+weekly      daily      hourly       recent
+.EE
 .PP
-Snapshots newer than the common match point are never suggested for
-deletion, as they may be needed for future incremental replication.
+Grid terms use \f[I]COUNT\f[R]\f[CR]x\f[R]\f[I]INTERVAL\f[R].
+A term without \f[CR]x\f[R] keeps one snapshot per interval forever from
+that point onward.
+Separate terms with commas or vertical bars.
+Whitespace is allowed around \f[CR]x\f[R] and between interval numbers
+and units.
+.IP
+.EX
+zelta prune \-\-prune\-grid=\(aq30x1 day, 52x1 week, 1 year\(aq source target
+.EE
 .PP
-Remote endpoint names follow \f[B]scp(1)\f[R] conventions.
-Dataset names follow \f[B]zfs(8)\f[R] naming conventions.
+Grid intervals use the same duration syntax as
+\f[B]\(enkeep\-snap\-time\f[R].
+.PP
+Snapshots older than a bounded grid span are prune candidates unless
+protected by another filter.
+An unbounded term such as \f[CR]1 year\f[R] keeps one snapshot per year
+for all older history.
+Zelta recommends putting unbounded terms last, but does not enforce it.
+.SS Duration Syntax
+Bare numbers are seconds.
+Use unambiguous units for anything else:
+.IP
+.EX
+seconds   s, sec, second, seconds
+minutes   mi, min, minute, minutes
+hours     h, hour, hours
+days      d, day, days
+weeks     w, week, weeks
+months    mo, mon, month, months
+years     y, year, years
+.EE
+.PP
+The units \f[CR]m\f[R] and \f[CR]M\f[R] are invalid because they are
+ambiguous between minutes and months.
+Months are treated as 30 days and years as 365 days.
 .SH OPTIONS
-\f[B]Endpoint Arguments (Required)\f[R]
+.SS Endpoint Arguments
 .TP
 \f[I]source\f[R]
-The dataset tree containing snapshots to evaluate for pruning.
+Dataset tree containing snapshots to evaluate.
 .TP
 \f[I]target\f[R]
-The backup dataset tree used to verify replication status.
-.PP
-\f[B]Output Options\f[R]
+Optional dataset tree used for target\-safety checks.
+If the target is omitted with \f[B]\(enprune\-synced=match\f[R] or
+\f[B]\(enprune\-synced=always\f[R], \f[B]zelta prune\f[R] emits a
+warning.
+.SS Retention Filters
 .TP
-\f[B]\-v, \-\-verbose\f[R]
+\f[B]\(enkeep\-snap\-num\f[R] \f[I]N\f[R]
+Keep the newest \f[I]N\f[R] snapshots.
+.TP
+\f[B]\(enkeep\-snap\-time\f[R] \f[I]TIME\f[R]
+Keep snapshots newer than \f[I]TIME\f[R].
+Bare numbers are seconds.
+.TP
+\f[B]\(enprune\-grid\f[R] \f[I]GRID\f[R]
+Apply GFS\-style grid retention.
+Example: \f[CR]30x1 day, 52x1 week, 1 year\f[R].
+.SS Safety And Selection Filters
+.TP
+\f[B]\(enprune\-synced\f[R] \f[CR]match\f[R]|\f[CR]always\f[R]|\f[CR]never\f[R]
+Select target matching behavior.
+The default is \f[CR]match\f[R].
+.TP
+\f[CR]match\f[R]
+Require a common source/target snapshot match when a target is supplied.
+Snapshots older than the match point may be reported even if each
+individual snapshot is not present on the target.
+.TP
+\f[CR]always\f[R]
+Require each candidate to exist on the target with the same GUID and
+snapshot name.
+.TP
+\f[CR]never\f[R]
+Do not use target matching.
+This is local\-only retention.
+.TP
+\f[B]\(enno\-prune\-synced\f[R]
+Equivalent to \f[B]\(enprune\-synced=never\f[R].
+.TP
+\f[B]\(enprune\-size\f[R] \f[I]SIZE\f[R]
+Select oldest eligible snapshots until their cumulative snapshot
+\f[CR]used\f[R] values reach at least \f[I]SIZE\f[R].
+This planner target is off by default.
+\f[I]SIZE\f[R] accepts ZFS\-style byte counts and suffixes such as
+\f[CR]K\f[R], \f[CR]KB\f[R], \f[CR]M\f[R], \f[CR]GB\f[R], and
+\f[CR]T\f[R].
+.TP
+\f[B]\-d\f[R], \f[B]\(endepth\f[R] \f[I]LEVELS\f[R]
+Limit dataset\-tree recursion depth.
+A depth of \f[CR]1\f[R] includes only the specified dataset.
+.TP
+\f[B]\-X\f[R], \f[B]\(enexclude\f[R] \f[I]PATTERN\f[R]
+Exclude datasets or snapshots matching \f[I]PATTERN\f[R].
+Snapshot patterns begin with \f[CR]\(at\f[R].
+Dataset patterns may be exact dataset names or glob patterns containing
+\f[CR]/\f[R].
+.TP
+\f[B]\(eninclude\f[R] \f[I]PATTERN\f[R]
+Include only datasets or snapshots matching \f[I]PATTERN\f[R].
+This uses the same pattern style as \f[B]\(enexclude\f[R].
+.SS Output Options
+.TP
+\f[B]\(enno\-ranges\f[R]
+Disable range compression.
+By default, consecutive snapshots are emitted as ZFS snapshot ranges.
+.TP
+\f[B]\-v\f[R], \f[B]\(enverbose\f[R]
 Increase verbosity.
-Specify once for operational detail, twice (\f[CR]\-vv\f[R]) for debug
-output.
+Specify once for operational detail, twice for debug output.
 .TP
-\f[B]\-q, \-\-quiet\f[R]
-Decrease log level.
-Specify once to suppress notices, twice (\f[CR]\-qq\f[R]) to suppress
-warnings.
+\f[B]\-q\f[R], \f[B]\(enquiet\f[R]
+Decrease verbosity.
 .TP
-\f[B]\-n, \-\-dryrun, \-\-dry\-run\f[R]
-Display \f[CR]zfs\f[R] commands without executing them.
-.PP
-\f[B]Retention Options\f[R]
-.TP
-\f[B]\-\-keep\-snap\-num\f[R] \f[I]N\f[R]
-Minimum number of snapshots to keep after the match point.
-Default: 100.
-.TP
-\f[B]\-\-keep\-snap\-days\f[R] \f[I]N\f[R]
-Minimum age in days before a snapshot is eligible for deletion.
-Default: 90.
-.TP
-\f[B]\-\-no\-ranges\f[R]
-Disable range compression in output.
-By default, consecutive snapshots are displayed as ranges (e.g.,
-\f[CR]snap1%snap5\f[R]).
-This option outputs individual snapshot names, one per line.
-.PP
-\f[B]Dataset Options\f[R]
-.TP
-\f[B]\-d, \-\-depth\f[R] \f[I]LEVELS\f[R]
-Limit recursion depth.
-For example, a depth of 1 includes only the specified dataset.
-.TP
-\f[B]\-X, \-\-exclude\f[R] \f[I]PATTERN\f[R]
-Exclude datasets matching the specified pattern.
-See \f[B]zelta\-options(7)\f[R] for pattern syntax.
+\f[B]\-n\f[R], \f[B]\(endryrun\f[R], \f[B]\(endry\-run\f[R]
+Display underlying listing commands without running them.
 .SH OUTPUT FORMAT
-By default, \f[B]zelta prune\f[R] outputs snapshot ranges using ZFS
-range syntax:
+By default, \f[B]zelta prune\f[R] outputs ZFS snapshot names or ranges,
+one per line:
 .IP
 .EX
-pool/dataset\(atoldest_snap%newest_snap
+pool/dataset\(atoldest_snapshot%newest_snapshot
 .EE
 .PP
-This format is compatible with \f[CR]zfs destroy\f[R] for batch
+With \f[B]\(enno\-ranges\f[R], each candidate snapshot is emitted
+individually:
+.IP
+.EX
+pool/dataset\(atsnapshot
+.EE
+.PP
+The output is suitable for review and for \f[B]zprune(8)\f[R].
+Manual piping to \f[B]zfs destroy\f[R] is discouraged; \f[B]zprune\f[R]
+previews candidates with \f[B]zfs destroy \-nvp\f[R] and prompts before
 deletion.
-With \f[CR]\-\-no\-ranges\f[R], individual snapshot names are output one
-per line.
 .SH EXAMPLES
-Identify prunable snapshots with default retention (100 snapshots, 90
-days):
+Report candidates using the default 30/30 failsafe:
 .IP
 .EX
-zelta prune tank/data backup\-host.example:tank/backups/data
+zelta prune tank/data backup:tank/data
 .EE
 .PP
-Use stricter retention (keep 200 snapshots, 180 days minimum age):
+Preview and confirm destructive pruning with the wrapper:
 .IP
 .EX
-zelta prune \-\-keep\-snap\-num=200 \-\-keep\-snap\-days=180 \(rs
-    tank/data backup\-host.example:tank/backups/data
+zprune tank/data backup:tank/data
 .EE
 .PP
-Output individual snapshots instead of ranges:
+Require every candidate to exist on the target:
 .IP
 .EX
-zelta prune \-\-no\-ranges tank/data backup\-host.example:tank/backups/data
+zelta prune \-\-prune\-synced=always tank/data backup:tank/data
 .EE
 .PP
-Review prunable snapshots, then delete after confirmation:
+Run local\-only retention:
 .IP
 .EX
-# First, review what would be deleted
-zelta prune tank/data backup:tank/backups/data
-
-# Save to a file for review
-zelta prune tank/data backup:tank/backups/data | tee /tmp/prune\-list.txt
-
-# Review the list carefully
-# Use \(gazelta prune \-v\(ga to see matching snapshots being kept
-
-# If satisfied, delete the replicated source snapshots
-cat /tmp/prune\-list.txt | xargs \-n1 zfs destroy
+zelta prune \-\-no\-prune\-synced tank/data
 .EE
 .PP
-Exclude temporary datasets from consideration:
+Keep a larger recent window:
 .IP
 .EX
-zelta prune \-X \(aq*/tmp\(aq tank/data backup:tank/backups/data
+zelta prune \-\-keep\-snap\-num=200 \-\-keep\-snap\-time=180days \(rs
+    tank/data backup:tank/data
+.EE
+.PP
+Apply GFS\-style retention:
+.IP
+.EX
+zelta prune \-\-prune\-grid=\(aq30x1 day, 52x1 week, 1 year\(aq \(rs
+    tank/data backup:tank/data
+.EE
+.PP
+Exclude temporary datasets and include only daily snapshots:
+.IP
+.EX
+zelta prune \-\-exclude=\(aq*/tmp\(aq \-\-include=\(aq\(atdaily\-*\(aq \(rs
+    tank/data backup:tank/data
+.EE
+.PP
+Prune from the oldest eligible snapshots until at least 1 GiB is
+selected:
+.IP
+.EX
+zelta prune \-\-prune\-size=1G tank/data backup:tank/data
 .EE
 .SH EXIT STATUS
-Returns 0 on success, non\-zero on error.
+Returns 0 on success and non\-zero on error.
 .SH NOTES
-\f[B]zelta prune\f[R] is experimental.
-Always review output before executing deletions.
-Deleting snapshots is irreversible.
+\f[B]zelta prune\f[R] is under active development for the BSDCan 2026
+prune workflow.
+Review output carefully before destructive use.
 .PP
-This command is driven by the \f[B]zelta match\f[R] comparison engine.
-See \f[B]zelta\-match(8)\f[R] for details on how source and target
-snapshots are compared.
-.PP
-See \f[B]zelta\-options(7)\f[R] for environment variables and
-\f[CR]zelta.env\f[R] configuration.
+This command is driven by the same comparison engine as \f[B]zelta
+match\f[R].
+See \f[B]zelta\-match(8)\f[R] for source/target matching behavior.
 .SH SEE ALSO
-zelta(8), zelta\-options(7), zelta\-match(8), zelta\-backup(8), zfs(8),
-zfs\-destroy(8)
+\f[B]zelta(8)\f[R], \f[B]zprune(8)\f[R], \f[B]zelta\-options(7)\f[R],
+\f[B]zelta\-match(8)\f[R], \f[B]zelta\-backup(8)\f[R], \f[B]zfs(8)\f[R],
+\f[B]zfs\-destroy(8)\f[R]
 .SH AUTHORS
 Daniel J. Bell <\f[I]bellhyve\(atzelta.space\f[R]>
 .SH WWW

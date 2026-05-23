@@ -118,7 +118,7 @@ _target_
 : Equivalent to **--prune-synced=never**.
 
 **--prune-size** _SIZE_
-: Select oldest eligible snapshots until their cumulative snapshot `used` values reach at least _SIZE_. This planner target is off by default. _SIZE_ accepts byte counts and suffixes such as `K`, `M`, `G`, and `T`.
+: Select oldest eligible snapshots until their cumulative snapshot `used` values reach at least _SIZE_. This planner target is off by default. _SIZE_ accepts ZFS-style byte counts and suffixes such as `K`, `KB`, `M`, `GB`, and `T`.
 
 **-d**, **--depth** _LEVELS_
 : Limit dataset-tree recursion depth. A depth of `1` includes only the specified dataset.
@@ -157,7 +157,7 @@ With **--no-ranges**, each candidate snapshot is emitted individually:
 pool/dataset@snapshot
 ```
 
-The output is suitable for review and for **zprune(8)**. Manual piping to **zfs destroy** is discouraged; **zprune** previews candidates with **zfs destroy -nv** and prompts before deletion.
+The output is suitable for review and for **zprune(8)**. Manual piping to **zfs destroy** is discouraged; **zprune** previews candidates with **zfs destroy -nvp** and prompts before deletion.
 
 # EXAMPLES
 

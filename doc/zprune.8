@@ -8,8 +8,8 @@ prune
 \f[B]zprune\f[R] [\f[I]OPTIONS\f[R]] \f[I]source\f[R] [\f[I]target\f[R]]
 .SH DESCRIPTION
 \f[B]zprune\f[R] is the destructive companion to \f[B]zelta prune\f[R].
-It runs \f[B]zelta prune\f[R] with the supplied options, previews each
-reported candidate with \f[B]zfs destroy \-nvp\f[R], asks for
+It runs \f[B]zelta prune\f[R] with the supplied options, previews
+reported candidates with \f[B]zfs destroy \-nvp\f[R], asks for
 confirmation, and then destroys the same candidates with \f[B]zfs
 destroy\f[R].
 .PP
@@ -75,7 +75,10 @@ candidates are selected by \f[B]zelta prune\f[R];
 .IP \(bu 2
 candidates are validated before preview;
 .IP \(bu 2
-each candidate is previewed with \f[B]zfs destroy \-nvp\f[R];
+candidates are grouped per dataset and previewed with \f[B]zfs destroy
+\-nvp\f[R];
+.IP \(bu 2
+destruction uses the same grouped candidate form as the preview;
 .IP \(bu 2
 the prompt summarizes snapshot count and estimated reclaimed space;
 .IP \(bu 2

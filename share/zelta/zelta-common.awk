@@ -292,19 +292,19 @@ function h_num(num,	_suffix, _divisors, _h) {
 }
 
 # Convert a human-readable size to bytes
-function parse_size(str,	_num, _suffix, _divisors, _idx) {
+function parse_size(str,	_num, _suffix, _divisors, _idx, _power) {
 	if (str == "") return ""
 	_num = str
-	_suffix = substr(str, length(str), 1)
-	if (_suffix ~ /^[KMGTPEkmgtpe]$/) {
-		_num = substr(str, 1, length(str) - 1)
-		_suffix = toupper(_suffix)
-	}
-	else
-		_suffix = ""
+	_suffix = str
+	sub(/^[0-9][0-9]*(\.[0-9][0-9]*)?/, "", _suffix)
+	sub(/[bB]$/, "", _suffix)
+	sub(/[A-Za-z][A-Za-z]?$/, "", _num)
 	if (_num !~ /^[0-9][0-9]*(\.[0-9][0-9]*)?$/) return ""
-	_divisors = "KMGTPE"
-	for (_idx = 1; _idx <= index(_divisors, _suffix); _idx++)
+	_suffix = toupper(_suffix)
+	_divisors = "KMGTPEZ"
+	if (_suffix && !index(_divisors, _suffix)) return ""
+	_power = _suffix ? index(_divisors, _suffix) : 0
+	for (_idx = 1; _idx <= _power; _idx++)
 		_num *= 1024
 	return int(_num)
 }
