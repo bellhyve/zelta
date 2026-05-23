@@ -175,9 +175,6 @@ zelta_init() {
 	# `zfs clone` defaults
 	: ${ZELTA_CLONE_DEFAULT:="-po readonly=off"}
 
-	# `zelta match` defaults
-	: ${ZELTA_PRUNE_SYNCED:="match"}
-
 	# Remote (ssh) options
 	: ${ZELTA_REMOTE_COMMAND:="ssh"}
 	: ${ZELTA_REMOTE_DEFAULT:="${ZELTA_REMOTE_COMMAND} -n"}

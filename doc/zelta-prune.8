@@ -19,11 +19,11 @@ size recovery target.
 .PP
 By default, \f[B]zelta prune\f[R] applies this failsafe filter:
 .IP \(bu 2
-keep the newest 30 snapshots;
+keep the newest 30 snapshots after the guard point;
 .IP \(bu 2
 keep snapshots newer than 30 days;
 .IP \(bu 2
-warn if target match safety cannot be confirmed.
+require target guard safety unless disabled.
 .PP
 Defining any explicit retention shape replaces the 30/30 default.
 Filters can be combined; a snapshot is reported only when all selected
@@ -49,10 +49,10 @@ x x x x x x x x x x x x x x x x x x o o o o
 .PP
 Common options:
 .IP \(bu 2
-\f[B]\(enkeep\-snap\-num\f[R] \f[I]N\f[R]: keep the newest \f[I]N\f[R]
-snapshots.
+\f[B]\(enprune\-num\f[R] \f[I]N\f[R]: keep the newest \f[I]N\f[R]
+snapshots after the guard point.
 .IP \(bu 2
-\f[B]\(enkeep\-snap\-time\f[R] \f[I]TIME\f[R]: keep snapshots newer than
+\f[B]\(enprune\-time\f[R] \f[I]TIME\f[R]: keep snapshots newer than
 \f[I]TIME\f[R].
 .SS GFS Grid
 The grid keeps sparse historical points and prunes snapshots between
@@ -78,7 +78,7 @@ zelta prune \-\-prune\-grid=\(aq30x1 day, 52x1 week, 1 year\(aq source target
 .EE
 .PP
 Grid intervals use the same duration syntax as
-\f[B]\(enkeep\-snap\-time\f[R].
+\f[B]\(enprune\-time\f[R].
 .PP
 Snapshots older than a bounded grid span are prune candidates unless
 protected by another filter.
@@ -109,16 +109,18 @@ Months are treated as 30 days and years as 365 days.
 Dataset tree containing snapshots to evaluate.
 .TP
 \f[I]target\f[R]
-Optional dataset tree used for target\-safety checks.
-If the target is omitted with \f[B]\(enprune\-synced=match\f[R] or
-\f[B]\(enprune\-synced=always\f[R], \f[B]zelta prune\f[R] emits a
-warning.
+Dataset tree used for target\-safety checks.
+If the target is omitted while \f[B]\(enprune\-guard\f[R] is enabled,
+\f[B]zelta prune\f[R] returns an error.
+Use \f[B]\(enno\-prune\-guard\f[R] only for local\-only retention.
 .SS Retention Filters
 .TP
-\f[B]\(enkeep\-snap\-num\f[R] \f[I]N\f[R]
-Keep the newest \f[I]N\f[R] snapshots.
+\f[B]\(enprune\-num\f[R] \f[I]N\f[R]
+Keep the newest \f[I]N\f[R] snapshots after the guard point.
+With the default guard, this keeps snapshots newer than the latest
+common source/target match.
 .TP
-\f[B]\(enkeep\-snap\-time\f[R] \f[I]TIME\f[R]
+\f[B]\(enprune\-time\f[R] \f[I]TIME\f[R]
 Keep snapshots newer than \f[I]TIME\f[R].
 Bare numbers are seconds.
 .TP
@@ -127,33 +129,43 @@ Apply GFS\-style grid retention.
 Example: \f[CR]30x1 day, 52x1 week, 1 year\f[R].
 .SS Safety And Selection Filters
 .TP
-\f[B]\(enprune\-synced\f[R] \f[CR]match\f[R]|\f[CR]always\f[R]|\f[CR]never\f[R]
-Select target matching behavior.
-The default is \f[CR]match\f[R].
+\f[B]\(enprune\-guard\f[R] \f[CR]latest\f[R]|\f[CR]unsynced\f[R]|\f[CR]none\f[R]
+Select target safety behavior.
+The default is \f[CR]latest\f[R].
 .TP
-\f[CR]match\f[R]
-Require a common source/target snapshot match when a target is supplied.
-Snapshots older than the match point may be reported even if each
-individual snapshot is not present on the target.
+\f[CR]latest\f[R]
+Require a common source/target snapshot match.
+Snapshots newer than the latest match are protected from pruning.
 .TP
-\f[CR]always\f[R]
+\f[CR]unsynced\f[R]
 Require each candidate to exist on the target with the same GUID and
 snapshot name.
+Snapshots not confirmed on the target are protected from pruning.
 .TP
-\f[CR]never\f[R]
+\f[CR]none\f[R]
 Do not use target matching.
 This is local\-only retention.
 .TP
-\f[B]\(enno\-prune\-synced\f[R]
-Equivalent to \f[B]\(enprune\-synced=never\f[R].
+\f[B]\(enno\-prune\-guard\f[R]
+Equivalent to \f[B]\(enprune\-guard=none\f[R].
 .TP
 \f[B]\(enprune\-size\f[R] \f[I]SIZE\f[R]
-Select oldest eligible snapshots until their cumulative snapshot
-\f[CR]used\f[R] values reach at least \f[I]SIZE\f[R].
+Select oldest eligible snapshots until their estimated reclaim reaches
+at least \f[I]SIZE\f[R].
 This planner target is off by default.
 \f[I]SIZE\f[R] accepts ZFS\-style byte counts and suffixes such as
 \f[CR]K\f[R], \f[CR]KB\f[R], \f[CR]M\f[R], \f[CR]GB\f[R], and
 \f[CR]T\f[R].
+.PP
+The estimate is based on sequential oldest\-first pruning.
+It does not factor in other retention shapes; if other filters create
+gaps, run pruning in multiple passes or use \f[B]zprune(8)\f[R] preview
+as the final authority.
+.PP
+Snapshots with clones are never reported as prune candidates.
+\f[B]zprune\f[R] also previews with \f[B]zfs destroy \-nvp\f[R] before
+destruction, so clone checks remain effective if state changes after
+candidate selection.
 .TP
 \f[B]\-d\f[R], \f[B]\(endepth\f[R] \f[I]LEVELS\f[R]
 Limit dataset\-tree recursion depth.
@@ -170,6 +182,18 @@ Include only datasets or snapshots matching \f[I]PATTERN\f[R].
 This uses the same pattern style as \f[B]\(enexclude\f[R].
 .SS Output Options
 .TP
+\f[B]\-f\f[R], \f[B]\(enforce\f[R]
+Suppress the interactive prompt.
+With \f[B]zelta prune\f[R], this only affects the prompt shown before
+the candidate list.
+With \f[B]zprune(8)\f[R], this permits destruction after preview without
+asking for confirmation.
+.TP
+\f[B]\-q\f[R], \f[B]\(enquiet\f[R]
+Hide the snapshot candidate list.
+If \f[B]\-f\f[R] is also given, \f[B]zelta prune\f[R] suppresses the
+prompt and snapshot list.
+.TP
 \f[B]\(enno\-ranges\f[R]
 Disable range compression.
 By default, consecutive snapshots are emitted as ZFS snapshot ranges.
@@ -177,9 +201,6 @@ By default, consecutive snapshots are emitted as ZFS snapshot ranges.
 \f[B]\-v\f[R], \f[B]\(enverbose\f[R]
 Increase verbosity.
 Specify once for operational detail, twice for debug output.
-.TP
-\f[B]\-q\f[R], \f[B]\(enquiet\f[R]
-Decrease verbosity.
 .TP
 \f[B]\-n\f[R], \f[B]\(endryrun\f[R], \f[B]\(endry\-run\f[R]
 Display underlying listing commands without running them.
@@ -218,19 +239,19 @@ zprune tank/data backup:tank/data
 Require every candidate to exist on the target:
 .IP
 .EX
-zelta prune \-\-prune\-synced=always tank/data backup:tank/data
+zelta prune \-\-prune\-guard=unsynced tank/data backup:tank/data
 .EE
 .PP
 Run local\-only retention:
 .IP
 .EX
-zelta prune \-\-no\-prune\-synced tank/data
+zelta prune \-\-no\-prune\-guard tank/data
 .EE
 .PP
 Keep a larger recent window:
 .IP
 .EX
-zelta prune \-\-keep\-snap\-num=200 \-\-keep\-snap\-time=180days \(rs
+zelta prune \-\-prune\-num=200 \-\-prune\-time=180days \(rs
     tank/data backup:tank/data
 .EE
 .PP

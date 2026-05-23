@@ -23,6 +23,9 @@ The _source_ and optional _target_ operands have the same meaning as in **zelta-
 **-f**, **--force**
 : Destroy previewed candidates without asking for confirmation. Candidates are still selected by **zelta prune** and previewed with **zfs destroy -nvp** before destruction.
 
+**-q**, **--quiet**
+: Do not display the snapshot candidate list or destroy preview. If **--force** is also used, **zprune** suppresses the prompt and proceeds after validation.
+
 **-h**, **--help**
 : Show command usage.
 
@@ -35,10 +38,10 @@ Most options are passed directly to **zelta prune**. See **zelta-prune(8)** for 
 
 Common prune options:
 
-**--keep-snap-num** _N_
-: Keep the newest _N_ snapshots.
+**--prune-num** _N_
+: Keep the newest _N_ snapshots after the guard point.
 
-**--keep-snap-time** _TIME_
+**--prune-time** _TIME_
 : Keep snapshots newer than _TIME_.
 
 **--prune-grid** _GRID_
@@ -47,10 +50,10 @@ Common prune options:
 **--prune-size** _SIZE_
 : Select oldest eligible snapshots until _SIZE_ bytes are reached.
 
-**--prune-synced** `match`|`always`|`never`
-: Select target matching behavior.
+**--prune-guard** `latest`|`unsynced`|`none`
+: Select target safety behavior.
 
-**--no-prune-synced**
+**--no-prune-guard**
 : Disable target matching checks.
 
 **--include** _PATTERN_
@@ -74,6 +77,8 @@ Common prune options:
 - the operator must answer `y` or `yes` unless **--force** is used;
 - **zfs destroy -R** is never used.
 
+Unless **--no-prune-guard** is used, a target operand is required so **zelta prune** can confirm target safety before **zprune** destroys source snapshots.
+
 If the source is remote, destruction is executed on that source host through **ZELTA_REMOTE_COMMAND**. The default remote command is **ssh**.
 
 # EXAMPLES
@@ -93,7 +98,7 @@ zprune --force tank/data backup:tank/data
 Use an explicit keep window:
 
 ```sh
-zprune --keep-snap-num=60 --keep-snap-time='14 days' \
+zprune --prune-num=60 --prune-time='14 days' \
     tank/data backup:tank/data
 ```
 

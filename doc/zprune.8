@@ -30,6 +30,11 @@ Destroy previewed candidates without asking for confirmation.
 Candidates are still selected by \f[B]zelta prune\f[R] and previewed
 with \f[B]zfs destroy \-nvp\f[R] before destruction.
 .TP
+\f[B]\-q\f[R], \f[B]\(enquiet\f[R]
+Do not display the snapshot candidate list or destroy preview.
+If \f[B]\(enforce\f[R] is also used, \f[B]zprune\f[R] suppresses the
+prompt and proceeds after validation.
+.TP
 \f[B]\-h\f[R], \f[B]\(enhelp\f[R]
 Show command usage.
 .TP
@@ -41,10 +46,10 @@ See \f[B]zelta\-prune(8)\f[R] for complete behavior and safety details.
 .PP
 Common prune options:
 .TP
-\f[B]\(enkeep\-snap\-num\f[R] \f[I]N\f[R]
-Keep the newest \f[I]N\f[R] snapshots.
+\f[B]\(enprune\-num\f[R] \f[I]N\f[R]
+Keep the newest \f[I]N\f[R] snapshots after the guard point.
 .TP
-\f[B]\(enkeep\-snap\-time\f[R] \f[I]TIME\f[R]
+\f[B]\(enprune\-time\f[R] \f[I]TIME\f[R]
 Keep snapshots newer than \f[I]TIME\f[R].
 .TP
 \f[B]\(enprune\-grid\f[R] \f[I]GRID\f[R]
@@ -54,10 +59,10 @@ Apply GFS\-style grid retention, such as
 \f[B]\(enprune\-size\f[R] \f[I]SIZE\f[R]
 Select oldest eligible snapshots until \f[I]SIZE\f[R] bytes are reached.
 .TP
-\f[B]\(enprune\-synced\f[R] \f[CR]match\f[R]|\f[CR]always\f[R]|\f[CR]never\f[R]
-Select target matching behavior.
+\f[B]\(enprune\-guard\f[R] \f[CR]latest\f[R]|\f[CR]unsynced\f[R]|\f[CR]none\f[R]
+Select target safety behavior.
 .TP
-\f[B]\(enno\-prune\-synced\f[R]
+\f[B]\(enno\-prune\-guard\f[R]
 Disable target matching checks.
 .TP
 \f[B]\(eninclude\f[R] \f[I]PATTERN\f[R]
@@ -87,6 +92,10 @@ the operator must answer \f[CR]y\f[R] or \f[CR]yes\f[R] unless
 .IP \(bu 2
 \f[B]zfs destroy \-R\f[R] is never used.
 .PP
+Unless \f[B]\(enno\-prune\-guard\f[R] is used, a target operand is
+required so \f[B]zelta prune\f[R] can confirm target safety before
+\f[B]zprune\f[R] destroys source snapshots.
+.PP
 If the source is remote, destruction is executed on that source host
 through \f[B]ZELTA_REMOTE_COMMAND\f[R].
 The default remote command is \f[B]ssh\f[R].
@@ -106,7 +115,7 @@ zprune \-\-force tank/data backup:tank/data
 Use an explicit keep window:
 .IP
 .EX
-zprune \-\-keep\-snap\-num=60 \-\-keep\-snap\-time=\(aq14 days\(aq \(rs
+zprune \-\-prune\-num=60 \-\-prune\-time=\(aq14 days\(aq \(rs
     tank/data backup:tank/data
 .EE
 .PP
