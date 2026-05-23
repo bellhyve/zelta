@@ -82,8 +82,8 @@ match	--no-target,--notarget	TGT_ID		false
 match	--time	CHECK_TIME		true
 
 # 'zelta prune' options
-prune	--keep-snap-time	KEEP_SNAP_TIME		set		duration of recent snapshots to keep
-prune	--keep-snap-num	KEEP_SNAP_NUM		set		number of old matches to skip
+prune	--prune-time	PRUNE_TIME		set		duration of recent snapshots to keep
+prune	--prune-num	PRUNE_NUM		set		number of old matches to skip
 prune	--prune-grid	PRUNE_GRID		set		GFS grid retention such as '30x1 day, 52x1 week, 1 year'
 prune	--prune-synced	PRUNE_SYNCED		set		prune sync safety: match, always, or never
 prune	--no-prune-synced	PRUNE_SYNCED		set	never	disable target safety checks

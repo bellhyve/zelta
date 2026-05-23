@@ -309,29 +309,30 @@ function parse_size(str,	_num, _suffix, _divisors, _idx) {
 	return int(_num)
 }
 
-# Convert a relative duration to seconds. Bare numbers are seconds.
-# Ambiguous m/M is invalid; use min/minute or mo/month.
+# Convert a relative duration to seconds.
 function parse_duration(str,	_num, _unit) {
 	if (str == "") return ""
-	if (substr(str, 1, 1) == "+" || substr(str, 1, 1) == "-")
-		str = substr(str, 2)
-	gsub(/[ 	]+/, "", str)
+	gsub(/^[-+]|[ 	]+/, "", str)
 	_num = str
 	_unit = str
 	sub(/[A-Za-z].*/, "", _num)
-	sub(/^[0-9][0-9]*(\.[0-9][0-9]*)?/, "", _unit)
-	if (_num !~ /^[0-9][0-9]*(\.[0-9][0-9]*)?$/) return ""
-	_unit = tolower(_unit)
-	if (!_unit || (_unit == "s") || (_unit ~ /^sec(ond)?s?$/))
+	sub(/^[0-9.]+)?/, "", _unit)
+	if (_num + 0 != _num) return ""
+	if ((_unit == "m") || (_unit == "M"))
+		stop(1, "ambiguous duration unit 'm'; use 'mi' or 'mo'")
+	else if (_unit)
+		_unit = "^" tolower(_unit)
+	else
 		return int(_num)
-	if ((_unit == "m") || (_unit == "M")) return ""
-	if ((_unit == "mi") || (_unit == "min") || (_unit ~ /^minutes?$/)) _num *= 60
-	else if ((_unit == "h") || (_unit ~ /^hours?$/)) _num *= 3600
-	else if ((_unit == "d") || (_unit ~ /^days?$/)) _num *= 86400
-	else if ((_unit == "w") || (_unit ~ /^weeks?$/)) _num *= 604800
-	else if ((_unit == "mo") || (_unit == "mon") || (_unit ~ /^months?$/)) _num *= 2592000
-	else if ((_unit == "y") || (_unit ~ /^years?$/)) _num *= 31536000
-	else return ""
+	if ("seconds" ~ _unit) return int(_num)
+	else if ("minutes" ~ _unit) _num *= 60
+	else if ("hours" ~ _unit) _num *= 3600
+	else if ("days" ~ _unit) _num *= 86400
+	else if ("weeks" ~ _unit) _num *= 604800
+	else if ("months" ~ _unit) _num *= 2592000
+	else if ("years" ~ _unit) _num *= 31557600
+	else
+		stop(1, "invalid duration '"str"'")
 	return int(_num)
 }
 

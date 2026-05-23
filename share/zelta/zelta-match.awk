@@ -42,22 +42,22 @@ function usage(message,		_counter, _c, _key) {
 
 function usage_prune(message) {
 	STDERR = "/dev/stderr"
-	printf (message ? message "\n" : "") "usage:"                                                       > STDERR
-	print "\tprune [--keep-snap-num=N] [--keep-snap-time=TIME] [-X pattern] SOURCE [TARGET]\n"       > STDERR
-	print "Reports snapshot prune candidates on SOURCE.\n"                                              > STDERR
-	print "Options:"                                                                                    > STDERR
-	print "\t--keep-snap-num=N    Minimum number of snapshots to keep after match (default: 30)"        > STDERR
-	print "\t--keep-snap-time=T   Keep snapshots newer than duration T (default: 30days)"              > STDERR
-	print "\t--prune-grid=GRID    GFS grid such as '30x1 day, 52x1 week, 1 year'"                       > STDERR
-	print "\t--prune-synced=MODE  Safety mode: match (default), always, never"                         > STDERR
-	print "\t--prune-size=N       Select oldest eligible snapshots until N bytes are reached"           > STDERR
-	print "\t--no-ranges          Disable range compression (output individual snapshots)"              > STDERR
-	print "\t-X pattern           Exclude datasets or snapshots matching pattern"                       > STDERR
-	print "\t--include pattern    Include only datasets or snapshots matching pattern\n"                > STDERR
-	print "By default, snapshots older than the common match point are considered."                     > STDERR
-	print "Output shows snapshot names (one per line) that are safe to prune.\n"                        > STDERR
-	print "For complete documentation:  zelta help prune"                                               > STDERR
-	print "                             https://zelta.space"                                            > STDERR
+	printf (message ? message "\n" : "") "usage:"                                                 > STDERR
+	print "\tprune [OPTIONS] SOURCE [TARGET]\n"                                                   > STDERR
+	print "Reports snapshot prune candidates on SOURCE.\n"                                        > STDERR
+	print "Options:"                                                                              > STDERR
+	print "\t--prune-num=N        Minimum number of snapshots to keep after match (default: 30)"  > STDERR
+	print "\t--prune-time=T       Keep snapshots newer than duration T (default: 30days)"         > STDERR
+	print "\t--prune-grid=GRID    GFS grid such as '30x1 day, 52x1 week, 1 year'"                 > STDERR
+	print "\t--prune-size=N       Select oldest eligible snapshots until N bytes are reached"     > STDERR
+	print "\t--prune-synced=MODE  Safety mode: match (default), always, never"                    > STDERR
+	print "\t--no-ranges          Disable range compression (output individual snapshots)"        > STDERR
+	print "\t--exclude pattern    Exclude datasets or snapshots matching pattern"                 > STDERR
+	print "\t--include pattern    Include only datasets or snapshots matching pattern\n"          > STDERR
+	print "By default, snapshots older than the common match point are considered."               > STDERR
+	print "Output shows snapshot names (one per line) that are safe to prune.\n"                  > STDERR
+	print "For complete documentation:  zelta help prune"                                         > STDERR
+	print "                             https://zelta.space"                                      > STDERR
 	stop(1)
 }
 
@@ -523,9 +523,9 @@ function prune_init(		_prune_size) {
 	if ((Opt["PRUNE_SYNCED"] != "match") && (Opt["PRUNE_SYNCED"] != "always") && (Opt["PRUNE_SYNCED"] != "never"))
 		usage_prune("invalid --prune-synced: " Opt["PRUNE_SYNCED"])
 
-	if (!Opt["KEEP_SNAP_NUM"] && !Opt["KEEP_SNAP_TIME"] && !Opt["PRUNE_GRID"]) {
-		Opt["KEEP_SNAP_NUM"] = 30
-		Opt["KEEP_SNAP_TIME"] = "30days"
+	if (!Opt["PRUNE_NUM"] && !Opt["PRUNE_TIME"] && !Opt["PRUNE_GRID"]) {
+		Opt["PRUNE_NUM"] = 30
+		Opt["PRUNE_TIME"] = "30days"
 	}
 
 	if (Opt["PRUNE_SIZE"]) {
@@ -609,13 +609,13 @@ function analyze_prune_candidates(		_d, _ds_suffix, _src_ds_id, _tgt_ds_id, _num
 	prune_init()
 	Global["now"] = sys_time()
 
-	if (Opt["KEEP_SNAP_TIME"]) {
-		_snap_seconds = parse_duration(Opt["KEEP_SNAP_TIME"])
+	if (Opt["PRUNE_TIME"]) {
+		_snap_seconds = parse_duration(Opt["PRUNE_TIME"])
 		if (_snap_seconds == "")
-			usage_prune("invalid --keep-snap-time: " Opt["KEEP_SNAP_TIME"])
+			stop(1, "invalid --prune-time: " Opt["PRUNE_TIME"])
 	}
 	_min_age = Global["now"] - _snap_seconds
-	_keep_after_match = Opt["KEEP_SNAP_NUM"]
+	_keep_after_match = Opt["PRUNE_NUM"]
 
 	for (_d = 1; _d <= NumDSPair; _d++) {
 		_ds_suffix = DSPairList[_d]
