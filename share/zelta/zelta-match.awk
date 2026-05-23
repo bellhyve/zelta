@@ -166,7 +166,8 @@ function object_type(symbol) {
 
 # Load each row into memory
 function process_row(ep,		_name, _guid, _written, _referenced, _name_suffix, _ds_suffix, _savepoint,
-		     			_type, _ep_id, _ds_id, _ds_snap, _row_id, _tmp_arr, _num_snaps) {
+					_type, _ep_id, _ds_id, _ds_snap, _row_id, _tmp_arr, _num_snaps,
+					_all_snap_idx) {
 	# Read the row data
 	_name      = $1
 	_guid      = $2
@@ -190,6 +191,8 @@ function process_row(ep,		_name, _guid, _written, _referenced, _name_suffix, _ds
 	_ds_id			= _ep_id S _ds_suffix S ""
 	_row_id			= _ep_id S _ds_suffix S _savepoint
 	_type			= object_type(_type)
+	if ((_type == IS_SNAPSHOT) && (_ep_id == Source["ID"]))
+		_all_snap_idx = ++AllSnapIdx[_ds_id]
 
 	# Check for exclusion
 	if (_type == IS_DATASET) {
@@ -203,7 +206,7 @@ function process_row(ep,		_name, _guid, _written, _referenced, _name_suffix, _ds
 	if ((_type == IS_SNAPSHOT) && (_ep_id == Source["ID"])) {
 		if (regex_loop(_savepoint, ExcludeSnapPattern, ExcludeSnapPattern["count"]))
 			return
-		if (!is_snap_included(_savepoint) && !is_ds_included(_name) && !is_ds_included(_ds_suffix))
+		if (!is_snap_or_ds_included(_savepoint, _name, _ds_suffix))
 			return
 	}
 
@@ -213,6 +216,7 @@ function process_row(ep,		_name, _guid, _written, _referenced, _name_suffix, _ds
 	Row[_row_id, "creation"]   = _creation
 	Row[_row_id, "used"]       = _used
 	Row[_row_id, "referenced"] = _referenced
+	Row[_row_id, "snap_idx"]   = _all_snap_idx
 	Row[_row_id, "name"]       = _name
 	Row[_row_id, "type"]       = _type
 	Row[_row_id, "ds_suffix"]  = _ds_suffix
@@ -320,6 +324,17 @@ function is_snap_included(savepoint) {
 	if (!Opt["INCLUDE"])
 		return 1
 	return regex_loop(savepoint, IncludeSnapPattern, IncludeSnapPattern["count"])
+}
+
+function is_snap_or_ds_included(savepoint, ds_name, ds_suffix) {
+	if (!Opt["INCLUDE"])
+		return 1
+	if (is_snap_included(savepoint))
+		return 1
+	if ((arr_len(IncludeDS) || IncludeDSPattern["count"]) &&
+	    (is_ds_included(ds_name) || is_ds_included(ds_suffix)))
+		return 1
+	return 0
 }
 
 # Load DSPair keys for summary output
@@ -663,7 +678,7 @@ function analyze_prune_candidates(		_d, _ds_suffix, _src_ds_id, _tgt_ds_id, _num
 
 			if (!synced_allows_prune(_tgt_ds_id, _guid, _savepoint)) {
 				KeptSnap[_src_ds_id, ++NumKeptSnap[_src_ds_id]] = _savepoint
-				KeptSnapIdx[_src_ds_id, NumKeptSnap[_src_ds_id]] = _s
+				KeptSnapIdx[_src_ds_id, NumKeptSnap[_src_ds_id]] = Row[_src_row, "snap_idx"]
 				continue
 			}
 
@@ -671,18 +686,18 @@ function analyze_prune_candidates(		_d, _ds_suffix, _src_ds_id, _tgt_ds_id, _num
 			    (_keep_after_match != "" && (_keep_after_match > 0) && (_seen_after_match <= _keep_after_match)) ||
 			    (_snap_seconds != "" && (_creation >= _min_age))) {
 				KeptSnap[_src_ds_id, ++NumKeptSnap[_src_ds_id]] = _savepoint
-				KeptSnapIdx[_src_ds_id, NumKeptSnap[_src_ds_id]] = _s
+				KeptSnapIdx[_src_ds_id, NumKeptSnap[_src_ds_id]] = Row[_src_row, "snap_idx"]
 				continue
 			}
 
 			if (Opt["PRUNE_SIZE_BYTES"]) {
 				EligibleSnap[++_eligible_num] = _savepoint
-				EligibleSnapIdx[_eligible_num] = _s
+				EligibleSnapIdx[_eligible_num] = Row[_src_row, "snap_idx"]
 				EligibleSnapWritten[_eligible_num] = Row[_src_row, "written"]
 				EligibleSnapReferenced[_eligible_num] = Row[_src_row, "referenced"]
 			} else {
 				PruneSnap[_src_ds_id, ++PruneSnapNum[_src_ds_id]] = _savepoint
-				PruneSnapIdx[_src_ds_id, PruneSnapNum[_src_ds_id]] = _s
+				PruneSnapIdx[_src_ds_id, PruneSnapNum[_src_ds_id]] = Row[_src_row, "snap_idx"]
 			}
 		}
 
