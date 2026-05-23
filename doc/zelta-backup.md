@@ -176,6 +176,9 @@ For precise control in a dataset tree with mixed types, override specific contex
 **--send-default** *"OPTIONS"*
 : `zfs send` options for **unencrypted** datasets (default: `-Lce`)
 
+**--send-decrypted** *"OPTIONS"*
+: `zfs send` options for encrypted datasets when raw incremental send is unavailable (default: `-Lc`)
+
 **--send-raw** *"OPTIONS"*
 : `zfs send` options for **encrypted** datasets (default: `-Lw`)
 

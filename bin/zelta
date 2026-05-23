@@ -160,6 +160,7 @@ zelta_init() {
 
 	# `zfs send` defaults
 	: ${ZELTA_SEND_DEFAULT:="-L -c -e"}
+	: ${ZELTA_SEND_DECRYPTED:="-L -c"}
 	: ${ZELTA_SEND_RAW:="--raw"}
 	: ${ZELTA_SEND_NEW:="-p"}
 	: ${ZELTA_SEND_INTR:="1"}

@@ -34,11 +34,11 @@ Describe 'Zelta no-op command checks'
     		The status should be success
     		The output should include '+ zfs list'
     	End
-    	It 'respects single-dash parameters'
-    		When run command zelta match  -Hpvqn -X '*/swap' -d42 -o ds_suffix zelta-test-pool/test
-    		The status should be success
-    		The output should include '42'
-    	End
+	    	It 'respects single-dash parameters'
+	    		When run command zelta match  -Hpvqn -X '*/swap' -d42 -o match_ivset zelta-test-pool/test
+	    		The status should be success
+	    		The output should include '42'
+	    	End
     	It 'respects all parameters'
     		When run command zelta match  -Hpvqn -X '*/swap' -d42 -o ds_suffix --verbose --quiet --log-level 2 --log-mode=text --text --dryrun --depth 42 --exclude="@one,/two" zelta-test-pool/test zelta-test-pool/test-target
     		The status should be success

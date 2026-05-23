@@ -160,6 +160,8 @@ function load_properties(ep,		_ds, _cmd_arr, _cmd, _cmd_id, _ds_suffix, _idx, _s
 			_prop_key = $2
 			_prop_val = ($3 == "off") ? "0" : $3
 			Dataset[_idx, _prop_key] = _prop_val
+			if ((ep == "SRC") && (_prop_key == "encryption") && (_prop_val != "0"))
+				DSTree["source_encrypted"] = 1
 
 			check_snapshot_needed(ep, _ds_suffix, _prop_key, _prop_val)
 			if (!_seen[_idx]++) {
@@ -186,7 +188,7 @@ function load_properties(ep,		_ds, _cmd_arr, _cmd, _cmd_id, _ds_suffix, _idx, _s
 
 # Imports a 'zelta match' row into DSPair and Dataset
 function parse_zelta_match_row(		_ds_suffix, _src_idx, _tgt_idx) {
-	if (NF == 5) {
+	if ((NF == 5) || (NF == 6)) {
 		# Indexes
 		_ds_suffix				= $1
 		_src_idx				= "SRC" SUBSEP _ds_suffix
@@ -195,9 +197,16 @@ function parse_zelta_match_row(		_ds_suffix, _src_idx, _tgt_idx) {
 		# 'zelta match' columns
 		DSList[++NumDS]				= _ds_suffix
 		DSPair[_ds_suffix, "match"]		= $2
-		Dataset[_src_idx, "next_snapshot"]	= $3
-		Dataset[_src_idx, "latest_snapshot"]	= $4
-		Dataset[_tgt_idx, "latest_snapshot"]	= $5
+		if (NF == 6) {
+			DSPair[_ds_suffix, "match_ivset"]	= $3
+			Dataset[_src_idx, "next_snapshot"]	= $4
+			Dataset[_src_idx, "latest_snapshot"]	= $5
+			Dataset[_tgt_idx, "latest_snapshot"]	= $6
+		} else {
+			Dataset[_src_idx, "next_snapshot"]	= $3
+			Dataset[_src_idx, "latest_snapshot"]	= $4
+			Dataset[_tgt_idx, "latest_snapshot"]	= $5
+		}
 	}
 	else {
 		if ($1 == "SOURCE_LIST_TIME:")		Summary["sourceListTime"] += $2
@@ -208,8 +217,9 @@ function parse_zelta_match_row(		_ds_suffix, _src_idx, _tgt_idx) {
 }
 
 # Run 'zfs match' and pass to parser
-function load_snapshot_deltas(_cmd_arr, _cmd) {
+function load_snapshot_deltas(_cmd_arr, _cmd, _cmd_id) {
 	FS = "\t"
+	_cmd_id = (DSTree["target_exists"] && DSTree["source_encrypted"]) ? "MATCH_IVSET" : "MATCH"
 	if (!DSTree["target_exists"])
 		_cmd_arr["command_prefix"]	= "ZELTA_TGT_ID=''"
 	if (Opt["DRYRUN"])
@@ -217,7 +227,7 @@ function load_snapshot_deltas(_cmd_arr, _cmd) {
 	# Depth is already in the environment
 	if (Opt["DEPTH"])
 		_cmd_arr["flags"]		= "-d" Opt["DEPTH"]
-	_cmd					= build_command("MATCH", _cmd_arr)
+	_cmd					= build_command(_cmd_id, _cmd_arr)
 	report(LOG_INFO, "checking replica deltas")
 	report(LOG_DEBUG, "`"_cmd"`")
 	_cmd 					= _cmd CAPTURE_OUTPUT
@@ -290,8 +300,8 @@ function validate_snapshots(		_i, _ds_suffix, _src_idx, _match, _src_exists, _sr
 }
 
 function compute_eligibility(           _i, _ds_suffix, _src_idx, _tgt_idx,
-                                        _has_next, _has_match, _tgt_exists,
-                                        _match, _src_latest, _tgt_latest) {
+					 _has_next, _has_match, _tgt_exists,
+					 _match, _src_latest, _tgt_latest) {
 	# Reset counters
 	DSTree["syncable"]         = 0
 	DSTree["needs_snapshot"]   = 0
@@ -389,6 +399,8 @@ function compute_eligibility(           _i, _ds_suffix, _src_idx, _tgt_idx,
 		# If we got here, we can sync
 		Action[_ds_suffix, "can_sync"] = 1
 		Action[_ds_suffix, "can_rotate"] = 1
+		if ((Opt["VERB"] != "replicate") && Dataset[_src_idx, "encryption"] && !DSPair[_ds_suffix, "match_ivset"])
+			Action[_ds_suffix, "send_decrypted"] = 1
 		DSTree["syncable"]++
 		DSTree["rotatable"]++
 	}
@@ -661,8 +673,13 @@ function get_send_command_flags(ds_suffix, idx,		_f, _idx, _flags, _flag_list) {
 		return Opt["SEND_OVERRIDE"]
 	if (Opt["VERB"] == "replicate")
 		_flag_list[++_f]	= Opt["SEND_REPLICATE"]
+	else if (Action[ds_suffix, "send_decrypted"]) {
+		if (!Action[ds_suffix, "warned_decrypted"]++)
+			report(LOG_WARNING, "raw incremental unavailable at " DSPair[ds_suffix, "match"] "; falling back to decrypted send: " Opt["SRC_DS"] ds_suffix)
+		_flag_list[++_f]	= Opt["SEND_DECRYPTED"]
+	}
 	else if (Dataset[idx,"encryption"])
-     	     _flag_list[++_f]		= Opt["SEND_RAW"]
+      	     _flag_list[++_f]		= Opt["SEND_RAW"]
 	else _flag_list[++_f]		= Opt["SEND_DEFAULT"]
 	_flags = arr_join(_flag_list)
 	return _flags

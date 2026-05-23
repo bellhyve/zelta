@@ -116,6 +116,9 @@ The following options should be modified in the environment to ensure proper ins
 **SEND_DEFAULT**
 :   Options used for unencrypted filesystems and volumes. Defaults to `-Lce`.
 
+**SEND_DECRYPTED**
+:   Options used when an encrypted dataset must fall back to a decrypted incremental send. Defaults to `-Lc`.
+
 **SEND_RAW**
 :   Options used for encrypted datasets. Defaults to `-Lw`.
 
