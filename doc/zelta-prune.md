@@ -122,6 +122,8 @@ _target_
 
 The estimate is based on sequential oldest-first pruning. It does not factor in other retention shapes; if other filters create gaps, run pruning in multiple passes or use **zprune(8)** preview as the final authority.
 
+Snapshots with clones are never reported as prune candidates. **zprune** also previews with **zfs destroy -nvp** before destruction, so clone checks remain effective if state changes after candidate selection.
+
 **-d**, **--depth** _LEVELS_
 : Limit dataset-tree recursion depth. A depth of `1` includes only the specified dataset.
 

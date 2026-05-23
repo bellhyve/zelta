@@ -66,9 +66,12 @@ function usage_prune(message) {
 ###################
 
 # Default to 'zfs list ... -o written', but implicitly avoid since it's slow
-function add_written() {
-	if (Opt["VERB"] == "prune")
+function add_written(endpoint) {
+	if (Opt["VERB"] == "prune") {
+		if (endpoint["ID"] == Source["ID"])
+			return ",written,creation,used,referenced,clones"
 		return ",written,creation,used,referenced"
+	}
 	if (Opt["LIST_WRITTEN"] && Opt["PROPLIST"]) {
 		if (Opt["PARSABLE"] && (Opt["PROPLIST"] !~ /(all|written|size)/))
 			return ""
@@ -92,7 +95,7 @@ function zfs_list_cmd(endpoint,		_ep, _ds, _remote, _cmd) {
 	_ep			= endpoint["ID"]
 	_ds			= endpoint["DS"]
 	_remote			= endpoint["REMOTE"]
-	_cmd_arr["props"]	= "name,guid" add_written()
+	_cmd_arr["props"]	= "name,guid" add_written(endpoint)
 	_cmd_arr["remote"]	= get_remote_cmd(endpoint)
 	_cmd_arr["ds"]		= rq(_remote, _ds)
 	if (Opt["DEPTH"])
@@ -165,7 +168,7 @@ function object_type(symbol) {
 }
 
 # Load each row into memory
-function process_row(ep,		_name, _guid, _written, _referenced, _name_suffix, _ds_suffix, _savepoint,
+function process_row(ep,		_name, _guid, _written, _referenced, _clones, _name_suffix, _ds_suffix, _savepoint,
 					_type, _ep_id, _ds_id, _ds_snap, _row_id, _tmp_arr, _num_snaps,
 					_all_snap_idx) {
 	# Read the row data
@@ -175,6 +178,7 @@ function process_row(ep,		_name, _guid, _written, _referenced, _name_suffix, _ds
 	_creation  = $4
 	_used      = $5
 	_referenced = $6
+	_clones    = $7
 
 	# Get the relative dataset suffix and then split to dataset and snapshot/bookmark name
 	_name_suffix		= substr(_name, ep["ds_length"])
@@ -216,6 +220,7 @@ function process_row(ep,		_name, _guid, _written, _referenced, _name_suffix, _ds
 	Row[_row_id, "creation"]   = _creation
 	Row[_row_id, "used"]       = _used
 	Row[_row_id, "referenced"] = _referenced
+	Row[_row_id, "clones"]     = _clones
 	Row[_row_id, "snap_idx"]   = _all_snap_idx
 	Row[_row_id, "name"]       = _name
 	Row[_row_id, "type"]       = _type
@@ -673,6 +678,11 @@ function analyze_prune_candidates(		_d, _ds_suffix, _src_ds_id, _tgt_ds_id, _num
 
 			# Only consider snapshots (not bookmarks)
 			if (Row[_src_row, "type"] != IS_SNAPSHOT) continue
+			if ((Row[_src_row, "clones"] != "") && (Row[_src_row, "clones"] != "-")) {
+				KeptSnap[_src_ds_id, ++NumKeptSnap[_src_ds_id]] = _savepoint
+				KeptSnapIdx[_src_ds_id, NumKeptSnap[_src_ds_id]] = Row[_src_row, "snap_idx"]
+				continue
+			}
 
 			_seen_after_match = _s - _match_idx
 
