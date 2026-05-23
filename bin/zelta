@@ -45,13 +45,14 @@ zelta_man() {
 
 	_man_section=8
 	case $1 in
-		'')					_manpage=zelta ;;
-		options)				_manpage=zelta-$1
-							_man_section=7 ;;
+		'')          _manpage=zelta ;;
+		options)     _manpage=zelta-$1
+		             _man_section=7 ;;
+		zprune)      _manpage=zprune ;;
 		# Legacy symlinks (from Zelta pre-1.0)
-		zmatch)					_manpage=zelta-match ;;
-		zpull|zpush)				_manpage=zelta-backup ;;
-		*)					_manpage=zelta-$1 ;;
+		zmatch)      _manpage=zelta-match ;;
+		zpull|zpush) _manpage=zelta-backup ;;
+		*)           _manpage=zelta-$1 ;;
 	esac
 	if [ -d "$ZELTA_DOC" ] ; then
 		man -M "$ZELTA_DOC" $_man_section $_manpage

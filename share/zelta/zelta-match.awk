@@ -46,16 +46,15 @@ function usage_prune(message) {
 	print "\tprune [OPTIONS] SOURCE [TARGET]\n"                                                   > STDERR
 	print "Reports snapshot prune candidates on SOURCE.\n"                                        > STDERR
 	print "Options:"                                                                              > STDERR
-	print "\t--prune-num=N        Minimum number of snapshots to keep after match (default: 30)"  > STDERR
-	print "\t--prune-time=T       Keep snapshots newer than duration T (default: 30days)"         > STDERR
-	print "\t--prune-grid=GRID    GFS grid such as '30x1 day, 52x1 week, 1 year'"                 > STDERR
+	print "\t--prune-num=N        Minimum number of snapshots to keep after match"                > STDERR
+	print "\t--prune-time=T       Keep snapshots newer than duration T"                           > STDERR
 	print "\t--prune-size=N       Select oldest eligible snapshots until N bytes are reached"     > STDERR
-	print "\t--prune-synced=MODE  Safety mode: match (default), always, never"                    > STDERR
+	print "\t--prune-grid=GRID    GFS grid such as '30x1 day, 52x1 week, 1 year'"                 > STDERR
+	print "\t--prune-guard=MODE   Protect sync continuity: latest (default), unsynced, none"      > STDERR
 	print "\t--no-ranges          Disable range compression (output individual snapshots)"        > STDERR
 	print "\t--exclude pattern    Exclude datasets or snapshots matching pattern"                 > STDERR
-	print "\t--include pattern    Include only datasets or snapshots matching pattern\n"          > STDERR
-	print "By default, snapshots older than the common match point are considered."               > STDERR
-	print "Output shows snapshot names (one per line) that are safe to prune.\n"                  > STDERR
+	print "\t--include pattern    Include only datasets or snapshots matching pattern"            > STDERR
+	print "Default: '--prune-num=30 --prune-time=1month'\n"                                       > STDERR
 	print "For complete documentation:  zelta help prune"                                         > STDERR
 	print "                             https://zelta.space"                                      > STDERR
 	stop(1)
@@ -540,11 +539,6 @@ function target_has_snap_name(tgt_ds_id, savepoint,		_num_snaps, _s, _tgt_row, _
 }
 
 function prune_init(		_prune_size) {
-	if (!Opt["PRUNE_SYNCED"])
-		Opt["PRUNE_SYNCED"] = "match"
-	if ((Opt["PRUNE_SYNCED"] != "match") && (Opt["PRUNE_SYNCED"] != "always") && (Opt["PRUNE_SYNCED"] != "never"))
-		usage_prune("invalid --prune-synced: " Opt["PRUNE_SYNCED"])
-
 	if (Opt["PRUNE_NUM"] == "" && Opt["PRUNE_TIME"] == "" &&
 	    Opt["PRUNE_GRID"] == "" && Opt["PRUNE_SIZE"] == "") {
 		Opt["PRUNE_NUM"] = 30
@@ -613,15 +607,15 @@ function grid_keeps_snapshot(creation,	_age, _g, _start, _end, _bucket) {
 }
 
 function synced_allows_prune(tgt_ds_id, guid, savepoint) {
-	if (Opt["PRUNE_SYNCED"] == "never")
+	if (Opt["PRUNE_GUARD"] == GUARD_NONE)
 		return 1
-	if (Opt["PRUNE_SYNCED"] == "always")
+	if (Opt["PRUNE_GUARD"] == GUARD_UNSYNCED)
 		return (Guid[tgt_ds_id, guid] && target_has_snap_name(tgt_ds_id, savepoint))
 	return 1
 }
 
 # Analyze snapshots for pruning eligibility.
-# Target safety is controlled by --prune-synced.
+# Target safety is controlled by --prune-guard.
 function analyze_prune_candidates(		_d, _ds_suffix, _src_ds_id, _tgt_ds_id, _num_snaps,
 						_s, _src_row, _savepoint, _guid, _creation,
 						_match_idx, _snap_seconds, _min_age, _keep_after_match,
@@ -658,11 +652,11 @@ function analyze_prune_candidates(		_d, _ds_suffix, _src_ds_id, _tgt_ds_id, _num
 		_prune_estimate = 0
 
 		_match_idx = DSPair[_ds_suffix, "match_idx"]
-		if (!_match_idx && (Opt["PRUNE_SYNCED"] != "never")) {
+		if (!_match_idx && (Opt["PRUNE_GUARD"] != GUARD_NONE)) {
 			if (!Target["DS"])
-				report(LOG_WARNING, Row[_src_ds_id, "name"] ": cannot confirm prune safety without a target; use --no-prune-synced or set ZELTA_PRUNE_SYNCED=never to skip this check")
+				report(LOG_WARNING, Row[_src_ds_id, "name"] ": cannot confirm prune safety without a target; use --no-prune-guard or set ZELTA_PRUNE_GUARD=none to skip this check")
 			else {
-				report(LOG_WARNING, Row[_src_ds_id, "name"] ": cannot confirm prune safety without a target match; use --no-prune-synced or set ZELTA_PRUNE_SYNCED=never to skip this check")
+				report(LOG_WARNING, Row[_src_ds_id, "name"] ": cannot confirm prune safety without a target match; use --no-prune-guard or set ZELTA_PRUNE_GUARD=none to skip this check")
 				continue
 			}
 		}
@@ -1007,6 +1001,23 @@ BEGIN {
 	S              = SUBSEP
 	FS             = "\t"
 	OFS            = "\t"
+
+	GUARD_NONE     = 0
+	GUARD_LATEST   = 1
+	GUARD_UNSYNCED = 2
+
+	GUARD[""]         = GUARD_LATEST
+	GUARD["none"]     = GUARD_NONE
+	GUARD["latest"]   = GUARD_LATEST
+	GUARD["unsynced"] = GUARD_UNSYNCED
+
+	Opt["PRUNE_GUARD"] = tolower(Opt["PRUNE_GUARD"])
+	if (Opt["PRUNE_GUARD"] in GUARD) {
+		Opt["PRUNE_GUARD"] = GUARD[Opt["PRUNE_GUARD"]]
+	}
+
+	if (! ((Opt["PRUNE_GUARD"] >= 0) && (Opt["PRUNE_GUARD"] <= 2)))
+		stop(1, "invalid prune-guard mode: " Opt["PRUNE_GUARD"])
 
 	load_endpoint(Operands[1], Source)
 	load_endpoint(Operands[2], Target)

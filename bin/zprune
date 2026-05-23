@@ -5,7 +5,7 @@
 # zelta prune selects snapshots. zprune adds the destructive prompt and runs
 # zfs destroy against the exact candidates emitted by zelta prune.
 
-ZPRUNE_VERSION="zprune 0.2.0"
+ZPRUNE_VERSION="zprune 0.8.0"
 
 zprune_usage() {
 	exec >&2
@@ -14,31 +14,18 @@ usage: zprune [OPTIONS] source target
 
 Destructively prune source snapshots selected by zelta prune.
 
-zprune passes normal Zelta options through to `zelta prune`. The only
-zprune-specific destructive option is:
+zprune options:
+	--force              Destroy without asking for confirmation
+	--quiet              Do not display the snapshot list
 
-  -f, --force      Destroy without asking for confirmation
+zelta prune options:
+EOF
+  zelta prune --help 2>&1 | grep -- --
+	cat << 'EOF'
 
-Other local options:
-
-  -h, --help       Show this help
-  -V, --version    Show version
-
-Safety:
-
-  - remote sources are destroyed through ZELTA_REMOTE_COMMAND
-  - candidates are selected by zelta prune using ZELTA_* defaults/options
-  - zfs destroy -nvp previews candidates before destruction
-  - confirmation defaults to no
-  - zfs destroy -R is never used
-
-Examples:
-
-  zprune tank/data backup:tank/data
-  zprune --keep-snap-num=60 --keep-snap-time=14days tank/data backup:tank/data
-  zprune --depth=1 --exclude='*/tmp' -f tank/data backup:tank/data
-
-For candidate reporting without destruction, use: zelta prune
+For complete documentation:  man zprune
+                             zelta help prune
+                             https://zelta.space
 EOF
 	exit 1
 }
@@ -52,122 +39,84 @@ error() {
 	echo "zprune: $1" >&2
 }
 
-is_local_endpoint() {
-	case "$1" in
-		*@*:*|*:*) return 1 ;;
-		*) return 0 ;;
-	esac
-}
-
-get_source_remote() {
-	case "$1" in
-		*@*:*) ;;
-		*:*) ;;
-		*) return ;;
-	esac
-	_remote=$1
-	_remote=${_remote%%:*}
-	[ "$_remote" = "localhost" ] && return
-	printf '%s\n' "$_remote"
-}
-
-append_prune_arg() {
-	if [ -z "$ZPRUNE_PRUNE_ARGS" ]; then
-		ZPRUNE_PRUNE_ARGS=$1
-	else
-		ZPRUNE_PRUNE_ARGS=$ZPRUNE_PRUNE_ARGS$(printf '\034')$1
+init_zelta_env() {
+	AWK="${ZELTA_AWK:-${AWK:-awk}}"
+	if [ -z "$ZELTA_SHARE" ]; then
+		_script_dir=$(dirname "$0")
+		if [ -r "$_script_dir/../share/zelta/zelta-args.awk" ]; then
+			ZELTA_SHARE=$_script_dir/../share/zelta
+		else
+			ZELTA_SHARE=/usr/local/share/zelta
+		fi
 	fi
+	export AWK ZELTA_SHARE
+}
+
+prune_guard_disabled() {
+	case "$ZELTA_PRUNE_GUARD" in
+		0|none)
+			return 0
+			;;
+		*)
+			return 1
+			;;
+	esac
 }
 
 parse_args() {
-	ZPRUNE_FORCE=""
-	ZPRUNE_SOURCE_LOCAL=""
-	ZPRUNE_SOURCE_REMOTE=""
-	ZPRUNE_SOURCE=""
-	ZPRUNE_PRUNE_ARGS=""
+	ZPRUNE_QUIET=""
 
-	while [ $# -gt 0 ]; do
-		case "$1" in
-			-h|--help)
-				zprune_usage
-				;;
-			-V|--version)
-				zprune_version
-				;;
-			-f|--force)
-				ZPRUNE_FORCE=1
-				shift
-				continue
-				;;
-			--force=*)
-				error "--force does not take a value"
-				exit 1
-				;;
-		esac
+	case "$1" in
+		-h|--help)
+			zprune_usage
+			;;
+		-V|--version)
+			zprune_version
+			;;
+	esac
 
-		if [ -z "$ZPRUNE_SOURCE" ]; then
-			case "$1" in
-				--log-level|--log-mode|--depth|-d|--exclude|-X|--include|--keep-snap-num|--keep-snap-time|--prune-grid|--prune-synced|--prune-size|--prune-policy|--prune-name)
-					append_prune_arg "$1"
-					shift
-					[ $# -gt 0 ] || { error "missing argument after option"; exit 1; }
-					append_prune_arg "$1"
-					shift
-					continue
-					;;
-				--)
-					append_prune_arg "$1"
-					shift
-					[ $# -gt 0 ] || break
-					ZPRUNE_SOURCE=$1
-					;;
-				-*)
-					append_prune_arg "$1"
-					shift
-					continue
-					;;
-				*)
-					ZPRUNE_SOURCE=$1
-					;;
-			esac
-		fi
+	init_zelta_env
+	ZELTA_VERB=prune
+	ZELTA_LOG_LEVEL=2
+	: ${ZELTA_LOG_COMMAND:="zelta ipc-log"}
+	: ${ZELTA_REMOTE_COMMAND:="ssh"}
+	: ${ZELTA_REMOTE_DEFAULT:="${ZELTA_REMOTE_COMMAND} -n"}
+	: ${ZELTA_REMOTE_SEND:="${ZELTA_REMOTE_DEFAULT}"}
+	: ${ZELTA_REMOTE_RECV:="${ZELTA_REMOTE_COMMAND}"}
+	export ZELTA_VERB ZELTA_LOG_LEVEL ZELTA_LOG_COMMAND
+	export ZELTA_REMOTE_COMMAND ZELTA_REMOTE_DEFAULT ZELTA_REMOTE_SEND ZELTA_REMOTE_RECV
 
-		append_prune_arg "$1"
-		shift
-	done
+	if _opts=$($AWK -f "$ZELTA_SHARE/zelta-common.awk" -f "$ZELTA_SHARE/zelta-args.awk" -- "$@"); then
+		[ -n "$_opts" ] && eval export "$_opts"
+	else
+		exit 1
+	fi
 
-	if [ -z "$ZPRUNE_SOURCE" ]; then
-		error "source and target operands required"
+	[ "${ZELTA_LOG_LEVEL:-2}" -lt 2 ] && ZPRUNE_QUIET=1
+	ZELTA_LOG_LEVEL=2
+	ZELTA_VERB=prune
+	export ZELTA_LOG_LEVEL ZELTA_VERB
+
+	if [ -z "$ZELTA_SRC_ID" ]; then
+		error "source operand required"
 		zprune_usage
 	fi
-
-	if is_local_endpoint "$ZPRUNE_SOURCE"; then
-		ZPRUNE_SOURCE_LOCAL=1
-	else
-		ZPRUNE_SOURCE_REMOTE=$(get_source_remote "$ZPRUNE_SOURCE")
+	if [ -z "$ZELTA_TGT_ID" ] && ! prune_guard_disabled; then
+		error "target operand required unless prune guard is disabled"
+		exit 1
 	fi
-
 }
 
 run_zelta_prune() {
-	_sep=$(printf '\034')
-	_old_ifs=$IFS
-	IFS=$_sep
-	set -f
-	# shellcheck disable=SC2086
-	set -- $ZPRUNE_PRUNE_ARGS
-	set +f
-	IFS=$_old_ifs
-	zelta prune "$@"
+	zelta ipc-run prune
 }
 
 count_candidates() {
 	awk 'index($0, "@") { n++ } END { print n + 0 }'
 }
 
-validate_local_candidates() {
+validate_candidates() {
 	_candidates=$1
-	_remote=""
 	_invalid=""
 
 	IFS='
@@ -178,9 +127,6 @@ validate_local_candidates() {
 			*"'"*)
 				_invalid=$_invalid$(printf '\n%s' "$_candidate")
 				;;
-			*@*:*|*:*@*)
-				_remote=$_remote$(printf '\n%s' "$_candidate")
-				;;
 			*@*)
 				;;
 			*)
@@ -189,12 +135,6 @@ validate_local_candidates() {
 		esac
 	done
 	unset IFS
-
-	if [ -n "$_remote" ]; then
-		error "refusing unexpected remote snapshot candidates:"
-		printf '%s\n' "$_remote" >&2
-		return 1
-	fi
 
 	if [ -n "$_invalid" ]; then
 		error "refusing unexpected prune output:"
@@ -209,9 +149,9 @@ run_zfs_destroy() {
 	_flags=$1
 	_candidate=$2
 
-	if [ -n "$ZPRUNE_SOURCE_REMOTE" ]; then
+	if [ -n "$ZELTA_SRC_REMOTE" ]; then
 		: ${ZELTA_REMOTE_COMMAND:=ssh}
-		_cmd="$ZELTA_REMOTE_COMMAND $ZPRUNE_SOURCE_REMOTE zfs destroy $_flags '$_candidate'"
+		_cmd="$ZELTA_REMOTE_COMMAND $ZELTA_SRC_REMOTE zfs destroy $_flags '$_candidate'"
 		eval "$_cmd"
 	else
 		zfs destroy $_flags "$_candidate"
@@ -220,12 +160,11 @@ run_zfs_destroy() {
 
 run_zfs_list() {
 	_flags=$1
-	_dataset=${ZPRUNE_SOURCE#*:}
-	_dataset=${_dataset%@*}
+	_dataset=$ZELTA_SRC_DS
 
-	if [ -n "$ZPRUNE_SOURCE_REMOTE" ]; then
+	if [ -n "$ZELTA_SRC_REMOTE" ]; then
 		: ${ZELTA_REMOTE_COMMAND:=ssh}
-		_cmd="$ZELTA_REMOTE_COMMAND $ZPRUNE_SOURCE_REMOTE zfs list $_flags '$_dataset'"
+		_cmd="$ZELTA_REMOTE_COMMAND $ZELTA_SRC_REMOTE zfs list $_flags '$_dataset'"
 		eval "$_cmd"
 	else
 		zfs list $_flags "$_dataset"
@@ -377,35 +316,33 @@ main() {
 
 	_count=$(printf '%s\n' "$_candidates" | count_candidates)
 	if [ "$_count" -eq 0 ]; then
-		echo "No snapshots to prune."
+		[ -z "$ZPRUNE_QUIET" ] && echo "No snapshots to prune."
 		exit 0
 	fi
 
-	if [ -n "$ZPRUNE_SOURCE_REMOTE" ]; then
-		error "remote source; destruction will run through ${ZELTA_REMOTE_COMMAND:-ssh}: $ZPRUNE_SOURCE_REMOTE"
-	fi
-
-	if ! validate_local_candidates "$_candidates"; then
+	if ! validate_candidates "$_candidates"; then
 		error "destroy aborted"
 		exit 1
 	fi
 
 	_preview_file=${TMPDIR:-/tmp}/zprune.$$.preview
 	if ! preview_candidates "$_candidates" > "$_preview_file"; then
-		cat "$_preview_file"
+		[ -z "$ZPRUNE_QUIET" ] && cat "$_preview_file"
 		rm -f "$_preview_file"
 		error "destroy aborted"
 		exit 1
 	fi
-	cat "$_preview_file"
+	[ -z "$ZPRUNE_QUIET" ] && cat "$_preview_file"
 	_destroy_count=$(preview_destroy_count "$_preview_file")
 	_reclaim_bytes=$(preview_reclaim_bytes "$_preview_file")
 	rm -f "$_preview_file"
 	_total_count=$(count_source_snapshots)
 	_total_bytes=$(sum_source_snapshot_written)
-	print_summary "$_destroy_count" "$_total_count" "$_reclaim_bytes" "$_total_bytes"
+	if [ -z "$ZPRUNE_QUIET" ] || [ -z "$ZELTA_PRUNE_FORCE" ]; then
+		print_summary "$_destroy_count" "$_total_count" "$_reclaim_bytes" "$_total_bytes"
+	fi
 
-	if [ -z "$ZPRUNE_FORCE" ]; then
+	if [ -z "$ZELTA_PRUNE_FORCE" ]; then
 		confirm_destruction
 	fi
 
