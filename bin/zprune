@@ -147,14 +147,14 @@ validate_candidates() {
 
 run_zfs_destroy() {
 	_flags=$1
-	_candidate=$2
+	_destroy_target=$2
 
 	if [ -n "$ZELTA_SRC_REMOTE" ]; then
 		: ${ZELTA_REMOTE_COMMAND:=ssh}
-		_cmd="$ZELTA_REMOTE_COMMAND $ZELTA_SRC_REMOTE zfs destroy $_flags '$_candidate'"
+		_cmd="$ZELTA_REMOTE_COMMAND $ZELTA_SRC_REMOTE zfs destroy $_flags '$_destroy_target'"
 		eval "$_cmd"
 	else
-		zfs destroy $_flags "$_candidate"
+		zfs destroy $_flags "$_destroy_target"
 	fi
 }
 
@@ -197,13 +197,13 @@ human_size() {
 
 destroy_candidate_group() {
 	_flags=$1
-	_candidate_arg=$2
+	_destroy_arg=$2
 
-	[ -n "$_candidate_arg" ] || return 0
+	[ -n "$_destroy_arg" ] || return 0
 	if [ -n "$_flags" ]; then
-		printf '%s\n' "$_candidate_arg"
+		printf '%s\n' "$_destroy_arg"
 	fi
-	run_zfs_destroy "$_flags" "$_candidate_arg"
+	run_zfs_destroy "$_flags" "$_destroy_arg"
 }
 
 run_grouped_destroy() {
@@ -284,7 +284,6 @@ print_summary() {
 	_reclaim_bytes=$3
 	_total_bytes=$4
 
-	echo ""
 	printf '%s snapshots (%s%% of %s) will be destroyed\n' \
 		"$_destroy_count" "$(percent_of "$_destroy_count" "$_total_count")" "$_total_count"
 	printf '~%s freed (%s%% of used dataset space)\n' \
@@ -332,7 +331,8 @@ main() {
 		error "destroy aborted"
 		exit 1
 	fi
-	[ -z "$ZPRUNE_QUIET" ] && cat "$_preview_file"
+	[ -z "$ZPRUNE_QUIET" ] && cat "$_preview_file" && echo ""
+
 	_destroy_count=$(preview_destroy_count "$_preview_file")
 	_reclaim_bytes=$(preview_reclaim_bytes "$_preview_file")
 	rm -f "$_preview_file"

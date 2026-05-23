@@ -55,6 +55,7 @@ function usage_prune(message) {
 	print "\t--exclude pattern    Exclude datasets or snapshots matching pattern"                 > STDERR
 	print "\t--include pattern    Include only datasets or snapshots matching pattern"            > STDERR
 	print "Default: '--prune-num=30 --prune-time=1month'\n"                                       > STDERR
+	print "To review and destroy snapshots, use 'zprune'.\n"                                      > STDERR
 	print "For complete documentation:  zelta help prune"                                         > STDERR
 	print "                             https://zelta.space"                                      > STDERR
 	stop(1)
