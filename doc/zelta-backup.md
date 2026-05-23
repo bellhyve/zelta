@@ -97,6 +97,9 @@ _target_
 **\--exclude, -X** _PATTERN_
 : Exclude /dataset/suffix, @snapshot, or #bookmark beginning with the indicated symbol. Wildcards `?` and `*` are permitted. See **zelta-match(8)**.
 
+**\--include** _PATTERN_
+: Only include /dataset/suffix, @snapshot, or #bookmark beginning with the indicated symbol. Wildcards `?` and `*` are permitted. See **zelta-match(8)**.
+
 ## Snapshot Options
 
 **\--no-snapshot**
@@ -161,7 +164,7 @@ Several `zfs send` and `zfs recv` options have special meaning in Zelta and shou
 
 **These have Zelta-specific behavior (see OPTIONS above):**
 - `-I` and `-i` — Control incremental behavior; use the flags documented above instead
-- `--exclude, -X` — Has additional Zelta functionality beyond the `zfs send` version
+- `--include, --exclude, -X` — Can be used to skip snapshots during a backup, such as only send snapshots matching '@daily*'.
 - `--dryrun, -n` — Shows commands that would run; handled by Zelta
 - `-t` — Used automatically for resume tokens
 

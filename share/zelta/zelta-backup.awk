@@ -696,7 +696,7 @@ function get_send_command_incr_snap(ds_suffix, idx, remote_ep,	 _flag, _ds_snap,
 		_ds_snap = Opt["SRC_DS"] ds_suffix DSPair[ds_suffix, "source_start"]
 	else
 		return
-	_flag		= Opt["SEND_INTR"] ? "-I" : "-i"
+	_flag		= (Opt["SEND_INTR"] && !Action[ds_suffix, "force_incremental"]) ? "-I" : "-i"
 	_ds_snap	= remote_ep ? qq(_ds_snap) : q(_ds_snap)
 	_intr_snap	= str_add(_flag, _ds_snap)
 	return _intr_snap
@@ -1097,6 +1097,63 @@ function run_backup(		_i, _ds_suffix, _syncing, _syncable) {
 	}
 }
 
+function filtered_intermediate_mode() {
+	return Opt["SEND_INTR"] && (Opt["EXCLUDE"] || Opt["INCLUDE"]) &&
+	    (Opt["VERB"] != "replicate")
+}
+
+function load_send_range(ds_suffix, snap_arr,		_cmd, _base_name, _snap, _count, _prefix) {
+	_base_name = Opt["SRC_DS"] ds_suffix
+	_prefix = _base_name "@"
+	_cmd = "ZELTA_DRYRUN='' zelta ipc-run prune --log-mode=text --log-level=2 --no-prune-guard --no-ranges --send-range=" q(DSPair[ds_suffix, "match"]) " " q(Source["ID"])
+	report(LOG_DEBUG, "`"_cmd"`")
+	_cmd = _cmd CAPTURE_OUTPUT
+	while (_cmd | getline) {
+		if (index($0, _prefix) == 1) {
+			_snap = substr($0, length(_base_name) + 1)
+			snap_arr[++_count] = _snap
+		}
+		else if (log_common_command_feedback() == LOG_ERROR)
+			Summary["replicationErrorCode"] = 2
+	}
+	close(_cmd)
+	return _count
+}
+
+function run_filtered_intermediate_backup(		_i, _s, _ds_suffix, _snap_num,
+						_snap_arr, _last_snap, _syncing) {
+	_syncing = Opt["DRYRUN"] ? "would sync " : "syncing "
+	if (DSTree["syncable"])
+		report(LOG_NOTICE, _syncing NumDS " datasets")
+
+	for (_i = 1; _i <= NumDS; _i++) {
+		_ds_suffix = DSList[_i]
+		if (!Action[_ds_suffix, "can_sync"]) continue
+
+		delete _snap_arr
+		if (!DSPair[_ds_suffix, "match"]) {
+			run_zfs_sync(_ds_suffix)
+			if (Summary["replicationErrorCode"]) continue
+			if (Opt["DRYRUN"])
+				DSPair[_ds_suffix, "match"] = DSPair[_ds_suffix, "source_end"]
+		}
+
+		_snap_num = load_send_range(_ds_suffix, _snap_arr)
+		_last_snap = DSPair[_ds_suffix, "match"]
+		Action[_ds_suffix, "force_incremental"] = 1
+
+		for (_s = 1; _s <= _snap_num; _s++) {
+			DSPair[_ds_suffix, "source_start"] = _last_snap
+			DSPair[_ds_suffix, "source_end"] = _snap_arr[_s]
+			run_zfs_sync(_ds_suffix)
+			if (Summary["replicationErrorCode"]) break
+			_last_snap = _snap_arr[_s]
+		}
+
+		Action[_ds_suffix, "force_incremental"] = 0
+	}
+}
+
 function print_summary(		_status, _i, _ds_suffix, _num_streams) {
 	if(Summary["failed_props"])
 		report(LOG_WARNING, "missing `zfs allow` permissions: " Summary["failed_props"])
@@ -1164,6 +1221,7 @@ BEGIN {
 	if (Opt["VERB"] == "clone")		create_recursive_clone("SRC", Opt["SRC_DS"], Opt["TGT_DS"])
 	else if (Opt["VERB"] == "revert")	run_revert()
 	else if (Opt["VERB"] == "rotate")	run_rotate()
+	else if (filtered_intermediate_mode())	run_filtered_intermediate_backup()
 	else					run_backup()
 
 	Summary["endTime"]			= sys_time()

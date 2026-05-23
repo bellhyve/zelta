@@ -93,6 +93,7 @@ prune	--prune-size	PRUNE_SIZE		set		select oldest eligible snapshots until size 
 prune	--no-ranges	NO_RANGES		true		disable range compression (output individual snapshots)
 prune	--prune-policy	PRUNE_POLICY		set		pruning strategy: trim (default), force-trim, thin, space, name
 prune	--prune-name	PRUNE_NAME		set		snapshot name pattern: zfsnap, truenas, sanoid, or custom pattern
+prune	--send-range	SEND_RANGE		set		internal: list source snapshots after the given match
 
 # 'zelta policy' options
 policy	--config,-C	CONFIG		set		specify the policy configuration file

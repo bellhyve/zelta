@@ -736,6 +736,37 @@ function analyze_prune_candidates(		_d, _ds_suffix, _src_ds_id, _tgt_ds_id, _num
 	}
 }
 
+# List filtered source snapshots after the requested match. output_prune() reverses
+# individual snapshot output, so populate newest first to print oldest first.
+function analyze_send_range(		_d, _ds_suffix, _src_ds_id, _num_snaps, _s,
+					_match_idx, _src_row, _savepoint) {
+	for (_d = 1; _d <= NumDSPair; _d++) {
+		_ds_suffix = DSPairList[_d]
+		_src_ds_id = Source["ID"] S _ds_suffix S ""
+		_num_snaps = NumSnaps[_src_ds_id]
+		_match_idx = 0
+
+		for (_s = 1; _s <= _num_snaps; _s++) {
+			_src_row = Snap[_src_ds_id, _s]
+			if (Row[_src_row, "type"] != IS_SNAPSHOT) continue
+			if (Row[_src_row, "savepoint"] == Opt["SEND_RANGE"]) {
+				_match_idx = _s
+				break
+			}
+		}
+
+		if (!_match_idx)
+			continue
+
+		for (_s = 1; _s < _match_idx; _s++) {
+			_src_row = Snap[_src_ds_id, _s]
+			if (Row[_src_row, "type"] != IS_SNAPSHOT) continue
+			PruneSnap[_src_ds_id, ++PruneSnapNum[_src_ds_id]] = Row[_src_row, "savepoint"]
+			PruneSnapIdx[_src_ds_id, PruneSnapNum[_src_ds_id]] = Row[_src_row, "snap_idx"]
+		}
+	}
+}
+
 # Compress contiguous snapshots into ranges
 # Input: snap_arr[ds_id, n] = "@snap1", "@snap2", "@snap3"
 #        snap_idx_arr[ds_id, n] = index positions
@@ -1075,7 +1106,10 @@ END {
 		process_datasets()
 
 		if (Opt["VERB"] == "prune") {
-			analyze_prune_candidates()
+			if (Opt["SEND_RANGE"])
+				analyze_send_range()
+			else
+				analyze_prune_candidates()
 			output_prune()
 		} else {
 			get_info()
