@@ -52,7 +52,10 @@ function usage(message,		_ep_spec, _verb, _clone, _revert) {
 	_clone    = (_verb == "clone")
 	if (message) print message                                         > STDERR
 	printf "usage: " _verb " [OPTIONS] "                               > STDERR
-	print _revert ? "ENDPOINT" : "SOURCE TARGET"                       > STDERR
+	if (_clone)
+		print "SOURCE TARGET [ORIGIN TARGET_BACKUP]"                  > STDERR
+	else
+		print _revert ? "ENDPOINT" : "SOURCE TARGET"                 > STDERR
 	print "\nRequired Arguments:"                                      > STDERR
 	if (_revert)
 		print "  ENDPOINT  " _ep_spec                                  > STDERR
@@ -63,6 +66,7 @@ function usage(message,		_ep_spec, _verb, _clone, _revert) {
 	if (_clone) {
 		printf "Clone endpoints require the same 'user', "             > STDERR
 		print "'host', and 'pool'."                                    > STDERR
+		print "Four-endpoint clone also backs up the new clone."       > STDERR
 	}
 	print "\nCommon Options:"                                          > STDERR
         print "  -v, -vv                    Verbose/debug output"      > STDERR
@@ -77,6 +81,8 @@ function usage(message,		_ep_spec, _verb, _clone, _revert) {
 		if (_verb == "backup")
 			print "  -i, --incremental          Incremental sync"      > STDERR
 		print "  -d, --depth NUM            Set max dataset depth"     > STDERR
+		if (_verb == "backup")
+			print "  --origin ENDPOINT          Back up an existing clone" > STDERR
 	}
 
 	print "\nFor complete documentation:  zelta help " _verb           > STDERR
@@ -217,11 +223,22 @@ function parse_zelta_match_row(		_ds_suffix, _src_idx, _tgt_idx) {
 }
 
 # Run 'zfs match' and pass to parser
+function ipc_endpoint_env(	_env) {
+	_env = "ZELTA_SRC_ID=" q(Opt["SRC_ID"])
+	_env = str_add(_env, "ZELTA_SRC_DS=" q(Opt["SRC_DS"]))
+	_env = str_add(_env, "ZELTA_SRC_REMOTE=" q(Opt["SRC_REMOTE"]))
+	_env = str_add(_env, "ZELTA_TGT_ID=" q(Opt["TGT_ID"]))
+	_env = str_add(_env, "ZELTA_TGT_DS=" q(Opt["TGT_DS"]))
+	_env = str_add(_env, "ZELTA_TGT_REMOTE=" q(Opt["TGT_REMOTE"]))
+	return _env
+}
+
 function load_snapshot_deltas(_cmd_arr, _cmd, _cmd_id) {
 	FS = "\t"
 	_cmd_id = (DSTree["target_exists"] && DSTree["source_encrypted"]) ? "MATCH_IVSET" : "MATCH"
+	_cmd_arr["command_prefix"] = ipc_endpoint_env()
 	if (!DSTree["target_exists"])
-		_cmd_arr["command_prefix"]	= "ZELTA_TGT_ID=''"
+		_cmd_arr["command_prefix"]	= str_add(_cmd_arr["command_prefix"], "ZELTA_TGT_ID=''")
 	if (Opt["DRYRUN"])
 		_cmd_arr["command_prefix"]	= str_add(_cmd_arr["command_prefix"], "ZELTA_DRYRUN=''")
 	# Depth is already in the environment
@@ -619,6 +636,15 @@ function validate_target_dataset() {
 	validate_target_parent_dataset()
 }
 
+function load_opt_endpoint(prefix, ep_arr) {
+	Opt[prefix "ID"]		= ep_arr["ID"]
+	Opt[prefix "REMOTE"]	= ep_arr["REMOTE"]
+	Opt[prefix "USER"]		= ep_arr["USER"]
+	Opt[prefix "HOST"]		= ep_arr["HOST"]
+	Opt[prefix "DS"]		= ep_arr["DS"]
+	Opt[prefix "SNAP"]		= ep_arr["SNAP"]
+}
+
 function validate_datasets(	_verb, _src_only, _cloners, _pv_fd) {
 	_verb			= Opt["VERB"]
 	_cloners["rotate"]	= 1
@@ -626,13 +652,19 @@ function validate_datasets(	_verb, _src_only, _cloners, _pv_fd) {
 	_src_only["revert"]	= 1
 	load_endpoint(Operands[1], Source)
 	load_endpoint(Operands[2], Target)
+	if ((_verb == "clone") && (NumOperands == 4)) {
+		load_endpoint(Operands[3], CloneOriginTarget)
+		load_endpoint(Operands[4], CloneBackupTarget)
+	}
+	if (Opt["ORIGIN_ID"])
+		load_endpoint(Opt["ORIGIN_ID"], Origin)
 
 	# Check command line
 	if (Opt["USAGE"])
 		usage()
 	else if (!NumOperands)
 		usage("no endpoints given")
-	else if (NumOperands > 2)
+	else if ((NumOperands > 2) && !((_verb == "clone") && (NumOperands == 4)))
 		usage("too many operands: " Operands[3])
 	else if (NumOperands == 1 && !(_verb in _src_only)) {
                 if (_verb in _cloners)
@@ -657,6 +689,24 @@ function validate_datasets(	_verb, _src_only, _cloners, _pv_fd) {
 		_pv_fd       = " 2>>/dev/tty | "
 		ReceivePipe  = ReceivePipe _pv_fd
 	}
+}
+
+function reset_runtime_state(	_src_ds_tree, _tgt_ds_tree) {
+	delete Dataset
+	delete DSPair
+	delete DSTree
+	delete Action
+	delete DSList
+	NumDS = 0
+	DSTree["final_snapshot"]  = Opt["SRC_SNAP"]
+	DSTree["target_exists"]   = 0
+	DSTree["sync_passes"]     = 0
+	split(Opt["SRC_DS"], _src_ds_tree, "/")
+	split(Opt["TGT_DS"], _tgt_ds_tree, "/")
+	DSTree["source_pool"]     = _src_ds_tree[1]
+	DSTree["target_pool"]     = _tgt_ds_tree[1]
+	if (Opt["SNAP_MODE"] == "ALWAYS")
+		DSTree["snapshot_needed"] = SNAP_ALWAYS
 }
 
 
@@ -982,6 +1032,38 @@ function check_origin_match(origin_ds,		_i, _c, _ds_suffix, _origin_arr, _origin
 	#exit
 }
 
+function configure_origin_backup(	_i, _ds_suffix, _origin_arr, _src_origin, _origin_ds, _origin_snap,
+					_target_origin, _origin_count) {
+	if (!Opt["ORIGIN_ID"]) return
+	if (!Origin["DS"])
+		load_endpoint(Opt["ORIGIN_ID"], Origin)
+	_target_origin = Origin["DS"]
+	for (_i = 1; _i <= NumDS; _i++) {
+		_ds_suffix  = DSList[_i]
+		_src_origin = Dataset["SRC", _ds_suffix, "origin"]
+		if (split(_src_origin, _origin_arr, "@") != 2) continue
+		_origin_snap = "@" _origin_arr[2]
+		if (DSPair[_ds_suffix, "match"]) continue
+		DSPair[_ds_suffix, "source_origin_match"] = _src_origin
+		DSPair[_ds_suffix, "target_origin"] = _target_origin
+		DSPair[_ds_suffix, "match"] = _origin_snap
+		DSPair[_ds_suffix, "source_start"] = _origin_snap
+		DSPair[_ds_suffix, "source_end"] = Dataset["SRC", _ds_suffix, "latest_snapshot"]
+		Action[_ds_suffix, "can_sync"] = 1
+		Action[_ds_suffix, "block_reason"] = ""
+		_origin_count++
+	}
+	if (!_origin_count)
+		stop(1, "source has no clone origin: " Opt["SRC_ID"])
+}
+
+function clone_backup_needs_snapshot(	_origin_arr, _origin_snap) {
+	if (split(Dataset["SRC", "", "origin"], _origin_arr, "@") != 2)
+		return 0
+	_origin_snap = "@" _origin_arr[2]
+	return Dataset["SRC", "", "latest_snapshot"] == _origin_snap
+}
+
 # 'zelta rotate' renames a divergent dataset out of the way
 function run_rotate(		_src_ds_snap, _up_to_date, _src_origin_ds, _origin_arr, _num_full_backup,
 		    		_origin_ds, _origin_snap, _i, _ds_suffix, _tgt_idx, _can_rotate, _target_origin) {
@@ -1071,6 +1153,29 @@ function create_recursive_clone(endpoint, origin_ds, new_ds,		_remote, _user_sna
 		report(LOG_NOTICE, "cloned " _ds_count "/" NumDS " datasets to " new_ds)
 	else
 		report(LOG_NOTICE, "no source snapshots to clone")
+}
+
+function run_clone_shuffle() {
+	create_recursive_clone("SRC", Opt["SRC_DS"], Opt["TGT_DS"])
+	Opt["VERB"] = "backup"
+	load_opt_endpoint("SRC_", Target)
+	load_opt_endpoint("TGT_", CloneBackupTarget)
+	Opt["ORIGIN_ID"] = CloneOriginTarget["ID"]
+	delete Source
+	delete Target
+	load_endpoint(Opt["SRC_ID"], Source)
+	load_endpoint(Opt["TGT_ID"], Target)
+	load_endpoint(Opt["ORIGIN_ID"], Origin)
+	reset_runtime_state()
+	validate_source_dataset()
+	validate_target_dataset()
+	validate_snapshots()
+	if (clone_backup_needs_snapshot()) {
+		create_source_snapshot("snapshotting: ")
+	}
+	compute_eligibility()
+	configure_origin_backup()
+	run_backup()
 }
 
 function run_revert(		_ds) {
@@ -1217,8 +1322,10 @@ BEGIN {
 	validate_datasets()
 	validate_snapshots()
 	compute_eligibility()
+	configure_origin_backup()
 
-	if (Opt["VERB"] == "clone")		create_recursive_clone("SRC", Opt["SRC_DS"], Opt["TGT_DS"])
+	if ((Opt["VERB"] == "clone") && (NumOperands == 4)) run_clone_shuffle()
+	else if (Opt["VERB"] == "clone")	create_recursive_clone("SRC", Opt["SRC_DS"], Opt["TGT_DS"])
 	else if (Opt["VERB"] == "revert")	run_revert()
 	else if (Opt["VERB"] == "rotate")	run_rotate()
 	else if (filtered_intermediate_mode())	run_filtered_intermediate_backup()

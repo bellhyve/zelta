@@ -141,6 +141,12 @@ Exclude /dataset/suffix, \(atsnapshot, or #bookmark beginning with the
 indicated symbol.
 Wildcards \f[CR]?\f[R] and \f[CR]*\f[R] are permitted.
 See \f[B]zelta\-match(8)\f[R].
+.TP
+\f[B]\-\-include\f[R] \f[I]PATTERN\f[R]
+Only include /dataset/suffix, \(atsnapshot, or #bookmark beginning with
+the indicated symbol.
+Wildcards \f[CR]?\f[R] and \f[CR]*\f[R] are permitted.
+See \f[B]zelta\-match(8)\f[R].
 .SS Snapshot Options
 .TP
 \f[B]\-\-no\-snapshot\f[R]
@@ -181,6 +187,15 @@ Example: \f[CR]\-\-snap\-size 128K\f[R].
 \f[CR]\-\-snapshot\f[R] and \f[CR]\-\-no\-snapshot\f[R] ignore
 \f[CR]\-\-snap\-time\f[R] and \f[CR]\-\-snap\-size\f[R].
 .SS Sync Options
+.TP
+\f[B]\-\-origin\f[R] \f[I]TARGET_ORIGIN\f[R]
+Back up an existing clone by using the source clone\(cqs detected origin
+snapshot as the incremental basis and setting the receive origin on the
+target.
+For example,
+\f[CR]zelta backup \-\-origin=cpool/treetop apool/treetop1234 cpool/treetop1234\f[R]
+sends from the source clone origin and receives with
+\f[CR]\-o origin=cpool/treetop\(at...\f[R].
 .TP
 \f[B]\-R, \-\-replicate\f[R]
 Use \f[CR]zfs send \-\-replicate\f[R] instead of Zelta\(cqs
@@ -248,11 +263,13 @@ override strings:
 .PP
 \f[B]These have Zelta\-specific behavior (see OPTIONS above):\f[R] \-
 \f[CR]\-I\f[R] and \f[CR]\-i\f[R] \(em Control incremental behavior; use
-the flags documented above instead \- \f[CR]\-\-exclude, \-X\f[R] \(em
-Has additional Zelta functionality beyond the \f[CR]zfs send\f[R]
-version \- \f[CR]\-\-dryrun, \-n\f[R] \(em Shows commands that would
-run; handled by Zelta \- \f[CR]\-t\f[R] \(em Used automatically for
-resume tokens
+the flags documented above instead \-
+\f[CR]\-\-include, \-\-exclude, \-X\f[R] \(em Can be used to skip
+snapshots during a backup, such as only send snapshots matching
+\(cq\(atdaily*\(cq.
+\- \f[CR]\-\-dryrun, \-n\f[R] \(em Shows commands that would run;
+handled by Zelta \- \f[CR]\-t\f[R] \(em Used automatically for resume
+tokens
 .PP
 \f[B]Not supported:\f[R] \- \f[CR]zfs send \-S\f[R] \(em Unsupported \-
 \f[CR]zfs recv \-A\f[R] \(em Should be used manually when needed
@@ -266,6 +283,10 @@ receive will combine options from \f[CR]\-\-recv\-default\f[R],
 \f[B]\(ensend\-default\f[R] \f[I]\(lqOPTIONS\(rq\f[R]
 \f[CR]zfs send\f[R] options for \f[B]unencrypted\f[R] datasets (default:
 \f[CR]\-Lce\f[R])
+.TP
+\f[B]\(ensend\-decrypted\f[R] \f[I]\(lqOPTIONS\(rq\f[R]
+\f[CR]zfs send\f[R] options for encrypted datasets when raw incremental
+send is unavailable (default: \f[CR]\-Lc\f[R])
 .TP
 \f[B]\(ensend\-raw\f[R] \f[I]\(lqOPTIONS\(rq\f[R]
 \f[CR]zfs send\f[R] options for \f[B]encrypted\f[R] datasets (default:

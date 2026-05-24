@@ -57,6 +57,7 @@ policy,backup,replicate,sync,rotate	--progress			invalid			option '--progress' i
 policy,backup,replicate,sync,rotate	--rate-limit			invalid			option '--rate-limit' is deprecated; use '--recv-pipe'
 policy,backup,replicate,sync,rotate	-z			invalid			option '-z' is deprecated; consider '--json'
 policy,backup,replicate,sync,rotate	-h	USAGE		true		option '-h' is ambiguous; use '--holds' or see SEND/RECV options in 'zelta help options'
+backup,clone	--origin	ORIGIN_ID		set		clone origin dataset already backed up on the target
 
 # `zfs send/zfs recv` options
 policy,backup,replicate,sync	-I,--intermediate	SEND_INTR	INTERMEDIATE	true		intermediate mode: sync all possible snapshots
@@ -79,7 +80,6 @@ match	-p	PARSABLE		true		show file sizes in exact numbers
 match	-o	PROPLIST		set		specify a list of match columns
 match	--written	LIST_WRITTEN		true		calculate sizes for datasets and snapshots
 match	--no-written,--nowritten	WRITTEN		false
-match	--no-target,--notarget	TGT_ID		false
 match	--time	CHECK_TIME		true
 
 # 'zelta prune' options

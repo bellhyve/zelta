@@ -6,6 +6,9 @@
 .SH SYNOPSIS
 \f[B]zelta clone\f[R] [\f[I]OPTIONS\f[R]]
 \f[I]source\f[R][\(at_snapshot_] \f[I]target\f[R]
+.PP
+\f[B]zelta clone\f[R] [\f[I]OPTIONS\f[R]] \f[I]source\f[R]
+\f[I]target\f[R] \f[I]origin\-backup\f[R] \f[I]target\-backup\f[R]
 .SH DESCRIPTION
 \f[B]zelta clone\f[R] performs a recursive \f[B]zfs clone\f[R] operation
 on a dataset.
@@ -23,6 +26,13 @@ The mountpoint will be inherited below the target parent (as provided by
 The \f[I]target\f[R] dataset must not exist.
 To create a clone on a remote host, ensure the \f[I]source\f[R] and
 \f[I]target\f[R] are identical including the username and hostname used.
+.PP
+With four endpoints, \f[B]zelta clone\f[R] first creates the local
+clone, snapshots the new clone, then backs up that clone to
+\f[I]target\-backup\f[R] using \f[I]origin\-backup\f[R] as the
+replicated origin.
+This preserves incremental backup continuity for newly cloned datasets
+without sending a full backup.
 .PP
 Remote endpoint names follow \f[B]scp(1)\f[R] conventions.
 Dataset names follow \f[B]zfs(8)\f[R] naming conventions.
@@ -44,6 +54,14 @@ If a snapshot is not given, the most recent snapshot will be used.
 A dataset on the same pool as the \f[I]source\f[R], where the clones
 will be created.
 This dataset must not exist.
+.TP
+\f[I]origin\-backup\f[R]
+The backup\-side dataset corresponding to \f[I]source\f[R].
+Used only with the four\-endpoint form.
+.TP
+\f[I]target\-backup\f[R]
+The backup destination for \f[I]target\f[R].
+Used only with the four\-endpoint form.
 .PP
 \f[B]Output Options\f[R]
 .TP
@@ -80,6 +98,13 @@ Clone a dataset tree:
 .IP
 .EX
 zelta clone tank/vm/myos tank/temp/myos\-202404
+.EE
+.PP
+Clone a dataset tree and add a backup for the clone using the existing
+origin backup:
+.IP
+.EX
+zelta clone sink/source sink/target tank/source tank/target
 .EE
 .PP
 Recover a dataset tree, in place, to a previous snapshot\(cqs state:
