@@ -1,6 +1,6 @@
 #!/usr/bin/awk -f
 #
-# zelta-failover.awk - lock, unlock, and fail over ZFS dataset trees.
+# zelta-failover.awk - lock, unlock, fail over, and sync properties for ZFS dataset trees.
 
 ## Command execution
 ####################
@@ -163,6 +163,21 @@ function sync_locked_source(src_ep, tgt_ep,    _cmd) {
 	run_cmd(_cmd)
 }
 
+function load_prop_endpoints(src_ep, tgt_ep) {
+	if (NumOperands != 2)
+		stop(1, "zelta " Opt["VERB"] " requires SOURCE and TARGET")
+
+	load_endpoint(Operands[1], src_ep)
+	load_endpoint(Operands[2], tgt_ep)
+	load_local_props(src_ep, SourceProp, SourceDS)
+	load_local_props(tgt_ep, TargetProp, TargetDS)
+}
+
+function sync_props(tgt_ep) {
+	playback_source_props(tgt_ep)
+	inherit_target_only_props(tgt_ep)
+}
+
 ## Failover
 ###########
 
@@ -182,9 +197,13 @@ function run_failover(    _src, _tgt) {
 
 	lock_dataset(_src)
 	sync_locked_source(_src, _tgt)
-	playback_source_props(_tgt)
-	inherit_target_only_props(_tgt)
+	sync_props(_tgt)
 	unlock_dataset(_tgt)
+}
+
+function run_propsync(    _src, _tgt) {
+	load_prop_endpoints(_src, _tgt)
+	sync_props(_tgt)
 }
 
 ## Main
@@ -196,6 +215,8 @@ BEGIN {
 		run_ordered_lock_args()
 	else if (Opt["VERB"] == "failover")
 		run_failover()
+	else if (Opt["VERB"] == "propsync")
+		run_propsync()
 	else
 		stop(1, "unsupported failover verb: " Opt["VERB"])
 	stop()

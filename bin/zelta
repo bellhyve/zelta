@@ -30,6 +30,7 @@ Where 'command' is one of the following:
   lock                       Make datasets read-only and unmount them
   unlock                     Inherit readonly and mount datasets
   failover                   Promote a target dataset tree
+  propsync                   Sync local ZFS properties between trees
 
   version                    Show version information
 
@@ -332,6 +333,7 @@ case $zelta_verb in
 	# Utilities
 	failover |\
 	lock |\
+	propsync |\
 	unlock)		zelta_run_awk "failover" "$@" ;;
 	zeport)		zelta_run_awk "report" ;;
 	# Time
