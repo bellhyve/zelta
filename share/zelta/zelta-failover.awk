@@ -1,0 +1,202 @@
+#!/usr/bin/awk -f
+#
+# zelta-failover.awk - lock, unlock, and fail over ZFS dataset trees.
+
+## Command execution
+####################
+
+function run_cmd(cmd,    _rc) {
+	if (Opt["DRYRUN"])
+		report(LOG_NOTICE, "+ " cmd)
+	else
+		report(LOG_INFO, "+ " cmd)
+	if (Opt["DRYRUN"])
+		return 0
+	_rc = system(cmd)
+	if (_rc)
+		stop(1, "command failed: " cmd)
+	return _rc
+}
+
+function endpoint_cmd(ep, cmd,    _remote) {
+	_remote = get_remote_cmd(ep)
+	if (_remote)
+		return _remote " " dq(cmd)
+	return cmd
+}
+
+## Lock and unlock
+##################
+
+function lock_dataset(ep,    _cmd, _list_cmd, _mount_cmd, _ds, _mounted) {
+	_list_cmd = "zfs list -Hroname -t filesystem -Screatetxg " q(ep["DS"])
+	_mount_cmd = "zfs list -Hro name,mounted -t filesystem -Screatetxg " q(ep["DS"])
+	if (Opt["DRYRUN"]) {
+		report(LOG_NOTICE, "+ " endpoint_cmd(ep, "zfs set readonly=on " q(ep["DS"])))
+		report(LOG_NOTICE, "+ " endpoint_cmd(ep, _list_cmd " | xargs -n1 zfs set canmount=noauto"))
+		report(LOG_NOTICE, "+ " endpoint_cmd(ep, _mount_cmd " | while read ds mounted; do [ \\\"$mounted\\\" = yes ] && zfs unmount \\\"$ds\\\"; done"))
+		return
+	}
+	run_cmd(endpoint_cmd(ep, "zfs set readonly=on " q(ep["DS"])))
+	_cmd = endpoint_cmd(ep, _list_cmd)
+	while ((_cmd | getline) > 0)
+		run_cmd(endpoint_cmd(ep, "zfs set canmount=noauto " q($1)))
+	close(_cmd)
+	_cmd = endpoint_cmd(ep, _mount_cmd)
+	while ((_cmd | getline) > 0) {
+		_ds = $1
+		_mounted = $2
+		if (_mounted == "yes")
+			run_cmd(endpoint_cmd(ep, "zfs unmount " q(_ds)))
+	}
+	close(_cmd)
+}
+
+function unlock_dataset(ep,    _cmd, _ds, _canmount, _mounted) {
+	run_cmd(endpoint_cmd(ep, "zfs inherit readonly " q(ep["DS"])))
+	_cmd = endpoint_cmd(ep, "zfs list -Hroname -t filesystem -s createtxg " q(ep["DS"]))
+	if (Opt["DRYRUN"])
+		report(LOG_NOTICE, "+ " endpoint_cmd(ep, "zfs list -Hroname -t filesystem -s createtxg " q(ep["DS"]) " | xargs -n1 zfs set canmount=on"))
+	else {
+		while ((_cmd | getline) > 0)
+			run_cmd(endpoint_cmd(ep, "zfs set canmount=on " q($1)))
+		close(_cmd)
+	}
+	run_cmd(endpoint_cmd(ep, "zfs mount -R " q(ep["DS"])))
+	_cmd = endpoint_cmd(ep, "zfs list -Hro name,canmount,mounted -t filesystem -s createtxg " q(ep["DS"]))
+	if (Opt["DRYRUN"]) {
+		report(LOG_NOTICE, "+ " endpoint_cmd(ep, "zfs list -Hro name,canmount,mounted -t filesystem -s createtxg " q(ep["DS"]) " | while read ds canmount mounted; do [ \\\"$canmount\\\" != off ] && [ \\\"$mounted\\\" != yes ] && zfs mount \\\"$ds\\\"; done"))
+		return
+	}
+	while ((_cmd | getline) > 0) {
+		_ds = $1
+		_canmount = $2
+		_mounted = $3
+		if (_canmount != "off" && _mounted != "yes")
+			run_cmd(endpoint_cmd(ep, "zfs mount " q(_ds)))
+	}
+	close(_cmd)
+}
+
+function run_ordered_lock_args(    _i, _arg, _action, _num, _ep) {
+	_action = Opt["VERB"] == "unlock" ? "unlock" : "lock"
+	for (_i = 1; _i < ARGC; _i++) {
+		_arg = ARGV[_i]
+		if (_arg == "--lock") {
+			_action = "lock"
+			continue
+		}
+		if (_arg == "--unlock") {
+			_action = "unlock"
+			continue
+		}
+		if (_arg == "-n" || _arg == "--dryrun")
+			continue
+		if (_arg ~ /^-/)
+			stop(1, "unsupported lock option in ordered mode: " _arg)
+		load_endpoint(_arg, _ep)
+		if (_action == "unlock")
+			unlock_dataset(_ep)
+		else
+			lock_dataset(_ep)
+		delete _ep
+		_num++
+	}
+	if (!_num)
+		stop(1, "zelta " Opt["VERB"] " requires at least one dataset")
+}
+
+## Property playback
+####################
+
+function rel_suffix(root, ds) {
+	if (ds == root)
+		return ""
+	if (substr(ds, 1, length(root) + 1) != root "/")
+		stop(1, "dataset is outside expected root: " ds)
+	return substr(ds, length(root) + 1)
+}
+
+function load_local_props(ep, props, seen_ds,    _cmd, _ds, _prop, _val, _suffix) {
+	_cmd = endpoint_cmd(ep, "zfs get -Hpr -r -s local -t filesystem,volume -o name,property,value all " q(ep["DS"]))
+	while ((_cmd | getline) > 0) {
+		_ds = $1
+		_prop = $2
+		_val = $3
+		if (_prop == "volsize")
+			continue
+		if (_prop == "canmount")
+			continue
+		_suffix = rel_suffix(ep["DS"], _ds)
+		if (_prop == "readonly" && _suffix == "")
+			continue
+		seen_ds[_suffix] = 1
+		props[_suffix, _prop] = _val
+	}
+	close(_cmd)
+}
+
+function playback_source_props(tgt_ep,    _key, _parts, _suffix, _prop, _ds) {
+	for (_key in SourceProp) {
+		split(_key, _parts, SUBSEP)
+		_suffix = _parts[1]
+		_prop = _parts[2]
+		_ds = tgt_ep["DS"] _suffix
+		run_cmd(endpoint_cmd(tgt_ep, "zfs set " _prop "=" q(SourceProp[_key]) " " q(_ds)))
+	}
+}
+
+function inherit_target_only_props(tgt_ep,    _key, _parts, _suffix, _prop, _ds) {
+	for (_key in TargetProp) {
+		if (_key in SourceProp)
+			continue
+		split(_key, _parts, SUBSEP)
+		_suffix = _parts[1]
+		_prop = _parts[2]
+		_ds = tgt_ep["DS"] _suffix
+		run_cmd(endpoint_cmd(tgt_ep, "zfs inherit " _prop " " q(_ds)))
+	}
+}
+
+function sync_locked_source(src_ep, tgt_ep,    _cmd) {
+	_cmd = "zelta ipc-run backup --snapshot --log-mode=text --log-level=2 " q(src_ep["ID"]) " " q(tgt_ep["ID"])
+	run_cmd(_cmd)
+}
+
+## Failover
+###########
+
+function run_failover(    _src, _tgt) {
+	if (NumOperands != 2)
+		stop(1, "zelta failover requires SOURCE and TARGET")
+
+	load_endpoint(Operands[1], _src)
+	load_endpoint(Operands[2], _tgt)
+	if (_src["REMOTE"] != _tgt["REMOTE"])
+		stop(1, "failover SOURCE and TARGET must be on the same host")
+
+	if (!Opt["DRYRUN"]) {
+		load_local_props(_src, SourceProp, SourceDS)
+		load_local_props(_tgt, TargetProp, TargetDS)
+	}
+
+	lock_dataset(_src)
+	sync_locked_source(_src, _tgt)
+	playback_source_props(_tgt)
+	inherit_target_only_props(_tgt)
+	unlock_dataset(_tgt)
+}
+
+## Main
+#######
+
+BEGIN {
+	FS = "\t"
+	if (Opt["VERB"] == "unlock" || Opt["VERB"] == "lock")
+		run_ordered_lock_args()
+	else if (Opt["VERB"] == "failover")
+		run_failover()
+	else
+		stop(1, "unsupported failover verb: " Opt["VERB"])
+	stop()
+}

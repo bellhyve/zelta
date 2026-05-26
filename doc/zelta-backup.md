@@ -124,8 +124,8 @@ _target_
 
 ## Sync Options
 
-**\--origin** _TARGET_ORIGIN_
-: Back up an existing clone by using the source clone's detected origin snapshot as the incremental basis and setting the receive origin on the target. For example, `zelta backup --origin=cpool/treetop apool/treetop1234 cpool/treetop1234` sends from the source clone origin and receives with `-o origin=cpool/treetop@...`.
+**\--target-origin**, **\--origin** _TARGET_ORIGIN_
+: Back up an existing clone by using the source clone's detected origin snapshot as the incremental basis and setting the receive origin on the target. For example, `zelta backup --target-origin=cpool/treetop apool/treetop1234 cpool/treetop1234` sends from the source clone origin and receives with `-o origin=cpool/treetop@...`.
 
 **-R, \--replicate**
 : Use `zfs send --replicate` instead of Zelta's per-snapshot analysis. This sends all snapshots, bookmarks, and properties in a single process but provides less granular control over send options.

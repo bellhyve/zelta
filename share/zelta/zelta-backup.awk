@@ -82,7 +82,7 @@ function usage(message,		_ep_spec, _verb, _clone, _revert) {
 			print "  -i, --incremental          Incremental sync"      > STDERR
 		print "  -d, --depth NUM            Set max dataset depth"     > STDERR
 		if (_verb == "backup")
-			print "  --origin ENDPOINT          Back up an existing clone" > STDERR
+			print "  --target-origin ENDPOINT   Back up an existing clone" > STDERR
 	}
 
 	print "\nFor complete documentation:  zelta help " _verb           > STDERR

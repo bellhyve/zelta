@@ -27,6 +27,9 @@ Where 'command' is one of the following:
   clone                      Clone ZFS datasets
   revert                     Rename and clone a dataset in-place
   rotate                     Recover sync continuity
+  lock                       Make datasets read-only and unmount them
+  unlock                     Inherit readonly and mount datasets
+  failover                   Promote a target dataset tree
 
   version                    Show version information
 
@@ -327,6 +330,9 @@ case $zelta_verb in
 	zp |\
 	policy)		zelta_run_awk "policy" ;;
 	# Utilities
+	failover |\
+	lock |\
+	unlock)		zelta_run_awk "failover" "$@" ;;
 	zeport)		zelta_run_awk "report" ;;
 	# Time
 	time)		"$@" | sh -c "time -p cat" ;;
