@@ -59,6 +59,10 @@ policy,backup,replicate,sync,rotate	-z			invalid			option '-z' is deprecated; co
 policy,backup,replicate,sync,rotate	-h	USAGE		true		option '-h' is ambiguous; use '--holds' or see SEND/RECV options in 'zelta help options'
 backup,clone,rebase	--target-origin,--origin	ORIGIN_ID		set		clone origin dataset already backed up on the target
 
+# 'zelta rebase' options
+rebase	--rebase-file	REBASE_FILE		set		list of paths to preserve from the old production tree
+rebase	--rebase-preserve	REBASE_PRESERVE		set		preserve behavior: plan or copy
+
 # 'zelta failover', 'zelta lock', 'zelta unlock', and 'zelta propsync' options
 failover,lock,unlock,propsync	--lock	FAILOVER_ACTION		set	lock	lock following operands
 failover,lock,unlock,propsync	--unlock	FAILOVER_ACTION		set	unlock	unlock following operands
