@@ -112,12 +112,12 @@ check_install() {
 # Make sure the installer worked and clean up carefully
 cleanup_temp_install() {
     find "$SANDBOX_ZELTA_TMP_DIR" -type f | wc -w
-        if [[ -n "${SANDBOX_ZELTA_TMP_DIR:-}" && -d "$SANDBOX_ZELTA_TMP_DIR" ]]; then
-                rm -f "$ZELTA_ETC"/zelta.*
-                rm -rf -- "$SANDBOX_ZELTA_TMP_DIR"
-                [ ! -e "$SANDBOX_ZELTA_TMP_DIR" ] && return 0
-        fi
-        return 1
+    if [ -n "${SANDBOX_ZELTA_TMP_DIR:-}" ] && [ -d "$SANDBOX_ZELTA_TMP_DIR" ]; then
+        rm -f "$ZELTA_ETC"/zelta.*
+        rm -rf -- "$SANDBOX_ZELTA_TMP_DIR"
+        [ ! -e "$SANDBOX_ZELTA_TMP_DIR" ] && return 0
+    fi
+    return 1
 }
 
 tmpfile_touch() {
