@@ -58,8 +58,8 @@ Describe 'Test prune'
     The status should be success
   End
 
-  It "only suggest snapshots existing on target - zelta prune --keep-snap-num=0 --keep-snap-time=0 \"$SANDBOX_ZELTA_SRC_EP\" \"$SANDBOX_ZELTA_TGT_EP\""
-    When call zelta prune --keep-snap-num=0 --keep-snap-time=0 "$SANDBOX_ZELTA_SRC_EP" "$SANDBOX_ZELTA_TGT_EP"
+  It "only suggest snapshots existing on target - zelta prune --prune-num=0 --prune-time=0 \"$SANDBOX_ZELTA_SRC_EP\" \"$SANDBOX_ZELTA_TGT_EP\""
+    When call zelta prune --prune-num=0 --prune-time=0 "$SANDBOX_ZELTA_SRC_EP" "$SANDBOX_ZELTA_TGT_EP"
     The output should satisfy output_for_prune_check
     The status should be success
   End

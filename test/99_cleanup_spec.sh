@@ -32,7 +32,7 @@ Describe 'Cleanup'
         It 'remove temporary installation'
             When call cleanup_temp_install
             The status should be success
-            The output should include '2'
+            The output should include '4'
         End
     End
 End
