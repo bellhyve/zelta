@@ -2,6 +2,40 @@
 
 All notable changes to Zelta will be documented in this file.
 
+## [1.2-beta1] - 2026-05-27
+
+### Added
+- **Commands**: `zprune` destructive companion for `zelta prune`, with candidate validation, `zfs destroy -nvp` preview, grouped transactions, confirmation prompts, and remote-source destruction.
+- **Commands**: `zelta rebase` replication workflow composer for building a new production tree from an upgraded upstream while preserving incremental backup continuity through an existing origin backup.
+- **Commands**: `zelta failover` to lock an active source, perform a final backup, sync local ZFS properties, and unlock the promoted target.
+- **Commands**: `zelta lock` and `zelta unlock` for ordered dataset-tree readonly, canmount, unmount, and remount workflows.
+- **Commands**: `zelta propsync` to replay local ZFS properties from one dataset tree to another while inheriting target-only local overrides.
+- **Backup**: `--target-origin` support for backing up existing clones without forcing a full backup when the clone origin already exists on the target side.
+- **Clone**: Four-endpoint clone mode which creates a clone, snapshots it, and backs it up using the origin backup as the receive origin.
+- **Snapshot**: `--snap-time` and `--snap-size` controls to skip snapshot creation until age or written-size thresholds are reached.
+- **Policy**: `import:` support for composing policy files from local fragments, with relative path resolution, recursion protection, and clearer parse errors.
+- **Policy**: Centralized policy example tree showing split source, target, and rule fragments.
+- **Options**: Global `--include` filtering for dataset and snapshot selection across commands that use the shared argument processor.
+- **Backup**: `--include`/`--exclude` filters can now narrow snapshot streams for stepwise replication.
+- **Testing**: ShellSpec CI workflow, prune/policy/rebase/encrypted-transition coverage, generated test helpers, and VM test-runner documentation.
+
+### Changed
+- **Prune**: Reworked `zelta prune` into a nondestructive candidate planner with explicit retention filters, target guard modes, default 30/30 failsafe behavior, and range-compressed output.
+- **Prune**: Added GFS-style `--prune-grid`, reclaim-target `--prune-size`, `--prune-guard=latest|unsynced|none`, `--no-prune-guard`, `--no-ranges`, and name/policy pruning controls.
+- **Prune**: Candidate selection now avoids cloned snapshots and keeps selection separate from destruction; `zelta prune` reports, `zprune` destroys.
+- **Backup**: Encrypted incremental sends can fall back to decrypted send options when a raw incremental is unavailable because of a broken encryption chain.
+- **Backup**: Improved filtered intermediate backup handling when `--include`/`--exclude` patterns narrow the snapshot stream.
+- **Match**: Expanded match analysis for encrypted targets, IV set comparison, written-size reporting, multiple operands, and dynamic report output.
+- **Install**: One-shot installer and local user installs now preserve timestamps where possible and give better non-root/PATH guidance.
+- **Docs**: Updated backup, clone, match, policy, prune, snapshot, revert, rotate, options, and `zprune` man pages for the new workflows.
+
+### Fixed
+- **Exclude**: Fixed `--exclude` behavior with snapshot range compression and corrected prune usage from `-x` to `-X`.
+- **Prune**: Fixed explicit prune selector handling, safe preview output, grouped destroy previews, recursion in `zprune`, and snapshot space descriptions.
+- **Policy**: Fixed config install location, import parsing errors, reporting regressions, and repeated target handling.
+- **Backup**: Improved raw-encrypted transition handling, resume/error JSON output, backup validation, and snapshot count checks on the associated server.
+- **Testing**: Cleaned sandbox cleanup, spec output, generated divergent/revert/clone/prune/policy tests, and local ShellSpec execution.
+
 ## [1.1.0] - 2026-01-20
 
 ### Known Issues

@@ -27,28 +27,28 @@ In the **zelta policy** configuration file, you may override **zelta backup**'s 
 **\--ds-prefix**
 :    Similar to 'zfs recv -d' and '-e', include the indicated number of parent labels for the target's synced name. See 'zelta help backup' for more detail.
 
-## Include Files
+## Import Files
 
-Policy files may use `include:` to insert another local policy fragment before parsing. Include paths are resolved relative to the file that contains the `include:` line, which allows a policy directory to be moved as a unit.
+Policy files may use `import:` to insert another local policy fragment before parsing. Import paths are resolved relative to the file that contains the `import:` line, which allows a policy directory to be moved as a unit.
 
 ```yaml
 SITE0:
   host1.example:
     options:
-      include: targets/vault1.yaml
-      include: rules/hostbackup.yaml
+      import: targets/vault1.yaml
+      import: rules/hostbackup.yaml
     datasets:
-      include: sources/host1.example.yaml
+      import: sources/host1.example.yaml
 ```
 
-Included files are textual fragments, not independent policy files. The indentation of the `include:` line is prepended to each included line, so fragments should usually contain only the lines needed inside the current context. For example, a dataset inventory fragment can contain only list items:
+Imported files are textual fragments, not independent policy files. The indentation of the `import:` line is prepended to each imported line, so fragments should usually contain only the lines needed inside the current context. For example, a dataset inventory fragment can contain only list items:
 
 ```yaml
 - tank/vm/app1
 - tank/vm/app2
 ```
 
-Includes are expanded recursively up to a fixed depth limit, and recursive include loops are rejected. Later options override earlier options, but unspecified options remain in effect within the current policy context.
+Imports are expanded recursively up to a fixed depth limit, and recursive import loops are rejected. Later options override earlier options, but unspecified options remain in effect within the current policy context.
 
 ## Backup Job Parameters
 Without additional parameters, **zelta policy** will run a **zelta backup** job for each dataset in the configuration file. Providing one of the following will limit the backup job.

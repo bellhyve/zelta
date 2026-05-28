@@ -46,7 +46,7 @@ function config_usage(line_num, message,		_line) {
 	usage(message " at " ConfigFile[line_num] ":" ConfigFileLine[line_num] ": " _line)
 }
 
-# Return the parent directory for resolving local include fragments.
+# Return the parent directory for resolving local import fragments.
 function file_dir(path,		_dir) {
 	_dir = path
 	if (_dir !~ /\//)
@@ -55,24 +55,24 @@ function file_dir(path,		_dir) {
 	return _dir ? _dir : "/"
 }
 
-# Resolve include paths relative to the file that references them.
-function resolve_include(path, base_file,		_dir) {
+# Resolve import paths relative to the file that references them.
+function resolve_import(path, base_file,		_dir) {
 	if (path ~ /^\//)
 		return path
 	_dir = file_dir(base_file)
 	return _dir "/" path
 }
 
-# Expand simple textual include fragments before parsing the policy stream.
+# Expand simple textual import fragments before parsing the policy stream.
 function load_config_lines(file, lines, files, file_lines, depth,		_arr, _base_indent, _child_file,
-						_include_file, _line, _line_num, _raw, _sub_files,
+						_import_file, _line, _line_num, _raw, _sub_files,
 						_sub_lines, _sub_line_nums, _sub_num, _i) {
 	if (depth > 8)
-		usage("include depth exceeded near " file)
-	if (IncludeStack[file])
-		usage("recursive include detected: " file)
+		usage("import depth exceeded near " file)
+	if (ImportStack[file])
+		usage("recursive import detected: " file)
 
-	IncludeStack[file] = 1
+	ImportStack[file] = 1
 	while ((getline _raw < file)>0) {
 		_line_num++
 		_line = _raw
@@ -80,12 +80,12 @@ function load_config_lines(file, lines, files, file_lines, depth,		_arr, _base_i
 			_line = _arr[1]
 		sub(/[ \t]+$/, "", _line)
 
-		if (_line ~ /^[ ]*include:[[:space:]]+[^[:space:]]+/) {
+		if (_line ~ /^[ ]*import:[[:space:]]+[^[:space:]]+/) {
 			_base_indent = _line
-			sub(/include:.*/, "", _base_indent)
-			_include_file = _line
-			sub(/^[ ]*include:[[:space:]]+/, "", _include_file)
-			_child_file = resolve_include(_include_file, file)
+			sub(/import:.*/, "", _base_indent)
+			_import_file = _line
+			sub(/^[ ]*import:[[:space:]]+/, "", _import_file)
+			_child_file = resolve_import(_import_file, file)
 
 			delete _sub_lines
 			delete _sub_files
@@ -103,7 +103,7 @@ function load_config_lines(file, lines, files, file_lines, depth,		_arr, _base_i
 		}
 	}
 	close(file)
-	delete IncludeStack[file]
+	delete ImportStack[file]
 	if (!_line_num)
 		usage("empty or unreadable policy file: " file)
 	return lines["count"]
