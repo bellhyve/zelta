@@ -82,12 +82,15 @@ fi
 if [ "$(id -u)" -ne 0 ] && [ -z "$ZELTA_QUIET" ]; then
 	echo
 	echo "Zelta installed to user directories."
-	echo "To use zelta, ensure these are set in your shell startup file:"
+	if [ "$_existing_zelta" = "$ZELTA" ]; then
+		echo "The installed zelta is available in PATH. Keep $ZELTA_BIN in PATH to continue using it."
+	else
+		echo "To use zelta, ensure this is set in your shell startup file:"
+		echo
+		echo "    export ZELTA_BIN=\"$ZELTA_BIN\""
+		echo "    export PATH=\"\$ZELTA_BIN:\$PATH\""
+	fi
 	echo
-	echo "    export ZELTA_BIN=\"$ZELTA_BIN\""
-	echo "    export ZELTA_SHARE=\"$ZELTA_SHARE\""
-	echo "    export ZELTA_ETC=\"$ZELTA_ETC\""
-	echo "    export ZELTA_DOC=\"$ZELTA_DOC\""
-	echo "    export PATH=\"\$ZELTA_BIN:\$PATH\""
+	echo "ZELTA_SHARE, ZELTA_ETC, and ZELTA_DOC will be detected automatically."
 	echo
 fi

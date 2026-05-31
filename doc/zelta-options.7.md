@@ -23,7 +23,7 @@ For on/off variable assignments, use "1" for true and "0" for false.
 Options follow an override hierarchy to provide flexibility in all contexts.
 
 1. **Defaults** - Built-in defaults in the `zelta` controller script
-2. **`zelta.env`** - System-wide environment file (default: `/usr/local/etc/zelta/zelta.env`)
+2. **`zelta.env`** - Environment file (default: `~/.config/zelta/zelta.env` if present, otherwise `/usr/local/etc/zelta/zelta.env`)
 3. **`zelta.conf`** - Policy configuration file (`zelta policy` only, default: `/usr/local/etc/zelta/zelta.conf`)
 4. **Environment variables** - User environment (must prefix names with `ZELTA_`)
 5. **Command-line arguments** - Highest priority, overrides all other sources
@@ -37,10 +37,10 @@ The following options should be modified in the environment to ensure proper ins
 :   The **awk** executable. The default is the awk in the path. Example: `ZELTA_AWK='mawk -Wi'`.
 
 **ZELTA_SHARE**
-:   The location of Zelta assets including the AWK scripts and data files. The default is `/usr/local/share/zelta`.
+:   The location of Zelta assets including the AWK scripts and data files. If unset, Zelta uses `~/.local/share/zelta` when it contains the installed helper scripts, otherwise `/usr/local/share/zelta`.
 
 **ZELTA_ETC**
-:   The location of `zelta.env` and `zelta.conf`. The default is `/usr/local/etc/zelta`.
+:   The location of `zelta.env` and `zelta.conf`. If unset, Zelta uses `~/.config/zelta` when present, otherwise `/usr/local/etc/zelta`.
 
 **ZELTA_ENV**
 :   The exact path of `zelta.env`.
@@ -49,7 +49,7 @@ The following options should be modified in the environment to ensure proper ins
 :   The exact path of the policy configuration file. The default is `zelta.conf` under `ZELTA_ETC`.
 
 **ZELTA_DOC**
-:   The location of Zelta's manpages. Default is unset, using the system-wide manual.
+:   The location of Zelta's manpages. If unset, Zelta uses `~/.local/share/zelta/doc` when present, otherwise the system manual path.
 
 # LOGGING OPTIONS
 

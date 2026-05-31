@@ -36,8 +36,9 @@ contexts.
 \f[B]Defaults\f[R] \- Built\-in defaults in the \f[CR]zelta\f[R]
 controller script
 .IP "2." 3
-\f[B]\f[CB]zelta.env\f[B]\f[R] \- System\-wide environment file
-(default: \f[CR]/usr/local/etc/zelta/zelta.env\f[R])
+\f[B]\f[CB]zelta.env\f[B]\f[R] \- Environment file (default:
+\f[CR]\(ti/.config/zelta/zelta.env\f[R] if present, otherwise
+\f[CR]/usr/local/etc/zelta/zelta.env\f[R])
 .IP "3." 3
 \f[B]\f[CB]zelta.conf\f[B]\f[R] \- Policy configuration file
 (\f[CR]zelta policy\f[R] only, default:
@@ -67,11 +68,14 @@ Example: \f[CR]ZELTA_AWK=\(aqmawk \-Wi\(aq\f[R].
 .TP
 \f[B]ZELTA_SHARE\f[R]
 The location of Zelta assets including the AWK scripts and data files.
-The default is \f[CR]/usr/local/share/zelta\f[R].
+If unset, Zelta uses \f[CR]\(ti/.local/share/zelta\f[R] when it contains
+the installed helper scripts, otherwise
+\f[CR]/usr/local/share/zelta\f[R].
 .TP
 \f[B]ZELTA_ETC\f[R]
 The location of \f[CR]zelta.env\f[R] and \f[CR]zelta.conf\f[R].
-The default is \f[CR]/usr/local/etc/zelta\f[R].
+If unset, Zelta uses \f[CR]\(ti/.config/zelta\f[R] when present,
+otherwise \f[CR]/usr/local/etc/zelta\f[R].
 .TP
 \f[B]ZELTA_ENV\f[R]
 The exact path of \f[CR]zelta.env\f[R].
@@ -82,7 +86,8 @@ The default is \f[CR]zelta.conf\f[R] under \f[CR]ZELTA_ETC\f[R].
 .TP
 \f[B]ZELTA_DOC\f[R]
 The location of Zelta\(cqs manpages.
-Default is unset, using the system\-wide manual.
+If unset, Zelta uses \f[CR]\(ti/.local/share/zelta/doc\f[R] when
+present, otherwise the system manual path.
 .SH LOGGING OPTIONS
 .TP
 \f[B]LOG_FILE\f[R]
@@ -169,6 +174,11 @@ the \f[CR]SEND_*\f[R] variables below instead.
 Options used for unencrypted filesystems and volumes.
 Defaults to \f[CR]\-Lce\f[R].
 .TP
+\f[B]SEND_DECRYPTED\f[R]
+Options used when an encrypted dataset must fall back to a decrypted
+incremental send.
+Defaults to \f[CR]\-Lc\f[R].
+.TP
 \f[B]SEND_RAW\f[R]
 Options used for encrypted datasets.
 Defaults to \f[CR]\-Lw\f[R].
@@ -248,9 +258,12 @@ source has new data), or \f[CR]ALWAYS\f[R].
 In \f[CR]IF_NEEDED\f[R] mode, skip snapshot creation if every source
 dataset has a recent enough \f[CR]snapshots_changed\f[R] timestamp.
 Bare numbers are Unix epoch seconds and are compared directly.
-Relative values use a trailing \f[CR]s\f[R], \f[CR]m\f[R], \f[CR]h\f[R],
-\f[CR]d\f[R], or \f[CR]w\f[R]; a leading \f[CR]+\f[R] or \f[CR]\-\f[R]
-is ignored.
+Relative values use the same unambiguous duration syntax as
+\f[B]zelta\-prune(8)\f[R]: \f[CR]seconds\f[R], \f[CR]minutes\f[R],
+\f[CR]hours\f[R], \f[CR]days\f[R], \f[CR]weeks\f[R], \f[CR]months\f[R],
+or \f[CR]years\f[R] may be abbreviated to any unambiguous prefix.
+The units \f[CR]m\f[R] and \f[CR]M\f[R] are invalid because they are
+ambiguous between minutes and months.
 .TP
 \f[B]SNAP_SIZE\f[R]
 In \f[CR]IF_NEEDED\f[R] mode, skip snapshot creation if cumulative

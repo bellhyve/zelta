@@ -61,7 +61,7 @@ For detailed usage of each subcommand, run **zelta help <subcommand>** or see th
 Configuration follows a hierarchy from lowest to highest precedence:
 
     1. Internal defaults
-    2. `/usr/local/etc/zelta/zelta.env`
+    2. `~/.config/zelta/zelta.env` if present, otherwise `/usr/local/etc/zelta/zelta.env`
     3. Policy configuration (`zelta.conf`)
     4. Environment variables
     5. Command-line arguments
@@ -69,11 +69,17 @@ Configuration follows a hierarchy from lowest to highest precedence:
 See **zelta-options(7)** for details.
 
 # FILES
+**~/.config/zelta/zelta.conf**
+:    User policy configuration file, used by default when present.
+
 **/usr/local/etc/zelta/zelta.conf**
-:    Default policy configuration file.
+:    System policy configuration file, used when user configuration is absent.
+
+**~/.config/zelta/zelta.env**
+:    User default setting overrides, used by default when present.
 
 **/usr/local/etc/zelta/zelta.env**
-:    Global default setting overrides.
+:    System default setting overrides, used when user configuration is absent.
 
 # EXAMPLES
 The following examples use "sink" as the source pool and "tank" as the backup target.

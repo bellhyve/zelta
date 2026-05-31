@@ -70,25 +70,35 @@ _exit=$?
 
 # Post-installation guidance for non-root users
 if [ "$(id -u)" -ne 0 ] && [ -z "$ZELTA_QUIET" ]; then
+	_installed_bin="${ZELTA_BIN:-$HOME/bin}"
+	_installed_zelta="$_installed_bin/zelta"
+	_existing_zelta=$(command -v zelta 2>/dev/null || echo "")
+	if [ "$_existing_zelta" = "$_installed_zelta" ]; then
+		_action=""
+	else
+		_action=" - ACTION REQUIRED"
+	fi
+
 	echo
 	echo "=========================================================="
-	echo "INSTALLATION COMPLETE - ACTION REQUIRED"
+	echo "INSTALLATION COMPLETE$_action"
 	echo "=========================================================="
 	echo
 	echo "Zelta has been installed to user directories."
-	echo "To make zelta available in this and future shell sessions,"
-	echo "add the following to your shell startup file"
-	echo "(~/.bashrc, ~/.zshrc, ~/.profile, etc.):"
+	if [ "$_existing_zelta" = "$_installed_zelta" ]; then
+		echo "The installed zelta is available in PATH. Keep $_installed_bin in PATH to continue using it."
+	else
+		echo "To make zelta available in future shell sessions,"
+		echo "add the following to your shell startup file"
+		echo "(~/.bashrc, ~/.zshrc, ~/.profile, etc.):"
+		echo
+		echo "    # Zelta configuration"
+		echo "    export ZELTA_BIN=\"$_installed_bin\""
+		echo "    export PATH=\"\$ZELTA_BIN:\$PATH\""
+	fi
 	echo
-	echo "    # Zelta configuration"
-	echo "    export ZELTA_BIN=\"${ZELTA_BIN:-$HOME/bin}\""
-	echo "    export ZELTA_SHARE=\"${ZELTA_SHARE:-$HOME/.local/share/zelta}\""
-	echo "    export ZELTA_ETC=\"${ZELTA_ETC:-$HOME/.config/zelta}\""
-	echo "    export ZELTA_DOC=\"${ZELTA_DOC:-$HOME/.local/share/zelta/doc}\""
-	echo "    export PATH=\"\$ZELTA_BIN:\$PATH\""
-	echo
-	echo "Then reload your configuration: source ~/.bashrc"
-	echo "(or the appropriate file for your shell)"
+	echo "ZELTA_SHARE, ZELTA_ETC, and ZELTA_DOC will be detected automatically."
+	echo "Run '$_installed_zelta version' to use this install immediately."
 	echo "=========================================================="
 	echo
 fi

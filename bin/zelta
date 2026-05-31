@@ -65,13 +65,38 @@ zelta_man() {
 	fi
 }
 
+zelta_default_paths() {
+	_user_share="${HOME:+$HOME/.local/share/zelta}"
+	_user_etc="${HOME:+$HOME/.config/zelta}"
+	_user_doc="${HOME:+$HOME/.local/share/zelta/doc}"
+
+	if [ -z "$ZELTA_ETC" ]; then
+		if [ -n "$_user_etc" ] && [ -d "$_user_etc" ]; then
+			ZELTA_ETC="$_user_etc"
+		else
+			ZELTA_ETC="/usr/local/etc/zelta"
+		fi
+	fi
+	: ${ZELTA_ENV:="$ZELTA_ETC/zelta.env"}
+
+	if [ -z "$ZELTA_SHARE" ]; then
+		if [ -n "$_user_share" ] && [ -r "$_user_share/zelta-common.awk" ]; then
+			ZELTA_SHARE="$_user_share"
+		else
+			ZELTA_SHARE="/usr/local/share/zelta"
+		fi
+	fi
+
+	if [ -z "$ZELTA_DOC" ] && [ -n "$_user_doc" ] && [ -d "$_user_doc" ]; then
+		ZELTA_DOC="$_user_doc"
+	fi
+}
 
 zelta_init() {
 	AWK="${ZELTA_AWK:-${AWK:-awk}}"
 	ZELTA_VERB="${zelta_verb}"
 
-	: ${ZELTA_ETC:="/usr/local/etc/zelta"}	# Dir for the default env and policy
-	: ${ZELTA_ENV:="$ZELTA_ETC/zelta.env"}	# Edit this file to change command defaults
+	zelta_default_paths				# Resolve user install paths before loading env
 
 	ZELTA_HOSTNAME="${HOSTNAME:-$(hostname)}"
 	: "${ZELTA_HOSTNAME:=localhost}"
@@ -140,7 +165,6 @@ zelta_init() {
 
 
 
-	: ${ZELTA_SHARE:="/usr/local/share/zelta"}	# Dir for helper scripts
 	: ${ZELTA_CONFIG:="$ZELTA_ETC/zelta.conf"}	# YAML for "zelta policy"
 
 	# Zelta defaults:

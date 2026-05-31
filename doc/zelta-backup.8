@@ -170,11 +170,15 @@ snapshot), or \f[CR]ALWAYS\f[R].
 In \f[CR]IF_NEEDED\f[R] mode, skip snapshot creation if every source
 dataset has a recent enough \f[CR]snapshots_changed\f[R] timestamp.
 Bare numbers are Unix epoch seconds and are compared directly.
-Relative values use a trailing \f[CR]s\f[R], \f[CR]m\f[R], \f[CR]h\f[R],
-\f[CR]d\f[R], or \f[CR]w\f[R]; a leading \f[CR]+\f[R] or \f[CR]\-\f[R]
-is ignored.
+Relative values use the same unambiguous duration syntax as
+\f[B]zelta\-prune(8)\f[R]: \f[CR]seconds\f[R], \f[CR]minutes\f[R],
+\f[CR]hours\f[R], \f[CR]days\f[R], \f[CR]weeks\f[R], \f[CR]months\f[R],
+or \f[CR]years\f[R] may be abbreviated to any unambiguous prefix.
+The units \f[CR]m\f[R] and \f[CR]M\f[R] are invalid because they are
+ambiguous between minutes and months.
 Examples: \f[CR]\-\-snap\-time 1715200000\f[R],
-\f[CR]\-\-snap\-time 8h\f[R], \f[CR]\-\-snap\-time \-30m\f[R].
+\f[CR]\-\-snap\-time 8h\f[R],
+\f[CR]\-\-snap\-time \(aq30 minutes\(aq\f[R].
 .TP
 \f[B]\-\-snap\-size\f[R] \f[I]SIZE\f[R]
 In \f[CR]IF_NEEDED\f[R] mode, skip snapshot creation if cumulative
@@ -188,12 +192,12 @@ Example: \f[CR]\-\-snap\-size 128K\f[R].
 \f[CR]\-\-snap\-time\f[R] and \f[CR]\-\-snap\-size\f[R].
 .SS Sync Options
 .TP
-\f[B]\-\-origin\f[R] \f[I]TARGET_ORIGIN\f[R]
+\f[B]\-\-target\-origin\f[R], \f[B]\-\-origin\f[R] \f[I]TARGET_ORIGIN\f[R]
 Back up an existing clone by using the source clone\(cqs detected origin
 snapshot as the incremental basis and setting the receive origin on the
 target.
 For example,
-\f[CR]zelta backup \-\-origin=cpool/treetop apool/treetop1234 cpool/treetop1234\f[R]
+\f[CR]zelta backup \-\-target\-origin=cpool/treetop apool/treetop1234 cpool/treetop1234\f[R]
 sends from the source clone origin and receives with
 \f[CR]\-o origin=cpool/treetop\(at...\f[R].
 .TP
