@@ -61,6 +61,7 @@ prune_guard_disabled() {
 
 parse_args() {
 	ZPRUNE_QUIET=""
+	ZPRUNE_DRYRUN=""
 
 	case "$1" in
 		-h|--help)
@@ -74,9 +75,11 @@ parse_args() {
 	init_zelta_env "$@"
 
 	[ "${ZELTA_LOG_LEVEL:-2}" -lt 2 ] && ZPRUNE_QUIET=1
+	[ -n "$ZELTA_DRYRUN" ] && ZPRUNE_DRYRUN=1
+	unset ZELTA_DRYRUN
 	ZELTA_LOG_LEVEL=2
 	ZELTA_VERB=prune
-	export ZELTA_LOG_LEVEL ZELTA_VERB
+	export ZELTA_LOG_LEVEL ZELTA_VERB ZPRUNE_DRYRUN
 
 	if [ -z "$ZELTA_SRC_ID" ]; then
 		error "source operand required"
@@ -369,13 +372,13 @@ main() {
 	_reclaim_bytes=$(preview_reclaim_bytes "$_preview_file")
 	_total_count=$(count_source_snapshots)
 	_total_bytes=$(sum_source_snapshot_written)
-	if [ -n "$ZELTA_DRYRUN" ] || [ -z "$ZPRUNE_QUIET" ] || [ -z "$ZELTA_PRUNE_FORCE" ]; then
+	if [ -n "$ZPRUNE_DRYRUN" ] || [ -z "$ZPRUNE_QUIET" ] || [ -z "$ZELTA_PRUNE_FORCE" ]; then
 		print_dataset_summary "$_preview_file"
 		print_summary "$_destroy_count" "$_total_count" "$_reclaim_bytes" "$_total_bytes"
 	fi
 	rm -f "$_preview_file"
 
-	if [ -n "$ZELTA_DRYRUN" ]; then
+	if [ -n "$ZPRUNE_DRYRUN" ]; then
 		exit 0
 	fi
 
