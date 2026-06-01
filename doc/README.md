@@ -18,15 +18,18 @@ Generated manpages are written under section directories:
 - `man7/` for section 7 pages.
 - `man8/` for section 8 pages.
 
-Do not edit generated files directly. They are rebuilt from the Markdown sources.
+Do not edit generated files directly.
 
 `ZELTA_DOC` should point at this directory, not at `man7/` or `man8/` directly. For example:
 
 ```sh
 export ZELTA_DOC="$HOME/.local/share/zelta/doc"
-man -M "$ZELTA_DOC" 8 zelta-backup
 ```
+
+To view manpages installed into ZELTA_DOC, use `zelta help`.
 
 ## Wiki Articles
 
-Use `wiki/` for teaching, workflow, and journey articles that do not belong in manpages. Website publishing is handled outside this repository.
+Use `wiki/` for additional teaching and workflow articles.
+
+You can view all documentation online at https://zelta.space/
