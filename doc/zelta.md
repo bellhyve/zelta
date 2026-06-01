@@ -81,6 +81,12 @@ See **zelta-options(7)** for details.
 **/usr/local/etc/zelta/zelta.env**
 :    System default setting overrides, used when user configuration is absent.
 
+**~/.local/share/zelta/doc**
+:    User-installed Zelta manual root, containing `man7` and `man8` directories.
+
+**/usr/local/man**
+:    System manual root used by root installs.
+
 # EXAMPLES
 The following examples use "sink" as the source pool and "tank" as the backup target.
 

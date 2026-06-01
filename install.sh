@@ -50,7 +50,7 @@ if [ -n "$ZELTA_DOC" ]; then
 	for section in 7 8; do
 		mandir="${ZELTA_DOC}/man${section}"
 		mkdir -p "$mandir"
-		for file in doc/*.${section}; do
+		for file in doc/man${section}/*.${section}; do
 			copy_file "$file" "$mandir/${file##*/}"
 		done
 	done

@@ -5,7 +5,6 @@
 test/runners/test_generation/config/zelta_test_policy.conf
 *.swp
 *.swo
-doc/man?
 tmp
 hide.*
 *~

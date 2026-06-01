@@ -49,7 +49,7 @@ The following options should be modified in the environment to ensure proper ins
 :   The exact path of the policy configuration file. The default is `zelta.conf` under `ZELTA_ETC`.
 
 **ZELTA_DOC**
-:   The location of Zelta's manpages. If unset, Zelta uses `~/.local/share/zelta/doc` when present, otherwise the system manual path.
+:   The manpath root for Zelta's manpages, containing `man7` and `man8` directories. If unset, Zelta uses `~/.local/share/zelta/doc` when present, otherwise the system manual path.
 
 # LOGGING OPTIONS
 
