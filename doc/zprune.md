@@ -26,6 +26,9 @@ The _source_ and optional _target_ operands have the same meaning as in **zelta-
 **-q**, **--quiet**
 : Do not display the snapshot candidate list or destroy preview. If **--force** is also used, **zprune** suppresses the prompt and proceeds after validation.
 
+**-n**, **--dryrun**, **--dry-run**
+: Display the **zfs destroy -nvp** preview for selected candidates, print the summary, and exit without prompting or destroying snapshots. With **--quiet**, print only the summary and exit.
+
 **-h**, **--help**
 : Show command usage.
 
@@ -74,6 +77,7 @@ Common prune options:
 - candidates are grouped per dataset and previewed with **zfs destroy -nvp**;
 - destruction uses the same grouped candidate form as the preview;
 - the prompt summarizes snapshot count and estimated reclaimed space;
+- **--dryrun** shows the destroy preview and summary, then exits before prompting;
 - the operator must answer `y` or `yes` unless **--force** is used;
 - **zfs destroy -R** is never used.
 
@@ -93,6 +97,18 @@ Destroy without the confirmation prompt:
 
 ```sh
 zprune --force tank/data backup:tank/data
+```
+
+Preview destroy commands and summary without prompting:
+
+```sh
+zprune --dryrun tank/data backup:tank/data
+```
+
+Print only the dry-run summary:
+
+```sh
+zprune -qn tank/data backup:tank/data
 ```
 
 Use an explicit keep window:
@@ -120,7 +136,7 @@ zprune --prune-size=10G tank/data backup:tank/data
 **ZELTA_REMOTE_COMMAND**
 : Command used for remote source destruction. The default is `ssh`.
 
-Other **ZELTA_** variables used by **zelta prune** are honored. See **zelta-options(7)** and **zelta-prune(8)**.
+Other **ZELTA_** variables used by **zelta prune** are honored. **zprune** bootstraps through **zelta**, so **ZELTA_ENV** settings such as **PRUNE_GUARD** are loaded before prune candidates are selected. See **zelta-options(7)** and **zelta-prune(8)**.
 
 # EXIT STATUS
 
@@ -128,7 +144,7 @@ Returns 0 on success and non-zero on error, aborted confirmation, failed candida
 
 # NOTES
 
-For non-destructive reporting, use **zelta prune** directly.
+For non-destructive candidate reporting, use **zelta prune** directly. To preview the exact destroy operations that **zprune** would run, use **zprune --dryrun**.
 
 Manual piping from **zelta prune** to **zfs destroy** is discouraged. **zprune** preserves the review, preview, summary, and confirmation workflow.
 

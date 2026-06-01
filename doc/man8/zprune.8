@@ -35,6 +35,11 @@ Do not display the snapshot candidate list or destroy preview.
 If \f[B]\(enforce\f[R] is also used, \f[B]zprune\f[R] suppresses the
 prompt and proceeds after validation.
 .TP
+\f[B]\-n\f[R], \f[B]\(endryrun\f[R], \f[B]\(endry\-run\f[R]
+Display the \f[B]zfs destroy \-nvp\f[R] preview for selected candidates,
+print the summary, and exit without prompting or destroying snapshots.
+With \f[B]\(enquiet\f[R], print only the summary and exit.
+.TP
 \f[B]\-h\f[R], \f[B]\(enhelp\f[R]
 Show command usage.
 .TP
@@ -87,6 +92,9 @@ destruction uses the same grouped candidate form as the preview;
 .IP \(bu 2
 the prompt summarizes snapshot count and estimated reclaimed space;
 .IP \(bu 2
+\f[B]\(endryrun\f[R] shows the destroy preview and summary, then exits
+before prompting;
+.IP \(bu 2
 the operator must answer \f[CR]y\f[R] or \f[CR]yes\f[R] unless
 \f[B]\(enforce\f[R] is used;
 .IP \(bu 2
@@ -110,6 +118,18 @@ Destroy without the confirmation prompt:
 .IP
 .EX
 zprune \-\-force tank/data backup:tank/data
+.EE
+.PP
+Preview destroy commands and summary without prompting:
+.IP
+.EX
+zprune \-\-dryrun tank/data backup:tank/data
+.EE
+.PP
+Print only the dry\-run summary:
+.IP
+.EX
+zprune \-qn tank/data backup:tank/data
 .EE
 .PP
 Use an explicit keep window:
@@ -140,12 +160,18 @@ The default is \f[CR]ssh\f[R].
 .PP
 Other \f[B]ZELTA_\f[R] variables used by \f[B]zelta prune\f[R] are
 honored.
+\f[B]zprune\f[R] bootstraps through \f[B]zelta\f[R], so
+\f[B]ZELTA_ENV\f[R] settings such as \f[B]PRUNE_GUARD\f[R] are loaded
+before prune candidates are selected.
 See \f[B]zelta\-options(7)\f[R] and \f[B]zelta\-prune(8)\f[R].
 .SH EXIT STATUS
 Returns 0 on success and non\-zero on error, aborted confirmation,
 failed candidate preview, or failed destruction.
 .SH NOTES
-For non\-destructive reporting, use \f[B]zelta prune\f[R] directly.
+For non\-destructive candidate reporting, use \f[B]zelta prune\f[R]
+directly.
+To preview the exact destroy operations that \f[B]zprune\f[R] would run,
+use \f[B]zprune \(endryrun\f[R].
 .PP
 Manual piping from \f[B]zelta prune\f[R] to \f[B]zfs destroy\f[R] is
 discouraged.
