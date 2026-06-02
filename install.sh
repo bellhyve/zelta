@@ -2,7 +2,7 @@
 #
 # Zelta Installer
 #
-# Note that this installer will clobber /usr/local/share/zelta, /usr/local/bin/zelta,
+# Note that this installer will clobber detected ZELTA_SHARE, zelta/zprune binaries,
 # and examples, but not other existing files.
 
 if [ "$(id -u)" -eq 0 ]; then
@@ -32,6 +32,7 @@ copy_file() {
 		echo "installing: $1 -> $2"
 		cp "$1" "$2"
 		chmod "$ZELTA_MODE" "$2"
+		ZELTA_UPDATED=1
 	fi
 }
 
@@ -68,10 +69,14 @@ if [ ! -s "$ZELTA_CONFIG" ]; then
 	copy_file zelta.conf "$ZELTA_CONFIG"
 fi
 
+if [ -z "$ZELTA_UPDATED" ]; then
+    echo Zelta is up to date.
+fi
+
 # Check if installed zelta will be used
 _existing_zelta=$(command -v zelta 2>/dev/null || echo "")
 if [ -n "$_existing_zelta" ] && [ "$_existing_zelta" != "$ZELTA" ]; then
-	echo
+    echo ""
 	echo "Warning: A different 'zelta' appears first in PATH."
 	echo "Installed: $ZELTA"
 	echo "Found:     $_existing_zelta"
@@ -79,18 +84,18 @@ if [ -n "$_existing_zelta" ] && [ "$_existing_zelta" != "$ZELTA" ]; then
 fi
 
 # Post-installation summary for non-root users
-if [ "$(id -u)" -ne 0 ] && [ -z "$ZELTA_QUIET" ]; then
-	echo
+if [ "$(id -u)" -ne 0 ] && [ -n "$ZELTA_UPDATED" ]; then
+    echo ""
 	echo "Zelta installed to user directories."
 	if [ "$_existing_zelta" = "$ZELTA" ]; then
-		echo "The installed zelta is available in PATH. Keep $ZELTA_BIN in PATH to continue using it."
+		echo "Keep $ZELTA_BIN in PATH."
 	else
-		echo "To use zelta, ensure this is set in your shell startup file:"
+		echo "To use zelta, update PATH in your shell startup file:"
 		echo
 		echo "    export ZELTA_BIN=\"$ZELTA_BIN\""
 		echo "    export PATH=\"\$ZELTA_BIN:\$PATH\""
 	fi
-	echo
-	echo "ZELTA_SHARE, ZELTA_ETC, and ZELTA_DOC will be detected automatically."
-	echo
 fi
+
+echo ""
+echo zelta version: $("$ZELTA" version)

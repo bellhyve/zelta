@@ -39,12 +39,26 @@ No package dependencies. No daemons. No configuration databases.
 
 ## Installation Methods
 
-### From Repository (Recommended)
+### Web Installer (Recommended)
+
+The web installer downloads an archive and runs the normal `install.sh` installer:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/bell-tower/zelta/main/contrib/web-install.sh | sh
+```
+
+To install a specific branch:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/bell-tower/zelta/main/contrib/web-install.sh | sh -s -- --branch=release/bsdcan2026
+```
+
+### From Repository
 
 Installing from GitHub gives you the latest features and bug fixes:
 
 ```sh
-git clone https://github.com/bellhyve/zelta.git
+git clone https://github.com/bell-tower/zelta.git
 cd zelta
 sudo ./install.sh
 ```
@@ -59,7 +73,7 @@ Zelta 1.0 (March 2024) is available in the FreeBSD Ports Collection:
 pkg install zelta
 ```
 
-For the latest v1.1 features, install from source.
+For the latest features, install from source or use the web installer.
 
 ---
 
@@ -101,7 +115,7 @@ Run the installer as a regular user for a personal installation:
 - Configuration: `$HOME/.config/zelta/`
 - Documentation: `$HOME/.local/share/zelta/doc/`
 
-The installer will prompt you to add these environment variables to your shell's startup script (`.bashrc`, `.zshrc`, etc.):
+These defaults are enough for most user installs. If you need custom locations, export any of these variables before running the installer:
 
 ```sh
 export ZELTA_BIN="$HOME/bin"
@@ -110,7 +124,7 @@ export ZELTA_ETC="$HOME/.config/zelta"
 export ZELTA_DOC="$ZELTA_SHARE/doc"
 ```
 
-**Important:** Ensure `$HOME/bin`, or whichever bin directory you choose, is in your `PATH`. Zelta must be able to call its own subcommands for most operations. Be sure to `source` your shell's startup script or restart your shell and verify your environment before running `./install.sh`.
+**Important:** Ensure `$HOME/bin`, or whichever bin directory you choose, is in your `PATH`. The installer warns when another `zelta` appears first in `PATH`, then runs the installed `zelta version` command directly so you can verify the installation immediately.
 
 ---
 

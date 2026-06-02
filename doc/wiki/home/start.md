@@ -16,7 +16,7 @@ cd zelta
 sudo ./install.sh
 ```
 
-The installer will guide you through setup. For non-root installation, see the installer output for user-mode configuration. The `zelta` binary be installed in the user's PATH, and for non-global installations, some environment variables must be set.
+The installer chooses system-wide defaults when run as root and user-local defaults otherwise. For custom install paths, see [Installation & Configuration](/home/install).
 
 ### FreeBSD Ports
 

@@ -22,7 +22,7 @@ zelta help options
 If Zelta is missing and the user wants the QA branch for the upcoming 1.2 release:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/bell-tower/zelta/main/contrib/install-from-git.sh | sh -s -- --branch=feature/rebase
+curl -fsSL https://raw.githubusercontent.com/bell-tower/zelta/main/contrib/web-install.sh | sh -s -- --branch=feature/rebase
 ```
 
 Inspect install scripts before piping them to `sh` when the user wants a security review or production change control.

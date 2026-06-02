@@ -55,15 +55,21 @@ pkg install zelta
 
 ### Experimental: One-Shot Install
 
-The following command clones Zelta from the `main` branch and launches the installer. Run this as a personal or backup user for a local, non-root installation. If you prefer a system-wide installation, run the command as root or via `sudo/doas`.
+The following command downloads a Zelta archive from the `main` branch and launches the installer. Run this as a personal or backup user for a local, non-root installation. If you prefer a system-wide installation, run the command as root or via `sudo/doas`.
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/bell-tower/zelta/main/contrib/install-from-git.sh | sh
+curl -fsSL https://raw.githubusercontent.com/bell-tower/zelta/main/contrib/web-install.sh | sh
 ```
 
-The installer will detect your privileges and guide you through adding the necessary environment variables to your shell profile.
+To install a specific branch:
 
-*Security Note: As with any script piped from the internet, we encourage you to [inspect the installer source](https://github.com/bell-tower/zelta/blob/main/contrib/install-from-git.sh) before execution.*
+```sh
+curl -fsSL https://raw.githubusercontent.com/bell-tower/zelta/main/contrib/web-install.sh | sh -s -- --branch=release/bsdcan2026
+```
+
+The installer uses sane defaults for system-wide or user installs. Advanced install paths can be overridden with `ZELTA_BIN`, `ZELTA_SHARE`, `ZELTA_ETC`, and `ZELTA_DOC`; see the install documentation for details.
+
+*Security Note: As with any script piped from the internet, we encourage you to [inspect the installer source](https://github.com/bell-tower/zelta/blob/main/contrib/web-install.sh) before execution.*
 
 ---
 
