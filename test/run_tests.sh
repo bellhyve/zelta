@@ -15,7 +15,7 @@ SPECS_DIR=test/spec
 
 target="${1:-main}"
 
-export SANDBOX_ZELTA_TMP_SUFFIX=rlogwood
+export SANDBOX_ZELTA_TMP_SUFFIX="$LOGNAME"
 
 case "$target" in
   standard)
