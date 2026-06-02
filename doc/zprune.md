@@ -10,60 +10,70 @@
 
 # DESCRIPTION
 
-**zprune** is the destructive companion to **zelta prune**. It runs **zelta prune** with the supplied options, previews reported candidates with **zfs destroy -nvp**, asks for confirmation, and then destroys the same candidates with **zfs destroy**.
+**zprune** destroys snapshots using the candidate selection options described in **zelta prune**. It displays a list of `zfs destroy` commands and a summary, asks for confirmation, and destroys the snapshots.
 
-Candidate selection belongs to **zelta prune**. Destruction belongs to **zprune**. This keeps the safety boundary explicit: **zelta prune** reports, **zprune** destroys.
+While **zelta prune** is limited to `zfs list` and `zfs get` commands for computing a retention policy, **zprune** uses `zfs destroy` to provide additional detail and the destructive actions.
 
-The _source_ and optional _target_ operands have the same meaning as in **zelta-prune(8)**. Remote source destruction is run through **ZELTA_REMOTE_COMMAND**, which defaults to **ssh(1)**.
+Remote dataset endpoints follow **scp(1)** conventions. Operations can be performed without installing **zelta** on remote systems—only standard ZFS utilities and SSH access are required.
+
+Examples:
+
+    Local:  pool/dataset@snapshot
+    Remote: user@example.com:pool/dataset@snapshot
+
+See **zfs(8)** for dataset naming conventions.
 
 # OPTIONS
 
 ## zprune Options
 
 **-f**, **--force**
-: Destroy previewed candidates without asking for confirmation. Candidates are still selected by **zelta prune** and previewed with **zfs destroy -nvp** before destruction.
+: Destroy candidates without asking for confirmation.
 
 **-q**, **--quiet**
-: Do not display the snapshot candidate list or destroy preview. If **--force** is also used, **zprune** suppresses the prompt and proceeds after validation.
+: Do not display the `zfs destroy` commands.
 
 **-n**, **--dryrun**, **--dry-run**
-: Display compact **zfs destroy** commands for selected candidates, print the summary, and exit without prompting or destroying snapshots. With **--verbose**, expand snapshot ranges in the command preview. With **--quiet**, print only the summary and exit.
+: Do not prompt or destroy snapshots.
 
 **-h**, **--help**
 : Show command usage.
 
+**-v**, **--verbose**
+: Expand snapshot ranges in the command preview. With **--quiet**, print only the summary and exit.
+
 **-V**, **--version**
-: Show **zprune** version information.
+: Show **zprune** version information and exit.
 
 ## ZELTA PRUNE OPTIONS
 
-Most options are passed directly to **zelta prune**. See **zelta-prune(8)** for complete behavior and safety details.
+See **zelta-prune(8)** for complete behavior and safety details.
 
 Common prune options:
 
 **--prune-num** _N_
-: Keep the newest _N_ snapshots after the guard point.
+: Keep the newest _N_ snapshots.
 
 **--prune-time** _TIME_
-: Keep snapshots newer than _TIME_.
+: Keep snapshots newer than _TIME_, such as `1 month`.
 
 **--prune-grid** _GRID_
-: Apply GFS-style grid retention, such as `30x1 day, 52x1 week, 1 year`.
+: Apply GFS-style list of retention times, such as `30x1 day, 52x1 week, 1 year`.
 
 **--prune-size** _SIZE_
-: Select oldest eligible snapshots until _SIZE_ bytes are reached.
+: Allow deletion of oldest snapshots until _SIZE_ bytes are reached.
 
 **--prune-guard** `latest`|`unsynced`|`none`
-: Select target safety behavior.
+: Select safety behavior based on replication status with the _target_.
 
 **--no-prune-guard**
 : Disable target matching checks.
 
 **--include** _PATTERN_
-: Include only datasets or snapshots matching _PATTERN_.
+: Include only datasets or snapshots matching _PATTERN_. See **EXCLUSION PATTERNS** in **zelta-options(7)**.
 
 **-X**, **--exclude** _PATTERN_
-: Exclude datasets or snapshots matching _PATTERN_.
+: Exclude datasets or snapshots matching _PATTERN_. See **EXCLUSION PATTERNS** in **zelta-options(7)**.
 
 **-d**, **--depth** _LEVELS_
 : Limit dataset-tree recursion depth.
@@ -118,7 +128,7 @@ zprune --prune-num=60 --prune-time='14 days' \
     tank/data backup:tank/data
 ```
 
-Apply grid retention:
+Use a GFS count and time based retention list:
 
 ```sh
 zprune --prune-grid='30x1 day, 52x1 week, 1 year' \
@@ -133,10 +143,7 @@ zprune --prune-size=10G tank/data backup:tank/data
 
 # ENVIRONMENT
 
-**ZELTA_REMOTE_COMMAND**
-: Command used for remote source destruction. The default is `ssh`.
-
-Other **ZELTA_** variables used by **zelta prune** are honored. **zprune** bootstraps through **zelta**, so **ZELTA_ENV** settings such as **PRUNE_GUARD** are loaded before prune candidates are selected. See **zelta-options(7)** and **zelta-prune(8)**.
+**zprune** bootstraps through **zelta**, so **ZELTA_ENV** settings such as **PRUNE_GUARD** are loaded before prune candidates are selected. See **zelta-options(7)** and **zelta-prune(8)**.
 
 # EXIT STATUS
 
