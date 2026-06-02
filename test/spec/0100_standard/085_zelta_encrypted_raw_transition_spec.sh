@@ -72,7 +72,7 @@ enc_raw_snapshot_backup_fallback_nonraw() {
 	zelta backup --log-level 4 --snapshot "$EncRawSrcEP" "$EncRawTgtEP" 2>&1
 }
 
-Describe 'Encrypted raw-send transition'
+Describe 'Encrypted raw-send transition' standard
 	Skip if 'SANDBOX_ZELTA_SRC_DS undefined' test -z "$SANDBOX_ZELTA_SRC_DS"
 	Skip if 'SANDBOX_ZELTA_TGT_DS undefined' test -z "$SANDBOX_ZELTA_TGT_DS"
 	Skip if 'requires separate source and target remotes' test -z "$SANDBOX_ZELTA_SRC_REMOTE" -o -z "$SANDBOX_ZELTA_TGT_REMOTE" -o "$SANDBOX_ZELTA_SRC_REMOTE" = "$SANDBOX_ZELTA_TGT_REMOTE"

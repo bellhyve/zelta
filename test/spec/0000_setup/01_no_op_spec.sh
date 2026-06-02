@@ -1,6 +1,6 @@
 # Check Zelta usage, help, version, and `zelta match` option processing
 
-Describe 'Zelta no-op command checks'
+Describe 'Zelta no-op command checks' install
     Describe 'zelta command'
         It 'is executable'
             When run command which zelta
