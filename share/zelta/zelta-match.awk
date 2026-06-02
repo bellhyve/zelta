@@ -24,7 +24,7 @@ function usage(message,		_counter, _c, _key) {
 	STDERR = "/dev/stderr"
 	usage_table = "\t%-13s%s\n"
 	printf (message ? message "\n" : "") "usage:"                    > STDERR
-	print "\tmatch [-Hp] [-d max] [-o field[,...]] SOURCE TARGET\n"  > STDERR
+	print "\tmatch [-Hp] [FILTERS] [-o field[,...]] SOURCE TARGET\n" > STDERR
 	print "The following fields are supported:\n"                    > STDERR
 	printf usage_table"\n", "PROPERTY", "VALUES"                     > STDERR
 	for(_counter in ColInfo) {
@@ -33,6 +33,10 @@ function usage(message,		_counter, _c, _key) {
 			continue
 		printf usage_table, _key, ColInfo[_key] > STDERR
 	}
+	print "\nFilter options:"                                                    > STDERR
+	print "\t--depth num          Limit to 'num' dataset levels" > STDERR
+	print "\t--exclude pattern    Exclude datasets or snapshots matching pattern" > STDERR
+	print "\t--include pattern    Include only datasets or snapshots matching pattern" > STDERR
 	print "\nSizes are specified in bytes with standard units such as K, M, G, etc.\n"         > STDERR
 	print "SOURCE and TARGET endpoints are in the form: [user@host:]pool[/dataset/][@snap]\n"  > STDERR
 	print "For complete documentation:  zelta help [<topic>]"                                  > STDERR

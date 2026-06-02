@@ -6,7 +6,7 @@
 
 # SYNOPSIS
 
-**zelta match** [**-Hp**] [**-d** _depth_] [**-o** _field_[,...]] _source_ _target_
+**zelta match** [**-Hp**] [**-d** _depth_] [**\--include** _pattern_] [**-X** _pattern_] [**-o** _field_[,...]] _source_ _target_
 
 # DESCRIPTION
 
@@ -38,7 +38,10 @@
 :    Limit the recursion depth of operations to the number of levels indicated. For example, a depth of 1 will only include the indicated dataset.
 
 **\--exclude, -X**
-:    Exclude datasets or source snapshots matching the specified exclusion pattern. This option can include multiple patterns separated by commas and can be specified multiple times. See _EXCLUSION PATTERNS_ in **zelta-options(7)** for details.
+:    Exclude datasets or source snapshots matching the specified pattern. This option can include multiple patterns separated by commas and can be specified multiple times. See _INCLUDE AND EXCLUDE PATTERNS_ in **zelta-options(7)** for details.
+
+**\--include**
+:    Include only datasets or source snapshots matching the specified pattern. This option can include multiple patterns separated by commas and can be specified multiple times. See _INCLUDE AND EXCLUDE PATTERNS_ in **zelta-options(7)** for details.
 
 **Columns and Summary Behavior**
 

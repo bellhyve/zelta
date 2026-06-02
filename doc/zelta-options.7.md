@@ -89,7 +89,10 @@ The following options should be modified in the environment to ensure proper ins
 :   Limit the recursion depth of operations to the number of levels indicated. For example, a depth of 1 will only include the indicated _source_ dataset. Has no effect with **REPLICATE** enabled.
 
 **EXCLUDE**
-:    Exclude datasets or source snapshots matching the specified exclusion pattern. See _EXCLUSION PATTERNS_ below.
+:    Exclude datasets or source snapshots matching the specified pattern. See _INCLUDE AND EXCLUDE PATTERNS_ below.
+
+**INCLUDE**
+:    Include only datasets or source snapshots matching the specified pattern. See _INCLUDE AND EXCLUDE PATTERNS_ below.
 
 # ZELTA MATCH OPTIONS
 
@@ -213,47 +216,47 @@ The following options only effect `zelta policy` operations.
   - `-1`: `tank/backups/sink/source/dataset`
 - **ADD_HOST_PREFIX** stacks with **ADD_DATASET_PREFIX**. With both enabled, the hostname is prepended first: `tank/backups/web1/source/dataset`.
 
-# EXCLUSION PATTERNS
+# INCLUDE AND EXCLUDE PATTERNS
 
-The EXCLUDE option, or the arguments **\--exclude** or **-X**, contain a comma separated list of patterns to exclude datasets or source snapshots from operations. Excluding a dataset will also exclude its children.
+The INCLUDE and EXCLUDE options, or the arguments **\--include**, **\--exclude**, or **-X**, contain comma separated lists of patterns used to select datasets or source snapshots for operations. INCLUDE narrows operations to matching datasets or snapshots. EXCLUDE removes matching datasets or snapshots. Dataset filters cascade to child datasets.
 
 ## Pattern Types
 
 **Absolute Dataset Path**
-:   Similar to **zfs send \--exclude**, exclude the named source dataset from operations.
+:   Similar to **zfs send \--exclude**, match the named source dataset.
 
-    Example: `tank/vm/swap` excludes that specific dataset.
+    Example: `tank/vm/swap` matches that specific dataset.
 
 **Relative Dataset Path**
-:   Prefix with `/` to exclude the dataset suffix relative to the given dataset name.
+:   Prefix with `/` to match the dataset suffix relative to the given dataset name.
 
-    Example: Given the dataset `sink/swap` and the pattern `/swap`: `sink/swap` will be excluded, but `sink/vm/swap` will **not** be excluded.
+    Example: Given the dataset `sink/swap` and the pattern `/swap`: `sink/swap` will match, but `sink/vm/swap` will **not** match.
 
 **Relative Dataset Pattern**
 :   Use glob-like matching of `*` (zero or more characters) or `?` (single character). The pattern must start with '/' or '*' and must contain a '/'.
 
     Examples, given the given _source_ of `sink/data`:
 
-    - `*/swap` would exclude `sink/data/one/swap`, `sink/data/two/swap`, and `sink/data/swap`
-    - `/*/swap` would exclude `sink/data/one/swap` and `sink/data/two/swap` but **not** `sink/data/swap`
-    - `/vm-*` would exclude `sink/data/vm-one` and its descendants, but **not** `sink/data/vm/one`
-    - `/test?` would exclude `sink/data/test1` but **not** `sink/data/test15`
+    - `*/swap` would match `sink/data/one/swap`, `sink/data/two/swap`, and `sink/data/swap`
+    - `/*/swap` would match `sink/data/one/swap` and `sink/data/two/swap` but **not** `sink/data/swap`
+    - `/vm-*` would match `sink/data/vm-one` and its descendants, but **not** `sink/data/vm/one`
+    - `/test?` would match `sink/data/test1` but **not** `sink/data/test15`
 
 **Snapshot Name**
 :   Match snapshots by name. Prefix with `@` to indicate a snapshot.
 
-    Example: `@manual-backup` excludes any snapshot named `manual-backup`.
+    Example: `@manual-backup` matches any snapshot named `manual-backup`.
 
 **Snapshot Pattern**
 :   Use glob-like matching of `*` (zero or more characters) or `?` (single character). Snapshot names must begin with `@`.
 
     Examples:
 
-    - `@*_hourly` excludes snapshots ending in `_hourly`
-    - `@snap-2024*` excludes snapshots beginning with `snap-2024`
-    - `@auto-*00??` excludes snapshots beginning with `auto-` and ending with 00 and two of any character
+    - `@*_hourly` matches snapshots ending in `_hourly`
+    - `@snap-2024*` matches snapshots beginning with `snap-2024`
+    - `@auto-*00??` matches snapshots beginning with `auto-` and ending with 00 and two of any character
 
-### Exclusions Quick Reference
+### Pattern Quick Reference
 
 | Pattern Type | Example | Matches |
 |--------------|---------|---------|
@@ -267,15 +270,15 @@ The EXCLUDE option, or the arguments **\--exclude** or **-X**, contain a comma s
 
 **Datasets**
 
-Excluding a dataset will also exclude its descendants.
+Including a dataset selects that dataset and its matching snapshots. Excluding a dataset removes that dataset and its descendants.
 
 **Snapshots**
 
-For incremental replication, at least one common snapshot must remain between source and target. Therefore, snapshot exclusion logic is only meaningful when applied to incremental source snapshots in incremental mode (**SEND_INTR=0** or **-i**). For example, snapshot exclusion is useful for skipping hourly snapshots and but updating dailies.
+For incremental replication, at least one common snapshot must remain between source and target. Therefore, snapshot include and exclude logic is only meaningful when applied to incremental source snapshots in incremental mode (**SEND_INTR=0** or **-i**) or filtered intermediate backup streams. For example, snapshot filters are useful for skipping hourly snapshots but updating dailies.
 
-- Excluding a target's most recent snapshot will cause an incremental to fail
-- In intermediate mode (the default), intermediate snapshots will still be included
-- Bookmark exclusions are not supported as they serve only as replication sources
+- Excluding a target's most recent snapshot, or including only snapshots newer than it, will cause an incremental to fail
+- In intermediate mode (the default), filtered intermediate backup streams are sent stepwise so skipped snapshots are not pulled into a `zfs send -I` stream
+- Bookmark include and exclude filters are not supported as bookmarks serve only as replication sources
 
 # EXAMPLES
 Set options via environment for a one-off run:

@@ -128,10 +128,10 @@ Snapshots with clones are never reported as prune candidates. **zprune** also pr
 : Limit dataset-tree recursion depth. A depth of `1` includes only the specified dataset.
 
 **-X**, **--exclude** _PATTERN_
-: Exclude datasets or snapshots matching _PATTERN_. Snapshot patterns begin with `@`. Dataset patterns may be exact dataset names or glob patterns containing `/`.
+: Exclude datasets or snapshots matching _PATTERN_. Snapshot patterns begin with `@`. Dataset patterns may be exact dataset names or glob patterns containing `/`. See _INCLUDE AND EXCLUDE PATTERNS_ in **zelta-options(7)**.
 
 **--include** _PATTERN_
-: Include only datasets or snapshots matching _PATTERN_. This uses the same pattern style as **--exclude**.
+: Include only datasets or snapshots matching _PATTERN_. This uses the same pattern style as **--exclude**. See _INCLUDE AND EXCLUDE PATTERNS_ in **zelta-options(7)**.
 
 ## Output Options
 

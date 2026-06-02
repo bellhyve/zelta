@@ -70,10 +70,10 @@ Common prune options:
 : Disable target matching checks.
 
 **--include** _PATTERN_
-: Include only datasets or snapshots matching _PATTERN_. See **EXCLUSION PATTERNS** in **zelta-options(7)**.
+: Include only datasets or snapshots matching _PATTERN_. See **INCLUDE AND EXCLUDE PATTERNS** in **zelta-options(7)**.
 
 **-X**, **--exclude** _PATTERN_
-: Exclude datasets or snapshots matching _PATTERN_. See **EXCLUSION PATTERNS** in **zelta-options(7)**.
+: Exclude datasets or snapshots matching _PATTERN_. See **INCLUDE AND EXCLUDE PATTERNS** in **zelta-options(7)**.
 
 **-d**, **--depth** _LEVELS_
 : Limit dataset-tree recursion depth.
