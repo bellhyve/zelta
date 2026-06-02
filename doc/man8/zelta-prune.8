@@ -167,6 +167,14 @@ Snapshots with clones are never reported as prune candidates.
 destruction, so clone checks remain effective if state changes after
 candidate selection.
 .TP
+\f[B]\(enprune\-name\f[R] \f[I]PATTERN\f[R]
+Select snapshots by name before applying retention filters.
+Use this when multiple snapshot tools or naming policies share the same
+dataset tree.
+.TP
+\f[B]\(enprune\-policy\f[R] \f[I]NAME\f[R]
+Apply a named pruning policy from configuration.
+.TP
 \f[B]\-d\f[R], \f[B]\(endepth\f[R] \f[I]LEVELS\f[R]
 Limit dataset\-tree recursion depth.
 A depth of \f[CR]1\f[R] includes only the specified dataset.

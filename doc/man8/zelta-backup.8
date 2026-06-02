@@ -48,11 +48,9 @@ when possible.
 The following \f[CR]zfs send\f[R] options are applied based on dataset
 properties:
 .IP \(bu 2
-\f[B]Default\f[R]: \f[CR]\-\-large\-block\f[R],
-\f[CR]\-\-compressed\f[R], \f[CR]\-\-embed\f[R]
+\f[B]Default\f[R]: \f[CR]\-\-raw\f[R] (equivalent to \f[CR]\-Lce\f[R])
 .IP \(bu 2
-\f[B]Encrypted Datasets\f[R]: \f[CR]\-\-large\-block\f[R],
-\f[CR]\-\-raw\f[R]
+\f[B]Encrypted Datasets\f[R]: \f[CR]\-\-raw\f[R]
 .IP \(bu 2
 \f[B]New/Full Syncs\f[R]: Also includes \f[CR]\-\-props\f[R]
 .IP \(bu 2
@@ -286,15 +284,19 @@ receive will combine options from \f[CR]\-\-recv\-default\f[R],
 .TP
 \f[B]\(ensend\-default\f[R] \f[I]\(lqOPTIONS\(rq\f[R]
 \f[CR]zfs send\f[R] options for \f[B]unencrypted\f[R] datasets (default:
-\f[CR]\-Lce\f[R])
+\f[CR]\-\-raw\f[R], equivalent to \f[CR]\-Lce\f[R])
 .TP
 \f[B]\(ensend\-decrypted\f[R] \f[I]\(lqOPTIONS\(rq\f[R]
 \f[CR]zfs send\f[R] options for encrypted datasets when raw incremental
-send is unavailable (default: \f[CR]\-Lc\f[R])
+send is unavailable (default: \f[CR]\-Lc\f[R]).
+This sends a decrypted stream with large blocks and preserves existing
+send\-stream compression.
+Use \f[CR]\-L\f[R] instead when you want the receiving side to
+recompress or encrypt from plaintext.
 .TP
 \f[B]\(ensend\-raw\f[R] \f[I]\(lqOPTIONS\(rq\f[R]
 \f[CR]zfs send\f[R] options for \f[B]encrypted\f[R] datasets (default:
-\f[CR]\-Lw\f[R])
+\f[CR]\-\-raw\f[R])
 .TP
 \f[B]\(ensend\-new\f[R] \f[I]\(lqOPTIONS\(rq\f[R]
 Additional \f[CR]zfs send\f[R] options during full (non\-incremental)
@@ -419,9 +421,9 @@ See \f[B]zelta\-options(7)\f[R] for environment variables,
 \f[CR]zelta.env\f[R] configuration, and \f[CR]zelta policy\f[R]
 integration.
 .PP
-The \f[CR]zelta sync\f[R] command is a convenience alias for
-\f[CR]zelta backup \-i\f[R] and may be extended in future versions with
-additional optimizations for continuous replication workflows.
+The \f[CR]zelta sync\f[R] command remains available for compatibility as
+a convenience alias for \f[CR]zelta backup \-i\f[R].
+New scripts should prefer explicit \f[CR]zelta backup\f[R] commands.
 .SH SEE ALSO
 zelta(8), zelta\-options(7), zelta\-match(8), zelta\-policy(8),
 zelta\-clone(8), zelta\-revert(8), zelta\-rotate(8), zelta\-snapshot(8),

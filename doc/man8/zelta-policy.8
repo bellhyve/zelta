@@ -34,10 +34,22 @@ Retry failed syncs the indicated number of times.
 Run the indicated number of policy jobs concurrently, one for each Site
 in the configuration.
 .TP
+\f[B]\-C\f[R], \f[B]\-\-config\f[R] \f[I]FILE\f[R]
+Read policy configuration from \f[I]FILE\f[R] instead of the default
+location.
+.TP
 \f[B]\-\-backup\-root\f[R]
 The relative target path for the target job.
 For example `bkhost:tank/Backups' would place backups below that dataset
 (if not overridden).
+.TP
+\f[B]\-\-archive\-root\f[R]
+Default archive target root for policy jobs that use archive\-style
+destinations.
+.TP
+\f[B]\-\-backup\-command\f[R] \f[I]COMMAND\f[R]
+Command used by policy when executing backup jobs.
+This is primarily useful for wrappers and testing.
 .TP
 \f[B]\-\-host\-prefix\f[R]
 Include the source hostname as a parent of the synced target, for
@@ -45,8 +57,8 @@ example, `tank/Backups/source.host/backup\-dataset'.
 .TP
 \f[B]\-\-ds\-prefix\f[R]
 Similar to `zfs recv \-d' and `\-e', include the indicated number of
-parent labels for the target\(cqs synced name.
-See `zelta help backup' for more detail.
+parent labels for the target\(cqs backup name.
+See \f[B]zelta\-options(7)\f[R] for more detail.
 .SS Import Files
 Policy files may use \f[CR]import:\f[R] to insert another local policy
 fragment before parsing.

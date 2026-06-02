@@ -5,15 +5,21 @@ The first colon (before a `/` or space) will be interpreted as a host name. Pref
  
 ### Can I use Zelta without installing it globally?
 
-You bet! `cd zelta` or your downloaded repo directory and run:
+Yes. For most user-local installs, use the web installer as the target user:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/bell-tower/zelta/main/contrib/web-install.sh | sh
+```
+
+You can also run the source installer from a checkout:
 
 ```sh
 ./install.sh
 ```
 
-The installer will give a chance to see proposed installation directories before installing. To change the target locations, simply export the environment variables accordingly and rerun `./install.sh`. You can also run it directly out of the repo directory with:
+The installer shows proposed installation directories before installing. To change the target locations, export the relevant environment variables and rerun `./install.sh`. For development, you can also run it directly out of the repo directory with:
 
 ```sh
-export PATH=`pwd`/bin:$PATH
-export ZELTA_SHARE=`pwd`/share/zelta
+export PATH="$(pwd)/bin:$PATH"
+export ZELTA_SHARE="$(pwd)/share/zelta"
 ```

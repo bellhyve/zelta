@@ -41,7 +41,7 @@ No package dependencies. No daemons. No configuration databases.
 
 ### Web Installer (Recommended)
 
-The web installer downloads an archive and runs the normal `install.sh` installer:
+The web installer downloads a GitHub branch archive and runs the normal `install.sh` installer. No `git` required:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/bell-tower/zelta/main/contrib/web-install.sh | sh
@@ -67,13 +67,13 @@ The installer detects whether you're running as root and adjusts paths according
 
 ### FreeBSD Ports
 
-Zelta 1.0 (March 2024) is available in the FreeBSD Ports Collection:
+Zelta is available in the FreeBSD Ports Collection:
 
 ```sh
 pkg install zelta
 ```
 
-For the latest features, install from source or use the web installer.
+Ports may lag the GitHub release. Use the web installer for current 1.2 features.
 
 ---
 
@@ -160,17 +160,17 @@ Grant non-root users the minimum permissions needed for replication. See [ZFS Al
 **Quick setup:**
 ```sh
 # On source systems (as root)
-zfs allow -u backupuser send,snapshot,hold tank/data
+zfs allow -u backupuser send:raw,snapshot,hold,bookmark tank/data
 
 # On target systems (as root)
-zfs allow -u backupuser create,mount,canmount,readonly,receive tank/backups
+zfs allow -u backupuser receive:append,create,mount,readonly,clone,rename,volmode,compression,recordsize tank/backups
 ```
 
 ---
 
 ## Multiple User Configurations
 
-Since Zelta is extremely portable and flexible, you can take advantage of its ability to run multiple independent configurations on the same system using different user accounts. This is **amazing** for separating concerns, implementing defense-in-depth, and managing different types of replication workflows—from conventional backups to asynchronous clustering to complex development workflows.
+Zelta can run multiple independent configurations on the same system using different user accounts. This is useful for separating concerns, implementing defense-in-depth, and managing different workflows: conventional backups, failover, recovery, pruning, and development.
 
 ### Why Multiple Users?
 
@@ -229,9 +229,11 @@ Production:
 
 **Purpose:** Fast bidirectional replication for high-availability failover
 
-This setup creates an active-passive HA configuration where whichever dataset is read-write will generate "written" data, which Zelta automatically snapshots and replicates to the read-only side. Both replication directions are defined in a single policy file, and Zelta intelligently determines which direction needs syncing on each run.
+This setup creates a Zelta Twin: an active-passive asynchronous cluster pattern where whichever dataset is read-write will generate "written" data, which Zelta automatically snapshots and replicates to the read-only side. Both replication directions are defined in a single policy file, and Zelta intelligently determines which direction needs syncing on each run.
 
-**The magic:** You can failover and fail back simply by toggling the `readonly` property. Set the primary read-only, verify sync, then set the secondary read-write. That's it. No Ceph, no blood magic, just ransomware-proof async failover that cannot die by garlic nor silver nor kryptonite.
+**The model:** Whichever side is read-write is live; the read-only side is standby. Failover is just toggling `readonly`—lock the primary, verify the final backup, unlock the secondary. No Ceph, no daemons, no shared storage. Zelta 1.2 provides `zelta failover`, `zelta lock`, `zelta unlock`, and `zelta propsync` to automate that workflow.
+
+See [Zelta Twin](/guides/twin) for the full guide.
 
 **Configuration:**
 ```sh
@@ -273,19 +275,10 @@ Failback:
    - `Failback` site does nothing (secondary is read-only, no written data)
 
 2. **Failover procedure:**
-   ```sh
-   # On primary system
-   zfs set readonly=on tank/postgres
-   zfs set readonly=on tank/www
-   
-   # Verify sync (run as twin user)
-   zelta match primary-db:tank/postgres secondary-db:sink/postgres
-   zelta match primary-web:tank/www secondary-web:sink/www
-   
-   # On secondary system (promote to primary)
-   zfs set readonly=off sink/postgres
-   zfs set readonly=off sink/www
-   ```
+    ```sh
+    zelta failover primary-db:tank/postgres secondary-db:sink/postgres
+    zelta failover primary-web:tank/www secondary-web:sink/www
+    ```
 
 3. **Failback operation:**
    - Secondary (now active) generates new data
@@ -301,7 +294,7 @@ Failback:
 - Always verify sync before promoting a secondary
 - Don't boot both VMs/systems at the same time
 
-**Future enhancement:** In Zelta 1.2, this will be simplified to `zelta failover source target`, which will automatically swap sync direction, promote the source to primary, and lock the target read-only.
+For lower-level maintenance, use `zelta lock`, `zelta unlock`, and `zelta propsync` directly.
 
 **Cron schedule:**
 ```cron
@@ -354,7 +347,7 @@ zelta clone backup:tank/Backups/database tank/production/database-recovery
 2. **Configure Zelta for each user:**
    ```sh
    # Install as root
-   git clone https://github.com/bellhyve/zelta.git
+    git clone https://github.com/bell-tower/zelta.git
    cd zelta
    sudo ./install.sh
    # Set ZELTA_ENV for each user
@@ -374,9 +367,9 @@ zelta clone backup:tank/Backups/database tank/production/database-recovery
 4. **Set ZFS permissions:**
    ```sh
    # As root, grant appropriate permissions to each user
-   zfs allow -u space send,snapshot,hold sink/data
+   zfs allow -u space send:raw,snapshot,hold,bookmark sink/data
    zfs allow -u space receive:append,create,mount,canmount,volmode,readonly,clone,rename,userprop,recordsize tank/backups
-   zfs allow -u twin receive:append,send:raw,create,mount,canmount,volmode,readonly,recordsize,compression,hold,bookmark,create tank/data
+   zfs allow -u twin send:raw,receive:append,snapshot,hold,bookmark,create,mount,canmount,volmode,readonly,clone,rename,recordsize,compression tank/data
    zfs allow -u rescue send,snapshot,hold,destroy,mount,create,clone tank/data
    ```
 
@@ -424,7 +417,7 @@ export ZELTA_ENV="$HOME/.config/zelta/zelta.env"
 
 ### Common Environment Variables
 
-See [Environment & Policy Files](/conf/env-policy) for a comprehensive reference. Here are the most commonly used:
+See [Environment & Policy Files](/conf/env) for a comprehensive reference. Here are the most commonly used:
 
 - `SNAP_NAME` - Snapshot naming pattern (supports command substitution)
 - `BACKUP_ROOT` - Default target root for policy-based replication
@@ -435,6 +428,14 @@ See [Environment & Policy Files](/conf/env-policy) for a comprehensive reference
 ---
 
 ## Updating Zelta
+
+### Web Installer
+
+Rerun the same installer command to update an existing install. The installer reports when the installed version is already current.
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/bell-tower/zelta/main/contrib/web-install.sh | sh
+```
 
 ### From Source
 
@@ -458,7 +459,13 @@ pkg upgrade zelta
 
 ## Uninstalling Zelta
 
-Zelta doesn't install system services or modify system files outside its installation directories. To uninstall:
+Zelta doesn't install system services or modify system files outside its installation directories. Use the uninstaller from the source tree when available:
+
+```sh
+./uninstall.sh
+```
+
+Manual removal is also straightforward:
 
 ### System-Wide Installation
 
@@ -504,9 +511,9 @@ Or as shell aliases (user-specific):
 
 Now that Zelta is installed, you're ready to start replicating:
 
-- **[Quick Start Guide](/home/start)** - Basic replication examples
-- **[Environment & Policy Files](/conf/env-policy)** - Detailed configuration reference
+- **[First Backup](/home/start)** - Basic backup and verification examples
+- **[Environment & Policy Files](/conf/env)** - Detailed configuration reference
 - **[SSH Configuration](/conf/ssh)** - Secure remote replication setup
 - **[ZFS Allow Delegation](/conf/zfs-allow)** - Non-root permission management
 
-For questions or issues, see [GitHub Issues](https://github.com/bellhyve/zelta/issues) or the [Zelta Wiki](https://zelta.space).
+For questions or issues, see [GitHub Issues](https://github.com/bell-tower/zelta/issues) or the [Zelta Wiki](https://zelta.space).

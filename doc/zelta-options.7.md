@@ -117,13 +117,13 @@ The following options should be modified in the environment to ensure proper ins
 :   Override all `zfs send` options with those indicated. For precise and flexible configuration for different circumstances, use the `SEND_*` variables below instead.
 
 **SEND_DEFAULT**
-:   Options used for unencrypted filesystems and volumes. Defaults to `-Lce`.
+:   Options used for unencrypted filesystems and volumes. Defaults to `--raw`, equivalent to `-Lce`.
 
 **SEND_DECRYPTED**
-:   Options used when an encrypted dataset must fall back to a decrypted incremental send. Defaults to `-Lc`.
+:   Options used when an encrypted dataset must fall back to a decrypted incremental send. Defaults to `-Lc`. This preserves large blocks and existing send-stream compression. Use `-L` instead when the receiving side should recompress or encrypt from plaintext.
 
 **SEND_RAW**
-:   Options used for encrypted datasets. Defaults to `-Lw`.
+:   Options used for encrypted datasets. Defaults to `--raw`.
 
 **SEND_NEW**
 :   Additional option used for new datasets. Defaults to `-p`.
@@ -132,7 +132,7 @@ The following options should be modified in the environment to ensure proper ins
 :   Toggle option to transmit intermediate snapshots (`1`, the default) or incremental (`0`).
 
 **SEND_REPLICATE**
-:   Options to use in `zelta backup -R` mode. Defaults to `zfs send -LsRw`.
+:   Options to use in `zelta backup -R` mode. Defaults to `--raw -s -R`.
 
 **SEND_CHECK**
 :   Attempt to drop unsupported `zfs send` options using a no-op test prior to replication. This feature is not fully implemented.

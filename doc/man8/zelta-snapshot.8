@@ -61,6 +61,17 @@ Use \f[CR]$(command)\f[R] for dynamic generation.
 Default: \f[CR]$(date \-u +zelta_%Y\-%m\-%d_%H.%M.%S)\f[R].
 This option is ignored if a snapshot name is provided in the endpoint
 argument.
+.TP
+\f[B]\-\-snap\-time\f[R] \f[I]TIME\f[R]
+Skip snapshot creation unless the newest existing snapshot is older than
+\f[I]TIME\f[R].
+Bare numbers are seconds; suffixes such as \f[CR]h\f[R], \f[CR]d\f[R],
+\f[CR]w\f[R], and \f[CR]y\f[R] are accepted.
+.TP
+\f[B]\-\-snap\-size\f[R] \f[I]SIZE\f[R]
+Skip snapshot creation unless the dataset tree has at least
+\f[I]SIZE\f[R] of written data since the newest existing snapshot.
+\f[I]SIZE\f[R] accepts ZFS\-style byte counts and suffixes.
 .PP
 \f[B]Dataset Options\f[R]
 .TP
@@ -90,6 +101,13 @@ Create a snapshot with a custom naming scheme:
 .IP
 .EX
 zelta snapshot \-\-snap\-name \(dqmanual_$(date +%Y%m%d)\(dq tank/data
+.EE
+.PP
+Create a snapshot only when the newest existing snapshot is at least six
+hours old:
+.IP
+.EX
+zelta snapshot \-\-snap\-time 6h tank/data
 .EE
 .PP
 Dry run to preview the command:

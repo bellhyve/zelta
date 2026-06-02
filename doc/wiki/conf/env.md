@@ -1,206 +1,151 @@
 # Environment & Policy Files
 
-As you move from running manual backups to managing automated fleets, you shouldn't have to keep typing the same command-line arguments.
+As you move from manual backups to automated fleets, you shouldn't have to keep retyping the same arguments. Zelta uses two optional configuration files:
 
-This guide explains how to graduate from `zelta backup` CLI arguments to a set-and-forget orchestration system using `zelta.env` and `zelta.conf` to back up the world.
+- `zelta.env` — global defaults for all Zelta commands, in Bourne shell variable format.
+- `zelta.conf` — backup job definitions for `zelta policy`, in YAML-like policy format.
+
+For the complete option reference, see [zelta-options(7)](/man/zelta-options) or run `zelta help options`.
+
+---
+
+## Syntax At A Glance
+
+`zelta.env` uses Bourne shell syntax:
+
+```sh
+# ~/.config/zelta/zelta.env or /usr/local/etc/zelta/zelta.env
+# This example sets a preferred snapshot naming scheme,
+# enables SSH agent forwarding, and globally enables "verbose" mode. 
+SNAP_NAME='$(date -u +manual_backup_%Y-%m-%d_%H.%M.%S)'
+REMOTE_SEND="ssh -An"
+LOG_LEVEL=3
+```
+
+`zelta.conf` uses YAML-like policy syntax:
+
+```yaml
+# ~/.config/zelta/zelta.conf or /usr/local/etc/zelta/zelta.conf
+# This example configures 'zelta policy' to back up two dataset
+# trees to its backup target.
+BACKUP_ROOT: backup.example.com:tank/Backups
+JOBS: 2
+
+NYC1:
+  host1.example.com:
+  - zroot/jails/web
+  - zroot/jails/db
+```
+
+Options are supported in both contexts, but `zelta policy` options only influence their level of the policy hierarchy.
 
 ---
 
 ## Configuration Hierarchy
 
-Zelta options follow a "specific beats general" hierarchy. This allows you to set sensible global defaults while overriding specific options for particular jobs.
+Zelta options follow a "specific beats general" hierarchy:
 
-1. **Built-in defaults** (Hardcoded safe defaults)
-2. **`zelta.env`** (User/System-wide general preferences)
-3. **`zelta.conf`** (Per-job policy configuration)
-4. **Environment variables** (Shell exports or cron overrides)
-5. **Command-line arguments** (Always win)
+1. Built-in defaults
+2. `zelta.env` global defaults
+3. `zelta.conf` policy settings, for `zelta policy` only
+4. `ZELTA_*` environment variables from the shell, cron, or scripts
+5. Command-line arguments
+
+For example, `zelta policy --no-snapshot` overrides snapshot settings from both `zelta.env` and `zelta.conf` for that run. That's a common use case, as you may wish to use `zelta policy` to check recent backup cronjobs without creating extra snapshots datasets.
 
 ---
 
 ## Global Defaults: `zelta.env`
 
-The `zelta.env` file is read by the `zelta` controller script before any operation. This is the place for settings that should apply to **every** command you run, such as SSH behaviors, logging preferences, or a standardized snapshot naming convention.
+Use `zelta.env` for settings that should apply broadly, such as SSH commands, logging level, output mode, snapshot naming, send flags, receive flags, and retention defaults.
 
-- **Default Location:** `/usr/local/etc/zelta/zelta.env`
-- **User Location:** `~/.config/zelta/zelta.env` (if installed as non-root)
+Default locations:
 
-### Variable Naming
-Inside this file, valid shell syntax is required. You may omit the `ZELTA_` prefix here.
+- User: `~/.config/zelta/zelta.env` when present
+- System: `/usr/local/etc/zelta/zelta.env`
+
+Environment variables are supported outside `zelta.env`, but must include the `ZELTA_` prefix:
 
 ```sh
-# /usr/local/etc/zelta/zelta.env example
-
-# 1. Snapshot Naming
-# Use a dynamic date command so every run generates a unique name.
-# Note the single quotes to prevent expansion until runtime.
-SNAP_NAME='$(date -u +auto-%Y-%m-%d_%H-%M)'
-
-# 2. SSH Tuning
-# Use Agent Forwarding (-A) to hop through bastions without keys on endpoints.
-REMOTE_SEND="ssh -An"   # For "pull" orchestration
-REMOTE_RECV="ssh -A"    # For "push" orchestration
-
-# 4. ZFS Tuning
-# Remove default compression (-c); useful if you'd like your target host to recompress your backups.
-# Add -L (large blocks) and -e (embed data).
-SEND_DEFAULT="-Le"
+export ZELTA_LOG_LEVEL=4
+export ZELTA_REMOTE_COMMAND="ssh -p 2202"
+zelta backup pool/data backup.example.com:tank/Backups/data
 ```
+
+Some startup variables must be exported before Zelta can find its files, because they are needed before `zelta.env` is loaded:
+
+- `ZELTA_AWK`
+- `ZELTA_ETC`
+- `ZELTA_ENV`
+- `ZELTA_CONFIG`
+- `ZELTA_SHARE`
+
+For the complete option list, run `zelta help options` or see `zelta-options(7)`.
 
 ---
 
-## Automation Policy: `zelta.conf`
+## Policy Jobs: `zelta.conf`
 
-The `zelta.conf` file allows you to record replication logic in a clean, maintainable format. This file is used exclusively by the `zelta policy` command. It can be used as a shorthand to repeat common replication jobs with your pre-set options, such as running `zelta policy HOSTNAME` to run all backup jobs associated with a particular host. Running `zelta policy` without operands will orchestrate all jobs you've defined.
+Use `zelta.conf` only for `zelta policy`. It records which source datasets should be backed up, where they should go, and which options apply to those jobs.
 
-- **Default Location:** `/usr/local/etc/zelta/zelta.conf`
+Default locations:
 
-### The Structure
-The hierarchy within the file is **Site** → **Host** → **Dataset**.
+- User: `~/.config/zelta/zelta.conf` when present
+- System: `/usr/local/etc/zelta/zelta.conf`
 
-*   **Global Options:** Apply to everything.
-*   **Site:** A logical grouping (e.g., "New York", "Critical", "Failover"). This is the unit of concurrency for the `JOBS` setting.
-*   **Host:** The source hostname (as resolvable by SSH).
-*   **Dataset:** The specific replication mapping.
-
-### A Production Example
-
-This configuration demonstrates how to handle standard backups, high-frequency retention, and divergent targets in a single file.
+Policy files are organized as site, host, and dataset definitions:
 
 ```yaml
-# /usr/local/etc/zelta/zelta.conf
-
-# --- Global Defaults ---
-# Default target for all jobs (SCP-style syntax)
-BACKUP_ROOT: backup-user@archive.tyrell.corp:tank/Backups
-# Retry failed sends 2 times before giving up
+BACKUP_ROOT: backup.example.com:tank/Backups
 RETRY: 2
-# Run 2 Sites concurrently
-JOBS: 2
 
-# --- Site 1: Standard Production ---
-TYRELL-HQ:
-  # Host: nexus-6
-  nexus-6:
-    - sys/proxmox/vm-100
-    - sys/proxmox/vm-101
-    # You can map to a specific target path if it differs from the default
-    - data/research/biotech: tank/SecureVault/biotech
+PROD:
+  web1.example.com:
+  - zroot/jails/nginx
+  - zroot/jails/php
 
-  # Host: esper-photo
-  esper-photo:
+  db1.example.com:
     options:
-      # Override global defaults for this specific host
-      SNAP_NAME: "$(date -u +daily-%Y-%m-%d)"
+      SNAP_MODE: ALWAYS
+      ADD_HOST_PREFIX: 1
     datasets:
-    - tank/images/raw
-    - tank/images/processed
-
-# --- Site 2: High Frequency / Low Latency ---
-WINTERMUTE:
-  # This site has limited bandwidth, so we tune for speed.
-  options:
-    SEND_INTR: 0       # Incremental only (skip intermediate snaps)
-    SEND_DEFAULT: "-c" # Ensure stream compression
-
-  # Host: straylight
-  straylight:
-    - deck/matrices/cyberspace
-    - deck/matrices/net 
-
-# --- Site 3: Specialized Workflows ---
-NOSTROMO:
-  lp-one:
-    # Just backup everything under 'opt'
-    - opt
-  
-  mother:
-    options:
-      # Assume snapshots are managed by an external tool (like zfs-auto-snapshot)
-      # Zelta will just replicate what it finds.
-      SNAP_MODE: SKIP
-    datasets:
-     - tank/flight-recorder
-     - tank/crew-logs
+    - zroot/db/postgres
 ```
 
----
+Policy files may also use `import:` to compose local fragments. Imports are resolved relative to the file that contains the `import:` line, expanded recursively with loop protection, and are useful for splitting source inventories, target definitions, and shared rules.
 
-## Common Options Reference
-
-While there are many granular options (see `zelta help options`), these are the ones you will use most often.
-
-### Replication Control
-| Option | Description |
-| :--- | :--- |
-| `BACKUP_ROOT` | The default destination. Can be local (`tank/bk`) or remote (`user@host:pool/bk`). |
-| `SNAP_NAME` | The name of the snapshot to create. Supports shell command substitution. |
-| `SNAP_MODE` | `IF_NEEDED` (default): Snap only if source has written data.<br>`ALWAYS`: Snap every run.<br>`SKIP`: Never snap (replication only). |
-| `SEND_INTR` | `1` (default): Send stream as distinct snapshots (`-I`).<br>`0`: Collapse into a single incremental stream (`-i`). Faster, but loses history between runs. |
-
-### Performance & Reliability
-| Option | Description |
-| :--- | :--- |
-| `JOBS` | Number of **Sites** to process in parallel. |
-| `RETRY` | Number of times to retry a failed dataset replication. |
-| `EXCLUDE` | Filter out datasets. E.g., `EXCLUDE: "/swap,@twin_*"`. |
-
-### Advanced Metadata
-| Option | Description |
-| :--- | :--- |
-| `SEND_DEFAULT` | `zfs send` flags (default: `-Lce`). |
-| `SEND_RAW` | `zfs send` flags for encrypted datasets (default: `-Lw`). |
-| `RECV_TOP` | Flags for the top-level target dataset creation (default: `-o readonly=on`). |
+For policy structure and selection rules, run `zelta help policy` or see `zelta-policy(8)`.
 
 ---
 
-## Dynamic Snapshot Names
+## Validate Before Running
 
-Rather than reinventing every imaginable wheel, Zelta leans on the power of Unix philosophy to take advantage of dynamic snapshot naming using **command substitution**. This allows you to decouple Zelta from strict naming policies and adapt to whatever schema you prefer.
+Parse the policy and print the job list without connecting to hosts:
 
-```yaml
-# "zelta_2024-05-20_14.00.00" (Default Zelta style)
-SNAP_NAME: "$(date -u +zelta_%Y-%m-%d_%H.%M.%S)"
-
-# "auto-2024-05-20_1400" (Sanoid/ZFS-auto-snapshot style)
-SNAP_NAME: "autosnap_$(date -u +%Y-%m-%d_%H:%M:%S)_hourly"
-
-# Or call a script
-SNAP_NAME: "$(/home/space/bin/my-naming-logic.sh)"
-```
-
----
-
-## Testing & Validation
-
-Before you unleash a new policy on your production data, validate it.
-
-**1. Syntax Check**
-Parse the configuration and print the job list without connecting to any hosts.
 ```sh
 zelta policy -n
 ```
 
-**2. Dry Run**
-Connect to hosts, check snapshots, and calculate what *would* happen, without sending data.
+Run a verbose dry run:
+
 ```sh
 zelta policy -v -n
 ```
 
-**3. Site Specific**
-Run only the "WINTERMUTE" site definitions to test a specific subset.
+Run one site, host, or dataset from the policy:
+
 ```sh
-zelta policy WINTERMUTE
+zelta policy PROD
 ```
 
---- 
+---
 
 ## Next Steps
 
-- **[Quick Start Guide](/home/start)** - Basic replication examples
-- **[SSH Configuration](/conf/ssh)** - Secure remote replication setup
-- **[ZFS Allow Delegation](/conf/zfs-allow)** - Non-root permission management
-- **Man Pages** - Run `zelta help` for detailed command documentation
+- [Configuration: zelta.env](/conf/zelta-env) - Global defaults file
+- [Configuration: zelta.conf](/conf/zelta-conf) - Policy job file
+- [Policy Guide](/guides/policy) - Build and test policy jobs
+- [SSH Configuration](/conf/ssh) - Remote backup setup
+- [ZFS Allow Delegation](/conf/zfs-allow) - Non-root permission management
 
-For questions or issues, see [GitHub Issues](https://github.com/bellhyve/zelta/issues) or the [Zelta Wiki](https://zelta.space). 
-
+For complete option details, use `zelta help options` or `zelta-options(7)`.

@@ -177,16 +177,19 @@ the \f[CR]SEND_*\f[R] variables below instead.
 .TP
 \f[B]SEND_DEFAULT\f[R]
 Options used for unencrypted filesystems and volumes.
-Defaults to \f[CR]\-Lce\f[R].
+Defaults to \f[CR]\-\-raw\f[R], equivalent to \f[CR]\-Lce\f[R].
 .TP
 \f[B]SEND_DECRYPTED\f[R]
 Options used when an encrypted dataset must fall back to a decrypted
 incremental send.
 Defaults to \f[CR]\-Lc\f[R].
+This preserves large blocks and existing send\-stream compression.
+Use \f[CR]\-L\f[R] instead when the receiving side should recompress or
+encrypt from plaintext.
 .TP
 \f[B]SEND_RAW\f[R]
 Options used for encrypted datasets.
-Defaults to \f[CR]\-Lw\f[R].
+Defaults to \f[CR]\-\-raw\f[R].
 .TP
 \f[B]SEND_NEW\f[R]
 Additional option used for new datasets.
@@ -198,7 +201,7 @@ default) or incremental (\f[CR]0\f[R]).
 .TP
 \f[B]SEND_REPLICATE\f[R]
 Options to use in \f[CR]zelta backup \-R\f[R] mode.
-Defaults to \f[CR]zfs send \-LsRw\f[R].
+Defaults to \f[CR]\-\-raw \-s \-R\f[R].
 .TP
 \f[B]SEND_CHECK\f[R]
 Attempt to drop unsupported \f[CR]zfs send\f[R] options using a no\-op

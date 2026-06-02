@@ -2,17 +2,9 @@
 
 ## Documentation Index
 
+Zelta provides safe ZFS backup and recovery operations that remain straightforward to deploy and operate.
 
-
-Zelta provides bulletproof backups that meet strict compliance requirements while remaining straightforward to deploy and operate. It transforms
-complex backup and recovery operations into safe, auditable commands—protecting your data without requiring specialized expertise.
-
-
-
-Zelta orchestrates backup operations across any modern Unix system. It has been battle-tested in production for over six years, managing tens of
-millions of snapshots across thousands of systems—with zero package dependencies.
-
-
+Zelta orchestrates backup operations across modern Unix systems. It has zero package dependencies and can run from an orchestrator without being installed on the ZFS endpoints.
 
 > **Zelta requires ZFS.** If ZFS isn't yet part of your workflow, see [Getting Started with ZFS](/conf/zfs) to begin.
 
@@ -22,37 +14,13 @@ millions of snapshots across thousands of systems—with zero package dependenci
 
 
 
-Learn about Zelta and quickly get your backups running.
+Learn about Zelta and get your first backups running.
 
-
-
-- **[About Zelta](/home/about):**
-
-Learn about the Zelta project and its design philosophy: compliance-ready, safe defaults, zero footprint, and portable.
-
-
-
-- **[Definitions & Features](/home/overview):**
-
-Understand core Zelta concepts including endpoints, dataset trees, and backup operations.
-
-
-
-- **[Quick Start](/home/start):**
-
-Create a backup with `zelta backup` and verify it with `zelta match`.
-
-
-
-- **[Installation & Configuration](/home/install):**
-
-Deploy, configure, and customize Zelta for your server or fleet, including an overview of `zelta policy`.
-
-
-
-- **[FAQ](/home/faq):**
-
-Answers to common questions.
+- **[About Zelta](/home/about):** Project overview and design philosophy.
+- **[Definitions & Features](/home/overview):** Endpoints, dataset trees, and backup operations.
+- **[First Backup](/home/start):** Create a backup with `zelta backup` and verify it with `zelta match`.
+- **[Installation & Configuration](/home/install):** Deploy, configure, and customize Zelta for your server or fleet.
+- **[FAQ](/home/faq):** Answers to common questions.
 
 
 
@@ -60,61 +28,22 @@ Answers to common questions.
 
 
 
-All Zelta commands operate recursively on backup sets and work locally or remotely via SSH.
+All Zelta commands operate recursively on dataset trees and work locally or remotely via SSH.
 
-
-
-- **[Manual: zelta](/man/zelta)**
-
-Overview of the Zelta suite and common options.
-
-
-
-- **[Manual: zelta backup](/man/zelta-backup)**
-
-Robust backup with safe defaults, intelligent incremental detection, and optional pre-backup snapshots.
-
-
-
-- **[Manual: zelta match](/man/zelta-match)**
-
-Compare dataset trees and report matching snapshots or discrepancies.
-
-
-
-- **[Manual: zelta policy](/man/zelta-policy)**
-
-Automate large-scale concurrent backup operations using policy-based configuration.
-
-
-
-- **[Manual: zelta clone](/man/zelta-clone)**
-
-Create temporary read-write clones for testing, recovery, or inspection without disturbing the original.
-
-
-
-- **[Manual: zelta revert](/man/zelta-revert)**
-
-Rewind a dataset in place by renaming and cloning, preserving current state.
-
-
-
-- **[Manual: zelta rotate](/man/zelta-rotate)**
-
-Keep backups rolling after divergence by preserving all versions without destructive receives.
-
-
-
-- **[Manual: zelta snapshot](/man/zelta-snapshot)**
-
-Create recursive snapshots on local or remote endpoints.
-
-
-
-- **[Manual: zelta prune](/man/zelta-prune)** *(Experimental)*
-
-Identify snapshots eligible for deletion based on backup state and retention windows.
+- **[Manual: zelta](/man/zelta):** Overview of the Zelta suite and common options.
+- **[Manual: zelta backup](/man/zelta-backup):** Backup with safe defaults, incremental detection, and optional pre-backup snapshots.
+- **[Manual: zelta match](/man/zelta-match):** Compare dataset trees and report matching snapshots or discrepancies.
+- **[Manual: zelta policy](/man/zelta-policy):** Automate concurrent backup operations using policy-based configuration.
+- **[Manual: zelta clone](/man/zelta-clone):** Create temporary read-write clones for testing, recovery, or inspection.
+- **[Manual: zelta revert](/man/zelta-revert):** Rewind a dataset in place by renaming and cloning, preserving current state.
+- **[Manual: zelta rotate](/man/zelta-rotate):** Keep backups rolling after divergence by preserving all versions.
+- **[Manual: zelta snapshot](/man/zelta-snapshot):** Create recursive snapshots on local or remote endpoints.
+- **[Manual: zelta prune](/man/zelta-prune):** Plan snapshot pruning without destroying data.
+- **[Manual: zprune](/man/zprune):** Validate and destroy snapshots selected by `zelta prune`.
+- **[Manual: zelta failover](/man/zelta-failover):** Promote a backup target through a guarded failover workflow.
+- **[Manual: zelta rebase](/man/zelta-rebase):** Build a new dataset tree from an upgraded upstream while preserving backup continuity.
+- **[Manual: failover helpers](/man/zelta-failover):** `zelta lock`, `zelta unlock`, and `zelta propsync` are lower-level failover workflow commands.
+- **[Guide: Zelta Twin](/guides/twin):** Compose asynchronous cluster pairs from reciprocal backup policy and guarded failover commands.
 
 
 
@@ -122,33 +51,11 @@ Identify snapshots eligible for deletion based on backup state and retention win
 
 
 
-- **[Configuration: ssh](/conf/ssh)**
-
-SSH best practices for efficient ZFS replication.
-
-
-
-- **[Configuration: zfs allow](/conf/zfs-allow)**
-
-Set up ZFS permissions to replicate data with minimal access.
-
-
-
-- **[Configuration: zelta.conf](/conf/zelta-conf)**
-
-Policy configuration for complex backups.
-
-
-
-- **[Configuration: zelta.env](/conf/zelta-env)**
-
-Override Zelta's default behavior, including auto-snapshot names and `zfs` options.
-
-
-
-- **[Configuration: zfs](/conf/zfs)**
-
-Getting started with ZFS for new users.
+- **[Configuration: ssh](/conf/ssh):** SSH best practices for efficient ZFS backup.
+- **[Configuration: zfs allow](/conf/zfs-allow):** Set up ZFS permissions with minimal access.
+- **[Configuration: zelta.conf](/conf/zelta-conf):** Policy configuration for complex backups.
+- **[Configuration: zelta.env](/conf/zelta-env):** Override default behavior, snapshot names, and `zfs` options.
+- **[Configuration: zfs](/conf/zfs):** Getting started with ZFS for new users.
 
 
 

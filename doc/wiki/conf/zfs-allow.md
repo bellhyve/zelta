@@ -1,294 +1,234 @@
-# ZFS Allow Configuration for Zelta
+# ZFS Allow Delegation for Zelta
 
-One of Zelta's core design principles is operating safely with minimal privileges. Using ZFS delegation (`zfs allow`), you can grant non-root users exactly the permissions they need for replication—and nothing more.
+Zelta is designed to run without root. With ZFS delegation (`zfs allow`) and SSH, you can give each operational user only the permissions required for its job.
 
-This document covers ZFS permission delegation for Zelta operations, from basic replication to advanced features like rotation and encrypted dataset handling.
+This is not just convenience. It is the security model: production, backup, twin failover, snapshot scheduling, retention, and emergency recovery can be different roles with different keys, different cron jobs, and different ZFS permissions.
 
-## Why Delegation Matters
+## The Role Model
 
-Running replication as root is convenient but unnecessary. With proper delegation:
+The safest Zelta deployments separate duties by user account. Small sites may combine roles, but the model is still useful because it shows which permissions are dangerous.
 
-- **Reduced attack surface**: Backup users cannot destroy data or modify critical properties
-- **Audit trail**: ZFS tracks which users perform which operations
-- **Compliance**: Separation of duties for regulatory requirements
-- **Bastion security**: Combined with SSH agent forwarding, you can build a replication infrastructure where no system stores root credentials
+| Role | Job | Typical ZFS permissions |
+|------|-----|-------------------------|
+| Production Admin | Operate services and perform non-destructive recovery | `snapshot,clone,rename` where needed |
+| Snapshot Admin | Create production snapshots and enforce local snapshot policy | `snapshot,destroy` on production snapshots |
+| Backup Admin | Replicate production data to backup systems | source: `send:raw,snapshot,hold,bookmark`; target: `receive:append,create,mount,readonly` plus safe properties |
+| Twin Admin | Maintain Zelta Twin failover partners | `send:raw,receive:append,snapshot,hold,bookmark,create,mount,readonly,clone,rename` on both twin roots |
+| Retention Admin | Prune or redact snapshots on backup systems | `destroy` on backup snapshots; sometimes broader `receive` for deliberate rewrites |
+| Rescue Admin | Perform emergency recovery and invasive maintenance | case-specific elevated grants such as `clone,rename,promote,destroy` |
 
-Modern OpenZFS includes groundbreaking security features that make delegation even more powerful:
+Routine backup and twin users should not need root. They also usually should not need plain `receive` if their platform supports `receive:append`.
 
-- **`receive:append`** prevents destructive receives (`zfs recv -F`), eliminating a major class of data loss scenarios
-- **`send:raw`** prevents senders from transmitting unencrypted data from encrypted datasets—even if the dataset is mounted and accessible
+## Modern Delegation Features
 
-## Quick Reference
+Modern OpenZFS adds two delegation forms that are especially important for Zelta.
 
-### Modern OpenZFS (2.2+)
+### `receive:append`
 
-For OpenZFS 2.2+ (FreeBSD 14+, latest Illumos, cutting-edge Linux):
+`receive:append` allows a user to receive new snapshots without granting destructive receive behavior. In practice, this means the user can append backup history but cannot use receive rollback behavior such as `zfs receive -F` to rewrite the target.
 
-**Sender (source system):**
+Use `receive:append` for routine Zelta backup and Zelta Twin users whenever it is available.
+
+Plain `receive` is still useful for specific high-trust roles:
+
+- Retention or remediation users that intentionally resync or rewrite backup history.
+- Emergency recovery users during controlled repair.
+- Legacy platforms that do not support `receive:append`.
+
+Do not grant plain `receive` just because a user also needs `clone` and `rename`. Clone and rename make Zelta recovery flexible; `receive:append` keeps replication itself append-only.
+
+### `send:raw`
+
+`send:raw` allows encrypted datasets to be sent in raw encrypted form without granting permission to send decrypted streams. This matters even when the source dataset is mounted and readable by local services.
+
+For encrypted datasets, prefer `send:raw` over plain `send` for backup and twin users. Plain `send` can permit decrypted streams when encryption keys are loaded.
+
+Zelta uses raw send options by default when appropriate. The delegation still matters because ZFS enforces whether the user is allowed to send a raw or decrypted stream.
+
+## Quick Recipes
+
+Replace the user names and dataset roots with your own. Grant permissions on the smallest dataset tree that covers the job.
+
+### Backup Source
+
+Use this on a production dataset tree that a backup user reads from:
+
 ```sh
-zfs allow -u backupuser hold,send,bookmark,snapshot sink
+zfs allow -u backup hold,send:raw,bookmark,snapshot tank/production
 ```
 
-**Receiver (target system):**
+If the source is never encrypted and your OpenZFS version lacks `send:raw`, use plain `send`:
+
 ```sh
-zfs allow -u backupuser receive:append,create,mount,readonly,clone,rename,volmode,compression,recordsize tank/Backups
+zfs allow -u backup hold,send,bookmark,snapshot tank/production
 ```
 
-### Legacy OpenZFS
+### Backup Target
 
-For older OpenZFS versions (most Linux distributions as of 2025, FreeBSD 13):
+Use this on a backup root that receives replicas:
 
-**Sender:**
 ```sh
-zfs allow -u backupuser hold,send,snapshot sink
+zfs allow -u backup receive:append,create,mount,readonly,clone,rename,volmode,compression,recordsize tank/backups
 ```
 
-**Receiver:**
+The important boundary is `receive:append`: the backup user can add new received snapshots but cannot perform destructive receive rewrites.
+
+### Zelta Twin Pair
+
+A Zelta Twin user needs to send and receive on both sides because either side may become active.
+
+On each twin root:
+
 ```sh
-zfs allow -u backupuser receive,create,mount,readonly,clone,rename,compression,recordsize tank/Backups
+zfs allow -u twin send:raw,receive:append,snapshot,hold,bookmark,create,mount,readonly,clone,rename,volmode,compression,recordsize tank/services
 ```
 
-**Note:** Legacy versions lack `receive:append`, `send:raw`, and `volmode` delegation. Without `receive:append`, users can perform destructive receives. Without `volmode`, you may encounter errors when replicating volumes (zvols).
+This supports an asynchronous cluster pattern: the active side creates snapshots and sends; the standby side receives read-only replicas; after failover the direction reverses.
 
-## Detailed Permission Breakdown
+### Retention User
 
-### Sender Permissions
+Keep pruning separate from backup replication when possible:
 
-**Minimum for basic replication:**
 ```sh
-zfs allow -u backupuser send,snapshot sink
+zfs allow -u retention destroy tank/backups
 ```
 
-- **`send`**: Required to transmit dataset snapshots
-- **`snapshot`**: Allows Zelta to create snapshots before replication
+If a retention or remediation role must intentionally rewrite a backup target, grant plain `receive` only to that role, not to the routine backup user.
 
-**Recommended additions:**
 ```sh
-zfs allow -u backupuser hold,send,bookmark,snapshot sink
+zfs allow -u retention receive,destroy tank/backups
 ```
 
-- **`hold`**: Prevents snapshots from being destroyed during replication (safety feature)
-- **`bookmark`**: Enables bookmark creation for more flexible incremental replication
+### Rescue User
 
-**For encrypted datasets (OpenZFS 2.2+):**
+Recovery users are intentionally broader, but should still be separate from cron-driven backup users:
+
 ```sh
-zfs allow -u backupuser hold,send:raw,bookmark,snapshot sink
+zfs allow -u rescue send:raw,receive:append,snapshot,hold,clone,rename,promote,mount,create tank/services
 ```
 
-- **`send:raw`**: This is a game-changing security feature. It allows sending encrypted datasets in their encrypted form, but **prevents the sender from transmitting unencrypted data**. Even if an encrypted dataset is mounted and the sender has read access to the plaintext files, `send:raw` blocks them from sending an unencrypted stream. This provides unprecedented protection for encrypted datasets in multi-tenant or untrusted environments.
+Add `destroy` only when the rescue workflow really needs it.
 
-**Important:** `send` without `:raw` allows users to send decrypted data if the encrypted dataset is mounted. For encrypted datasets, always use `send:raw` instead of `send`.
+## Permission Details
 
-### Receiver Permissions
+`send:raw`
+: Send raw encrypted streams. Prefer for encrypted datasets.
 
-**Minimum for basic replication (modern):**
+`send`
+: Send normal streams. Use for legacy systems or unencrypted-only trees.
+
+`receive:append`
+: Receive new snapshots without destructive receive rewrites. Prefer for routine backup and twin users.
+
+`receive`
+: Full receive permission. Reserve for trusted repair, retention, or legacy systems.
+
+`snapshot`
+: Create snapshots before replication. Zelta can snapshot only when needed.
+
+`hold`
+: Place holds that prevent accidental snapshot destruction during replication workflows.
+
+`bookmark`
+: Create bookmarks for safer and more flexible incremental replication.
+
+`create`
+: Create child datasets during recursive replication.
+
+`mount`
+: Set or use mount-related behavior. Zelta normally receives backup filesystems unmounted.
+
+`readonly`
+: Set backup targets read-only.
+
+`clone`
+: Create clones for recovery, inspection, and rotation workflows.
+
+`rename`
+: Rename datasets during rotate, revert, and failover workflows.
+
+`volmode`
+: Preserve zvol behavior when replicating volumes.
+
+`compression`, `recordsize`
+: Preserve or set important performance properties on received datasets.
+
+`destroy`
+: Destroy snapshots or datasets. Keep this out of routine backup users.
+
+## Platform Notes
+
+FreeBSD 14 and newer OpenZFS builds generally support modern delegation features such as `receive:append`, `send:raw`, and `volmode`. Check the installed OpenZFS version and test the actual delegation on your host.
+
+Older systems may lack `receive:append` or `send:raw`. In that case, use plain `receive` or `send` only for the smallest necessary dataset tree and compensate operationally with separate users, careful SSH keys, and explicit review.
+
+Linux delegation has limitations around mount namespace operations. Zelta still normally works well because backups are received unmounted and with safe properties, but mount-related grants may not behave identically across platforms.
+
+## Testing Delegation
+
+Check current grants:
+
 ```sh
-zfs allow -u backupuser receive:append,create,mount,readonly tank/Backups
+zfs allow tank/backups
 ```
 
-- **`receive:append`**: Allows receiving new snapshots but **prevents destructive receives** (`zfs recv -F`). This is a critical safety feature—one of Zelta's core design goals is never requiring destructive operations
-- **`create`**: Required to create new datasets during recursive replication
-- **`mount`**: Allows setting the `mountpoint` property (even though backups shouldn't be mounted)
-- **`readonly`**: Allows setting replicas to read-only (strongly recommended)
+Test read access and matching first:
 
-**Recommended for production:**
 ```sh
-zfs allow -u backupuser receive:append,create,mount,readonly,clone,rename,volmode,compression,recordsize tank/Backups
+zelta match backup@source:tank/production backup@target:tank/backups/production
 ```
 
-- **`clone`**: Required for `zelta clone`, `zelta revert`, and `zelta rotate`
-- **`rename`**: Required for `zelta revert` and `zelta rotate` (these operations rename datasets as part of their workflow)
-- **`volmode`**: Required for replicating volumes (zvols). On legacy systems without this delegation, you may see the error: `operation not applicable to datasets of this type`
-- **`compression`**: Allows preserving compression settings from source. Without this, receivers cannot set compression properties, which can cause issues during failover or if you want to recompress backups with different settings
-- **`recordsize`**: Allows preserving recordsize settings. Critical for maintaining performance characteristics during failover
+Then test replication with dry-run and verbose output:
 
-**Legacy systems (without `receive:append`):**
 ```sh
-zfs allow -u backupuser receive,create,mount,readonly,clone,rename,compression,recordsize tank/Backups
+zelta backup -nv backup@source:tank/production backup@target:tank/backups/production
 ```
 
-**Note:** Without `receive:append`, the user can perform destructive receives. This is less than ideal but may be necessary on older systems.
+Finally run one real backup and verify it:
 
-### Permissive Configurations
-
-For environments where you want to grant broader permissions (testing, single-tenant systems, or when you trust the backup user completely):
-
-**Permissive sender:**
 ```sh
-zfs allow -u backupuser hold,send,send:raw,bookmark,snapshot,destroy sink
+zelta backup backup@source:tank/production backup@target:tank/backups/production
+zelta match backup@source:tank/production backup@target:tank/backups/production
 ```
-
-**Permissive receiver:**
-```sh
-zfs allow -u backupuser receive,receive:append,create,mount,mountpoint,canmount,readonly,clone,rename,volmode,compression,recordsize,setuid,exec,atime,destroy tank/Backups
-```
-
-These grant additional property permissions and `destroy` for snapshot management. Use with caution.
-
-## Feature-Specific Requirements
-
-### Basic Replication (`zelta backup`, `zelta sync`)
-
-**Sender:** `send,snapshot` (minimum) or `hold,send,bookmark,snapshot` (recommended)
-
-**Receiver:** `receive:append,create,mount,readonly` (minimum) or add `compression,recordsize` (recommended)
-
-### Cloning (`zelta clone`)
-
-**On the pool containing the dataset to clone:**
-```sh
-zfs allow -u backupuser clone tank/Backups
-```
-
-Creates a writable clone for recovery or testing without modifying the original backup.
-
-### Reverting (`zelta revert`)
-
-**On the dataset being reverted:**
-```sh
-zfs allow -u backupuser clone,rename sink/dataset
-```
-
-Rewinds a dataset to a previous snapshot by renaming and cloning in place.
-
-### Rotation (`zelta rotate`)
-
-**On both source and target:**
-```sh
-zfs allow -u backupuser clone,rename sink/dataset
-zfs allow -u backupuser clone,rename,receive:append tank/Backups/dataset
-```
-
-Performs multi-way rename and clone operations to preserve divergent histories. This is Zelta's most sophisticated operation and requires both clone and rename permissions.
-
-## Platform-Specific Notes
-
-### Linux Delegation Limitations
-
-From the `zfs-allow` man page:
-
-> Delegations are supported under Linux with the exception of mount, unmount, mountpoint, canmount, rename, and share. These permissions cannot be delegated because the Linux mount(8) command restricts modifications of the global namespace to the root user.
-
-**However**, in practice, Zelta works correctly on Linux despite this limitation. The *behavior* of these operations may not be delegated, but the *properties* are still set correctly. Zelta's testing confirms:
-
-- `mountpoint` is reset to inherit
-- Backup datasets are not mounted
-- `canmount` is set to `noauto`
-- `readonly` is set correctly
-
-So while Linux won't allow the backup user to actually mount/unmount datasets, the properties are delegated and Zelta operates safely.
-
-### FreeBSD
-
-FreeBSD 14+ includes OpenZFS 2.3.4 with full support for modern delegation features including `receive:append`, `send:raw`, and `volmode`.
-
-FreeBSD 13 uses an older OpenZFS version and requires legacy permission syntax.
-
-### Illumos
-
-Modern Illumos distributions include current OpenZFS with full delegation support.
 
 ## Troubleshooting
 
-### "cannot receive: permission denied"
+### `cannot receive: permission denied`
 
-The receiver lacks necessary permissions. Common causes:
+Common causes:
 
-- Missing `receive` or `receive:append` permission
-- Missing `create` permission for recursive replication
-- Missing property permissions (e.g., `compression`, `recordsize`)
+- Missing `receive:append` or legacy `receive` on the target.
+- Missing `create` for child datasets.
+- Missing property grants such as `readonly`, `compression`, `recordsize`, or `volmode`.
+- Grant was applied to the wrong dataset root.
 
-Check current delegations:
-```sh
-zfs allow tank/Backups
-```
+### `cannot send: permission denied`
 
-### "operation not applicable to datasets of this type"
+Common causes:
 
-You're likely replicating a volume (zvol) and the receiver lacks `volmode` permission. This delegation is only available on OpenZFS 2.2+.
+- Missing `send:raw` or legacy `send` on the source.
+- Encrypted dataset requires raw send permission.
+- Missing `snapshot` when Zelta needs to create a snapshot.
 
-**Workaround for legacy systems:** Grant broader `receive` permissions or use root for volume replication.
+### zvol replication fails
 
-### "cannot send: permission denied"
+The receiver probably lacks `volmode`, or the platform does not support delegating it. Grant `volmode` when available.
 
-The sender lacks necessary permissions. Common causes:
+### Target properties are not preserved
 
-- Missing `send` permission
-- Missing `snapshot` permission (if Zelta needs to create a snapshot)
-- Trying to send encrypted data without `send:raw` permission
-
-### Properties Not Preserved
-
-If properties like `compression` or `recordsize` aren't being preserved on the target:
+Grant the relevant property permissions on the receiving root:
 
 ```sh
-zfs allow -u backupuser compression,recordsize tank/Backups
+zfs allow -u backup readonly,compression,recordsize,volmode tank/backups
 ```
 
-Zelta will warn you if the receiver lacks permissions for properties it's trying to set.
+### Backup user can destroy too much
 
-## Security Considerations
+Split the role. Keep `destroy` with a retention user, and keep routine replication on `receive:append`.
 
-### The Principle of Least Privilege
+## See Also
 
-Grant only the permissions required for your use case. Start with minimum permissions and add more as needed.
-
-### Encrypted Datasets
-
-For encrypted datasets, **always use `send:raw` instead of `send`**. This prevents the sender from transmitting unencrypted data, even if they have filesystem-level access to the mounted dataset.
-
-### Destructive Operations
-
-Modern OpenZFS's `receive:append` prevents destructive receives, eliminating an entire class of data loss scenarios. If you're on a legacy system without this feature, consider:
-
-- Using root access for critical replications (with appropriate safeguards)
-- Upgrading to a modern OpenZFS version
-- Implementing additional safety checks in your replication workflow
-
-### Root Access: When It's Reasonable
-
-While delegation is preferred, there are scenarios where root access is reasonable:
-
-- **Evacuation from legacy systems**: Migrating data from old systems without modern delegation
-- **Emergency recovery**: When time is critical and you need maximum flexibility
-- **Single-tenant systems**: Where the security boundary is at the network level, not the user level
-
-Root access for replication is not inherently dangerous—Zelta's safe defaults prevent data destruction regardless of privilege level. The risk is operational: root can accidentally destroy data through other means.
-
-## Testing Your Configuration
-
-After setting up delegations, test with `zelta match`:
-
-```sh
-zelta match backupuser@source:sink/dataset backupuser@target:tank/Backups/dataset
-```
-
-If this succeeds, your permissions are correctly configured for replication.
-
-Test a full replication:
-
-```sh
-zelta backup backupuser@source:sink/dataset backupuser@target:tank/Backups/dataset
-```
-
-Zelta will report any missing permissions it encounters.
-
-## Getting Help
-
-If you encounter permission issues:
-
-1. **Check current delegations**: `zfs allow <dataset>`
-2. **Review Zelta's output**: Error messages indicate which permissions are missing
-3. **Verify your OpenZFS version**: `zfs version` or `zpool upgrade -v`
-4. **Test incrementally**: Start with minimum permissions and add more as needed
-
-For more assistance:
-
-- [Zelta Documentation](https://zelta.space/en/home)
-- [GitHub Issues](https://github.com/bellhyve/zelta/issues)
-- [Bell Tower Contact Form](https://belltower.it/contact/)
-
-For ZFS-specific delegation questions:
-
-- `man zfs-allow` - ZFS delegation documentation
-- [OpenZFS Documentation](https://openzfs.github.io/openzfs-docs/)
+- [SSH Configuration](/conf/ssh)
+- [Zelta Twin](/guides/twin)
+- [Policy-Based Automatic Backups](/guides/policy)
+- [Simple Backups](/guides/backup)

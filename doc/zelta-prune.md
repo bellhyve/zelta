@@ -124,6 +124,12 @@ The estimate is based on sequential oldest-first pruning. It does not factor in 
 
 Snapshots with clones are never reported as prune candidates. **zprune** also previews with **zfs destroy -nvp** before destruction, so clone checks remain effective if state changes after candidate selection.
 
+**--prune-name** _PATTERN_
+: Select snapshots by name before applying retention filters. Use this when multiple snapshot tools or naming policies share the same dataset tree.
+
+**--prune-policy** _NAME_
+: Apply a named pruning policy from configuration.
+
 **-d**, **--depth** _LEVELS_
 : Limit dataset-tree recursion depth. A depth of `1` includes only the specified dataset.
 

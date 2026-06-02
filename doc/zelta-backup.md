@@ -30,8 +30,8 @@ Prior to replication, **zelta backup** analyzes both source and target to automa
 
 The following `zfs send` options are applied based on dataset properties:
 
-- **Default**: `--large-block`, `--compressed`, `--embed`
-- **Encrypted Datasets**: `--large-block`, `--raw`
+- **Default**: `--raw` (equivalent to `-Lce`)
+- **Encrypted Datasets**: `--raw`
 - **New/Full Syncs**: Also includes `--props`
 - **Replicate Mode** (`-R`): `--replicate`, `--large-block`, `--raw`, `--skip-missing`
 
@@ -180,13 +180,13 @@ Several `zfs send` and `zfs recv` options have special meaning in Zelta and shou
 For precise control in a dataset tree with mixed types, override specific contexts. These options are **cumulative**—for example, a filesystem receive will combine options from `--recv-default`, `--recv-top` (if applicable), and `--recv-fs`.
 
 **--send-default** *"OPTIONS"*
-: `zfs send` options for **unencrypted** datasets (default: `-Lce`)
+: `zfs send` options for **unencrypted** datasets (default: `--raw`, equivalent to `-Lce`)
 
 **--send-decrypted** *"OPTIONS"*
-: `zfs send` options for encrypted datasets when raw incremental send is unavailable (default: `-Lc`)
+: `zfs send` options for encrypted datasets when raw incremental send is unavailable (default: `-Lc`). This sends a decrypted stream with large blocks and preserves existing send-stream compression. Use `-L` instead when you want the receiving side to recompress or encrypt from plaintext.
 
 **--send-raw** *"OPTIONS"*
-: `zfs send` options for **encrypted** datasets (default: `-Lw`)
+: `zfs send` options for **encrypted** datasets (default: `--raw`)
 
 **--send-new** *"OPTIONS"*
 : Additional `zfs send` options during full (non-incremental) backups (default: `-p`)
@@ -288,7 +288,7 @@ Returns 0 on success, non-zero on error.
 
 See **zelta-options(7)** for environment variables, `zelta.env` configuration, and `zelta policy` integration.
 
-The `zelta sync` command is a convenience alias for `zelta backup -i` and may be extended in future versions with additional optimizations for continuous replication workflows.
+The `zelta sync` command remains available for compatibility as a convenience alias for `zelta backup -i`. New scripts should prefer explicit `zelta backup` commands.
 
 # SEE ALSO
 

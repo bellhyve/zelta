@@ -33,7 +33,7 @@ For detailed usage of each subcommand, run **zelta help <subcommand>** or see th
 **zelta match** _source_ _target_
 :    Compare two dataset trees and report matching snapshots or discrepancies. See **zelta-match(8)**.
 
-## Replication
+## Backup
 
 **zelta backup** _source_ _target_
 :    Replicate a dataset tree. Creates snapshots if needed, detects optimal send options, and replicates intermediate snapshots. See **zelta-backup(8)**.
@@ -51,6 +51,29 @@ For detailed usage of each subcommand, run **zelta help <subcommand>** or see th
 
 **zelta rotate** _source_ _target_
 :    Preserve divergent dataset versions through rename and clone operations. See **zelta-rotate(8)**.
+
+**zelta failover** _source_ _target_
+:    Lock an active source, perform a final backup, sync local properties, and unlock the promoted target. See **zelta-failover(8)**.
+
+**zelta rebase** _origin_ _target_ _upstream_ [_new_]
+:    Build a new production tree from an upgraded upstream while preserving incremental backup continuity. See **zelta-rebase(8)**.
+
+**zelta lock** _endpoint_
+:    Apply ordered dataset-tree readonly, canmount, unmount, and remount operations for promotion workflows. See **zelta-lock(8)**.
+
+**zelta unlock** _endpoint_
+:    Reverse **zelta lock** for a promoted or maintained dataset tree. See **zelta-unlock(8)**.
+
+**zelta propsync** _source_ _target_
+:    Replay local ZFS properties from one dataset tree to another while preserving target-only local overrides. See **zelta-propsync(8)**.
+
+## Retention
+
+**zelta prune** _source_ [_target_]
+:    Plan snapshot pruning without destroying data. See **zelta-prune(8)**.
+
+**zprune** _source_ [_target_]
+:    Validate and destroy snapshots selected by **zelta prune**. See **zprune(8)**.
 
 ## Automation
 
@@ -117,8 +140,10 @@ Returns 0 on success, non-zero on error.
 
 See **zelta-options(7)** for environment variables and `zelta.env` configuration.
 
+**zelta sync** remains available for compatibility as an alias for **zelta backup -i**. New documentation uses explicit **zelta backup** commands.
+
 # SEE ALSO
-zelta-match(8), zelta-backup(8), zelta-policy(8), zelta-clone(8), zelta-options(7), zelta-revert(8), zelta-rotate(8), zelta-snapshot(8), cron(8), ssh(1), zfs(8)
+zelta-match(8), zelta-backup(8), zelta-policy(8), zelta-clone(8), zelta-options(7), zelta-prune(8), zprune(8), zelta-rebase(8), zelta-failover(8), zelta-lock(8), zelta-unlock(8), zelta-propsync(8), zelta-revert(8), zelta-rotate(8), zelta-snapshot(8), cron(8), ssh(1), zfs(8)
 
 # AUTHORS
 Daniel J. Bell <_bellhyve@zelta.space_>

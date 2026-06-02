@@ -18,14 +18,23 @@ In the **zelta policy** configuration file, you may override **zelta backup**'s 
 **\--jobs**
 :    Run the indicated number of policy jobs concurrently, one for each Site in the configuration.
 
+**-C**, **\--config** _FILE_
+:    Read policy configuration from _FILE_ instead of the default location.
+
 **\--backup-root**
 :    The relative target path for the target job. For example 'bkhost:tank/Backups' would place backups below that dataset (if not overridden).
+
+**\--archive-root**
+:    Default archive target root for policy jobs that use archive-style destinations.
+
+**\--backup-command** _COMMAND_
+:    Command used by policy when executing backup jobs. This is primarily useful for wrappers and testing.
 
 **\--host-prefix**
 :    Include the source hostname as a parent of the synced target, for example, 'tank/Backups/source.host/backup-dataset'.
 
 **\--ds-prefix**
-:    Similar to 'zfs recv -d' and '-e', include the indicated number of parent labels for the target's synced name. See 'zelta help backup' for more detail.
+:    Similar to 'zfs recv -d' and '-e', include the indicated number of parent labels for the target's backup name. See **zelta-options(7)** for more detail.
 
 ## Import Files
 
