@@ -15,8 +15,6 @@
 ## Setup temporary installation for testing
 #############################################
 
-set -u
-
 setup_env() {
     # for continuity between shellspec invocations or debugging
     # define SUFFIX in your shell that is deterministic, default is current process id
