@@ -15,11 +15,16 @@
 ## Setup temporary installation for testing
 #############################################
 
-
-
 setup_env() {
-    export SANDBOX_ZELTA_TMP_DIR="/tmp/zelta$$"
-    export SANDBOX_ZELTA_PROCNUM="$$"
+    # for continuity between shellspec invocations or debugging
+    # define SUFFIX in your shell that is deterministic, default is current process id
+    # for example export  SANDBOX_ZELTA_TMP_SUFFIX=$LOGNAME
+    export SANDBOX_ZELTA_TMP_SUFFIX="${SANDBOX_ZELTA_TMP_SUFFIX:-$$}"
+
+    # used to construct sandbox dir name
+    SANDBOX_ZELTA_TMP_PREFIX=zelta_sandbox
+
+    export SANDBOX_ZELTA_TMP_DIR="/tmp/${SANDBOX_ZELTA_TMP_PREFIX}_${SANDBOX_ZELTA_TMP_SUFFIX}"
     export ZELTA_BIN="$SANDBOX_ZELTA_TMP_DIR/bin"
     export ZELTA_SHARE="$SANDBOX_ZELTA_TMP_DIR/share"
     export ZELTA_ETC="$SANDBOX_ZELTA_TMP_DIR/etc"
@@ -46,10 +51,7 @@ build_endpoints() {
     export SANDBOX_ZELTA_SRC_EP SANDBOX_ZELTA_TGT_EP
 }
 
-# bypass using $$ if we've manually set these vars
-if [ -z "$SANDBOX_ZELTA_TMP_DIR" ]; then
-   setup_env
-fi
+setup_env
 
 build_endpoints
 
@@ -114,19 +116,18 @@ cleanup_temp_install() {
     find "$SANDBOX_ZELTA_TMP_DIR" -type f | wc -w
 	if [ -d "$SANDBOX_ZELTA_TMP_DIR" ]; then
 		rm "$ZELTA_ETC"/zelta.*
-		rmdir "$SANDBOX_ZELTA_TMP_DIR"/*
-		rmdir "$SANDBOX_ZELTA_TMP_DIR"
+		rm -fr "$SANDBOX_ZELTA_TMP_DIR"
     	[ ! -e "$SANDBOX_ZELTA_TMP_DIR" ] && return 0
 	fi
 	return 1
 }
 
 tmpfile_touch() {
-    touch "${SHELLSPEC_TMPBASE}/${1}_${SANDBOX_ZELTA_PROCNUM}"
+    touch "${SANDBOX_ZELTA_TMP_DIR}/${1}_${SANDBOX_ZELTA_TMP_SUFFIX}"
 }
 
 tmpfile_check() {
-    [ ! -f "${SHELLSPEC_TMPBASE}/${1}_${SANDBOX_ZELTA_PROCNUM}" ]
+    [ ! -f "${SANDBOX_ZELTA_TMP_DIR}/${1}_${SANDBOX_ZELTA_TMP_SUFFIX}" ]
 }
 
 skip_if_root() {
@@ -263,7 +264,7 @@ tgt_ds_exists() {
 # Clean source dataset if it exists
 clean_src_ds() {
 	if src_ds_exists; then
-	    src_exec rm -f /tmp/zfs_test_enc_key_${SANDBOX_ZELTA_PROCNUM}
+	    src_exec rm -f /tmp/zfs_test_enc_key_${SANDBOX_ZELTA_TMP_SUFFIX}
 		src_exec zfs destroy -r "$SANDBOX_ZELTA_SRC_DS"
 		return $?
 	fi
@@ -298,7 +299,7 @@ make_initial_tree() {
 	tmpfile_touch "divergent_tree_created"
 
 	# Create encryption key
-	src_exec dd if=/dev/urandom bs=32 count=1 of="/tmp/zfs_test_enc_key_${SANDBOX_ZELTA_PROCNUM}" >/dev/null 2>&1 || return 1
+	src_exec dd if=/dev/urandom bs=32 count=1 of="/tmp/zfs_test_enc_key_${SANDBOX_ZELTA_TMP_SUFFIX}" >/dev/null 2>&1 || return 1
 
 
 	# Create root dataset
@@ -312,7 +313,7 @@ make_initial_tree() {
 	src_exec zfs create -u "$SANDBOX_ZELTA_SRC_DS/sub3/space\ name" || return 1
 	src_exec zfs create -u "$SANDBOX_ZELTA_SRC_DS/sub4" || return 1
 	src_exec zfs create -sV 8M "$SANDBOX_ZELTA_SRC_DS/sub4/zvol" || return 1
-	src_exec zfs create -u -o encryption=on -o keyformat=raw -o "keylocation=file:///tmp/zfs_test_enc_key_${SANDBOX_ZELTA_PROCNUM}" "$SANDBOX_ZELTA_SRC_DS/sub4/encrypted" || return 1
+	src_exec zfs create -u -o encryption=on -o keyformat=raw -o "keylocation=file:///tmp/zfs_test_enc_key_${SANDBOX_ZELTA_TMP_SUFFIX}" "$SANDBOX_ZELTA_SRC_DS/sub4/encrypted" || return 1
 
 	return 0
 }
