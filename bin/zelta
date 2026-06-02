@@ -4,7 +4,7 @@
 #
 # Initialize the environment for Zelta subcommands
 
-ZELTA_VERSION="Zelta 1.1.0"
+ZELTA_VERSION="Zelta 1.2.BSDCan2026"
 
 zelta_usage() {
 	exec >&2

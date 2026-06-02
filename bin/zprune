@@ -5,7 +5,7 @@
 # zelta prune selects snapshots. zprune adds the destructive prompt and runs
 # zfs destroy against the exact candidates emitted by zelta prune.
 
-ZPRUNE_VERSION="zprune 0.8.0"
+ZPRUNE_VERSION="zprune 1.2.BSDCan2026"
 
 zprune_usage() {
 	exec >&2
@@ -74,12 +74,13 @@ parse_args() {
 
 	init_zelta_env "$@"
 
+	ZPRUNE_LOG_LEVEL=${ZELTA_LOG_LEVEL:-2}
 	[ "${ZELTA_LOG_LEVEL:-2}" -lt 2 ] && ZPRUNE_QUIET=1
 	[ -n "$ZELTA_DRYRUN" ] && ZPRUNE_DRYRUN=1
 	unset ZELTA_DRYRUN
 	ZELTA_LOG_LEVEL=2
 	ZELTA_VERB=prune
-	export ZELTA_LOG_LEVEL ZELTA_VERB ZPRUNE_DRYRUN
+	export ZELTA_LOG_LEVEL ZELTA_VERB ZPRUNE_DRYRUN ZPRUNE_LOG_LEVEL
 
 	if [ -z "$ZELTA_SRC_ID" ]; then
 		error "source operand required"
@@ -258,6 +259,43 @@ preview_reclaim_bytes() {
 	awk '/^reclaim[ 	]/ { bytes += $2 } /would reclaim / { bytes += $NF } END { print bytes + 0 }' "$1"
 }
 
+print_preview_commands() {
+	awk -F@ '
+	BEGIN {
+		if (ENVIRON["ZPRUNE_LOG_LEVEL"] > 2)
+			VERBOSE = 1
+	}
+	function flush_command() {
+		if (!arg) return
+		printf "zfs destroy %s", arg
+		if (VERBOSE && (arg ~ /%/ && snaps))
+			printf ": %s", snaps
+		printf "\n"
+		arg = ""
+		snaps = ""
+	}
+	/^destroy[ 	]/ {
+		snaps = snaps ? snaps "," $NF : "@" $NF
+		next
+	}
+	/^would destroy / {
+		snaps = snaps ? snaps "," $NF : "@" $NF
+		next
+	}
+	/^reclaim[ 	]/ || /^would reclaim / {
+		next
+	}
+	/@/ {
+		flush_command()
+		arg = $0
+		next
+	}
+	END {
+		flush_command()
+	}
+	' "$1"
+}
+
 print_dataset_summary() {
 	awk '
 	function human_size(bytes,    unit, value, idx) {
@@ -303,7 +341,7 @@ print_dataset_summary() {
 		if (num_ds <= 1) exit
 		for (idx = 1; idx <= num_ds; idx++) {
 			ds = list[idx]
-			printf "%s: %d snapshots, ~%s freed\n", ds, count[ds], human_size(bytes[ds])
+			printf "%s: %d snapshots, %s\n", ds, count[ds], human_size(bytes[ds])
 		}
 	}
 	' "$1"
@@ -321,8 +359,8 @@ print_summary() {
 
 	printf '%s snapshots (%s%% of %s) will be destroyed\n' \
 		"$_destroy_count" "$(percent_of "$_destroy_count" "$_total_count")" "$_total_count"
-	printf '~%s freed (%s%% of used dataset space)\n' \
-		"$(human_size "$_reclaim_bytes")" "$(percent_of "$_reclaim_bytes" "$_total_bytes")"
+	printf '%s total reclaimed (%s%% of %s)\n' \
+		"$(human_size "$_reclaim_bytes")" "$(percent_of "$_reclaim_bytes" "$_total_bytes")" "$(human_size "$_total_bytes")"
 
 }
 
@@ -366,7 +404,7 @@ main() {
 		error "destroy aborted"
 		exit 1
 	fi
-	[ -z "$ZPRUNE_QUIET" ] && cat "$_preview_file" && echo ""
+	[ -z "$ZPRUNE_QUIET" ] && print_preview_commands "$_preview_file" && echo ""
 
 	_destroy_count=$(preview_destroy_count "$_preview_file")
 	_reclaim_bytes=$(preview_reclaim_bytes "$_preview_file")

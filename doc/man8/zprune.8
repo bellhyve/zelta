@@ -36,8 +36,10 @@ If \f[B]\(enforce\f[R] is also used, \f[B]zprune\f[R] suppresses the
 prompt and proceeds after validation.
 .TP
 \f[B]\-n\f[R], \f[B]\(endryrun\f[R], \f[B]\(endry\-run\f[R]
-Display the \f[B]zfs destroy \-nvp\f[R] preview for selected candidates,
+Display compact \f[B]zfs destroy\f[R] commands for selected candidates,
 print the summary, and exit without prompting or destroying snapshots.
+With \f[B]\(enverbose\f[R], expand snapshot ranges in the command
+preview.
 With \f[B]\(enquiet\f[R], print only the summary and exit.
 .TP
 \f[B]\-h\f[R], \f[B]\(enhelp\f[R]
@@ -92,8 +94,8 @@ destruction uses the same grouped candidate form as the preview;
 .IP \(bu 2
 the prompt summarizes snapshot count and estimated reclaimed space;
 .IP \(bu 2
-\f[B]\(endryrun\f[R] shows the destroy preview and summary, then exits
-before prompting;
+\f[B]\(endryrun\f[R] shows compact destroy commands and summary, then
+exits before prompting;
 .IP \(bu 2
 the operator must answer \f[CR]y\f[R] or \f[CR]yes\f[R] unless
 \f[B]\(enforce\f[R] is used;

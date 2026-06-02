@@ -27,7 +27,7 @@ The _source_ and optional _target_ operands have the same meaning as in **zelta-
 : Do not display the snapshot candidate list or destroy preview. If **--force** is also used, **zprune** suppresses the prompt and proceeds after validation.
 
 **-n**, **--dryrun**, **--dry-run**
-: Display the **zfs destroy -nvp** preview for selected candidates, print the summary, and exit without prompting or destroying snapshots. With **--quiet**, print only the summary and exit.
+: Display compact **zfs destroy** commands for selected candidates, print the summary, and exit without prompting or destroying snapshots. With **--verbose**, expand snapshot ranges in the command preview. With **--quiet**, print only the summary and exit.
 
 **-h**, **--help**
 : Show command usage.
@@ -77,7 +77,7 @@ Common prune options:
 - candidates are grouped per dataset and previewed with **zfs destroy -nvp**;
 - destruction uses the same grouped candidate form as the preview;
 - the prompt summarizes snapshot count and estimated reclaimed space;
-- **--dryrun** shows the destroy preview and summary, then exits before prompting;
+- **--dryrun** shows compact destroy commands and summary, then exits before prompting;
 - the operator must answer `y` or `yes` unless **--force** is used;
 - **zfs destroy -R** is never used.
 
