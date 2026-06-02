@@ -15,7 +15,7 @@
 ## Setup temporary installation for testing
 #############################################
 
-
+set -u
 
 setup_env() {
     # for continuity between shellspec invocations or debugging
@@ -129,7 +129,7 @@ tmpfile_touch() {
 }
 
 tmpfile_check() {
-    [ -f "${SANDBOX_ZELTA_TMP_DIR}/${1}_${SANDBOX_ZELAT_TMP_SUFFIX}" ]
+    [ ! -f "${SANDBOX_ZELTA_TMP_DIR}/${1}_${SANDBOX_ZELTA_TMP_SUFFIX}" ]
 }
 
 skip_if_root() {
@@ -266,7 +266,7 @@ tgt_ds_exists() {
 # Clean source dataset if it exists
 clean_src_ds() {
 	if src_ds_exists; then
-	    src_exec rm -f /tmp/zfs_test_enc_key_${SANDBOX_TMPSUFFIX}
+	    src_exec rm -f /tmp/zfs_test_enc_key_${SANDBOX_ZELTA_TMP_SUFFIX}
 		src_exec zfs destroy -r "$SANDBOX_ZELTA_SRC_DS"
 		return $?
 	fi
@@ -301,7 +301,7 @@ make_initial_tree() {
 	tmpfile_touch "divergent_tree_created"
 
 	# Create encryption key
-	src_exec dd if=/dev/urandom bs=32 count=1 of="/tmp/zfs_test_enc_key_${SANDBOX_TMPSUFFIX}" >/dev/null 2>&1 || return 1
+	src_exec dd if=/dev/urandom bs=32 count=1 of="/tmp/zfs_test_enc_key_${SANDBOX_ZELTA_TMP_SUFFIX}" >/dev/null 2>&1 || return 1
 
 
 	# Create root dataset
@@ -315,7 +315,7 @@ make_initial_tree() {
 	src_exec zfs create -u "$SANDBOX_ZELTA_SRC_DS/sub3/space\ name" || return 1
 	src_exec zfs create -u "$SANDBOX_ZELTA_SRC_DS/sub4" || return 1
 	src_exec zfs create -sV 8M "$SANDBOX_ZELTA_SRC_DS/sub4/zvol" || return 1
-	src_exec zfs create -u -o encryption=on -o keyformat=raw -o "keylocation=file:///tmp/zfs_test_enc_key_${SANDBOX_TMPSUFFIX}" "$SANDBOX_ZELTA_SRC_DS/sub4/encrypted" || return 1
+	src_exec zfs create -u -o encryption=on -o keyformat=raw -o "keylocation=file:///tmp/zfs_test_enc_key_${SANDBOX_ZELTA_TMP_SUFFIX}" "$SANDBOX_ZELTA_SRC_DS/sub4/encrypted" || return 1
 
 	return 0
 }
