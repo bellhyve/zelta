@@ -13,7 +13,8 @@ SPECS_DIR=test/spec
 #    shellspec --tag cleanup
 
 
-target="${1:-main}"
+target="${1:-all}"
+echo "Running shellspec scenario \"$target\""
 
 export SANDBOX_ZELTA_TMP_SUFFIX="$LOGNAME"
 
