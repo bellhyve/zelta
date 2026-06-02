@@ -24,7 +24,7 @@ setup_env() {
     # used to construct sandbox dir name
     SANDBOX_ZELTA_TMP_PREFIX=zelta_sandbox
 
-    export SANDBOX_ZELTA_TMP_DIR="/tmp/${SANDBOX_ZELTA_TMP_PREFIX}_$SANDBOX_ZELTA_TMP_SUFFIX"
+    export SANDBOX_ZELTA_TMP_DIR="/tmp/${SANDBOX_ZELTA_TMP_PREFIX}_${SANDBOX_ZELTA_TMP_SUFFIX}"
     export ZELTA_BIN="$SANDBOX_ZELTA_TMP_DIR/bin"
     export ZELTA_SHARE="$SANDBOX_ZELTA_TMP_DIR/share"
     export ZELTA_ETC="$SANDBOX_ZELTA_TMP_DIR/etc"
