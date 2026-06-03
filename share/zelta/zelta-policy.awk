@@ -30,7 +30,9 @@ function usage(message) {
 	print "  -v, -vv                    Verbose/debug output"                   > STDERR
 	print "  -q, -qq                    Suppress warnings/errors"               > STDERR
 	print "  -j, --json                 JSON output"                            > STDERR
-	print "  -n, --dryrun               Show 'zelta backup' commands and exit"  > STDERR
+	print "  -n, --dryrun               Show source/target table and exit"      > STDERR
+	print "  -n -v, --dryrun --verbose  Show raw 'zelta backup' commands"       > STDERR
+	print "  -H                         Scripting mode: no header, space-delimited" > STDERR
 	print "  --snapshot                 Always snapshot"                        > STDERR
 	print "  --no-snapshot              Never snapshot\n"                       > STDERR
 	print "For complete documentation:  zelta help policy"                      > STDERR
@@ -279,8 +281,13 @@ function load_config(		_conf_error, _arr, _context, _job, _line_num,
 			_opt["LOG_PREFIX"] = "[" _job["site"] ": " _job["target"] "] " _job["host"] ":" _job["source"]": "
 
 			NumJobs++
-			Job[NumJobs, "name"] = "[" _job["site"] ": " _job["target"] "] " _job["host"] ":" _job["source"]
-			Job[NumJobs, "command"]      = create_backup_command(_job, _opt)
+			Job[NumJobs, "name"]      = "[" _job["site"] ": " _job["target"] "] " _job["host"] ":" _job["source"]
+			Job[NumJobs, "source_ep"] = _job["host"] ":" _job["source"]
+			Job[NumJobs, "target_ep"] = _job["target"]
+			Job[NumJobs, "command"]   = create_backup_command(_job, _opt)
+			# Track longest source endpoint for column alignment
+			if (length(Job[NumJobs, "source_ep"]) > MaxSourceLen)
+				MaxSourceLen = length(Job[NumJobs, "source_ep"])
 		} else config_usage(_line_num, _conf_error)
 	}
 	if (!NumJobs) {
@@ -318,16 +325,42 @@ function should_backup(job,		_host_ep, _leaf, _list, _match_arr, _i) {
 	return 0
 }
 
+# Print a tabular source/target listing for --dryrun (default, non-verbose)
+function dryrun_table(		_j, _src, _tgt, _col, _line) {
+	# Ensure header label fits in the column even on tiny configs
+	_col = (MaxSourceLen > 6) ? MaxSourceLen : 6
+	if (!Opt["NO_HEADER"])
+		report(LOG_NOTICE, sprintf("%-*s  %s", _col, "SOURCE", "TARGET"))
+	for (_j = 1; _j <= NumJobs; _j++) {
+		_src = Job[_j, "source_ep"]
+		_tgt = Job[_j, "target_ep"]
+		if (Opt["NO_HEADER"])
+			_line = _src " " _tgt
+		else
+			_line = sprintf("%-*s  %s", _col, _src, _tgt)
+		report(LOG_NOTICE, _line)
+	}
+}
+
+# Print raw zelta backup commands for --dryrun --verbose, stripping policy-internal vars.
+# Policy sets ZELTA_LOG_PREFIX (which may contain spaces), LOG_MODE, LOG_LEVEL, and
+# LOG_COMMAND on each child command. These are meaningless when running zelta backup
+# standalone and clutter copy-pasteable output. Strip them via regex on the command string;
+# each var is double-quoted so we match ZELTA_KEY="..." including any spaces in the value.
+function dryrun_verbose(		_j, _cmd) {
+	for (_j = 1; _j <= NumJobs; _j++) {
+		_cmd = Job[_j, "command"]
+		gsub(/ZELTA_LOG_PREFIX="[^"]*" /,  "", _cmd)
+		gsub(/ZELTA_LOG_MODE="[^"]*" /,    "", _cmd)
+		gsub(/ZELTA_LOG_LEVEL="[^"]*" /,   "", _cmd)
+		gsub(/ZELTA_LOG_COMMAND="[^"]*" /, "", _cmd)
+		report(LOG_NOTICE, "+ " _cmd)
+	}
+}
+
 # Execute a single backup job and return success/failure
 function zelta_backup(job_num,		_cmd, _return_code) {
-	# Removed explicit output modes: LIST, ACTIVE, DEFAULT, VERBOSE
-	# LIST is undocumented
-	# ACTIVE creates a simplified indented print style
 	_cmd = Job[job_num, "command"]
-	if (Opt["DRYRUN"]) {
-		report(LOG_NOTICE, "+ " _cmd)
-		return 0
-	}
 	_return_code = system(_cmd)
 	close(_cmd)
 	# TO-DO: Use error codes to deduce if it seems to be retryable or not.
@@ -376,6 +409,15 @@ BEGIN {
 	load_option_list()
 	get_global_overrides()
 	load_config()
+	if (Opt["DRYRUN"]) {
+		# --dryrun --verbose: raw commands with policy-internal vars stripped
+		if (Opt["LOG_LEVEL"] >= LOG_INFO)
+			dryrun_verbose()
+		# --dryrun (default): clean source/target table
+		else
+			dryrun_table()
+		stop(0)
+	}
 	if (should_xargs()) xargs()
 	else backup_loop()
 	stop(0)
