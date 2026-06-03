@@ -1,6 +1,6 @@
 # Install Zelta
 
-Describe 'Zelta installation'
+Describe 'Zelta installation' install
     It 'runs installer without errors'
         When run ./install.sh
         The status should be success
