@@ -1,5 +1,33 @@
-# Shellspec Command Line Filtering Options
+# Test Generation
 
+Maintaining test correctness between versions of zelta is simplified by automatically 
+generating the test files from a YAML definition file.
+
+## Generate all tests
+```shell
+./generate_all_tests.sh
+```
+
+## Generating s specific test
+```shell
+./generate_test.sh (test-def-yml) (prod-location) (shellspec-setup)
+```
+### where:
+- `test-def-yml`: YAML file defining the test located in `../config/test_defs`
+- `prod-location`: on successful generation, move generated spec file to this directory
+- `shellspec-setup`: shellspec setup instructions
+   - shellspec-setup: `[options=value] (pattern=value|tag=value|path=value)...`   
+      - `options=value`: defines `$options` for each shellspec invocation
+      - `pattern=value`: invokes `shellspec $options --pattern "$value"`
+      - `tag=value`:     invokes `shellspec $options --tag "$value"`
+      - `path=value`:    invokes `shellspec $options "$value"`
+
+### examples:
+- review `generate_*_*_test.sh` scripts for examples
+
+- - - 
+# Shellspec Command Line Filtering Options 
+> included from shellspec documentation for convenience 
 ## Line Numbers and IDs
 ```shell
 shellspec path/to/a_spec.sh:10      # Run groups/examples that include line 10  
