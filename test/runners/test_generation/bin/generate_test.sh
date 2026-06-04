@@ -12,12 +12,6 @@ PROD_SPEC_DIR=$2
 shift 2
 # NOTE: The rest of the arguments in $@ are shellspec specifications
 
-# debug loop to check shellspec specifications
-#for arg in "$@"; do
-#    value=${arg#*=}
-#    echo "processing arg:{$arg} with value:{$value}"
-#done
-
 # Get the directory where this script is located
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 TEST_GEN_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
