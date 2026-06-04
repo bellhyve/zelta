@@ -5,12 +5,12 @@
 REPO_ROOT=${REPO_ROOT:=$(git rev-parse --show-toplevel)}
 echo "REPO ROOT: $REPO_ROOT"
 
-setup_tree() {
-    pattern_specs=$1
-    selector_specs=$2
-    trace_options=$3
-
-    cd "$REPO_ROOT" || return 1
+initialize_setup_tree_env() {
+    if [ ! -d "$REPO_ROOT" ]; then
+        echo "repo root $REPO_ROOT not found" >&2
+        return 1
+    fi
+    cd "$REPO_ROOT"
 
     if ! . ./test/test_helper.sh; then
         echo "source ./test/test_helper.sh failed"
@@ -32,49 +32,48 @@ setup_tree() {
         return 1
     fi
 
-    # Split trace_options into array (if not empty)
-    trace_opts=()
-    if [ -n "$trace_options" ]; then
-        read -ra trace_opts <<< "$trace_options"
-    fi
+    return 0
+}
 
-    # Split selector_specs into array (if not empty)
-    selector_opts=()
-    if [ -n "$selector_specs" ]; then
-        read -ra selector_opts <<< "$selector_specs"
-    fi
-
-    cmd1=()
-    if [ -n "$pattern_specs" ]; then
-        cmd1=(shellspec)
-        if [ ${#trace_opts[@]} -gt 0 ]; then
-            cmd1+=("${trace_opts[@]}")
-        fi
-        cmd1+=(--pattern "$pattern_specs")
-    fi
-
-    cmd2=()
-    if [ ${#selector_opts[@]} -gt 0 ]; then
-        cmd2=(shellspec)
-        if [ ${#trace_opts[@]} -gt 0 ]; then
-            cmd2+=("${trace_opts[@]}")
-        fi
-        cmd2+=("${selector_opts[@]}")
-    fi
-
-    set -x
-    if [ ${#cmd1[@]} -gt 0 ] && ! "${cmd1[@]}"; then
-        printf "\n ❌ setup failed for command: %s\n" "${cmd1[*]}"
-        set +x
+setup_tree() {
+    echo "calling initialize"
+    if ! initialize_setup_tree_env; then
+        printf '\n ❌ failed to initialize environment for setup_env\n' >&2
         return 1
     fi
 
-    if [ ${#cmd2[@]} -gt 0 ] && ! "${cmd2[@]}"; then
-        printf "\n ❌ setup failed for command: %s\n" "${cmd2[*]}"
-        set +x
-        return 1
-    fi
-    set +x
+    export SANDBOX_ZELTA_TMP_SUFFIX=$LOGNAME
 
-    printf "\n ✅ setup succeeded\n"
+    options=""
+    for arg in "$@"; do
+        case $arg in
+            options=*) options=${arg#*=} ;;
+        esac
+    done
+
+    count=0
+    for arg in "$@"; do
+        value=${arg#*=}
+        echo "processing arg:{$arg} with value:{$value}"
+        case $arg in
+            # shellcheck disable=SC2086  # $options intentionally word-split
+            pattern=*) set -- shellspec $options --pattern "$value" ;;
+            tag=*)     set -- shellspec $options --tag "$value"     ;;
+            path=*)    set -- shellspec $options "$value"           ;;
+            options=*) continue ;;
+            *) printf 'unknown arg: %s\n' "$arg" >&2; return 2 ;;
+        esac
+
+        count=$((count + 1))
+        printf '▶ [%d] %s\n' "$count" "$*"      # echo the exact argv
+
+        status=0
+        "$@" || status=$?                        # run that same argv
+        if [ "$status" -ne 0 ]; then
+            printf '\n ❌ failed (#%d): %s\n' "$count" "$*" >&2
+            return 1
+        fi
+    done
+
+    printf "\n ✅ setup succeeded — ran %d command(s)\n" "$count"
 }

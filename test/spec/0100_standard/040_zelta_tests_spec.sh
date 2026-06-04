@@ -1,5 +1,5 @@
 # Auto-generated ShellSpec test file
-# Generated at: 2026-03-15 02:59:07 -0400
+# Generated at: 2026-06-04 04:53:10 -0400
 # Source: 040_zelta_tests_spec
 # WARNING: This file was automatically generated. Manual edits may be lost.
 
@@ -7,6 +7,7 @@ output_for_match_after_divergence() {
   while IFS= read -r line; do
     # normalize whitespace, remove leading/trailing spaces
     normalized=$(printf '%s' "$line" | tr -s '[:space:]' ' ' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
+    # check line against expected output
     case "$normalized" in
         "DS_SUFFIX MATCH SRC_LAST TGT_LAST INFO"|\
         "[treetop] @start @start @start up-to-date"|\
@@ -37,6 +38,7 @@ output_for_rotate_after_divergence() {
   while IFS= read -r line; do
     # normalize whitespace, remove leading/trailing spaces
     normalized=$(printf '%s' "$line" | tr -s '[:space:]' ' ' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
+    # check line against expected output
     case "$normalized" in
         "source is written; snapshotting: @zelta_"*""|\
         "renaming '${SANDBOX_ZELTA_TGT_DS}' to '${SANDBOX_ZELTA_TGT_DS}_start'"|\
@@ -58,6 +60,7 @@ output_for_match_after_rotate() {
   while IFS= read -r line; do
     # normalize whitespace, remove leading/trailing spaces
     normalized=$(printf '%s' "$line" | tr -s '[:space:]' ' ' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
+    # check line against expected output
     case "$normalized" in
         "DS_SUFFIX MATCH SRC_LAST TGT_LAST INFO"|\
         "[treetop] @zelta_"*" @zelta_"*" @zelta_"*" up-to-date"|\
@@ -87,6 +90,7 @@ output_for_backup_after_rotate() {
   while IFS= read -r line; do
     # normalize whitespace, remove leading/trailing spaces
     normalized=$(printf '%s' "$line" | tr -s '[:space:]' ' ' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
+    # check line against expected output
     case "$normalized" in
         "syncing 10 datasets"|\
         "10 datasets up-to-date"|\
@@ -102,7 +106,7 @@ output_for_backup_after_rotate() {
   return 0
 }
 
-Describe 'Run zelta commands on divergent tree' standard
+Describe 'Run zelta commands on divergent tree' standard:40
   Skip if 'SANDBOX_ZELTA_SRC_DS undefined' test -z "$SANDBOX_ZELTA_SRC_DS"
   Skip if 'SANDBOX_ZELTA_TGT_DS undefined' test -z "$SANDBOX_ZELTA_TGT_DS"
 

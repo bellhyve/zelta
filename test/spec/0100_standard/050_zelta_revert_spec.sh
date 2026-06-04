@@ -1,5 +1,5 @@
 # Auto-generated ShellSpec test file
-# Generated at: 2026-03-15 02:59:54 -0400
+# Generated at: 2026-06-04 04:54:21 -0400
 # Source: 050_zelta_revert_spec
 # WARNING: This file was automatically generated. Manual edits may be lost.
 
@@ -7,6 +7,7 @@ output_for_snapshot() {
   while IFS= read -r line; do
     # normalize whitespace, remove leading/trailing spaces
     normalized=$(printf '%s' "$line" | tr -s '[:space:]' ' ' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
+    # check line against expected output
     case "$normalized" in
         "snapshot created '${SANDBOX_ZELTA_SRC_DS}@manual_test'")
         ;;
@@ -24,6 +25,7 @@ output_for_backup_after_delta() {
   while IFS= read -r line; do
     # normalize whitespace, remove leading/trailing spaces
     normalized=$(printf '%s' "$line" | tr -s '[:space:]' ' ' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
+    # check line against expected output
     case "$normalized" in
         "source is written; snapshotting: @zelta_"*""|\
         "syncing 12 datasets"|\
@@ -43,6 +45,7 @@ output_for_snapshot_again() {
   while IFS= read -r line; do
     # normalize whitespace, remove leading/trailing spaces
     normalized=$(printf '%s' "$line" | tr -s '[:space:]' ' ' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
+    # check line against expected output
     case "$normalized" in
         "snapshot created '${SANDBOX_ZELTA_SRC_DS}@another_test'")
         ;;
@@ -60,6 +63,7 @@ output_for_rotate_after_revert() {
   while IFS= read -r line; do
     # normalize whitespace, remove leading/trailing spaces
     normalized=$(printf '%s' "$line" | tr -s '[:space:]' ' ' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
+    # check line against expected output
     case "$normalized" in
         "renaming '${SANDBOX_ZELTA_TGT_DS}' to '${SANDBOX_ZELTA_TGT_DS}_zelta_"*"'"|\
         "to ensure target is up-to-date, run: zelta backup ${SANDBOX_ZELTA_SRC_EP} ${SANDBOX_ZELTA_TGT_EP}"|\
@@ -77,7 +81,7 @@ output_for_rotate_after_revert() {
   return 0
 }
 
-Describe 'Test revert' standard
+Describe 'Test revert' standard:50
   Skip if 'SANDBOX_ZELTA_SRC_DS undefined' test -z "$SANDBOX_ZELTA_SRC_DS"
 
   It "take a snapshot of tree before changes - zelta snapshot --snap-name \"manual_test\" \"$SANDBOX_ZELTA_SRC_EP\""

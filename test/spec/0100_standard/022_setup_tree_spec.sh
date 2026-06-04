@@ -1,6 +1,6 @@
 # Check remotes and create pools and datasets
 
-Describe 'Divergent tree tests' standard
+Describe 'Divergent tree tests' standard:22
     Skip if 'SANDBOX_ZELTA_SRC_DS and SANDBOX_ZELTA_TGT_DS are undefined' test -z "$SANDBOX_ZELTA_SRC_DS" -a -z "$SANDBOX_ZELTA_TGT_DS"
 
     Describe 'setup'
