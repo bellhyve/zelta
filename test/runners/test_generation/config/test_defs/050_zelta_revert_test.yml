@@ -1,6 +1,7 @@
 output_dir: tmp
 shellspec_name: "050_zelta_revert_spec"
 describe_desc: "Test revert"
+tag: standard:50
 skip_if_list:
   - condition: if 'SANDBOX_ZELTA_SRC_DS undefined' test -z "$SANDBOX_ZELTA_SRC_DS"
 

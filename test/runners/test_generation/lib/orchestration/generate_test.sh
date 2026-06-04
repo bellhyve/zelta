@@ -16,10 +16,11 @@ if [ $# -lt 2 ]; then
 fi
 
 TEST_CONFIG=$1
-SETUP_TREE_SPECS=$2
+PROD_SPEC_DIR=$2
+shift 2
 REPO_ROOT=$(git rev-parse --show-toplevel)
 
-PROD_TEST_DIR="$REPO_ROOT/test"
+PROD_TEST_DIR="$REPO_ROOT/test/$PROD_SPEC_DIR"
 TEST_GEN_DIR="$REPO_ROOT/test/runners/test_generation"
 GENERATED_TEST_NAME=""
 GENERATED_TEST_PATH=""
@@ -73,8 +74,8 @@ confirm_generated_test_works() {
 ## generate and confirm test
 
 # setup zfs pools to desired state before running test
- if ! setup_tree "$SETUP_TREE_SPECS"; then
-      printf "\n ❌ Failed to setup ZFS tree with specs %s\n!" "$SETUP_TREE_SPECS"
+ if ! setup_tree "$@"; then
+      printf "\n ❌ Failed to setup ZFS tree with specs %s\n!" "$*"
       exit 1
  fi
 
@@ -85,14 +86,14 @@ if ! generate_test; then
 fi
 
 # setup zfs pools to desired state again before running generated test
- if ! setup_tree "$SETUP_TREE_SPECS"; then
-      printf "\n ❌ Failed to setup ZFS tree for testing generated tree with specs %s\n!" "$SETUP_TREE_SPECS"
+ if ! setup_tree "$@"; then
+      printf "\n ❌ Failed to setup ZFS tree for testing generated tree with specs %s\n!" "$*"
       exit 1
  fi
 
 # confirm generated test works
 if ! confirm_generated_test_works; then
-      printf "\n ❌ Generated test failed %s\n!" "$SETUP_TREE_SPECS"
+      printf "\n ❌ Generated test failed %s\n!" "$*"
       exit 1
 fi
 
