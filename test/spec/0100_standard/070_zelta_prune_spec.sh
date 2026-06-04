@@ -48,7 +48,7 @@ output_for_prune_check() {
   return 0
 }
 
-Describe 'Test prune' standard
+Describe 'Test prune' standard:70
   Skip if 'SANDBOX_ZELTA_SRC_DS undefined' test -z "$SANDBOX_ZELTA_SRC_DS"
   Skip if 'SANDBOX_ZELTA_TGT_DS undefined' test -z "$SANDBOX_ZELTA_TGT_DS"
 

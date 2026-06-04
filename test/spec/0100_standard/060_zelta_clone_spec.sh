@@ -22,7 +22,7 @@ output_for_zfs_list_for_clone() {
   return 0
 }
 
-Describe 'Test clone' standard
+Describe 'Test clone' standard:60
   Skip if 'SANDBOX_ZELTA_SRC_DS undefined' test -z "$SANDBOX_ZELTA_SRC_DS"
 
   It "zelta clone sub2 (ignore warnings) - zelta clone -qq \"$SANDBOX_ZELTA_SRC_EP/sub2\" \"$SANDBOX_ZELTA_SRC_EP/copy_of_sub2\""

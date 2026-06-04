@@ -77,7 +77,7 @@ output_for_rotate_after_revert() {
   return 0
 }
 
-Describe 'Test revert' standard
+Describe 'Test revert' standard:50
   Skip if 'SANDBOX_ZELTA_SRC_DS undefined' test -z "$SANDBOX_ZELTA_SRC_DS"
 
   It "take a snapshot of tree before changes - zelta snapshot --snap-name \"manual_test\" \"$SANDBOX_ZELTA_SRC_EP\""

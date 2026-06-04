@@ -1,4 +1,4 @@
-Describe 'Backup tests' standard
+Describe 'Backup tests' standard:30
     It 'no-op all options'
         Skip if 'SANDBOX_ZELTA_TGT_DS undefined' test -z "$SANDBOX_ZELTA_TGT_DS"
         When call backup_no_op_check

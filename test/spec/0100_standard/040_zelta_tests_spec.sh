@@ -102,7 +102,7 @@ output_for_backup_after_rotate() {
   return 0
 }
 
-Describe 'Run zelta commands on divergent tree' standard
+Describe 'Run zelta commands on divergent tree' standard:40
   Skip if 'SANDBOX_ZELTA_SRC_DS undefined' test -z "$SANDBOX_ZELTA_SRC_DS"
   Skip if 'SANDBOX_ZELTA_TGT_DS undefined' test -z "$SANDBOX_ZELTA_TGT_DS"
 

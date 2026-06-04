@@ -20,7 +20,7 @@ output_for_policy_check() {
   return 0
 }
 
-Describe 'Test zelta policy' standard
+Describe 'Test zelta policy' standard:80
   Skip if 'SANDBOX_ZELTA_SRC_DS undefined' test -z "$SANDBOX_ZELTA_SRC_DS"
   Skip if 'SANDBOX_ZELTA_TGT_DS undefined' test -z "$SANDBOX_ZELTA_TGT_DS"
 
