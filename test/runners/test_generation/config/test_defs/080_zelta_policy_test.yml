@@ -1,6 +1,7 @@
 output_dir: tmp
 shellspec_name: "080_zelta_policy_spec"
 describe_desc: "Test zelta policy"
+tag: standard:80
 skip_if_list:
   - condition: if 'SANDBOX_ZELTA_SRC_DS undefined' test -z "$SANDBOX_ZELTA_SRC_DS"
   - condition: if 'SANDBOX_ZELTA_TGT_DS undefined' test -z "$SANDBOX_ZELTA_TGT_DS"

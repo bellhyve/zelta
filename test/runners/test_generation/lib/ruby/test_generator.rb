@@ -24,7 +24,7 @@ class TestGenerator
 
   private_constant :REPO_ROOT, :TEST_GEN_DIR, :GENERATE_MATCHER_SH_SCRIPT
 
-  attr_reader :config, :shellspec_name, :describe_desc, :test_list, :skip_if_list,
+  attr_reader :config, :shellspec_name, :describe_desc, :tag, :test_list, :skip_if_list,
               :matcher_files, :paths
 
   def initialize(yaml_file_path, env_var_names = DEFAULT_ENV_VAR_NAMES)
@@ -38,6 +38,7 @@ class TestGenerator
 
     @shellspec_name = @config['shellspec_name']
     @describe_desc = @config['describe_desc']
+    @tag = @config['tag']
     @test_list = @config['test_list'] || []
     @skip_if_list = @config['skip_if_list'] || []
     @matcher_files = []
@@ -76,7 +77,7 @@ class TestGenerator
 
   def create_wip_file
     File.open(@paths.wip_file_path, 'w') do |file|
-      file.puts "Describe '#{@describe_desc}'"
+      file.puts "Describe '#{@describe_desc}'#{ @tag ? " #{@tag}" : ''}"
 
       # Add Skip If statements for each condition
       @skip_if_list.each do |skip_item|
@@ -94,6 +95,7 @@ class TestGenerator
       it_desc = Placeholders.substitute(test['it_desc'], test, inclusions: [:when_command])
 
       when_command = test['when_command']
+      tag = test['tag']
       setup_scripts = test['setup_scripts'] || []
       allow_no_output = test['allow_no_output'] || false
 
@@ -103,7 +105,7 @@ class TestGenerator
       generate_matcher_files(test_name, when_command, setup_scripts, allow_no_output)
 
       # Append It clause to WIP file
-      append_it_clause(test_name, it_desc, when_command, allow_no_output)
+      append_it_clause(test_name, it_desc, when_command, tag, allow_no_output)
     end
 
     # Close Describe block
@@ -191,9 +193,9 @@ class TestGenerator
     "#{source_cmds.join(' && ')} && #{when_command}"
   end
 
-  def append_it_clause(test_name, it_desc, when_command, allow_no_output)
+  def append_it_clause(test_name, it_desc, when_command, tag, allow_no_output)
     File.open(@paths.wip_file_path, 'a') do |file|
-      file.puts "  It \"#{it_desc.gsub('"', '\\"')}\""
+      file.puts "  It \"#{it_desc.gsub('"', '\\"')}\"#{ tag ? " #{tag}" : ''}"
 
       func_name = matcher_func_name(test_name)
 

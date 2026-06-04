@@ -11,6 +11,9 @@ properties:
   describe_desc:
     type: string
     description: Description for the Describe block
+  tag:
+    type: string
+    description: shellspec tag to add to the generated Describe block
   output_dir:
     type: string
     description: Directory for generated test files
@@ -43,6 +46,9 @@ properties:
           type: string
         it_desc:
           type: string
+        tag:
+          type: string
+          description: shellspec tag to add to the generated It block
         when_command:
           type: string
         allow_no_output:

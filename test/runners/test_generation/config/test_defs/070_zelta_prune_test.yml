@@ -1,6 +1,7 @@
 output_dir: tmp
 shellspec_name: "070_zelta_prune_spec"
 describe_desc: "Test prune"
+tag: standard:70
 skip_if_list:
   - condition: if 'SANDBOX_ZELTA_SRC_DS undefined' test -z "$SANDBOX_ZELTA_SRC_DS"
   - condition: if 'SANDBOX_ZELTA_TGT_DS undefined' test -z "$SANDBOX_ZELTA_TGT_DS"
