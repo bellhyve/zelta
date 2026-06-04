@@ -1,5 +1,5 @@
 # Auto-generated ShellSpec test file
-# Generated at: 2026-03-15 03:01:59 -0400
+# Generated at: 2026-06-04 04:57:30 -0400
 # Source: 070_zelta_prune_spec
 # WARNING: This file was automatically generated. Manual edits may be lost.
 
@@ -7,6 +7,7 @@ output_for_backup_with_snapshot() {
   while IFS= read -r line; do
     # normalize whitespace, remove leading/trailing spaces
     normalized=$(printf '%s' "$line" | tr -s '[:space:]' ' ' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
+    # check line against expected output
     case "$normalized" in
         "snapshotting: @zelta_"*""|\
         "syncing 12 datasets"|\
@@ -26,6 +27,7 @@ output_for_prune_check() {
   while IFS= read -r line; do
     # normalize whitespace, remove leading/trailing spaces
     normalized=$(printf '%s' "$line" | tr -s '[:space:]' ' ' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
+    # check line against expected output
     case "$normalized" in
         "${SANDBOX_ZELTA_SRC_DS}@zelta_"*""|\
         "${SANDBOX_ZELTA_SRC_DS}/sub1@zelta_"*""|\

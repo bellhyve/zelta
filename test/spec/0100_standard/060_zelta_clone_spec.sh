@@ -1,5 +1,5 @@
 # Auto-generated ShellSpec test file
-# Generated at: 2026-03-15 03:00:54 -0400
+# Generated at: 2026-06-04 04:55:50 -0400
 # Source: 060_zelta_clone_spec
 # WARNING: This file was automatically generated. Manual edits may be lost.
 
@@ -7,6 +7,7 @@ output_for_zfs_list_for_clone() {
   while IFS= read -r line; do
     # normalize whitespace, remove leading/trailing spaces
     normalized=$(printf '%s' "$line" | tr -s '[:space:]' ' ' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
+    # check line against expected output
     case "$normalized" in
         "NAME ORIGIN"|\
         "${SANDBOX_ZELTA_SRC_DS}/copy_of_sub2 ${SANDBOX_ZELTA_SRC_DS}/sub2@zelta_"*""|\
