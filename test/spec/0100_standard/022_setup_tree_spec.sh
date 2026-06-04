@@ -3,7 +3,7 @@
 Describe 'Divergent tree tests' standard:22
     Skip if 'SANDBOX_ZELTA_SRC_DS and SANDBOX_ZELTA_TGT_DS are undefined' test -z "$SANDBOX_ZELTA_SRC_DS" -a -z "$SANDBOX_ZELTA_TGT_DS"
 
-    Describe 'setup' make-tree
+    Describe 'setup'
         It 'creates initial tree on source'
             When call make_initial_tree
             The status should be success
