@@ -103,6 +103,7 @@ prune	--prune-name	PRUNE_NAME		set		snapshot name pattern: zfsnap, truenas, sano
 prune	--send-range	SEND_RANGE		set		internal: list source snapshots after the given match
 
 # 'zelta policy' options
+policy	-H	NO_HEADER		true		suppress headers and use space-delimited output (for scripting)
 policy	--config,-C	CONFIG		set		specify the policy configuration file
 policy	--retry	RETRY		true		retry failed syncs the indicated number of times
 policy	--no-retry,--noretry	RETRY		false
