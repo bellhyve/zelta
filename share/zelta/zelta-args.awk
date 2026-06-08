@@ -58,10 +58,10 @@ function match_arg(arg, 	_flag) {
 	stop(1, "invalid option '"arg"'")
 }
 
-function set_arg(flag, subopt,		_type, key) {
+function set_arg(flag, subopt, argval,		_type, key) {
 	_type = OptListType[flag]
 	_key  = OptListKey[flag]
-	if (_type == "arglist")       NewOpt[_key] = str_add(NewOpt[_key], $0)
+	if (_type == "arglist")       NewOpt[_key] = str_add(NewOpt[_key], argval)
 	else if (_type == "list")     NewOpt[_key] = str_add(NewOpt[_key], subopt, ",")
 	else if (_type == "true")     NewOpt[_key] = "1"
 	else if (_type == "false")    NewOpt[_key] = "0"
@@ -118,7 +118,7 @@ function get_args(		_i, _flag, _arg, _m, _subopt, _opts_done) {
 		else if (/^--[^-]/) {
 			_flag = match_arg($1)
 			_subopt = get_subopt(_flag)
-			set_arg(_flag, _subopt)
+			set_arg(_flag, _subopt, $1)
 		}
 		else if (/^-[^-]/) {
 			# step through basic -opts
@@ -126,7 +126,7 @@ function get_args(		_i, _flag, _arg, _m, _subopt, _opts_done) {
 				_arg = "-" substr($0, _m, 1)
 				_flag = match_arg(_arg)
 				_subopt = get_subopt(_flag, _m)
-				set_arg(_flag, _subopt)
+				set_arg(_flag, _subopt, _arg)
 				# If our _subopt was an argument, skip to the next word
 				if (_subopt && !OptListValue[_flag]) break
 			}
