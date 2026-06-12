@@ -21,3 +21,9 @@ unset SANDBOX_ZELTA_TGT_REMOTE
 #export SANDBOX_ZELTA_TGT_REMOTE=user@ubuntu-host  # e.g. Ubuntu remote
 #export SANDBOX_ZELTA_SRC_REMOTE=user@freebsd-host # e.g. FreeBSD source
 #export SANDBOX_ZELTA_TGT_REMOTE=user@freebsd-host # e.g. FreeBSD remote
+
+# standardize zelta sandbox install location
+export SANDBOX_ZELTA_TMP_SUFFIX=$LOGNAME
+
+# to enable test/spec/1000_test_gen/010_testgen_cleanup_spec.sh
+export TESTGEN_ZELTA_DESTRUCTIVE=1

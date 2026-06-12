@@ -1,5 +1,5 @@
 # Auto-generated ShellSpec test file
-# Generated at: 2026-06-04 04:57:30 -0400
+# Generated at: 2026-06-12 04:00:20 -0400
 # Source: 070_zelta_prune_spec
 # WARNING: This file was automatically generated. Manual edits may be lost.
 
@@ -60,8 +60,8 @@ Describe 'Test prune' standard:70
     The status should be success
   End
 
-  It "only suggest snapshots existing on target - zelta prune --prune-num=0 --prune-time=0 \"$SANDBOX_ZELTA_SRC_EP\" \"$SANDBOX_ZELTA_TGT_EP\""
-    When call zelta prune --prune-num=0 --prune-time=0 "$SANDBOX_ZELTA_SRC_EP" "$SANDBOX_ZELTA_TGT_EP"
+  It "only suggest snapshots existing on target - zelta prune --keep-snap-num=0 --keep-snap-days=0 \"$SANDBOX_ZELTA_SRC_EP\" \"$SANDBOX_ZELTA_TGT_EP\""
+    When call zelta prune --keep-snap-num=0 --keep-snap-days=0 "$SANDBOX_ZELTA_SRC_EP" "$SANDBOX_ZELTA_TGT_EP"
     The output should satisfy output_for_prune_check
     The status should be success
   End
