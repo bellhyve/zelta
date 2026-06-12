@@ -64,3 +64,54 @@ Use the -F, --focus flag to run only focused groups/examples (those prefixed wit
 ```shell
 shellspec --focus
 ```
+- - - 
+# Shellspec Hooks
+> included from shellspec documentation for convenience
+
+When to Use Each Hook Type
+
+| Hook Type            | Best Used For                                                               |
+|----------------------|-----------------------------------------------------------------------------|
+| BeforeEach/AfterEach | Setting up and cleaning up test state that should be fresh for each example |
+| BeforeAll/AfterAll   | Expensive operations needed once for a group of tests                       |
+| BeforeCall/AfterCall | Environment setup for function calls                                        |
+| BeforeRun/AfterRun   | Environment setup for command executions                                    |
+| AfterMock            | Cleaning up mock functions                                                  |
+
+## Hook Differences
+- Each evaluation type has its own specific hooks:
+   
+### BeforeCall vs BeforeRun
+- `BeforeCall / AfterCall` hooks run around call evaluations 
+- `BeforeRun / AfterRun` hooks run around run evaluations
+
+### BeforeAll and BeforeEach
+- `BeforeAll and BeforeEach` do not use the run or call convention. They simply take a string containing shell code that is evaluated directly.
+   - For example:
+       ```
+       # Define a function that runs your script
+       setup_all() {  
+       . /MyPath/MyBeforeAllScript.sh  
+       }
+        
+       BeforeAll 'setup_all'
+       ```
+       Or simply:
+       ```
+       BeforeAll '. /MyPath/MyBeforeAllScript.sh'       
+       ```
+   - Alternatively, if you need to execute a script that doesn't need to update the current shell context:
+        ```
+        setup_all() {  
+          /MyPath/MyBeforeAllScript.sh  
+        }
+        ```
+## `call` vs `run` Implementation Details
+- The call evaluation is handled by shellspec_around_call() which executes the function directly in the current shell context
+- The run evaluation is handled by shellspec_around_run() which executes in a subshell environment
+
+## Subtypes of run
+- The run evaluation has specialized variants:
+   - `run command` - runs external commands respecting shebang
+   - `run script`  - runs shell scripts ignoring shebang
+   - `run source` - sources scripts in current shell (similar to call but with script loading) README.md:946-976
