@@ -2,9 +2,13 @@ name: ShellSpec Tests
 
 on:
   push:
-    branches: [main, dev, "feature/**"]
+    branches: [main, dev, "feature/**", "release/**"]
+    paths-ignore:
+      - "**.md"
   pull_request:
-    branches: [main, dev]
+    branches: [main, dev, "release/**"]
+    paths-ignore:
+      - "**.md"    
 
 jobs:
   test:
