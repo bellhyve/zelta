@@ -22,9 +22,6 @@ unset SANDBOX_ZELTA_TGT_REMOTE
 #export SANDBOX_ZELTA_SRC_REMOTE=user@freebsd-host # e.g. FreeBSD source
 #export SANDBOX_ZELTA_TGT_REMOTE=user@freebsd-host # e.g. FreeBSD remote
 
-export SANDBOX_ZELTA_SRC_REMOTE=dever@uvm1
-export SANDBOX_ZELTA_TGT_REMOTE=dever@lusvr01
-
 # standardize zelta sandbox install location
 export SANDBOX_ZELTA_TMP_SUFFIX=$LOGNAME
 
