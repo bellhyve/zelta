@@ -680,7 +680,7 @@ function analyze_prune_candidates(		_d, _ds_suffix, _src_ds_id, _tgt_ds_id, _num
 		if (!_match_idx && (Opt["PRUNE_GUARD"] != GUARD_NONE)) {
 			if (!Target["DS"]) {
 				if (!_warned_no_target++)
-					report(LOG_WARNING, Row[_src_ds_id, "name"] ": cannot confirm prune safety without a target; use --no-prune-guard or set ZELTA_PRUNE_GUARD=none to skip this check")
+					report(LOG_WARNING, "no target dataset; prune guard cannot verify incremental source snapshots; use --no-prune-guard to suppress")
 			}
 			else {
 				if (!_warned_no_match++)
