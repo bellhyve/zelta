@@ -559,8 +559,10 @@ function target_has_snap_name(tgt_ds_id, savepoint,		_num_snaps, _s, _tgt_row, _
 }
 
 function prune_init(		_prune_size) {
-	if (Opt["PRUNE_NUM"] == "" && Opt["PRUNE_TIME"] == "" &&
-	    Opt["PRUNE_GRID"] == "" && Opt["PRUNE_SIZE"] == "") {
+	if ((Opt["PRUNE_NUM"] "")  == "" &&
+		(Opt["PRUNE_TIME"] "") == "" &&
+		(Opt["PRUNE_GRID"] "") == "" &&
+		(Opt["PRUNE_SIZE"] "") == "") {
 		Opt["PRUNE_NUM"] = 30
 		Opt["PRUNE_TIME"] = "30days"
 	}
@@ -640,6 +642,7 @@ function analyze_prune_candidates(		_d, _ds_suffix, _src_ds_id, _tgt_ds_id, _num
 						_s, _src_row, _savepoint, _guid, _creation,
 						_match_idx, _snap_seconds, _min_age, _keep_after_match,
 						_seen_after_match, _eligible_num, _written_total, _prune_estimate, _p,
+						_warned_no_target, _warned_no_match,
 						_selected_num, SelectedSnap, SelectedSnapIdx,
 						EligibleSnap, EligibleSnapIdx, EligibleSnapWritten, EligibleSnapReferenced) {
 
@@ -653,6 +656,8 @@ function analyze_prune_candidates(		_d, _ds_suffix, _src_ds_id, _tgt_ds_id, _num
 	}
 	_min_age = Global["now"] - _snap_seconds
 	_keep_after_match = Opt["PRUNE_NUM"]
+	if ((Opt["PRUNE_GUARD"] == GUARD_NONE) && Target["DS"])
+		report(LOG_INFO, "prune guard is disabled and target is given; excluding latest match if available")
 
 	for (_d = 1; _d <= NumDSPair; _d++) {
 		_ds_suffix = DSPairList[_d]
@@ -673,10 +678,13 @@ function analyze_prune_candidates(		_d, _ds_suffix, _src_ds_id, _tgt_ds_id, _num
 
 		_match_idx = DSPair[_ds_suffix, "match_idx"]
 		if (!_match_idx && (Opt["PRUNE_GUARD"] != GUARD_NONE)) {
-			if (!Target["DS"])
-				report(LOG_WARNING, Row[_src_ds_id, "name"] ": cannot confirm prune safety without a target; use --no-prune-guard or set ZELTA_PRUNE_GUARD=none to skip this check")
+			if (!Target["DS"]) {
+				if (!_warned_no_target++)
+					report(LOG_WARNING, "no target dataset; prune guard cannot verify incremental source snapshots; use --no-prune-guard to suppress")
+			}
 			else {
-				report(LOG_WARNING, Row[_src_ds_id, "name"] ": cannot confirm prune safety without a target match; use --no-prune-guard or set ZELTA_PRUNE_GUARD=none to skip this check")
+				if (!_warned_no_match++)
+					report(LOG_WARNING, Row[_src_ds_id, "name"] ": cannot confirm prune safety without a target match; use --no-prune-guard or set ZELTA_PRUNE_GUARD=none to skip this check")
 				continue
 			}
 		}
