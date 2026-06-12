@@ -1089,6 +1089,8 @@ BEGIN {
 		else
 			usage()
 	}
+	if (!is_null(Opt["DEPTH"]) && (Opt["DEPTH"] < 1))
+		stop(1, "depth of '"Opt["DEPTH"]"' invalid; must be positive")
 	if (!Source["DS"] && !Target["DS"]) { usage("no datasets defined") }
 
 	if (Opt["MATCH_PIPE"]) {

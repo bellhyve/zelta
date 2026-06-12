@@ -128,7 +128,7 @@ function get_args(		_i, _flag, _arg, _m, _subopt, _opts_done) {
 				_subopt = get_subopt(_flag, _m)
 				set_arg(_flag, _subopt, _arg)
 				# If our _subopt was an argument, skip to the next word
-				if (_subopt && !OptListValue[_flag]) break
+				if (!is_null(_subopt) && is_null(OptListValue[_flag])) break
 			}
 		} else stop(1, "invalid option: '"$0"'")
 	}
@@ -140,9 +140,10 @@ function load_option_list(		_tsv, _flag, _flags, _idx, _flag_arr) {
 	FS="\t"
 	# TO-DO: Complain if TSV doesn't load
 	while ((getline<_tsv)>0) {
+		if (/^#/) continue
 		if (index($1, Opt["VERB"]) || ($1 == "all")) {
 			# 1:VERBS 2:FLAGS 3:KEY 4:KEY_ALIAS 5:TYPE 6:VALUE 7:DESCRIPTION 8:WARNING
-			if (/^#/ || !$2) continue
+			if (!$2) continue
 			_flags = $2
 			split(_flags, _flag_arr, ",")
 			# Make an dictionary for flag synonyms
@@ -156,7 +157,8 @@ function load_option_list(		_tsv, _flag, _flags, _idx, _flag_arr) {
 				_incr_decr_key = OptListKey[_flags]
 				NewOpt[_incr_decr_key] = Opt[_incr_decr_key]
 			}
-		} else if (Opt[$4] && !Opt["LEGACY_ENV"]) {
+		}
+		if (($4 != "") && !is_null(Opt[$4]) && is_null(Opt["LEGACY_ENV"])) {
 			# Check for legacy variables and reassign them
 			if ($8) report(LOG_WARNING, $8)
 			NewOpt[$3] = Opt[$4]

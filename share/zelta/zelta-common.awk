@@ -187,6 +187,8 @@ function stop(_error_code, _error_msg) {
 ## Simple String Utilities
 ##########################
 
+function is_null(_s) { return (_s "" == "") }
+
 function qq(_s) {
 	gsub(/ /, "\\ ", _s)
 	return "'"_s"'"
@@ -197,9 +199,9 @@ function q(s) { return "'" s "'" }
 function dq(s) { return "\"" s "\"" }
 
 function str_add(s, v, sep) {
-	if (!s || !v) return s v
-	if (!sep) sep = " "
-	return s ? s sep v : v
+	if (is_null(s) || is_null(v)) return s v
+	if (is_null(sep)) sep = " "
+	return !is_null(s) ? s sep v : v
 }
 
 function str_rep(str, num,    _out, _i) {
@@ -215,10 +217,10 @@ function rq(_r, _s) {
 
 # Joins non-blank elements of an array
 function arr_join(arr, sep,    _str, _idx, _i) {
-	if (!sep) sep = " "
+	if (is_null(sep)) sep = " "
 	for (_idx in arr)
-		if (arr[++_i])
-			_str = _str ? _str sep arr[_i] : arr[_i]
+		if (!is_null(arr[++_i]))
+			_str = !is_null(_str) ? _str sep arr[_i] : arr[_i]
 	return _str
 }
 
@@ -422,7 +424,8 @@ function get_snap_name(		_snap_name, _snap_cmd) {
 		_snap_cmd | getline _snap_name
 		close(_snap_cmd)
 	}
-	if (!_snap_name)
+	# Note that a _snap_name of "0" is accepted
+	if (is_null(_snap_name))
 		_snap_name = Summary["startTime"]
 	if (_snap_name !~ "^@")
 		_snap_name = "@" _snap_name

@@ -1281,6 +1281,10 @@ function print_summary(		_status, _i, _ds_suffix, _num_streams) {
 BEGIN {
 	if (Opt["USAGE"]) usage()
 
+	# Validate arguments
+	if (!is_null(Opt["DEPTH"]) && (Opt["DEPTH"] < 1))
+		stop(1, "depth of '"Opt["DEPTH"]"' invalid; must be positive")
+
 	## Globals and overrides
 	########################
 
