@@ -293,6 +293,7 @@ function explain_sync_status(ds_suffix,		_tgt_ds) {
 function validate_snapshots(		_i, _ds_suffix, _src_idx, _match, _src_exists, _src_latest) {
 	create_source_snapshot()
 	load_snapshot_deltas()
+	apply_predicted_source_snapshot()
 	for (_i in DSList) {
 		_ds_suffix	= DSList[_i]
 		_src_idx	= "SRC" SUBSEP _ds_suffix
@@ -307,6 +308,7 @@ function validate_snapshots(		_i, _ds_suffix, _src_idx, _match, _src_exists, _sr
 		}
 	}
 	create_source_snapshot()
+	apply_predicted_source_snapshot()
 	for (_i in DSList) {
 		_src_idx = "SRC" SUBSEP DSList[_i]
 		if (Dataset[_src_idx, "latest_snapshot"])
@@ -453,7 +455,7 @@ function snapshot_thresholds_allow_skip(	_time, _size, _cutoff, _time_suffix) {
 # Decide whether or not to take a snapshot; if so, returns a reason
 function should_snapshot(		_snapshotting) {
 	# Only attempt a snapshot once
-        if (DSTree["snapshot_attempted"]) return
+	if (DSTree["snapshot_attempted"]) return
 	if (Opt["DRYRUN"])
 		_snapshotting = "would snapshot: "
 	else
@@ -475,6 +477,15 @@ function should_snapshot(		_snapshotting) {
 	else return 0
 }
 
+# Let dry-run planning predict send/receive work caused by a successful snapshot.
+function apply_predicted_source_snapshot(		_i) {
+	if (!Opt["DRYRUN"] || !DSTree["predicted_snapshot"] || DSTree["predicted_snapshot_applied"])
+		return
+	for (_i = 1; _i <= NumDS; _i++)
+		update_latest_snapshot("SRC", DSList[_i], DSTree["predicted_snapshot"])
+	DSTree["predicted_snapshot_applied"] = 1
+}
+
 # This function replaces the original 'zelta snapshot' command
 function create_source_snapshot(force_snap,	_snap_name, _ds_snap, _cmd_arr, _cmd, _snap_failed, _should_snap, _i) {
 	_should_snap = force_snap ? force_snap : should_snapshot()
@@ -492,6 +503,7 @@ function create_source_snapshot(force_snap,	_snap_name, _ds_snap, _cmd_arr, _cmd
 	_cmd = build_command("SNAP", _cmd_arr)
 
 	if (Opt["DRYRUN"]) {
+		DSTree["predicted_snapshot"] = _snap_name
 		report(LOG_NOTICE, "+ "_cmd)
 		return 1
 	}

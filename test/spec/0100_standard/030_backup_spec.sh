@@ -6,6 +6,8 @@ Describe 'Backup tests' standard:30
         # In json mode, all unsuppressed notices will be stderr
         The error should include 'would snapshot'
         The error should include 'zfs snapshot'
+        The error should include 'zfs send'
+        The error should include 'zfs recv'
         The error should include 'diverged'
         The error should not include 'snapshotting'
         The error should not include 'error:'
