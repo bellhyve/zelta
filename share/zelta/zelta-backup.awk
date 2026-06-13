@@ -850,6 +850,7 @@ function run_zfs_sync(ds_suffix,		_cmd, _stream_info, _message, _ds_snap,
 	_cmd = get_sync_command(ds_suffix)
 	if (Opt["DRYRUN"]) {
 		report(LOG_NOTICE, "+ "_cmd)
+		track_bookmark_snapshot(ds_suffix)
 		return 1
 	}
 
@@ -910,11 +911,110 @@ function run_zfs_sync(ds_suffix,		_cmd, _stream_info, _message, _ds_snap,
 		if (_streams > 1) _message = str_add(_message, "("_streams" streams)")
 		report(LOG_INFO, _message)
 		update_latest_snapshot("TGT", ds_suffix, DSPair[ds_suffix, "source_end"])
+		track_bookmark_snapshot(ds_suffix)
 	} else {
 		Action[ds_suffix, "blocked_reason"] = "sync attempted with errors"
 		DSTree["syncable"]--
 		Action[ds_suffix, "can_sync"] = 0
 	}
+}
+
+function track_bookmark_snapshot(ds_suffix,		_snap) {
+	if (!Opt["BOOKMARK_MODE"]) return
+	_snap = DSPair[ds_suffix, "source_end"]
+	if (!_snap) return
+	if (!Bookmark[ds_suffix, "tracked"]++)
+		NumBookmarkDS++
+	Bookmark[ds_suffix, "snap"] = _snap
+	Bookmark[ds_suffix, "target_snap"] = Opt["TGT_DS"] ds_suffix _snap
+	Bookmark[ds_suffix, "source_snap"] = Opt["SRC_DS"] ds_suffix _snap
+}
+
+function bookmark_name(ds_suffix,		_snap, _name, _prefix) {
+	_snap = Bookmark[ds_suffix, "snap"]
+	_name = _snap
+	sub(/^[@#]/, "", _name)
+	_prefix = Opt["BOOKMARK_PREFIX"] ? Opt["BOOKMARK_PREFIX"] : Target["HOST"] "_"
+	return Opt["SRC_DS"] ds_suffix "#" _prefix _name
+}
+
+function confirm_bookmark_target(ds_suffix,		_tgt_snap, _cmd_arr, _cmd, _confirmed, _failed) {
+	_tgt_snap = Bookmark[ds_suffix, "target_snap"]
+	_cmd_arr["endpoint"] = "TGT"
+	_cmd_arr["ds"] = rq(Target["REMOTE"], _tgt_snap)
+	_cmd = build_command("CHECK", _cmd_arr)
+	if (Opt["DRYRUN"]) {
+		report(LOG_NOTICE, "+ " _cmd)
+		return 1
+	}
+	report(LOG_DEBUG, "`"_cmd"`")
+	_cmd = _cmd CAPTURE_OUTPUT
+	while (_cmd | getline) {
+		if ($0 == _tgt_snap)
+			_confirmed = 1
+		else {
+			_failed = 1
+			report(LOG_ERROR, "cannot confirm replicated snapshot: " _tgt_snap ": " $0)
+		}
+	}
+	close(_cmd)
+	if (!_confirmed && !_failed)
+		report(LOG_ERROR, "cannot confirm replicated snapshot: " _tgt_snap)
+	return _confirmed
+}
+
+function create_source_bookmark(ds_suffix,		_cmd_arr, _cmd, _src_snap, _bookmark, _failed) {
+	_src_snap = Bookmark[ds_suffix, "source_snap"]
+	_bookmark = bookmark_name(ds_suffix)
+	_cmd_arr["endpoint"] = "SRC"
+	_cmd_arr["source_snap"] = rq(Source["REMOTE"], _src_snap)
+	_cmd_arr["bookmark"] = rq(Source["REMOTE"], _bookmark)
+	_cmd = build_command("BOOKMARK", _cmd_arr)
+	if (Opt["DRYRUN"]) {
+		report(LOG_NOTICE, "+ " _cmd)
+		return 1
+	}
+	report(LOG_DEBUG, "`"_cmd"`")
+	_cmd = _cmd CAPTURE_OUTPUT
+	while (_cmd | getline) {
+		_failed = 1
+		report(LOG_ERROR, "cannot bookmark replicated snapshot: " _src_snap ": " $0)
+	}
+	close(_cmd)
+	return !_failed
+}
+
+function bookmark_failed() {
+	if (!Summary["replicationErrorCode"])
+		Summary["replicationErrorCode"] = 1
+}
+
+function run_bookmark(		_i, _ds_suffix, _snapshots) {
+	if (!Opt["BOOKMARK_MODE"]) return
+	if (RunVerb == "revert" || RunVerb == "clone") return
+	if (Opt["BOOKMARK_MODE"] != 1)
+		stop(1, "invalid bookmark mode: " Opt["BOOKMARK_MODE"])
+	if (!NumBookmarkDS) return
+
+	_snapshots = (NumBookmarkDS == 1) ? "snapshot" : "snapshots"
+	report(LOG_NOTICE, "bookmarking " NumBookmarkDS " replicated " _snapshots)
+	for (_i = NumDS; _i >= 1; _i--) {
+		_ds_suffix = DSList[_i]
+		if (!Bookmark[_ds_suffix, "tracked"]) continue
+		if (!confirm_bookmark_target(_ds_suffix)) {
+			bookmark_failed()
+			continue
+		}
+		if (!create_source_bookmark(_ds_suffix))
+			bookmark_failed()
+	}
+}
+
+function validate_bookmark_mode() {
+	if (!Opt["BOOKMARK_MODE"])
+		Opt["BOOKMARK_MODE"] = 0
+	if (Opt["BOOKMARK_MODE"] != 0 && Opt["BOOKMARK_MODE"] != 1)
+		stop(1, "invalid bookmark mode: " Opt["BOOKMARK_MODE"])
 }
 
 ## Construct replication commands
@@ -1280,10 +1380,12 @@ function print_summary(		_status, _i, _ds_suffix, _num_streams) {
 # Main planning function
 BEGIN {
 	if (Opt["USAGE"]) usage()
+	RunVerb = Opt["VERB"]
 
 	# Validate arguments
 	if (!is_null(Opt["DEPTH"]) && (Opt["DEPTH"] < 1))
 		stop(1, "depth of '"Opt["DEPTH"]"' invalid; must be positive")
+	validate_bookmark_mode()
 
 	## Globals and overrides
 	########################
@@ -1334,6 +1436,8 @@ BEGIN {
 	else if (Opt["VERB"] == "rotate")	run_rotate()
 	else if (filtered_intermediate_mode())	run_filtered_intermediate_backup()
 	else					run_backup()
+
+	run_bookmark()
 
 	Summary["endTime"]			= sys_time()
 	Summary["runTime"]			= Summary["endTime"] - Summary["startTime"]

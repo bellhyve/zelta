@@ -57,6 +57,10 @@ policy,backup,replicate,sync,rotate	--progress			invalid			option '--progress' i
 policy,backup,replicate,sync,rotate	--rate-limit			invalid			option '--rate-limit' is deprecated; use '--recv-pipe'
 policy,backup,replicate,sync,rotate	-z			invalid			option '-z' is deprecated; consider '--json'
 policy,backup,replicate,sync,rotate	-h	USAGE		true		option '-h' is ambiguous; use '--holds' or see SEND/RECV options in 'zelta help options'
+policy,backup,replicate,sync,rotate	--bookmark	BOOKMARK_MODE		set	1	bookmark successfully replicated source snapshots
+policy,backup,replicate,sync,rotate	--no-bookmark	BOOKMARK_MODE		set	0	do not bookmark successfully replicated source snapshots
+policy,backup,replicate,sync,rotate	--bookmark-mode	BOOKMARK_MODE		set		set bookmark mode
+policy,backup,replicate,sync,rotate	--bookmark-prefix	BOOKMARK_PREFIX		set		prefix for replication success bookmarks
 backup,clone,rebase	--target-origin,--origin	ORIGIN_ID		set		clone origin dataset already backed up on the target
 
 # 'zelta rebase' options
