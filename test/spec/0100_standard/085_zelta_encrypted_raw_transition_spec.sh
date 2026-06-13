@@ -106,7 +106,7 @@ Describe 'Encrypted raw-send transition' standard:85
 	It 'sends non-raw for --snapshot with -Lc after the target key is loaded'
 		When call enc_raw_snapshot_backup_override_nonraw
 		The status should be success
-		The output should include 'zfs send -P -Lc -Lc -I'
+		The output should include 'zfs send -P -L -c -I'
 		The output should not include 'zfs send -P --raw -I'
 		The output should not include 'raw incremental unavailable'
 	End
