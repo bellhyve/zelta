@@ -970,6 +970,7 @@ function create_source_bookmark(ds_suffix,		_cmd_arr, _cmd, _src_snap, _bookmark
 	_cmd_arr["source_snap"] = rq(Source["REMOTE"], _src_snap)
 	_cmd_arr["bookmark"] = rq(Source["REMOTE"], _bookmark)
 	_cmd = build_command("BOOKMARK", _cmd_arr)
+	report(LOG_INFO, "bookmarking: " _bookmark)
 	if (Opt["DRYRUN"]) {
 		report(LOG_NOTICE, "+ " _cmd)
 		return 1
@@ -989,15 +990,13 @@ function bookmark_failed() {
 		Summary["replicationErrorCode"] = 1
 }
 
-function run_bookmark(		_i, _ds_suffix, _snapshots) {
+function run_bookmark(		_i, _ds_suffix, _snapshots, _bookmarked) {
 	if (!Opt["BOOKMARK_MODE"]) return
 	if (RunVerb == "revert" || RunVerb == "clone") return
 	if (Opt["BOOKMARK_MODE"] != 1)
 		stop(1, "invalid bookmark mode: " Opt["BOOKMARK_MODE"])
 	if (!NumBookmarkDS) return
 
-	_snapshots = (NumBookmarkDS == 1) ? "snapshot" : "snapshots"
-	report(LOG_NOTICE, "bookmarking " NumBookmarkDS " replicated " _snapshots)
 	for (_i = NumDS; _i >= 1; _i--) {
 		_ds_suffix = DSList[_i]
 		if (!Bookmark[_ds_suffix, "tracked"]) continue
@@ -1005,9 +1004,14 @@ function run_bookmark(		_i, _ds_suffix, _snapshots) {
 			bookmark_failed()
 			continue
 		}
-		if (!create_source_bookmark(_ds_suffix))
+		if (create_source_bookmark(_ds_suffix))
+			_bookmarked++
+		else
 			bookmark_failed()
 	}
+	_snapshots = (_bookmarked == 1) ? "snapshot" : "snapshots"
+	if (!Opt["DRYRUN"])
+		report(LOG_NOTICE, _bookmarked " " _snapshots " bookmarked")
 }
 
 function validate_bookmark_mode() {
