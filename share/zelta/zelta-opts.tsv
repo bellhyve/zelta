@@ -103,6 +103,7 @@ prune	--no-prune-guard	PRUNE_GUARD		set	none	disable target safety checks
 prune	--force,-f	PRUNE_FORCE		true		destroy without asking for confirmation when used by zprune
 prune	--prune-size	PRUNE_SIZE		set		select oldest eligible snapshots until size is reached
 prune	--no-ranges	NO_RANGES		true		disable range compression (output individual snapshots)
+prune	--visual	PRUNE_VISUAL		true		print snapshot keep/destroy emoji in creation order
 prune	--prune-name	PRUNE_NAME		set		snapshot name pattern: zfsnap, truenas, sanoid, or custom pattern
 prune	--send-range	SEND_RANGE		set		internal: list source snapshots after the given match
 

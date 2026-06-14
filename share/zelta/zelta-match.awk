@@ -56,6 +56,7 @@ function usage_prune(message) {
 	print "\t--prune-grid=GRID    GFS grid such as '30x1 day, 52x1 week, 1 year'"                 > STDERR
 	print "\t--prune-guard=MODE   Protect sync continuity: latest (default), unsynced, none"      > STDERR
 	print "\t--no-ranges          Disable range compression (output individual snapshots)"        > STDERR
+	print "\t--visual             Print 🟩/🟥 for keep/destroy in creation order"                 > STDERR
 	print "\t--exclude pattern    Exclude datasets or snapshots matching pattern"                 > STDERR
 	print "\t--include pattern    Include only datasets or snapshots matching pattern"            > STDERR
 	print "Default: '--prune-num=30 --prune-time=1month'\n"                                       > STDERR
@@ -178,7 +179,7 @@ function object_type(symbol) {
 # Load each row into memory
 function process_row(ep,		_name, _guid, _ivsetguid, _written, _referenced, _clones, _name_suffix, _ds_suffix, _savepoint,
 					_type, _ep_id, _ds_id, _ds_snap, _row_id, _tmp_arr, _num_snaps,
-					_all_snap_idx, _field) {
+					_all_snap_idx, _field, _prune_filtered) {
 	# Read the row data
 	_name      = $1
 	_guid      = $2
@@ -224,10 +225,12 @@ function process_row(ep,		_name, _guid, _ivsetguid, _written, _referenced, _clon
 			return
 	}
 	if ((_type == IS_SNAPSHOT) && (_ep_id == Source["ID"])) {
-		if (regex_loop(_savepoint, ExcludeSnapPattern, ExcludeSnapPattern["count"]))
-			return
-		if (!is_snap_or_ds_included(_savepoint, _name, _ds_suffix))
-			return
+		if (regex_loop(_savepoint, ExcludeSnapPattern, ExcludeSnapPattern["count"]) ||
+		    !is_snap_or_ds_included(_savepoint, _name, _ds_suffix)) {
+			if (Opt["VERB"] != "prune")
+				return
+			_prune_filtered = 1
+		}
 	}
 
 	Row[_row_id, "exists"]     = 1
@@ -242,9 +245,10 @@ function process_row(ep,		_name, _guid, _ivsetguid, _written, _referenced, _clon
 	Row[_row_id, "name"]       = _name
 	Row[_row_id, "type"]       = _type
 	Row[_row_id, "ds_suffix"]  = _ds_suffix
+	Row[_row_id, "prune_filtered"] = _prune_filtered
 
 	# Snapshots will be used for match GUID over bookmarks
-	if (!Guid[_ds_id, _guid] || (_type == IS_SNAPSHOT))
+	if (!_prune_filtered && (!Guid[_ds_id, _guid] || (_type == IS_SNAPSHOT)))
 		Guid[_ds_id, _guid] = _row_id
 
 	# Dataset
@@ -412,6 +416,9 @@ function validate_match(src_row, tgt_row, ds_suffix, savepoint, snap_idx) {
 
 # Step through snapshots for counters and to find common snapshots
 function compare_snapshots(src_row, idx,	_src_row_arr, _ds_suffix, _savepoint, _src_guid, _tgt_ds_id, _tgt_match) {
+	if (Row[src_row, "prune_filtered"])
+		return
+
 	# Identify a match candidate by GUID
 	split(src_row, _src_row_arr, S)
 	_ds_suffix	= _src_row_arr[2]
@@ -675,6 +682,7 @@ function analyze_prune_candidates(		_d, _ds_suffix, _src_ds_id, _tgt_ds_id, _num
 		_selected_num = 0
 		_written_total = 0
 		_prune_estimate = 0
+		_seen_after_match = 0
 
 		_match_idx = DSPair[_ds_suffix, "match_idx"]
 		if (!_match_idx && (Opt["PRUNE_GUARD"] != GUARD_NONE)) {
@@ -700,13 +708,17 @@ function analyze_prune_candidates(		_d, _ds_suffix, _src_ds_id, _tgt_ds_id, _num
 
 			# Only consider snapshots (not bookmarks)
 			if (Row[_src_row, "type"] != IS_SNAPSHOT) continue
+			if (Row[_src_row, "prune_filtered"]) {
+				KeptSnap[_src_ds_id, ++NumKeptSnap[_src_ds_id]] = _savepoint
+				KeptSnapIdx[_src_ds_id, NumKeptSnap[_src_ds_id]] = Row[_src_row, "snap_idx"]
+				continue
+			}
+			_seen_after_match++
 			if ((Row[_src_row, "clones"] != "") && (Row[_src_row, "clones"] != "-")) {
 				KeptSnap[_src_ds_id, ++NumKeptSnap[_src_ds_id]] = _savepoint
 				KeptSnapIdx[_src_ds_id, NumKeptSnap[_src_ds_id]] = Row[_src_row, "snap_idx"]
 				continue
 			}
-
-			_seen_after_match = _s - _match_idx
 
 			if (!synced_allows_prune(_tgt_ds_id, _guid, _savepoint)) {
 				KeptSnap[_src_ds_id, ++NumKeptSnap[_src_ds_id]] = _savepoint
@@ -903,6 +915,21 @@ function output_prune(		_d, _ds_suffix, _src_ds_id, _p, _range, _base_name, _kep
 			}
 		}
 	}
+}
+
+function output_prune_visual(		_d, _ds_suffix, _src_ds_id, _p, _s, _row) {
+	for (_d = 1; _d <= NumDSPair; _d++) {
+		_ds_suffix = DSPairList[_d]
+		_src_ds_id = Source["ID"] S _ds_suffix S ""
+		for (_p = 1; _p <= PruneSnapNum[_src_ds_id]; _p++)
+			Kill[_src_ds_id, PruneSnapIdx[_src_ds_id, _p]] = 1
+		for (_s = NumSnaps[_src_ds_id]; _s >= 1; _s--) {
+			_row = Snap[_src_ds_id, _s]
+			if (Row[_row, "type"] == IS_SNAPSHOT)
+				printf "%s", (Kill[_src_ds_id, Row[_row, "snap_idx"]] ? "❌" : "🔵")
+		}
+	}
+	printf "\n"
 }
 
 ## Output
@@ -1124,7 +1151,10 @@ END {
 				analyze_send_range()
 			else
 				analyze_prune_candidates()
-			output_prune()
+			if (Opt["PRUNE_VISUAL"])
+				output_prune_visual()
+			else
+				output_prune()
 		} else {
 			get_info()
 			summary()
