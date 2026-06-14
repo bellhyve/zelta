@@ -725,6 +725,111 @@ function reset_runtime_state(	_src_ds_tree, _tgt_ds_tree) {
 ## Assemble `zfs send` command
 ##############################
 
+function send_check_active() {
+	return Opt["SEND_CHECK"] && !Opt["SEND_OVERRIDE"]
+}
+
+function send_option_error(line) {
+	return line ~ /(invalid|illegal|unknown|unrecognized) option|usage: zfs send/
+}
+
+function send_option_error_matches_feature(line, feature,	_opt) {
+	_opt = line
+	if (_opt ~ /(invalid|illegal|unknown|unrecognized) option '[^']*'/) {
+		sub(/^.*(invalid|illegal|unknown|unrecognized) option '/, "", _opt)
+		sub(/'.*$/, "", _opt)
+		return !_opt || _opt == feature || _opt == substr(feature, 2, 1)
+	}
+	_opt = line
+	if (_opt ~ /(invalid|illegal|unknown|unrecognized) option -- ./) {
+		sub(/^.* option -- /, "", _opt)
+		_opt = substr(_opt, 1, 1)
+		return _opt == substr(feature, 2, 1)
+	}
+	return 1
+}
+
+function send_check_feature_longopt(feature, opt) {
+	if (feature == "-e")	return opt == "--embed" || opt == "--embedded-data"
+	if (feature == "-c")	return opt == "--compressed"
+	if (feature == "-L")	return opt == "--largeblock" || opt == "--large-block"
+	return 0
+}
+
+function send_flags_have_feature(flags, feature, 	_i, _n, _parts, _token, _short) {
+	if (is_null(flags)) return 0
+	_short = substr(feature, 2, 1)
+	_n = split(flags, _parts, " ")
+	for (_i = 1; _i <= _n; _i++) {
+		_token = _parts[_i]
+		if (_token == feature || send_check_feature_longopt(feature, _token))
+			return 1
+		if (_token ~ /^-[^-]/ && index(substr(_token, 2), _short))
+			return 1
+	}
+	return 0
+}
+
+function remove_send_feature_from_short_token(token, feature, 	_i, _short, _out, _char) {
+	if (token !~ /^-[^-]/) return token
+	_short = substr(feature, 2, 1)
+	_out = "-"
+	for (_i = 2; _i <= length(token); _i++) {
+		_char = substr(token, _i, 1)
+		if (_char != _short)
+			_out = _out _char
+	}
+	return (_out == "-") ? "" : _out
+}
+
+function remove_send_feature(flags, feature, 	_i, _n, _parts, _token, _out) {
+	if (is_null(flags)) return flags
+	_n = split(flags, _parts, " ")
+	for (_i = 1; _i <= _n; _i++) {
+		_token = _parts[_i]
+		if (_token == feature || send_check_feature_longopt(feature, _token))
+			continue
+		_token = remove_send_feature_from_short_token(_token, feature)
+		_out = str_add(_out, _token)
+	}
+	return _out
+}
+
+function apply_send_check_flags(flags) {
+	if (!send_check_active()) return flags
+	if (SendCheckDisabled["-e"])	flags = remove_send_feature(flags, "-e")
+	if (SendCheckDisabled["-c"])	flags = remove_send_feature(flags, "-c")
+	if (SendCheckDisabled["-L"])	flags = remove_send_feature(flags, "-L")
+	return flags
+}
+
+function send_check_normalize_flags(ds_suffix, idx, flags) {
+	if (!send_check_active()) return flags
+	if (Opt["VERB"] == "replicate") return flags
+	if (Action[ds_suffix, "send_decrypted"]) return flags
+	if (Dataset[idx, "encryption"]) return flags
+	if (flags == "--raw") return "-L -c -e"
+	return flags
+}
+
+function drop_next_send_feature(ds_suffix, error_msg,	_idx, _flags, _i, _feature, _order) {
+	if (!send_check_active()) return 0
+	if (!send_option_error(error_msg)) return 0
+	_idx = "SRC" SUBSEP ds_suffix
+	_flags = get_send_command_flags(ds_suffix, _idx)
+	split("-e -c -L", _order, " ")
+	for (_i = 1; _i <= 3; _i++) {
+		_feature = _order[_i]
+		if (SendCheckDisabled[_feature]) continue
+		if (!send_option_error_matches_feature(error_msg, _feature)) continue
+		if (!send_flags_have_feature(_flags, _feature)) continue
+		SendCheckDisabled[_feature] = 1
+		report(LOG_WARNING, "send-check dropping unsupported zfs send option: " _feature)
+		return 1
+	}
+	return 0
+}
+
 # Detect and configure send flags
 function get_send_command_flags(ds_suffix, idx,		_f, _idx, _flags, _flag_list) {
 	if (Dataset["TGT", ds_suffix, "receive_resume_token"]) {
@@ -741,9 +846,11 @@ function get_send_command_flags(ds_suffix, idx,		_f, _idx, _flags, _flag_list) {
 		_flag_list[++_f]	= Opt["SEND_DECRYPTED"]
 	}
 	else if (Dataset[idx,"encryption"])
-      	     _flag_list[++_f]		= Opt["SEND_RAW"]
+		_flag_list[++_f]		= Opt["SEND_RAW"]
 	else _flag_list[++_f]		= Opt["SEND_DEFAULT"]
 	_flags = arr_join(_flag_list)
+	_flags = send_check_normalize_flags(ds_suffix, idx, _flags)
+	_flags = apply_send_check_flags(_flags)
 	return _flags
 }
 
@@ -781,6 +888,41 @@ function create_send_command(ds_suffix, idx, remote_ep, 		_cmd_arr, _cmd, _ds_sn
 	_cmd_arr["ds_snap"]	= get_send_command_dataset(ds_suffix, remote_ep)
 	_cmd			= build_command("SEND", _cmd_arr)
 	return _cmd
+}
+
+function create_send_check_command(ds_suffix, idx, remote_ep, 		_cmd_arr, _cmd) {
+	if (!Opt[remote_ep "_REMOTE"]) remote_ep = ""
+	_cmd_arr["endpoint"]	= remote_ep
+	_cmd_arr["flags"]	= get_send_command_flags(ds_suffix, idx)
+	_cmd_arr["intr_snap"]	= get_send_command_incr_snap(ds_suffix, idx, remote_ep)
+	_cmd_arr["ds_snap"]	= get_send_command_dataset(ds_suffix, remote_ep)
+	_cmd			= build_command("SEND_CHECK", _cmd_arr)
+	return _cmd
+}
+
+function run_send_check(		_ds_suffix, _idx, _remote_ep, _cmd, _line, _error_msg, _retry) {
+	if (!send_check_active()) return
+	if (Opt["DRYRUN"]) return
+	_ds_suffix = ""
+	if (!Action[_ds_suffix, "can_sync"]) return
+	_idx = "SRC" SUBSEP _ds_suffix
+	_remote_ep = Opt["SRC_REMOTE"] ? "SRC" : ""
+	do {
+		_retry = 0
+		_cmd = create_send_check_command(_ds_suffix, _idx, _remote_ep)
+		report(LOG_DEBUG, "`"_cmd"`")
+		_cmd = _cmd CAPTURE_OUTPUT
+		while (_cmd | getline _line) {
+			if (send_option_error(_line))
+				_error_msg = _line
+			else if (_line ~ COMMAND_ERROR)
+				report(LOG_WARNING, _line)
+		}
+		close(_cmd)
+		if (_error_msg && drop_next_send_feature(_ds_suffix, _error_msg))
+			_retry = 1
+		_error_msg = ""
+	} while (_retry)
 }
 
 
@@ -837,8 +979,13 @@ function create_recv_command(ds_suffix, src_idx, remote_ep,		 _cmd_arr, _cmd, _t
 ###############################
 
 # Runs a sync, collecting "zfs send" output
+function sync_error_message(line, ds_suffix) {
+	return line (line ~ /:$/ ? " " : ": ") Opt["TGT_DS"] ds_suffix
+}
+
 function run_zfs_sync(ds_suffix,		_cmd, _stream_info, _message, _ds_snap,
-		      				_size, _time, _streams, _sync_msg, _error_msg) {
+						_size, _time, _streams, _sync_msg, _error_msg,
+						_cmd_status, _sync_error) {
 	# TO-DO: Make 'rotate' logic more explicit
 	# TO-DO: Dryrun mode probably goes here
 	if (Opt["VERB"] == "rotate" && !Action[ds_suffix, "can_rotate"]) return
@@ -847,6 +994,7 @@ function run_zfs_sync(ds_suffix,		_cmd, _stream_info, _message, _ds_snap,
 	IGNORE_RESUME_OUTPUT = "^nvlist version|^\t(fromguid|object|offset|bytes|toguid|toname|embedok|compressok)"
 	WARN_ZFS_RECV_PROPS = "cannot receive .* property"
 	FAIL_ZFS_SEND_RECV_OUTPUT = "^(cannot receive .* stream|cannot send|missing.*argument)"
+	FAIL_ZFS_OPTION_OUTPUT = "^(invalid|illegal|unknown|unrecognized) option|^usage:"
 	_message            = Source["DS"] ds_suffix
 	if (DSPair[ds_suffix, "source_start"])
 		_message        = _message DSPair[ds_suffix, "source_start"] "%" substr(DSPair[ds_suffix, "source_end"], 2)
@@ -895,10 +1043,22 @@ function run_zfs_sync(ds_suffix,		_cmd, _stream_info, _message, _ds_snap,
 			report(LOG_INFO, "to abort a failed resume, run: 'zfs receive -A " Opt["SRC_DS"] ds_suffix"'")
 		}
 		else if ($0 ~ FAIL_ZFS_SEND_RECV_OUTPUT) {
-			_error_msg = $0 ": " Opt["TGT_DS"] ds_suffix
+			_error_msg = sync_error_message($0, ds_suffix)
 			report(LOG_ERROR, _error_msg)
+			_sync_error = 1
 			Summary["replicationErrorCode"] = 2
-			break
+		}
+		else if (send_check_active() && send_option_error($0)) {
+			_error_msg = sync_error_message($0, ds_suffix)
+			report(LOG_ERROR, _error_msg)
+			_sync_error = 1
+			Summary["replicationErrorCode"] = 2
+		}
+		else if ($0 ~ FAIL_ZFS_OPTION_OUTPUT) {
+			_error_msg = sync_error_message($0, ds_suffix)
+			report(LOG_ERROR, _error_msg)
+			_sync_error = 1
+			Summary["replicationErrorCode"] = 2
 		}
 		else if ($0 ~ WARN_ZFS_RECV_PROPS) {
 			report(LOG_DEBUG, $0 ": " Opt["TGT_DS"] ds_suffix)
@@ -912,11 +1072,17 @@ function run_zfs_sync(ds_suffix,		_cmd, _stream_info, _message, _ds_snap,
 		else if ($0 ~ IGNORE_RESUME_OUTPUT) {}
 		else if (log_common_command_feedback() == LOG_ERROR) {
 			_error_msg = $0
+			_sync_error = 1
 			Summary["replicationErrorCode"] = 2
-			break
 		}
 	}
-	close(_cmd)
+	_cmd_status = close(_cmd)
+	if (!_streams && !_sync_error && _cmd_status) {
+		_error_msg = "sync command failed before receiving stream: " _ds_snap " -> " Opt["TGT_DS"] ds_suffix
+		report(LOG_ERROR, _error_msg)
+		_sync_error = 1
+		Summary["replicationErrorCode"] = 2
+	}
 	if (_streams) {
 		# At least one stream has been received, but was it fully successful?
 		_message = h_num(_size) " " _sync_msg " received in " _time " seconds"
@@ -925,6 +1091,18 @@ function run_zfs_sync(ds_suffix,		_cmd, _stream_info, _message, _ds_snap,
 		update_latest_snapshot("TGT", ds_suffix, DSPair[ds_suffix, "source_end"])
 		track_bookmark_snapshot(ds_suffix)
 	} else {
+		if (_sync_error && drop_next_send_feature(ds_suffix, _error_msg)) {
+			Summary["replicationErrorCode"] = 0
+			Summary["replicationStreamsSent"]--
+			NumStreamsSent--
+			run_zfs_sync(ds_suffix)
+			return
+		}
+		if (!_sync_error) {
+			_error_msg = "sync failed before receiving stream: " _ds_snap " -> " Opt["TGT_DS"] ds_suffix
+			report(LOG_ERROR, _error_msg)
+			Summary["replicationErrorCode"] = 2
+		}
 		Action[ds_suffix, "blocked_reason"] = "sync attempted with errors"
 		DSTree["syncable"]--
 		Action[ds_suffix, "can_sync"] = 0
@@ -1445,6 +1623,7 @@ BEGIN {
 	validate_snapshots()
 	compute_eligibility()
 	configure_origin_backup()
+	run_send_check()
 
 	if ((Opt["VERB"] == "clone") && (NumOperands == 4)) run_clone_shuffle()
 	else if (Opt["VERB"] == "clone")	create_recursive_clone("SRC", Opt["SRC_DS"], Opt["TGT_DS"])

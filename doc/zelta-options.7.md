@@ -135,7 +135,7 @@ The following options should be modified in the environment to ensure proper ins
 :   Options to use in `zelta backup -R` mode. Defaults to `--raw -s -R`.
 
 **SEND_CHECK**
-:   Attempt to drop unsupported `zfs send` options using a no-op test prior to replication. This feature is not fully implemented.
+:   Attempt to detect and drop Zelta's default `zfs send` options (`-L`, `-c`, `e`) if the _source_ does not support them.
 
 **RECV_OVERRIDE**
 :   Override all `zfs receive` options with those indicated. For precise and flexible configuration, use the `RECV_*` variables instead.

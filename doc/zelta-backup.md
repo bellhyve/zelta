@@ -139,6 +139,9 @@ _target_
 **\--resume, \--no-resume**
 : Enable (default) or disable automatic resume of interrupted syncs.
 
+**\--send-check**
+:   Attempt to detect and drop Zelta's default `zfs send` options (`-L`, `-c`, `e`) if the _source_ does not support them.
+
 ## Advanced Override Options
 
 **WARNING:** These options override Zelta's automatic safety and efficiency logic. Incorrect usage can result in target data loss or decrypted backup streams. Use only when you understand the implications.
