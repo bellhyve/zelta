@@ -3,6 +3,7 @@
 
 require_relative 'test_generator'
 require_relative 'schema_validator'
+require_relative 'path_config'
 
 module RunTestGenerator
   module_function
@@ -56,7 +57,7 @@ module RunTestGenerator
     options[:file] = nil
 
     # validate all is the only usage case where no file is specified
-    return if options[:validate_all]
+    return options if options[:validate_all]
 
     file = ARGV.shift
     if file.nil?
