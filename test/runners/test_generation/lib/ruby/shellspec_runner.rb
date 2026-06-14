@@ -33,16 +33,16 @@ class ShellspecRunner
   private
 
   def prepare_test_env
-    if setup_cmds.length.positive?
-      puts 'Shellspec setup commands:'
-      setup_cmds.each do |cmd|
-        puts cmd
-      end
-      result = SysExec.run_all(setup_cmds, timeout: TIMEOUT_SECONDS)
-      puts "Shellspec setup completed  #{result.exit_status.zero? ? 'successfully' : 'with errors'}"
-      result.exit_status.zero?
+    return true unless setup_cmds.length.positive?
+
+    puts 'Shellspec setup commands:'
+    setup_cmds.each do |cmd|
+      puts cmd
     end
-    true
+
+    result = SysExec.run_all(setup_cmds, timeout: TIMEOUT_SECONDS)
+    puts "Shellspec setup completed  #{result.exit_status.zero? ? 'successfully' : 'with errors'}"
+    result.exit_status.zero?
   end
 
 end

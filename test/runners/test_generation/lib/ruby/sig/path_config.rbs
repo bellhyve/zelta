@@ -31,5 +31,5 @@ class PathConfig
 
   private
 
-  def initialize: (String? output_dir, String shellspec_name) -> void
+  def initialize: (String output_dir, String shellspec_name) -> void
 end
