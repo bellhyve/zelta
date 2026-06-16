@@ -14,6 +14,8 @@
 
 Pruning is built from filters which describe the retention shape or narrow the dataset tree, snapshot names, target-safety requirement, or size recovery target.
 
+Selection starts by narrowing the snapshot set. Dataset depth, include and exclude patterns, snapshot-name filters, and the prune guard decide which snapshots are eligible before retention filters are applied.
+
 By default, **zelta prune** applies this failsafe filter:
 
 - keep the newest 30 snapshots after the guard point;
@@ -119,6 +121,8 @@ _target_
 
 **--prune-size** _SIZE_
 : Select oldest eligible snapshots until their estimated reclaim reaches at least _SIZE_. This planner target is off by default. _SIZE_ accepts ZFS-style byte counts and suffixes such as `K`, `KB`, `M`, `GB`, and `T`.
+
+**--prune-size** is evaluated per dataset. On recursive dataset trees, each dataset may contribute up to the requested reclaim target, so the total candidate set can exceed _SIZE_. Use **--depth=1**, **--include**, or a non-recursive dataset selection when _SIZE_ should apply to one dataset only.
 
 The estimate is based on sequential oldest-first pruning. It does not factor in other retention shapes; if other filters create gaps, run pruning in multiple passes or use **zprune(8)** preview as the final authority.
 
