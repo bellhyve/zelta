@@ -608,10 +608,12 @@ function parse_prune_grid(	_grid, _parts, _n, _i, _term, _x, _count, _interval) 
 	}
 }
 
-function grid_keeps_snapshot(creation,	_age, _g, _start, _end, _bucket) {
+function grid_keeps_snapshot(creation, anchor_creation,	_age, _g, _start, _end, _bucket) {
 	if (!NumPruneGrid)
 		return 0
-	_age = Global["now"] - creation
+	_age = anchor_creation - creation
+	if (_age < 0)
+		return 0
 	_start = 0
 	for (_g = 1; _g <= NumPruneGrid; _g++) {
 		if (PruneGridCount[_g] == -1) {
@@ -647,6 +649,7 @@ function synced_allows_prune(tgt_ds_id, guid, savepoint) {
 function analyze_prune_candidates(		_d, _ds_suffix, _src_ds_id, _tgt_ds_id, _num_snaps,
 						_s, _src_row, _savepoint, _guid, _creation,
 						_match_idx, _snap_seconds, _min_age, _keep_after_match,
+						_grid_anchor_creation,
 						_seen_after_match, _eligible_num, _written_total, _prune_estimate, _p,
 						_warned_no_target, _warned_no_match,
 						_selected_num, SelectedSnap, SelectedSnapIdx,
@@ -697,6 +700,7 @@ function analyze_prune_candidates(		_d, _ds_suffix, _src_ds_id, _tgt_ds_id, _num
 		}
 		if (!_match_idx)
 			_match_idx = 0
+		_grid_anchor_creation = _match_idx ? Row[Snap[_src_ds_id, _match_idx], "creation"] : Row[Snap[_src_ds_id, 1], "creation"]
 
 		# Analyze snapshots older than match (higher index = older)
 		for (_s = _match_idx + 1; _s <= _num_snaps; _s++) {
@@ -725,7 +729,7 @@ function analyze_prune_candidates(		_d, _ds_suffix, _src_ds_id, _tgt_ds_id, _num
 				continue
 			}
 
-			if ((NumPruneGrid && ((_s == 1) || (_s == _num_snaps) || grid_keeps_snapshot(_creation))) ||
+			if ((NumPruneGrid && ((_s == 1) || (_s == _num_snaps) || grid_keeps_snapshot(_creation, _grid_anchor_creation))) ||
 			    (_keep_after_match != "" && (_keep_after_match > 0) && (_seen_after_match <= _keep_after_match)) ||
 			    (_snap_seconds != "" && (_creation >= _min_age))) {
 				KeptSnap[_src_ds_id, ++NumKeptSnap[_src_ds_id]] = _savepoint

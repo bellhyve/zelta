@@ -17,6 +17,11 @@ Pruning is built from filters which describe the retention shape or
 narrow the dataset tree, snapshot names, target\-safety requirement, or
 size recovery target.
 .PP
+Selection starts by narrowing the snapshot set.
+Dataset depth, include and exclude patterns, snapshot\-name filters, and
+the prune guard decide which snapshots are eligible before retention
+filters are applied.
+.PP
 By default, \f[B]zelta prune\f[R] applies this failsafe filter:
 .IP \(bu 2
 keep the newest 30 snapshots after the guard point;
@@ -79,6 +84,14 @@ zelta prune \-\-prune\-grid=\(aq30x1 day, 52x1 week, 1 year\(aq source target
 .PP
 Grid intervals use the same duration syntax as
 \f[B]\(enprune\-time\f[R].
+Buckets are measured backward from the latest protected boundary, not
+from the wall\-clock time when \f[B]zelta prune\f[R] runs.
+With the default prune guard, that boundary is the latest common
+source/target match.
+With \f[B]\(enprune\-guard=none\f[R], the boundary is the latest source
+snapshot.
+Zelta protects that boundary and the oldest snapshot in the dataset,
+then keeps the newest snapshot found in each older grid bucket.
 .PP
 Snapshots older than a bounded grid span are prune candidates unless
 protected by another filter.
@@ -156,6 +169,13 @@ This planner target is off by default.
 \f[I]SIZE\f[R] accepts ZFS\-style byte counts and suffixes such as
 \f[CR]K\f[R], \f[CR]KB\f[R], \f[CR]M\f[R], \f[CR]GB\f[R], and
 \f[CR]T\f[R].
+.PP
+\f[B]\(enprune\-size\f[R] is evaluated per dataset.
+On recursive dataset trees, each dataset may contribute up to the
+requested reclaim target, so the total candidate set can exceed
+\f[I]SIZE\f[R].
+Use \f[B]\(endepth=1\f[R], \f[B]\(eninclude\f[R], or a non\-recursive
+dataset selection when \f[I]SIZE\f[R] should apply to one dataset only.
 .PP
 The estimate is based on sequential oldest\-first pruning.
 It does not factor in other retention shapes; if other filters create

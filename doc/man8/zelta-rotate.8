@@ -119,6 +119,12 @@ Force snapshot creation even if the source has no uncommitted changes.
 Specify snapshot name.
 Use \f[CR]$(command)\f[R] for dynamic generation.
 Default: \f[CR]$(date \-u +zelta_%Y\-%m\-%d_%H.%M.%S)\f[R].
+.TP
+\f[B]\-\-snap\-prefix\f[R] \f[I]PREFIX\f[R]
+Prefix generated snapshot names.
+If the resolved name starts with \f[CR]zelta\f[R], \f[I]PREFIX\f[R]
+replaces \f[CR]zelta\f[R]; otherwise \f[I]PREFIX\f[R] is prepended
+verbatim.
 .SH EXAMPLES
 A common workflow after accidentally diverging a source from its backup:
 .PP

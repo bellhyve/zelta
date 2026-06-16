@@ -17,6 +17,11 @@ While \f[B]zelta prune\f[R] is limited to \f[CR]zfs list\f[R] and
 \f[B]zprune\f[R] uses \f[CR]zfs destroy\f[R] to provide additional
 detail and the destructive actions.
 .PP
+Candidate selection starts by narrowing the snapshot set.
+Dataset depth, include and exclude patterns, snapshot\-name filters, and
+the prune guard decide which snapshots are eligible before retention
+filters are applied.
+.PP
 Remote dataset endpoints follow \f[B]scp(1)\f[R] conventions.
 Operations can be performed without installing \f[B]zelta\f[R] on remote
 systems\(emonly standard ZFS utilities and SSH access are required.
@@ -68,6 +73,13 @@ Apply GFS\-style list of retention times, such as
 \f[B]\(enprune\-size\f[R] \f[I]SIZE\f[R]
 Allow deletion of oldest snapshots until \f[I]SIZE\f[R] bytes are
 reached.
+.PP
+\f[B]\(enprune\-size\f[R] is evaluated per dataset.
+On recursive dataset trees, each dataset may contribute up to the
+requested reclaim target, so the total candidate set can exceed
+\f[I]SIZE\f[R].
+Use \f[B]\(endepth=1\f[R], \f[B]\(eninclude\f[R], or a non\-recursive
+dataset selection when \f[I]SIZE\f[R] should apply to one dataset only.
 .TP
 \f[B]\(enprune\-guard\f[R] \f[CR]latest\f[R]|\f[CR]unsynced\f[R]|\f[CR]none\f[R]
 Select safety behavior based on replication status with the

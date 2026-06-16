@@ -62,6 +62,14 @@ Default: \f[CR]$(date \-u +zelta_%Y\-%m\-%d_%H.%M.%S)\f[R].
 This option is ignored if a snapshot name is provided in the endpoint
 argument.
 .TP
+\f[B]\-\-snap\-prefix\f[R] \f[I]PREFIX\f[R]
+Prefix generated snapshot names.
+If the resolved name starts with \f[CR]zelta\f[R], \f[I]PREFIX\f[R]
+replaces \f[CR]zelta\f[R]; otherwise \f[I]PREFIX\f[R] is prepended
+verbatim.
+This option is ignored if a snapshot name is provided in the endpoint
+argument.
+.TP
 \f[B]\-\-snap\-time\f[R] \f[I]TIME\f[R]
 Skip snapshot creation unless the newest existing snapshot is older than
 \f[I]TIME\f[R].
