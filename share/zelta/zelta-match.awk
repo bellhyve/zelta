@@ -56,7 +56,6 @@ function usage_prune(message) {
 	print "\t--prune-grid=GRID    GFS grid such as '30x1 day, 52x1 week, 1 year'"                 > STDERR
 	print "\t--prune-guard=MODE   Protect sync continuity: latest (default), unsynced, none"      > STDERR
 	print "\t--no-ranges          Disable range compression (output individual snapshots)"        > STDERR
-	print "\t--visual             Print 🟩/🟥 for keep/destroy in creation order"                 > STDERR
 	print "\t--exclude pattern    Exclude datasets or snapshots matching pattern"                 > STDERR
 	print "\t--include pattern    Include only datasets or snapshots matching pattern"            > STDERR
 	print "Default: '--prune-num=30 --prune-time=1month'\n"                                       > STDERR
@@ -926,7 +925,7 @@ function output_prune_visual(		_d, _ds_suffix, _src_ds_id, _p, _s, _row) {
 		for (_s = NumSnaps[_src_ds_id]; _s >= 1; _s--) {
 			_row = Snap[_src_ds_id, _s]
 			if (Row[_row, "type"] == IS_SNAPSHOT)
-				printf "%s", (Kill[_src_ds_id, Row[_row, "snap_idx"]] ? "❌" : "🔵")
+				printf "%s", (Kill[_src_ds_id, Row[_row, "snap_idx"]] ? "❌" : "🔹")
 		}
 	}
 	printf "\n"
