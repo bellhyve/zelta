@@ -172,6 +172,9 @@ The following options should be modified in the environment to ensure proper ins
 **SNAP_NAME**
 :   Specify a snapshot name. Use the form `$(my_snapshot_program)` to use a dynamically generated snapshot. The default is `$(date -u +zelta_%Y-%m-%d_%H.%M.%S)`.
 
+**SNAP_PREFIX**
+:   Prefix generated snapshot names. If the resolved snapshot name starts with `zelta`, the prefix replaces `zelta`; otherwise the prefix is prepended verbatim. For example, `--snap-prefix=daily` changes the default name to `daily_YYYY-MM-DD_HH.MM.SS`, while `SNAP_PREFIX="$(whoami)_"` prefixes a custom generator with the current username.
+
 **SNAP_MODE**
 :   Specify when to snapshot during a `zelta backup` operation. Options: `0` (never), `IF_NEEDED` (default, only if source has new data), or `ALWAYS`.
 

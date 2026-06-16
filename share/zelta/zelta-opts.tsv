@@ -37,6 +37,7 @@ policy,backup,replicate,sync,rotate	--replicate,-R	VERB		set	replicate
 policy,backup,replicate,sync,rotate	--resume	RESUME		true		save partial transfers (default)
 policy,backup,replicate,sync,rotate	--no-resume	RESUME		false		discard failed partial transfers
 policy,backup,replicate,snapshot,sync,revert,rotate,clone	--snap-name	SNAP_NAME		set		specify a snapshot name
+policy,backup,replicate,snapshot,sync,revert,rotate,clone	--snap-prefix	SNAP_PREFIX		set		prefix default snapshot names
 policy,backup,replicate,sync,rotate,clone	--snap-mode	SNAP_MODE	SNAPSHOT	set
 policy,backup,replicate,sync,rotate,clone	--snap-time	SNAP_TIME		set		skip snapshot if the dataset age is not older than this number of seconds
 policy,backup,replicate,sync,rotate,clone	--snap-size	SNAP_SIZE		set		skip snapshot if the dataset size has not increased by this many bytes

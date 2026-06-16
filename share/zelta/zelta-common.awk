@@ -424,11 +424,14 @@ function get_snap_name(		_snap_name, _snap_cmd) {
 		_snap_cmd | getline _snap_name
 		close(_snap_cmd)
 	}
+	if (_snap_name ~ "^@")
+		_snap_name = substr(_snap_name, 2)
 	# Note that a _snap_name of "0" is accepted
 	if (is_null(_snap_name))
 		_snap_name = Summary["startTime"]
-	if (_snap_name !~ "^@")
-		_snap_name = "@" _snap_name
+	if (Opt["SNAP_PREFIX"] && !sub(/^zelta/, Opt["SNAP_PREFIX"], _snap_name))
+		_snap_name = Opt["SNAP_PREFIX"] _snap_name
+	_snap_name = "@" _snap_name
 	return _snap_name
 }
 

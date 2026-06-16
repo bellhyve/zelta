@@ -111,6 +111,9 @@ _target_
 **\--snap-name** _NAME_
 : Specify snapshot name. Use `$(command)` for dynamic generation. Default: `$(date -u +zelta_%Y-%m-%d_%H.%M.%S)`.
 
+**\--snap-prefix** _PREFIX_
+: Prefix generated snapshot names. If the resolved name starts with `zelta`, _PREFIX_ replaces `zelta`; otherwise _PREFIX_ is prepended verbatim. Example: `--snap-prefix=daily --include='@daily*'`.
+
 **\--snap-mode** _MODE_
 : Specify when to snapshot: `NEVER` (or `0`), `IF_NEEDED` (default, only if source has new data or no recent snapshot), or `ALWAYS`.
 

@@ -75,6 +75,7 @@ function usage(message,		_ep_spec, _verb, _clone, _revert) {
 	if (!_revert) {
 		print "  --snapshot                 Always create snapshot"    > STDERR
 		print "  --snap-name NAME           Set snapshot name"         > STDERR
+		print "  --snap-prefix PREFIX       Prefix default snapshot names" > STDERR
 	}
 	if (!_clone) {
 		print "\nAdvanced Options:"                                    > STDERR
