@@ -3,11 +3,11 @@ class CaseStmtFuncGenerator
 
   @env_substitutor: EnvSubstitutor
 
-  def self.matcher_function_from_file: (String path, String func_name, ?String env_var_names) -> Array[String]
+  def self.matcher_function_from_file: (String path, String func_name, bool clean_output, ?String env_var_names) -> Array[String]
   def self.format_expected_error: (String stderr_file, ?String env_var_names) -> String
 
   def initialize: (?String env_var_names) -> void
-  def matcher_function_from_file: (String path, String func_name) -> Array[String]
+  def matcher_function_from_file: (String path, String func_name, bool clean_output) -> Array[String]
   def format_expected_error: (String stderr_file) -> String
 
   private
