@@ -22,10 +22,6 @@ properties:
   output_dir:
     type: string
     description: Directory for generated test files
-#  capture_output:
-#    type: boolean
-#    description: If true, capture stdout and stderr of all It clauses, used for test generation
-#    default: false
   example_list:
     type: array
     items:
@@ -45,6 +41,9 @@ definitions:
       tag:
         type: string
         description: shellspec tag to add to the generated Describe block
+      shell_code:
+        type: string
+        description: Muli-line entry interpreted as shell code include at top of Describe block
       hooks_list:
         type: array
         items:
@@ -103,6 +102,8 @@ definitions:
         type: string
         description: shellspec tag to add to the generated It block
       when_command:
+        type: string
+      output_clause:
         type: string
       allow_no_output:
         type: boolean
