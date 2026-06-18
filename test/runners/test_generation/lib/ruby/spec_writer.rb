@@ -112,10 +112,11 @@ class SpecWriter
     "output_for_#{test_name}"
   end
 
-  def add_expected_output_clause(file, test_name, allow_no_output, indent)
+  def add_expected_output_clause(file, test_name, allow_no_output, output_clause, indent)
     # Check for stderr output
     func_name = matcher_func_name(test_name)
     file.puts "#{indent}    The output should satisfy #{func_name}" unless allow_no_output
+    file.puts "#{indent}    #{output_clause}" unless output_clause.nil?
     add_error_lines(file, test_name, indent)
     file.puts status_line(test_name, indent)
   end
@@ -143,7 +144,7 @@ class SpecWriter
   end
 
   def append_it_clause(file, indent, test_def)
-    test_def => { when_command:, test_name:, allow_no_output:, it_desc:, tag: }
+    test_def => { when_command:, test_name:, allow_no_output:, it_desc:, tag:, output_clause: }
 
     it_desc = Placeholders.substitute(it_desc, test_def, inclusions: [:when_command])
     file.puts "#{indent}  It \"#{it_desc.gsub('"', '\\"')}\"#{ tag ? " #{tag}" : ''}"
@@ -152,7 +153,7 @@ class SpecWriter
     if capture_output_only
       file.puts capture_output_clause(@paths.shellspec_name, test_name,indent)
     else
-      add_expected_output_clause(file, test_name, allow_no_output, indent)
+      add_expected_output_clause(file, test_name, allow_no_output, output_clause, indent)
     end
     # end It clause
     file.puts "#{indent}  End\n\n"
@@ -178,8 +179,13 @@ class SpecWriter
   end
 
   def process_example(file, example, indent)
-    example => { describe_desc:, tag:, skip_if_list:, hooks_list: }
+    example => { describe_desc:, tag:, skip_if_list:, hooks_list:, shell_code:}
     file.puts "#{indent}Describe '#{describe_desc}'#{ tag ? " #{tag}" : ''}"
+
+    unless shell_code.nil?
+      shell_code.each_line { |line| file.puts "#{indent}  #{line.chomp}" }
+      file.puts ''
+    end
 
     skip_if_list.each do |skip_item|
       file.puts "  Skip #{skip_item.condition}"
@@ -187,6 +193,7 @@ class SpecWriter
     file.puts '' unless skip_if_list.empty?
 
     # Add defined hooks
+    # TODO: consider removing hook.invocation, not used currently
     hooks_list.each do |hook|
       file.puts "  #{hook.name}  #{hook.command}"
     end

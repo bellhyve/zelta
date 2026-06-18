@@ -21,7 +21,7 @@ class SpecWriter
   def status_line: (String test_name, String indent) -> String
   def capture_output_clause: (String subdir, String test_name, String indent) -> String
   def matcher_func_name: (String test_name) -> String
-  def add_expected_output_clause: (File file, String test_name, bool allow_no_output, String indent) -> void
+  def add_expected_output_clause: (File file, String test_name, bool allow_no_output, String output_clause, String indent) -> void
   def append_it_clause: (File file, String indent, ShellSpecGen::TestDefinition test_def) -> void
   def create_test_matcher_functions: (File file, Array[ShellSpecGen::TestDefinition] test_list) -> void
   def process_tests: (File file, Array[ShellSpecGen::TestDefinition] test_list, String indent) -> void
