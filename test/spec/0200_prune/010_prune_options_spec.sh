@@ -1,5 +1,5 @@
 # Auto-generated ShellSpec test file
-# Generated at: 2026-06-18 05:33:42 -0400
+# Generated at: 2026-06-18 21:44:31 -0400
 # Source: 010_prune_options_spec
 # WARNING: This file was automatically generated. Manual edits may be lost.
 
@@ -118,18 +118,14 @@ output_for_prune_grid_weekly() {
   return 0
 }
 
-Include "${SHELLSPEC_HELPERDIR}/0200_prune/prepare-test-env.sh"
-
 Describe 'Test prune options' prune-scenario
+  Include "${SHELLSPEC_HELPERDIR}/0200_prune/reset-pools.sh"
+  Include "${SHELLSPEC_HELPERDIR}/0200_prune/restore-pools.sh"
+  
   EXPECTED_SNAPSHOTS=168
   
-  setup() {
-    restore_pools > /dev/null
-  }
-  
-  teardown() {
-    teardown_pools > /dev/null
-  }
+  setup() { restore_pools > /tmp/hook_output.txt; }
+  teardown() { teardown_pools >> /tmp/hook_output.txt; }
   
   snapshot_count() {
     out=$(tgt_exec zfs list -r -t snapshot "$1") || return
@@ -138,6 +134,9 @@ Describe 'Test prune options' prune-scenario
 
   Skip if 'SANDBOX_ZELTA_SRC_DS undefined' test -z "$SANDBOX_ZELTA_SRC_DS"
   Skip if 'SANDBOX_ZELTA_TGT_DS undefined' test -z "$SANDBOX_ZELTA_TGT_DS"
+
+  BeforeAll  'setup'
+  AfterAll  'teardown'
 
   It "${SANDBOX_ZELTA_SRC_DS} has $EXPECTED_SNAPSHOTS snapshots"
     When call snapshot_count "$SANDBOX_ZELTA_TGT_DS"
