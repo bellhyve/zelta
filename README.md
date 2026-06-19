@@ -49,7 +49,7 @@ curl -fsSL https://raw.githubusercontent.com/bell-tower/zelta/main/contrib/web-i
 To install a specific branch:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/bell-tower/zelta/main/contrib/web-install.sh | sh -s -- --branch=release/bsdcan2026
+curl -fsSL https://raw.githubusercontent.com/bell-tower/zelta/release/bsdcan2026/contrib/web-install.sh | sh -s -- --branch=release/bsdcan2026
 ```
 
 The installer uses sane defaults for system-wide or user installs. Advanced install paths can be overridden with `ZELTA_BIN`, `ZELTA_SHARE`, `ZELTA_ETC`, and `ZELTA_DOC`; see the install documentation for details.
