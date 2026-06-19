@@ -124,8 +124,8 @@ Describe 'Test prune options' prune-scenario
   
   EXPECTED_SNAPSHOTS=168
   
-  setup() { restore_pools > /tmp/hook_output.txt; }
-  teardown() { teardown_pools >> /tmp/hook_output.txt; }
+  setup() { restore_pools  > /tmp/hook_output.txt 2>&1; }
+  teardown() { teardown_pools >> /tmp/hook_output.txt 2>&1; }
   
   snapshot_count() {
     out=$(tgt_exec zfs list -r -t snapshot "$1") || return
