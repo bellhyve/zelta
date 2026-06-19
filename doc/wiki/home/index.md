@@ -41,7 +41,7 @@ All Zelta commands operate recursively on dataset trees and work locally or remo
 - **[Manual: zelta prune](/man/zelta-prune):** Plan snapshot pruning without destroying data.
 - **[Manual: zprune](/man/zprune):** Validate and destroy snapshots selected by `zelta prune`.
 - **[Manual: zelta failover](/man/zelta-failover):** Promote a backup target through a guarded failover workflow.
-- **[Manual: zelta rebase](/man/zelta-rebase):** Build a new dataset tree from an upgraded upstream while preserving backup continuity.
+- **[Manual: zelta rebase](/man/zelta-rebase):** Rebase a dataset onto an upgraded upstream while preserving local files and backup continuity.
 - **[Manual: failover helpers](/man/zelta-failover):** `zelta lock`, `zelta unlock`, and `zelta propsync` are lower-level failover workflow commands.
 - **[Guide: Zelta Twin](/guides/twin):** Compose asynchronous cluster pairs from reciprocal backup policy and guarded failover commands.
 

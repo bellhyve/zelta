@@ -129,7 +129,7 @@ Destructive companion for `zelta prune`. Validates prune candidates, previews `z
 Locks an active source, performs a final backup, syncs local ZFS properties, and unlocks the promoted target.
 
 ### `zelta rebase`
-Builds a new production tree from an upgraded upstream while preserving incremental backup continuity through an existing origin backup.
+Rebase a dataset onto an upgraded upstream while preserving local files and incremental backup continuity.
 
 ### `zelta lock` and `zelta unlock`
 Apply ordered dataset-tree readonly, canmount, unmount, and remount workflows for promotion and maintenance.
