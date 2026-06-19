@@ -64,7 +64,7 @@ Understanding these terms will help you get the most out of Zelta. For foundatio
 ### Zelta Operations
 
 - **Clone:** Create a temporary read-write copy of a dataset tree for recovery, testing, or inspection without disturbing the original. See `zelta-clone(8)`.
-- **Rebase:** Build a new production tree from an upgraded upstream while preserving incremental backup continuity through an existing origin backup. See `zelta-rebase(8)`.
+- **Rebase:** Rebase a dataset onto an upgraded upstream while preserving local files and incremental backup continuity. See `zelta-rebase(8)`.
 - **Failover:** Lock an active source, perform a final backup, sync local ZFS properties, and unlock the promoted target.
 - **Prune:** Plan snapshot pruning without destroying data. `zprune` performs the explicit destructive step after validation and preview.
 - **Revert:** Safely roll back a dataset in place by renaming it and cloning from a previous snapshot. Unlike `zfs rollback`, this preserves your current state. See `zelta-revert(8)`.
