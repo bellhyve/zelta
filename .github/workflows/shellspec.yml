@@ -29,7 +29,7 @@ jobs:
       - name: Download golden fixtures
         if: steps.goldens.outputs.cache-hit != 'true'
         run: |
-          mkdir -p test/spec/helpers/0200_prune/golden
+          mkdir -p test/spec/helpers/golden
           gh release download test-fixtures/v1 --pattern '*.img.gz' \
             --dir test/spec/helpers/golden
           gunzip test/spec/helpers/golden/*.gz
