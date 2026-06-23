@@ -1,4 +1,4 @@
-: "${GOLDEN_DIR:=${SHELLSPEC_HELPERDIR}/golden}"  # read-only truth: <pool>.img
+: "${SANDBOX_ZELTA_GOLD_PRUNE_SCEN_DIR:=${SHELLSPEC_HELPERDIR}/golden}"  # read-only truth: <pool>.img
 
 _gp_log()  { printf '%s  %s\n' "$(date '+%H:%M:%S')" "$*"; }
 _gp_warn() { printf '%s  WARN: %s\n' "$(date '+%H:%M:%S')" "$*" >&2; }
@@ -73,7 +73,7 @@ make_golden_pool() {
 	_pool_name="$2"
     _remote="$3"
 
-    _golden_img="${GOLDEN_DIR}/${_pool_name}.img"
+    _golden_img="${SANDBOX_ZELTA_GOLD_PRUNE_SCEN_DIR}/${_pool_name}.img"
 
 	[ -f "$_golden_img" ] || _gp_die "golden image not found: $_golden_img"
 

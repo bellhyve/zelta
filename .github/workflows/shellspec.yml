@@ -10,6 +10,9 @@ on:
     paths-ignore:
       - "**.md"    
 
+env:
+  SANDBOX_ZELTA_GOLD_PRUNE_SCEN_DIR: test/spec/helpers/golden/0200_prune
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -17,6 +20,25 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+
+      - name: Restore golden fixtures
+        uses: actions/cache@v4
+        id: goldens
+        with:
+          path: ${{ env.SANDBOX_ZELTA_GOLD_PRUNE_SCEN_DIR }}/*.img
+          key: goldens-test-fixtures-v1
+
+      - name: Download golden fixtures
+        if: steps.goldens.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p "$SANDBOX_ZELTA_GOLD_PRUNE_SCEN_DIR"
+          gh release download test-fixtures/v1 --pattern '*.img.gz' \
+            --dir "$SANDBOX_ZELTA_GOLD_PRUNE_SCEN_DIR"
+          gunzip "$SANDBOX_ZELTA_GOLD_PRUNE_SCEN_DIR"/*.gz
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
 
       # --- fetch golden fixtures BEFORE the copy to testuser ---
       - name: Restore golden fixtures
