@@ -1,4 +1,4 @@
-: "${SANDBOX_ZELTA_GOLD_PRUNE_SCEN_DIR:=${SHELLSPEC_HELPERDIR}/golden}"  # read-only truth: <pool>.img
+: "${SANDBOX_ZELTA_GOLD_PRUNE_SCEN_DIR:=${SHELLSPEC_HELPERDIR}/golden/0200_prune}"  # read-only truth: <pool>.img
 
 _gp_log()  { printf '%s  %s\n' "$(date '+%H:%M:%S')" "$*"; }
 _gp_warn() { printf '%s  WARN: %s\n' "$(date '+%H:%M:%S')" "$*" >&2; }
