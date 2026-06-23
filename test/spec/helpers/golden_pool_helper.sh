@@ -1,0 +1,112 @@
+: "${GOLDEN_DIR:=${SHELLSPEC_HELPERDIR}/golden}"  # read-only truth: <pool>.img
+
+_gp_log()  { printf '%s  %s\n' "$(date '+%H:%M:%S')" "$*"; }
+_gp_warn() { printf '%s  WARN: %s\n' "$(date '+%H:%M:%S')" "$*" >&2; }
+_gp_die()  { printf '%s  FATAL: %s\n' "$(date '+%H:%M:%S')" "$*" >&2; exit 1; }
+
+_gp_validate_environment() {
+    #[ "$(id -u)" -eq 0 ] || die "must run as root"
+    command -v zpool >/dev/null 2>&1 || _rset_die "zpool not found"
+}
+_gp_pool_img_file() {
+    printf "/tmp/%s.img" "$1"
+}
+
+
+# Destroy one pool if imported, with a vdev-path safety check so a real
+# same-named pool isn't clobbered. No-op if the pool isn't imported.
+_gp_teardown_pool() {
+	_pool_name="$1"
+	_exec_func="$2"
+
+    _pool_file=$(_gp_pool_img_file "$_pool_name")
+
+	if ! $_exec_func zpool list "$_pool_name" >/dev/null 2>&1; then
+		_gp_log "$_pool_name not imported (nothing to destroy)"
+		return 0
+	fi
+
+	if $_exec_func zpool status -P "$_pool_name" 2>/dev/null | grep -qF -- "$_pool_file"; then
+		_gp_log "destroying $_pool_name (vdev: $_pool_file)"
+		$_exec_func zpool destroy -f "$_pool_name" || $_exec_func zpool export "$_pool_name" \
+			|| _gp_warn "could not destroy or export $_pool_name"
+	elif [ "$FORCE" -eq 1 ]; then
+		_gp_warn "$_pool_name vdev does not match $_pool_file; FORCE=1 -> destroying anyway"
+		$_exec_func zpool destroy -f "$_pool_name" || $_exec_func zpool export "$_pool_name" \
+			|| _gp_warn "could not destroy or export $_pool_name"
+	else
+		_gp_warn "$_pool_name is imported but its vdev is not $_pool_file; refusing (set FORCE=1 to override)"
+	fi
+}
+
+_gp_remove_image() {
+	_pool_name=$1
+	_exec_func=$2
+
+	_pool_file=$(_gp_pool_img_file "$_pool_name")
+
+	if [ -e "$_pool_file" ]; then
+		$_exec_func rm -f "$_pool_file" && _gp_log "removed image $_pool_file" || _gp_warn "could not remove $_pool_file"
+	else
+		_gp_log "image $_pool_file absent (nothing to remove)"
+	fi
+}
+
+# Tear down a prior import of this pool, but only if its vdev is the working
+# copy — never clobber a real same-named pool. Idempotent.
+_gp_pool_validate_destroy() {
+    _pool_file="$1"
+	_pool_name="$2"
+    _exec_func="$3"
+
+	$_exec_func zpool list "$_pool_name" >/dev/null 2>&1 || return 0
+	if $_exec_func zpool status -P "$_pool_name" 2>/dev/null | grep -qF -- "$_pool_file"; then
+		$_exec_func zpool destroy -f "$_pool_name" || $_exec_func zpool export "$_pool_name" \
+			|| _gp_die "could not clear prior import of $_pool_name"
+	else
+		_gp_die "$_pool_name is already imported on a vdev that is not $_pool_file; refusing"
+	fi
+}
+
+make_golden_pool() {
+	_exec_func="$1"
+	_pool_name="$2"
+    _remote="$3"
+
+    _golden_img="${GOLDEN_DIR}/${_pool_name}.img"
+
+	[ -f "$_golden_img" ] || _gp_die "golden image not found: $_golden_img"
+
+	_pool_file=$(_gp_pool_img_file "$_pool_name")
+
+	_gp_pool_validate_destroy "$_pool_file" "$_pool_name" "$_exec_func"
+	$_exec_func rm -f "$_pool_file" || _gp_die "could not remove stale working image $_pool_file"
+
+    if [ -n "$_remote" ]; then
+		scp "$_golden_img" "${_remote}:${_pool_file}" || _gp_die "scp copy $_golden_img to ${_remote}:${_pool_file} failed!"
+    else
+		cp "$_golden_img" "${_pool_file}" || _gp_die "copy $_golden_img to ${_pool_file} failed!"
+    fi
+
+	$_exec_func zpool import -d "$_pool_file" -f "$_pool_name" \
+    		|| _gp_die "import of $_pool_name from $_pool_file failed"
+
+	return $?
+}
+
+teardown_golden_pools() {
+    _gp_validate_environment
+
+    _gp_teardown_pool "$SANDBOX_ZELTA_SRC_POOL" src_exec
+    _gp_teardown_pool "$SANDBOX_ZELTA_TGT_POOL" tgt_exec
+
+    _gp_remove_image "$SANDBOX_ZELTA_SRC_POOL" src_exec
+    _gp_remove_image "$SANDBOX_ZELTA_TGT_POOL" tgt_exec
+
+    _gp_log "reset complete."
+}
+
+make_golden_pools() {
+  	make_golden_pool src_exec "$SANDBOX_ZELTA_SRC_POOL" "$SANDBOX_ZELTA_SRC_REMOTE" || return 1
+  	make_golden_pool tgt_exec "$SANDBOX_ZELTA_TGT_POOL" "$SANDBOX_ZELTA_TGT_REMOTE" || return 1
+}

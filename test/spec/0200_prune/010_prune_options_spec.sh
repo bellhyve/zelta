@@ -1,5 +1,5 @@
 # Auto-generated ShellSpec test file
-# Generated at: 2026-06-18 21:44:31 -0400
+# Generated at: 2026-06-19 05:53:09 -0400
 # Source: 010_prune_options_spec
 # WARNING: This file was automatically generated. Manual edits may be lost.
 
@@ -119,24 +119,30 @@ output_for_prune_grid_weekly() {
 }
 
 Describe 'Test prune options' prune-scenario
-  Include "${SHELLSPEC_HELPERDIR}/0200_prune/reset-pools.sh"
-  Include "${SHELLSPEC_HELPERDIR}/0200_prune/restore-pools.sh"
+  Skip if 'SANDBOX_ZELTA_SRC_DS undefined' test -z "$SANDBOX_ZELTA_SRC_DS"
+  Skip if 'SANDBOX_ZELTA_TGT_DS undefined' test -z "$SANDBOX_ZELTA_TGT_DS"
+
+  #Include "${SHELLSPEC_HELPERDIR}/0200_prune/reset-pools.sh"
+  #Include "${SHELLSPEC_HELPERDIR}/0200_prune/restore-pools.sh"
+  Include "${SHELLSPEC_HELPERDIR}/golden_pool_helper.sh"
+
   
   EXPECTED_SNAPSHOTS=168
   
-  setup() { restore_pools  > /tmp/hook_output.txt 2>&1; }
-  teardown() { teardown_pools >> /tmp/hook_output.txt 2>&1; }
-  
+#  setup() { reset_teardown_golden_pools > /dev/null; restore_golden_pools > /tmp/hook_output.txt; }
+#  teardown() { reset_teardown_golden_pools >> /tmp/hook_output.txt; }
+  setup() { make_golden_pools > /tmp/hook_output.txt; }
+  teardown() { teardown_golden_pools >> /tmp/hook_output.txt; }
+
   snapshot_count() {
     out=$(tgt_exec zfs list -r -t snapshot "$1") || return
     printf '%s\n' "$out" | wc
   }
 
-  Skip if 'SANDBOX_ZELTA_SRC_DS undefined' test -z "$SANDBOX_ZELTA_SRC_DS"
-  Skip if 'SANDBOX_ZELTA_TGT_DS undefined' test -z "$SANDBOX_ZELTA_TGT_DS"
-
-  BeforeAll  'setup'
-  AfterAll  'teardown'
+  It "restores golden pools"
+    When call setup
+    The status should be success
+  End
 
   It "${SANDBOX_ZELTA_SRC_DS} has $EXPECTED_SNAPSHOTS snapshots"
     When call snapshot_count "$SANDBOX_ZELTA_TGT_DS"
@@ -150,33 +156,38 @@ Describe 'Test prune options' prune-scenario
     The status should be success
   End
 
-  It "prune keep 3 without guard - call zelta prune --prune-num=3 --no-prune-guard \"$SANDBOX_ZELTA_SRC_DS\""
-    When call zelta prune --prune-num=3 --no-prune-guard "$SANDBOX_ZELTA_SRC_DS"
+  It "prune keep 3 without guard - call zelta prune --prune-num=3 --no-prune-guard \"$SANDBOX_ZELTA_SRC_EP\""
+    When call zelta prune --prune-num=3 --no-prune-guard "$SANDBOX_ZELTA_SRC_EP"
     The output should satisfy output_for_prune_newest_3_without_guard
     The status should be success
   End
 
-  It "prune all without guard - call zelta prune --prune-num=0 --no-prune-guard \"$SANDBOX_ZELTA_SRC_DS\""
-    When call zelta prune --prune-num=0 --no-prune-guard "$SANDBOX_ZELTA_SRC_DS"
+  It "prune all without guard - call zelta prune --prune-num=0 --no-prune-guard \"$SANDBOX_ZELTA_SRC_EP\""
+    When call zelta prune --prune-num=0 --no-prune-guard "$SANDBOX_ZELTA_SRC_EP"
     The output should satisfy output_for_prune_all_without_guard
     The status should be success
   End
 
-  It "prune 3 with guard - call zelta prune --prune-num=3 \"$SANDBOX_ZELTA_SRC_DS\" \"$SANDBOX_ZELTA_TGT_DS\""
-    When call zelta prune --prune-num=3 "$SANDBOX_ZELTA_SRC_DS" "$SANDBOX_ZELTA_TGT_DS"
+  It "prune 3 with guard - call zelta prune --prune-num=3 \"$SANDBOX_ZELTA_SRC_EP\" \"$SANDBOX_ZELTA_TGT_EP\""
+    When call zelta prune --prune-num=3 "$SANDBOX_ZELTA_SRC_EP" "$SANDBOX_ZELTA_TGT_EP"
     The output should satisfy output_for_prune_3_with_guard
     The status should be success
   End
 
-  It "prune all with unsynced guard - call zelta prune --prune-num=0 --prune-guard=unsynced \"$SANDBOX_ZELTA_SRC_DS\" \"$SANDBOX_ZELTA_TGT_DS\""
-    When call zelta prune --prune-num=0 --prune-guard=unsynced "$SANDBOX_ZELTA_SRC_DS" "$SANDBOX_ZELTA_TGT_DS"
+  It "prune all with unsynced guard - call zelta prune --prune-num=0 --prune-guard=unsynced \"$SANDBOX_ZELTA_SRC_EP\" \"$SANDBOX_ZELTA_TGT_EP\""
+    When call zelta prune --prune-num=0 --prune-guard=unsynced "$SANDBOX_ZELTA_SRC_EP" "$SANDBOX_ZELTA_TGT_EP"
     The output should satisfy output_for_prune_all_synced
     The status should be success
   End
 
-  It "prune all with unsynced guard - call zelta prune --prune-grid=1week \"$SANDBOX_ZELTA_SRC_DS\" \"$SANDBOX_ZELTA_TGT_DS\""
-    When call zelta prune --prune-grid=1week "$SANDBOX_ZELTA_SRC_DS" "$SANDBOX_ZELTA_TGT_DS"
+  It "prune all with unsynced guard - call zelta prune --prune-grid=1week \"$SANDBOX_ZELTA_SRC_EP\" \"$SANDBOX_ZELTA_TGT_EP\""
+    When call zelta prune --prune-grid=1week "$SANDBOX_ZELTA_SRC_EP" "$SANDBOX_ZELTA_TGT_EP"
     The output should satisfy output_for_prune_grid_weekly
+    The status should be success
+  End
+
+  It "removes golden pools"
+    When call teardown
     The status should be success
   End
 

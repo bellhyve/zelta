@@ -198,7 +198,7 @@ nuke_pool() {
 	return 0
 }
 
-make_pool() {
+make_new_pool() {
 	_pool_name="$1"
 	_exec_func="$2"
 	_pool_file=/tmp/$_pool_name.img
@@ -217,8 +217,8 @@ nuke_tgt_pool() {
 	return $?
 }
 
-make_src_pool() {
-	make_pool "$SANDBOX_ZELTA_SRC_POOL" src_exec || return 1
+make_new_src_pool() {
+    make_new_pool "$SANDBOX_ZELTA_SRC_POOL" src_exec || return 1
 	tmpfile_touch "src_pool_created"
 
 	# Grant ZFS permissions for source pool
@@ -233,8 +233,8 @@ make_src_pool() {
 	return $?
 }
 
-make_tgt_pool() {
-	make_pool "$SANDBOX_ZELTA_TGT_POOL" tgt_exec || return 1
+make_new_tgt_pool() {
+    make_new_pool "$SANDBOX_ZELTA_TGT_POOL" tgt_exec || return 1
 	tmpfile_touch "tgt_pool_created"
 
 	# Grant ZFS permissions for target pool
