@@ -23,7 +23,7 @@ jobs:
         uses: actions/cache@v4
         id: goldens
         with:
-          path: test/spec/helpers/0200_prune/golden/*.img
+          path: test/spec/helpers/golden/*.img
           key: goldens-test-fixtures-v1
 
       - name: Download golden fixtures
