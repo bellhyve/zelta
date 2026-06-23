@@ -60,7 +60,7 @@ jobs:
           sudo cp -r "$GITHUB_WORKSPACE" /home/testuser/zelta
           sudo chown -R testuser:testuser /home/testuser/zelta
 
-      - name: Run ShellSpec tests
+      - name: Run Standard ShellSpec tests
         run: |
           sudo -u testuser env \
             SANDBOX_ZELTA_SRC_POOL=apool \
@@ -68,3 +68,12 @@ jobs:
             SANDBOX_ZELTA_SRC_DS=apool/treetop \
             SANDBOX_ZELTA_TGT_DS=bpool/backups \
             bash -c 'cd /home/testuser/zelta && shellspec --tag install,initialize,standard,cleanup'
+
+      - name: Run Prune Scenario ShellSpec tests
+        run: |
+          sudo -u testuser env \
+            SANDBOX_ZELTA_SRC_POOL=apool \
+            SANDBOX_ZELTA_TGT_POOL=bpool \
+            SANDBOX_ZELTA_SRC_DS=apool/treetop \
+            SANDBOX_ZELTA_TGT_DS=bpool/backups \
+            bash -c 'cd /home/testuser/zelta && shellspec --tag install,initialize,prune-scenario,cleanup:install'
