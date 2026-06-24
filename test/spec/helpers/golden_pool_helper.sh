@@ -67,7 +67,10 @@ _gp_pool_validate_destroy() {
 	_pool_name="$2"
     _exec_func="$3"
 
-	$_exec_func zpool list "$_pool_name" >/dev/null 2>&1 || return 0
+	if ! $_exec_func zpool list "$_pool_name" >/dev/null 2>&1; then
+		_gp_log "validate_destroy: $_pool_name not imported (nothing to cleanup)"
+		return 0
+	fi
 
     check_filename=$(_gp_golden_check_filename "$_pool_name")
     ! tmpfile_check "$check_filename" || _gp_die "validate_destroy: guard for golden pool $_pool_name not found: $check_filename"
@@ -105,6 +108,7 @@ make_golden_pool() {
 
     check_filename=$(_gp_golden_check_filename "$_pool_name")
     tmpfile_touch "$check_filename"
+    _gp_log "make_golden: $_pool_name created from golden $_golden_img"
 	return $?
 }
 
