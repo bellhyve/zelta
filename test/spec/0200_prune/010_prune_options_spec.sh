@@ -139,7 +139,7 @@ Describe 'Test prune options' prune-scenario
     printf '%s\n' "$out" | wc
   }
 
-  It "restores golden pools"
+  It "restores golden pools" prune-scenario:restore
     When call setup
     The status should be success
   End
@@ -186,7 +186,7 @@ Describe 'Test prune options' prune-scenario
     The status should be success
   End
 
-  It "removes golden pools"
+  It "removes golden pools" prune-scenario:teardown
     When call teardown
     The status should be success
   End
