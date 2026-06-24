@@ -43,7 +43,6 @@ output_for_rotate_after_divergence() {
         "source is written; snapshotting: @zelta_"*""|\
         "renaming '${SANDBOX_ZELTA_TGT_DS}' to '${SANDBOX_ZELTA_TGT_DS}_start'"|\
         "to ensure target is up-to-date, run: zelta backup ${SANDBOX_ZELTA_SRC_EP} ${SANDBOX_ZELTA_TGT_EP}"|\
-        "no source: ${SANDBOX_ZELTA_TGT_DS}/sub1/kid"|\
         ""*" sent, 10 streams received in "*" seconds")
         ;;
       *)

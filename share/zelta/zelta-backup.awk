@@ -120,7 +120,7 @@ function update_latest_snapshot(endpoint, ds_suffix, snap_name,		_idx, _src_late
 		if (snap_name == _src_latest) {
 			Dataset["SRC", ds_suffix, "next_snapshot"] = ""
 			DSTree["syncable"]--
-			Action[ds_suffix, "block_reason"] = "up-to-date"
+			Action[ds_suffix, "status_info"] = "up-to-date"
 			Action[ds_suffix, "can_sync"] = 0
 		}
 		# If the snapshot transferred isn't the latest, this is a 2-pass intermediate sync
@@ -282,12 +282,13 @@ function compute_send_range(ds_suffix,		_ds_suffix, _src_idx, _final_ds_snap) {
 	DSPair[_ds_suffix, "source_end"]	= _final_ds_snap
 }
 
-# Report block reasons for datasets that couldn't be synced
+# Report status notes for datasets that couldn't be synced
 function explain_sync_status(ds_suffix,		_tgt_ds) {
 	_tgt_ds = Opt["TGT_DS"] ds_suffix
-	# Only report if there's a block reason to explain
-	if (Action[ds_suffix, "block_reason"])
-		report(LOG_NOTICE, Action[ds_suffix, "block_reason"]": " _tgt_ds)
+	if (Action[ds_suffix, "status_notice"])
+		report(LOG_NOTICE, Action[ds_suffix, "status_notice"]": " _tgt_ds)
+	if (Action[ds_suffix, "status_info"])
+		report(LOG_INFO, Action[ds_suffix, "status_info"]": " _tgt_ds)
 }
 
 # Ensure source snapshots are available and load snapshot relationship data
@@ -349,7 +350,7 @@ function compute_eligibility(           _i, _ds_suffix, _src_idx, _tgt_idx,
 
 		# No source
 		if (!_src_exists) {
-			Action[_ds_suffix, "block_reason"] = "no source"
+			Action[_ds_suffix, "status_info"] = "no source"
 			DSTree["no_source_count"]++
 			continue
 		}
@@ -357,7 +358,7 @@ function compute_eligibility(           _i, _ds_suffix, _src_idx, _tgt_idx,
 
 		# No source snapshot
 		if (!_src_latest) {
-			Action[_ds_suffix, "block_reason"] = "no source snapshot"
+			Action[_ds_suffix, "status_notice"] = "no source snapshot"
 			DSTree["needs_snapshot"]++
 			continue
 		}
@@ -381,12 +382,12 @@ function compute_eligibility(           _i, _ds_suffix, _src_idx, _tgt_idx,
 		}
 
 		if (!_tgt_latest) {
-			Action[_ds_suffix, "block_reason"] = "no snapshot; target diverged"
+			Action[_ds_suffix, "status_notice"] = "no snapshot; target diverged"
 			continue
 		}
 
 		if (!_has_match) {
-			Action[_ds_suffix, "block_reason"] = "no common snapshot (diverged)"
+			Action[_ds_suffix, "status_notice"] = "no common snapshot (diverged)"
 			if (Dataset[_src_idx, "origin"]) {
 				Action[_ds_suffix, "check_source_origin"] = 1
 				DSTree["snapshots_diverged"]++
@@ -400,18 +401,18 @@ function compute_eligibility(           _i, _ds_suffix, _src_idx, _tgt_idx,
 		if (_match == _src_latest) {
 			# Target has local changes
 			if (Dataset[_tgt_idx, "written"]) {
-				Action[_ds_suffix, "block_reason"] = "target has local writes"
+				Action[_ds_suffix, "status_notice"] = "target has local writes"
 				continue
 			}
 			# TO-DO: Improve verbose output
-			#Action[_ds_suffix, "block_reason"] = "up-to-date"
+			#Action[_ds_suffix, "status_info"] = "up-to-date"
 			DSTree["up_to_date"]++
 			continue
 		}
 
 		# Target is ahead or has diverged otherwise
 		if (_match != _tgt_latest) {
-			Action[_ds_suffix, "block_reason"] = "target has diverged"
+			Action[_ds_suffix, "status_notice"] = "target has diverged"
 			Action[_ds_suffix, "can_rotate"] = 1
 			DSTree["rotatable"]++
 			continue
@@ -1104,7 +1105,7 @@ function run_zfs_sync(ds_suffix,		_cmd, _stream_info, _message, _ds_snap,
 			report(LOG_ERROR, _error_msg)
 			Summary["replicationErrorCode"] = 2
 		}
-		Action[ds_suffix, "blocked_reason"] = "sync attempted with errors"
+		Action[ds_suffix, "status_notice"] = "sync attempted with errors"
 		DSTree["syncable"]--
 		Action[ds_suffix, "can_sync"] = 0
 	}
@@ -1345,7 +1346,8 @@ function configure_origin_backup(	_i, _ds_suffix, _origin_arr, _src_origin, _ori
 		DSPair[_ds_suffix, "source_start"] = _origin_snap
 		DSPair[_ds_suffix, "source_end"] = Dataset["SRC", _ds_suffix, "latest_snapshot"]
 		Action[_ds_suffix, "can_sync"] = 1
-		Action[_ds_suffix, "block_reason"] = ""
+		Action[_ds_suffix, "status_notice"] = ""
+		Action[_ds_suffix, "status_info"] = ""
 		_origin_count++
 	}
 	if (!_origin_count)

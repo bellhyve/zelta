@@ -67,8 +67,6 @@ output_for_rotate_after_revert() {
     case "$normalized" in
         "renaming '${SANDBOX_ZELTA_TGT_DS}' to '${SANDBOX_ZELTA_TGT_DS}_zelta_"*"'"|\
         "to ensure target is up-to-date, run: zelta backup ${SANDBOX_ZELTA_SRC_EP} ${SANDBOX_ZELTA_TGT_EP}"|\
-        "no source: ${SANDBOX_ZELTA_TGT_DS}/sub5"|\
-        "no source: ${SANDBOX_ZELTA_TGT_DS}/sub5/child1"|\
         ""*" sent, 10 streams received in "*" seconds")
         ;;
       *)
