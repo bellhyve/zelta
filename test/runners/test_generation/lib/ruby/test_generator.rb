@@ -23,7 +23,13 @@ class TestGenerator
 
   # generate shellspec example file corresponding to the test definition
   def generate_shellspec_test
+    puts "\n#{'-' * 80}"
+    puts '-- Generating shellspec test output'
+    puts '-' * 80
     generate_shellspec_output   # generate shellspec output
+    puts "\n#{'-' * 80}"
+    puts '-- Generating final shellspec test from output'
+    puts '-' * 80
     generate_final_spec         # generate final spec file from output
   end
 
