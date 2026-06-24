@@ -122,17 +122,16 @@ Describe 'Test prune options' prune-scenario
   Skip if 'SANDBOX_ZELTA_SRC_DS undefined' test -z "$SANDBOX_ZELTA_SRC_DS"
   Skip if 'SANDBOX_ZELTA_TGT_DS undefined' test -z "$SANDBOX_ZELTA_TGT_DS"
 
-  #Include "${SHELLSPEC_HELPERDIR}/0200_prune/reset-pools.sh"
-  #Include "${SHELLSPEC_HELPERDIR}/0200_prune/restore-pools.sh"
   Include "${SHELLSPEC_HELPERDIR}/golden_pool_helper.sh"
 
-  
   EXPECTED_SNAPSHOTS=168
-  
-#  setup() { reset_teardown_golden_pools > /dev/null; restore_golden_pools > /tmp/hook_output.txt; }
-#  teardown() { reset_teardown_golden_pools >> /tmp/hook_output.txt; }
-  setup() { make_golden_pools > /tmp/hook_output.txt; }
-  teardown() { teardown_golden_pools >> /tmp/hook_output.txt; }
+  PRUNE_HOOK_DEBUG_LOG="/tmp/zelta_sandbox_prune_hooks_log.txt"
+
+  # don't use ShellSpec Before/After All hooks, they are executed even when this spec isn't selected
+  # before / after hooks are not It clauses 'restores golden pools' and 'removes golden pools' respectively
+  # TODO: after testing redirect stdout to /dev/null, stderr output is intended to fail the tests
+  setup() { make_golden_pools > $PRUNE_HOOK_DEBUG_LOG; }
+  teardown() { teardown_golden_pools >> $PRUNE_HOOK_DEBUG_LOG; }
 
   snapshot_count() {
     out=$(tgt_exec zfs list -r -t snapshot "$1") || return
