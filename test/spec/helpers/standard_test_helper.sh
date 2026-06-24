@@ -122,6 +122,11 @@ cleanup_temp_install() {
 	return 1
 }
 
+tmpfile_remove() {
+    rm "${SANDBOX_ZELTA_TMP_DIR}/${1}_${SANDBOX_ZELTA_TMP_SUFFIX}"
+}
+
+
 tmpfile_touch() {
     touch "${SANDBOX_ZELTA_TMP_DIR}/${1}_${SANDBOX_ZELTA_TMP_SUFFIX}"
 }
