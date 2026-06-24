@@ -5,13 +5,16 @@ _gp_warn() { printf '%s  WARN: %s\n' "$(date '+%H:%M:%S')" "$*" >&2; }
 _gp_die()  { printf '%s  FATAL: %s\n' "$(date '+%H:%M:%S')" "$*" >&2; exit 1; }
 
 _gp_validate_environment() {
-    #[ "$(id -u)" -eq 0 ] || die "must run as root"
-    command -v zpool >/dev/null 2>&1 || _rset_die "zpool not found"
+    #[ "$(id -u)" -eq 0 ] || _gp_die "must run as root"
+    command -v zpool >/dev/null 2>&1 || _gp_die "zpool not found"
 }
 _gp_pool_img_file() {
     printf "/tmp/%s.img" "$1"
 }
 
+_gp_golden_check_filename() {
+    printf "golden_%s" "$1"
+}
 
 # Destroy one pool if imported, with a vdev-path safety check so a real
 # same-named pool isn't clobbered. No-op if the pool isn't imported.
@@ -26,6 +29,9 @@ _gp_teardown_pool() {
 		return 0
 	fi
 
+    check_filename=$(_gp_golden_check_filename "$_pool_name")
+    ! tmpfile_check "$check_filename" || _gp_die "teardown: guard for golden pool $_pool_name not found: $check_filename"
+
 	if $_exec_func zpool status -P "$_pool_name" 2>/dev/null | grep -qF -- "$_pool_file"; then
 		_gp_log "destroying $_pool_name (vdev: $_pool_file)"
 		$_exec_func zpool destroy -f "$_pool_name" || $_exec_func zpool export "$_pool_name" \
@@ -37,6 +43,8 @@ _gp_teardown_pool() {
 	else
 		_gp_warn "$_pool_name is imported but its vdev is not $_pool_file; refusing (set FORCE=1 to override)"
 	fi
+
+	tmpfile_remove "$check_filename"
 }
 
 _gp_remove_image() {
@@ -60,6 +68,10 @@ _gp_pool_validate_destroy() {
     _exec_func="$3"
 
 	$_exec_func zpool list "$_pool_name" >/dev/null 2>&1 || return 0
+
+    check_filename=$(_gp_golden_check_filename "$_pool_name")
+    ! tmpfile_check "$check_filename" || _gp_die "validate_destroy: guard for golden pool $_pool_name not found: $check_filename"
+
 	if $_exec_func zpool status -P "$_pool_name" 2>/dev/null | grep -qF -- "$_pool_file"; then
 		$_exec_func zpool destroy -f "$_pool_name" || $_exec_func zpool export "$_pool_name" \
 			|| _gp_die "could not clear prior import of $_pool_name"
@@ -91,6 +103,8 @@ make_golden_pool() {
 	$_exec_func zpool import -d "$_pool_file" -f "$_pool_name" \
     		|| _gp_die "import of $_pool_name from $_pool_file failed"
 
+    check_filename=$(_gp_golden_check_filename "$_pool_name")
+    tmpfile_touch "$check_filename"
 	return $?
 }
 
