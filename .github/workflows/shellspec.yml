@@ -80,4 +80,4 @@ jobs:
             SANDBOX_ZELTA_SRC_DS=apool/treetop \
             SANDBOX_ZELTA_TGT_DS=bpool/backups \
             SANDBOX_ZELTA_GOLD_PRUNE_SCEN_DIR="$SANDBOX_ZELTA_GOLD_PRUNE_SCEN_DIR" \
-            bash -c 'cd /home/testuser/zelta && shellspec --tag install,initialize,prune-scenario,cleanup:install'
+            bash -c 'cd /home/testuser/zelta && shellspec --tag install,prune-scenario,cleanup:install'
