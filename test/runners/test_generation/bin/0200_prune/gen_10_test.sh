@@ -17,10 +17,11 @@ VERIFIED_DIR=
 
 #ruby "$RUBY_DIR/run_test_generator.rb" "$VERIFIED_DIR" $SHELLSPEC_CLEANUP $SHELLSPEC_SETUP "$TEST_YML"
 
+#  --setup-shellspec="shellspec --tag=install"
+#  --setup-shellspec="shellspec --tag=testgen-destroy"
+
 args=(
-  --setup-shellspec="shellspec --tag=testgen-destroy"
-  --setup-shellspec="shellspec --tag=install"
-  "$TEST_YML"
+    "$TEST_YML"
 )
 set -x
 ruby "$RUBY_DIR/run_test_generator.rb" "${args[@]}"

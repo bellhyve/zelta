@@ -1,35 +1,35 @@
 output_dir: tmp
 shellspec_name: "010_prune_options_spec"
-shell_code: |
-  Include "${SHELLSPEC_HELPERDIR}/0200_prune/prepare-test-env.sh"
+#shell_code: |
+  #Include "${SHELLSPEC_HELPERDIR}/0200_prune/reset-pools.sh"
+  #Include "${SHELLSPEC_HELPERDIR}/0200_prune/restore-pools.sh"
+
 
 example_list:
   - describe_desc: "Test prune options"
     tag: prune-scenario
     shell_code: |
+      Include "${SHELLSPEC_HELPERDIR}/0200_prune/reset-pools.sh"
+      Include "${SHELLSPEC_HELPERDIR}/0200_prune/restore-pools.sh"
+      
       EXPECTED_SNAPSHOTS=168
-  
-      setup() {
-        restore_pools > /dev/null
-      }
-  
-      teardown() {
-        teardown_pools > /dev/null
-      }
+
+      setup() { restore_pools > /tmp/hook_output.txt; }
+      teardown() { teardown_pools >> /tmp/hook_output.txt; }
   
       snapshot_count() {
         out=$(tgt_exec zfs list -r -t snapshot "$1") || return
         printf '%s\n' "$out" | wc
       }
 
-    hook_list:
+    hooks_list:
       - name: BeforeAll
-        command: setup
-        invocation: evaluated_cmd
+        command: "'setup'"
+        invocation: evaluated_command
 
-      - name: BeforeAll
-        command: teardown
-        invocation: evaluated_cmd
+      - name: AfterAll
+        command: "'teardown'"
+        invocation: evaluated_command
 
     skip_if_list:
       - condition: if 'SANDBOX_ZELTA_SRC_DS undefined' test -z "$SANDBOX_ZELTA_SRC_DS"
