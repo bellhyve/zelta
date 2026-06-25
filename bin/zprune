@@ -148,8 +148,8 @@ run_zfs_destroy() {
 
 	if [ -n "$ZELTA_SRC_REMOTE" ]; then
 		: ${ZELTA_REMOTE_COMMAND:=ssh}
-		_cmd="$ZELTA_REMOTE_COMMAND $ZELTA_SRC_REMOTE zfs destroy $_flags '$_destroy_target'"
-		eval "$_cmd"
+		_cmd="zfs destroy $_flags '$_destroy_target'"
+		$ZELTA_REMOTE_COMMAND "$ZELTA_SRC_REMOTE" "$_cmd"
 	else
 		zfs destroy $_flags "$_destroy_target"
 	fi
@@ -161,8 +161,8 @@ run_zfs_list() {
 
 	if [ -n "$ZELTA_SRC_REMOTE" ]; then
 		: ${ZELTA_REMOTE_COMMAND:=ssh}
-		_cmd="$ZELTA_REMOTE_COMMAND $ZELTA_SRC_REMOTE zfs list $_flags '$_dataset'"
-		eval "$_cmd"
+		_cmd="zfs list $_flags '$_dataset'"
+		$ZELTA_REMOTE_COMMAND "$ZELTA_SRC_REMOTE" "$_cmd"
 	else
 		zfs list $_flags "$_dataset"
 	fi

@@ -37,6 +37,7 @@ policy,backup,replicate,sync,rotate	--replicate,-R	VERB		set	replicate
 policy,backup,replicate,sync,rotate	--resume	RESUME		true		save partial transfers (default)
 policy,backup,replicate,sync,rotate	--no-resume	RESUME		false		discard failed partial transfers
 policy,backup,replicate,snapshot,sync,revert,rotate,clone	--snap-name	SNAP_NAME		set		specify a snapshot name
+policy,backup,replicate,snapshot,sync,revert,rotate,clone	--snap-prefix	SNAP_PREFIX		set		prefix default snapshot names
 policy,backup,replicate,sync,rotate,clone	--snap-mode	SNAP_MODE	SNAPSHOT	set
 policy,backup,replicate,sync,rotate,clone	--snap-time	SNAP_TIME		set		skip snapshot if the dataset age is not older than this number of seconds
 policy,backup,replicate,sync,rotate,clone	--snap-size	SNAP_SIZE		set		skip snapshot if the dataset size has not increased by this many bytes
@@ -64,8 +65,7 @@ policy,backup,replicate,sync,rotate	--bookmark-prefix	BOOKMARK_PREFIX		set		pref
 backup,clone,rebase	--target-origin,--origin	ORIGIN_ID		set		clone origin dataset already backed up on the target
 
 # 'zelta rebase' options
-rebase	--rebase-file	REBASE_FILE		set		list of paths to preserve from the old production tree
-rebase	--rebase-preserve	REBASE_PRESERVE		set		preserve behavior: plan or copy
+rebase	--rebase-file	REBASE_FILE		set		override path to preserve file
 
 # 'zelta failover', 'zelta lock', 'zelta unlock', and 'zelta propsync' options
 failover,lock,unlock,propsync	--lock	FAILOVER_ACTION		set	lock	lock following operands
@@ -103,6 +103,7 @@ prune	--no-prune-guard	PRUNE_GUARD		set	none	disable target safety checks
 prune	--force,-f	PRUNE_FORCE		true		destroy without asking for confirmation when used by zprune
 prune	--prune-size	PRUNE_SIZE		set		select oldest eligible snapshots until size is reached
 prune	--no-ranges	NO_RANGES		true		disable range compression (output individual snapshots)
+prune	--visual	PRUNE_VISUAL		true		print snapshot keep/destroy emoji in creation order
 prune	--prune-name	PRUNE_NAME		set		snapshot name pattern: zfsnap, truenas, sanoid, or custom pattern
 prune	--send-range	SEND_RANGE		set		internal: list source snapshots after the given match
 

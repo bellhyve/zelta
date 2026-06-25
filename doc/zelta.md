@@ -55,8 +55,8 @@ For detailed usage of each subcommand, run **zelta help <subcommand>** or see th
 **zelta failover** _source_ _target_
 :    Lock an active source, perform a final backup, sync local properties, and unlock the promoted target. See **zelta-failover(8)**.
 
-**zelta rebase** _origin_ _target_ _upstream_ [_new_]
-:    Build a new production tree from an upgraded upstream while preserving incremental backup continuity. See **zelta-rebase(8)**.
+**zelta rebase** _upstream_ _target_
+:    Rebase a dataset onto an upgraded upstream while preserving local files and incremental backup continuity. See **zelta-rebase(8)**.
 
 **zelta lock** _endpoint_
 :    Apply ordered dataset-tree readonly, canmount, unmount, and remount operations for promotion workflows. See **zelta-lock(8)**.

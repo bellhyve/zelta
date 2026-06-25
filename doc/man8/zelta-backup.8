@@ -159,6 +159,14 @@ Specify snapshot name.
 Use \f[CR]$(command)\f[R] for dynamic generation.
 Default: \f[CR]$(date \-u +zelta_%Y\-%m\-%d_%H.%M.%S)\f[R].
 .TP
+\f[B]\-\-snap\-prefix\f[R] \f[I]PREFIX\f[R]
+Prefix generated snapshot names.
+If the resolved name starts with \f[CR]zelta\f[R], \f[I]PREFIX\f[R]
+replaces \f[CR]zelta\f[R]; otherwise \f[I]PREFIX\f[R] is prepended
+verbatim.
+Example:
+\f[CR]\-\-snap\-prefix=daily \-\-include=\(aq\(atdaily*\(aq\f[R].
+.TP
 \f[B]\-\-snap\-mode\f[R] \f[I]MODE\f[R]
 Specify when to snapshot: \f[CR]NEVER\f[R] (or \f[CR]0\f[R]),
 \f[CR]IF_NEEDED\f[R] (default, only if source has new data or no recent
@@ -218,6 +226,11 @@ For incremental backups, \f[CR]zfs send \-i\f[R] will be used.
 .TP
 \f[B]\-\-resume, \-\-no\-resume\f[R]
 Enable (default) or disable automatic resume of interrupted syncs.
+.TP
+\f[B]\-\-send\-check\f[R]
+Attempt to detect and drop Zelta\(cqs default \f[CR]zfs send\f[R]
+options (\f[CR]\-L\f[R], \f[CR]\-c\f[R], \f[CR]e\f[R]) if the
+\f[I]source\f[R] does not support them.
 .SS Advanced Override Options
 \f[B]WARNING:\f[R] These options override Zelta\(cqs automatic safety
 and efficiency logic.

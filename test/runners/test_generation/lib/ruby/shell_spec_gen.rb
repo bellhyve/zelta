@@ -11,7 +11,7 @@ module ShellSpecGen
 
   # `do` block binds to Data.define (defines methods on the parent); kept to satisfy RubyMine's RBS inference.
   #  TODO: remove `do` block when RubyMine supports RBS inference.
-  class Config < Data.define(:shellspec_name, :output_dir, :multi_desc, :multi_tag, :capture_output, :example_list, :shell_code) do
+  class Config < Data.define(:shellspec_name, :output_dir, :multi_desc, :multi_tag, :example_list, :shell_code) do
     def self.load_file(path)
       from_h(YAML.safe_load_file(path, symbolize_names: true))
     end
@@ -20,7 +20,6 @@ module ShellSpecGen
       config = new(
         shellspec_name: h.fetch(:shellspec_name),
         output_dir: h.fetch(:output_dir),
-        capture_output: h.fetch(:capture_output, false),
         multi_desc: h.fetch(:multi_desc, nil),
         multi_tag: h.fetch(:multi_tag, nil),
         example_list: h.fetch(:example_list).map { ExampleDefinition.from_h(it) },
@@ -35,11 +34,12 @@ module ShellSpecGen
   end # Data.define
   end # class Config
 
-  class ExampleDefinition < Data.define(:describe_desc, :tag, :hooks_list, :skip_if_list, :test_list) do
+  class ExampleDefinition < Data.define(:describe_desc, :tag, :shell_code, :hooks_list, :skip_if_list, :test_list) do
     def self.from_h(h)
       new(
         describe_desc: h.fetch(:describe_desc),
         tag: h.fetch(:tag, nil),
+        shell_code: h.fetch(:shell_code, nil),
         hooks_list: h.fetch(:hooks_list, []).map { Hook.from_h(it) },
         skip_if_list: h.fetch(:skip_if_list, []).map { SkipIf.from_h(it) },
         test_list: h.fetch(:test_list).map { TestDefinition.from_h(it) },
@@ -70,7 +70,7 @@ module ShellSpecGen
 
   class TestDefinition < Data.define(
     :test_name, :it_desc, :tag, :when_command,
-    :capture_output, :allow_no_output, :setup_scripts
+    :output_clause,:allow_no_output, :setup_scripts
   ) do
     def self.from_h(h)
       new(
@@ -78,7 +78,7 @@ module ShellSpecGen
         it_desc: h.fetch(:it_desc),
         tag: h.fetch(:tag, nil),
         when_command: h.fetch(:when_command),
-        capture_output: h.fetch(:capture_output, false),
+        output_clause: h.fetch(:output_clause, nil),
         allow_no_output: h.fetch(:allow_no_output, false),
         setup_scripts: h.fetch(:setup_scripts, []), # array of plain strings; no wrapper type
       )

@@ -178,7 +178,7 @@ function object_type(symbol) {
 # Load each row into memory
 function process_row(ep,		_name, _guid, _ivsetguid, _written, _referenced, _clones, _name_suffix, _ds_suffix, _savepoint,
 					_type, _ep_id, _ds_id, _ds_snap, _row_id, _tmp_arr, _num_snaps,
-					_all_snap_idx, _field) {
+					_all_snap_idx, _field, _prune_filtered) {
 	# Read the row data
 	_name      = $1
 	_guid      = $2
@@ -224,10 +224,12 @@ function process_row(ep,		_name, _guid, _ivsetguid, _written, _referenced, _clon
 			return
 	}
 	if ((_type == IS_SNAPSHOT) && (_ep_id == Source["ID"])) {
-		if (regex_loop(_savepoint, ExcludeSnapPattern, ExcludeSnapPattern["count"]))
-			return
-		if (!is_snap_or_ds_included(_savepoint, _name, _ds_suffix))
-			return
+		if (regex_loop(_savepoint, ExcludeSnapPattern, ExcludeSnapPattern["count"]) ||
+		    !is_snap_or_ds_included(_savepoint, _name, _ds_suffix)) {
+			if (Opt["VERB"] != "prune")
+				return
+			_prune_filtered = 1
+		}
 	}
 
 	Row[_row_id, "exists"]     = 1
@@ -242,9 +244,10 @@ function process_row(ep,		_name, _guid, _ivsetguid, _written, _referenced, _clon
 	Row[_row_id, "name"]       = _name
 	Row[_row_id, "type"]       = _type
 	Row[_row_id, "ds_suffix"]  = _ds_suffix
+	Row[_row_id, "prune_filtered"] = _prune_filtered
 
 	# Snapshots will be used for match GUID over bookmarks
-	if (!Guid[_ds_id, _guid] || (_type == IS_SNAPSHOT))
+	if (!_prune_filtered && (!Guid[_ds_id, _guid] || (_type == IS_SNAPSHOT)))
 		Guid[_ds_id, _guid] = _row_id
 
 	# Dataset
@@ -412,6 +415,9 @@ function validate_match(src_row, tgt_row, ds_suffix, savepoint, snap_idx) {
 
 # Step through snapshots for counters and to find common snapshots
 function compare_snapshots(src_row, idx,	_src_row_arr, _ds_suffix, _savepoint, _src_guid, _tgt_ds_id, _tgt_match) {
+	if (Row[src_row, "prune_filtered"])
+		return
+
 	# Identify a match candidate by GUID
 	split(src_row, _src_row_arr, S)
 	_ds_suffix	= _src_row_arr[2]
@@ -602,10 +608,12 @@ function parse_prune_grid(	_grid, _parts, _n, _i, _term, _x, _count, _interval) 
 	}
 }
 
-function grid_keeps_snapshot(creation,	_age, _g, _start, _end, _bucket) {
+function grid_keeps_snapshot(creation, anchor_creation,	_age, _g, _start, _end, _bucket) {
 	if (!NumPruneGrid)
 		return 0
-	_age = Global["now"] - creation
+	_age = anchor_creation - creation
+	if (_age < 0)
+		return 0
 	_start = 0
 	for (_g = 1; _g <= NumPruneGrid; _g++) {
 		if (PruneGridCount[_g] == -1) {
@@ -641,6 +649,7 @@ function synced_allows_prune(tgt_ds_id, guid, savepoint) {
 function analyze_prune_candidates(		_d, _ds_suffix, _src_ds_id, _tgt_ds_id, _num_snaps,
 						_s, _src_row, _savepoint, _guid, _creation,
 						_match_idx, _snap_seconds, _min_age, _keep_after_match,
+						_grid_anchor_creation,
 						_seen_after_match, _eligible_num, _written_total, _prune_estimate, _p,
 						_warned_no_target, _warned_no_match,
 						_selected_num, SelectedSnap, SelectedSnapIdx,
@@ -675,6 +684,7 @@ function analyze_prune_candidates(		_d, _ds_suffix, _src_ds_id, _tgt_ds_id, _num
 		_selected_num = 0
 		_written_total = 0
 		_prune_estimate = 0
+		_seen_after_match = 0
 
 		_match_idx = DSPair[_ds_suffix, "match_idx"]
 		if (!_match_idx && (Opt["PRUNE_GUARD"] != GUARD_NONE)) {
@@ -690,6 +700,7 @@ function analyze_prune_candidates(		_d, _ds_suffix, _src_ds_id, _tgt_ds_id, _num
 		}
 		if (!_match_idx)
 			_match_idx = 0
+		_grid_anchor_creation = _match_idx ? Row[Snap[_src_ds_id, _match_idx], "creation"] : Row[Snap[_src_ds_id, 1], "creation"]
 
 		# Analyze snapshots older than match (higher index = older)
 		for (_s = _match_idx + 1; _s <= _num_snaps; _s++) {
@@ -700,13 +711,17 @@ function analyze_prune_candidates(		_d, _ds_suffix, _src_ds_id, _tgt_ds_id, _num
 
 			# Only consider snapshots (not bookmarks)
 			if (Row[_src_row, "type"] != IS_SNAPSHOT) continue
+			if (Row[_src_row, "prune_filtered"]) {
+				KeptSnap[_src_ds_id, ++NumKeptSnap[_src_ds_id]] = _savepoint
+				KeptSnapIdx[_src_ds_id, NumKeptSnap[_src_ds_id]] = Row[_src_row, "snap_idx"]
+				continue
+			}
+			_seen_after_match++
 			if ((Row[_src_row, "clones"] != "") && (Row[_src_row, "clones"] != "-")) {
 				KeptSnap[_src_ds_id, ++NumKeptSnap[_src_ds_id]] = _savepoint
 				KeptSnapIdx[_src_ds_id, NumKeptSnap[_src_ds_id]] = Row[_src_row, "snap_idx"]
 				continue
 			}
-
-			_seen_after_match = _s - _match_idx
 
 			if (!synced_allows_prune(_tgt_ds_id, _guid, _savepoint)) {
 				KeptSnap[_src_ds_id, ++NumKeptSnap[_src_ds_id]] = _savepoint
@@ -714,7 +729,7 @@ function analyze_prune_candidates(		_d, _ds_suffix, _src_ds_id, _tgt_ds_id, _num
 				continue
 			}
 
-			if ((NumPruneGrid && ((_s == 1) || (_s == _num_snaps) || grid_keeps_snapshot(_creation))) ||
+			if ((NumPruneGrid && ((_s == 1) || (_s == _num_snaps) || grid_keeps_snapshot(_creation, _grid_anchor_creation))) ||
 			    (_keep_after_match != "" && (_keep_after_match > 0) && (_seen_after_match <= _keep_after_match)) ||
 			    (_snap_seconds != "" && (_creation >= _min_age))) {
 				KeptSnap[_src_ds_id, ++NumKeptSnap[_src_ds_id]] = _savepoint
@@ -903,6 +918,21 @@ function output_prune(		_d, _ds_suffix, _src_ds_id, _p, _range, _base_name, _kep
 			}
 		}
 	}
+}
+
+function output_prune_visual(		_d, _ds_suffix, _src_ds_id, _p, _s, _row) {
+	for (_d = 1; _d <= NumDSPair; _d++) {
+		_ds_suffix = DSPairList[_d]
+		_src_ds_id = Source["ID"] S _ds_suffix S ""
+		for (_p = 1; _p <= PruneSnapNum[_src_ds_id]; _p++)
+			Kill[_src_ds_id, PruneSnapIdx[_src_ds_id, _p]] = 1
+		for (_s = NumSnaps[_src_ds_id]; _s >= 1; _s--) {
+			_row = Snap[_src_ds_id, _s]
+			if (Row[_row, "type"] == IS_SNAPSHOT)
+				printf "%s", (Kill[_src_ds_id, Row[_row, "snap_idx"]] ? "❌" : "🔹")
+		}
+	}
+	printf "\n"
 }
 
 ## Output
@@ -1124,7 +1154,10 @@ END {
 				analyze_send_range()
 			else
 				analyze_prune_candidates()
-			output_prune()
+			if (Opt["PRUNE_VISUAL"])
+				output_prune_visual()
+			else
+				output_prune()
 		} else {
 			get_info()
 			summary()

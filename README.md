@@ -49,7 +49,7 @@ curl -fsSL https://raw.githubusercontent.com/bell-tower/zelta/main/contrib/web-i
 To install a specific branch:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/bell-tower/zelta/main/contrib/web-install.sh | sh -s -- --branch=release/bsdcan2026
+curl -fsSL https://raw.githubusercontent.com/bell-tower/zelta/release/bsdcan2026/contrib/web-install.sh | sh -s -- --branch=release/bsdcan2026
 ```
 
 The installer uses sane defaults for system-wide or user installs. Advanced install paths can be overridden with `ZELTA_BIN`, `ZELTA_SHARE`, `ZELTA_ETC`, and `ZELTA_DOC`; see the install documentation for details.
@@ -129,7 +129,7 @@ Destructive companion for `zelta prune`. Validates prune candidates, previews `z
 Locks an active source, performs a final backup, syncs local ZFS properties, and unlocks the promoted target.
 
 ### `zelta rebase`
-Builds a new production tree from an upgraded upstream while preserving incremental backup continuity through an existing origin backup.
+Rebase a dataset onto an upgraded upstream while preserving local files and incremental backup continuity.
 
 ### `zelta lock` and `zelta unlock`
 Apply ordered dataset-tree readonly, canmount, unmount, and remount workflows for promotion and maintenance.

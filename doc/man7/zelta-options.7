@@ -204,9 +204,9 @@ Options to use in \f[CR]zelta backup \-R\f[R] mode.
 Defaults to \f[CR]\-\-raw \-s \-R\f[R].
 .TP
 \f[B]SEND_CHECK\f[R]
-Attempt to drop unsupported \f[CR]zfs send\f[R] options using a no\-op
-test prior to replication.
-This feature is not fully implemented.
+Attempt to detect and drop Zelta\(cqs default \f[CR]zfs send\f[R]
+options (\f[CR]\-L\f[R], \f[CR]\-c\f[R], \f[CR]e\f[R]) if the
+\f[I]source\f[R] does not support them.
 .TP
 \f[B]RECV_OVERRIDE\f[R]
 Override all \f[CR]zfs receive\f[R] options with those indicated.
@@ -256,6 +256,15 @@ Specify a snapshot name.
 Use the form \f[CR]$(my_snapshot_program)\f[R] to use a dynamically
 generated snapshot.
 The default is \f[CR]$(date \-u +zelta_%Y\-%m\-%d_%H.%M.%S)\f[R].
+.TP
+\f[B]SNAP_PREFIX\f[R]
+Prefix generated snapshot names.
+If the resolved snapshot name starts with \f[CR]zelta\f[R], the prefix
+replaces \f[CR]zelta\f[R]; otherwise the prefix is prepended verbatim.
+For example, \f[CR]\-\-snap\-prefix=daily\f[R] changes the default name
+to \f[CR]daily_YYYY\-MM\-DD_HH.MM.SS\f[R], while
+\f[CR]SNAP_PREFIX=\(dq$(whoami)_\(dq\f[R] prefixes a custom generator
+with the current username.
 .TP
 \f[B]SNAP_MODE\f[R]
 Specify when to snapshot during a \f[CR]zelta backup\f[R] operation.

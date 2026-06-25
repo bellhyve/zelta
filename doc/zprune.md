@@ -14,6 +14,8 @@
 
 While **zelta prune** is limited to `zfs list` and `zfs get` commands for computing a retention policy, **zprune** uses `zfs destroy` to provide additional detail and the destructive actions.
 
+Candidate selection is performed by **zelta prune**. Scope and protection options decide eligibility before retention policy options choose the reported candidates.
+
 Remote dataset endpoints follow **scp(1)** conventions. Operations can be performed without installing **zelta** on remote systems—only standard ZFS utilities and SSH access are required.
 
 Examples:
@@ -49,7 +51,7 @@ See **zfs(8)** for dataset naming conventions.
 
 See **zelta-prune(8)** for complete behavior and safety details.
 
-Common prune options:
+Common forwarded options:
 
 **--prune-num** _N_
 : Keep the newest _N_ snapshots.
@@ -61,7 +63,9 @@ Common prune options:
 : Apply GFS-style list of retention times, such as `30x1 day, 52x1 week, 1 year`.
 
 **--prune-size** _SIZE_
-: Allow deletion of oldest snapshots until _SIZE_ bytes are reached.
+: Select oldest eligible snapshots until their estimated reclaim reaches at least _SIZE_.
+
+**--prune-size** is evaluated per dataset. On recursive dataset trees, each dataset may contribute up to the requested reclaim target, so the total candidate set can exceed _SIZE_. Use **--depth=1**, **--include**, or a non-recursive dataset selection when _SIZE_ should apply to one dataset only.
 
 **--prune-guard** `latest`|`unsynced`|`none`
 : Select safety behavior based on replication status with the _target_.

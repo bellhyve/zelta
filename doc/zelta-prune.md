@@ -12,19 +12,21 @@
 
 **zelta prune** reports snapshots on a source dataset tree that are candidates for pruning. It is nondestructive. To destroy snapshots, use **zprune(8)** with identical prune options.
 
-Pruning is built from filters which describe the retention shape or narrow the dataset tree, snapshot names, target-safety requirement, or size recovery target.
+Pruning has two stages: first choose which snapshots are eligible, then apply a retention policy to that eligible set.
 
-By default, **zelta prune** applies this failsafe filter:
+Scope and protection options decide eligibility. **--depth**, **--include**, and **--prune-name** narrow the dataset tree or snapshot names. **--exclude**, clone checks, and snapshots protected by **--prune-guard** remove snapshots from deletion. **--prune-guard=unsynced** requires every reported candidate to exist on the target.
 
-- keep the newest 30 snapshots after the guard point;
-- keep snapshots newer than 30 days;
-- require target guard safety unless disabled.
+Retention policy options decide which eligible snapshots to keep. Others are reported. By default, **zelta prune** applies this failsafe policy:
 
-Defining any explicit retention shape replaces the 30/30 default. Filters can be combined; a snapshot is reported only when all selected filters allow it.
+- protect snapshots newer than the latest common source/target match
+- keep the newest 30 eligible snapshots after that guard point
+- keep eligible snapshots newer than 30 days
+
+Defining any explicit retention policy replaces the 30/30 default. Options can be combined; a snapshot is reported only when all selected rules allow it.
 
 As with other Zelta commands, **zelta prune** works recursively on dataset trees. Source and target endpoints may be local or remote using **scp(1)**-style syntax.
 
-# RETENTION SHAPES
+# RETENTION POLICIES
 
 The examples below show time moving left to right. `o` means kept. `x` means selected as a prune candidate.
 
@@ -45,7 +47,7 @@ Common options:
 
 ## GFS Grid
 
-The grid keeps sparse historical points and prunes snapshots between them. Grid mode always protects the oldest and newest snapshots in each dataset.
+The grid keeps sparse historical points and prunes snapshots between them. Grid mode always protects the oldest snapshot and latest protected boundary in each dataset.
 
 ```text
 oldest                                      latest
@@ -59,9 +61,9 @@ Grid terms use _COUNT_`x`_INTERVAL_. A term without `x` keeps one snapshot per i
 zelta prune --prune-grid='30x1 day, 52x1 week, 1 year' source target
 ```
 
-Grid intervals use the same duration syntax as **--prune-time**.
+Grid intervals use the same duration syntax as **--prune-time**. Buckets are measured backward from the latest protected boundary, not from the wall-clock time when **zelta prune** runs. With the default prune guard, that boundary is the latest common source/target match. With **--prune-guard=none**, the boundary is the latest source snapshot. Zelta protects that boundary and the oldest snapshot in the dataset, then keeps the newest snapshot found in each older grid bucket.
 
-Snapshots older than a bounded grid span are prune candidates unless protected by another filter. An unbounded term such as `1 year` keeps one snapshot per year for all older history. Zelta recommends putting unbounded terms last, but does not enforce it.
+Snapshots older than a bounded grid span are prune candidates unless protected by another rule. An unbounded term such as `1 year` keeps one snapshot per year for all older history. Zelta recommends putting unbounded terms last, but does not enforce it.
 
 ## Duration Syntax
 
@@ -77,7 +79,7 @@ months    mo, mon, month, months
 years     y, year, years
 ```
 
-The units `m` and `M` are invalid because they are ambiguous between minutes and months. Months are treated as 30 days and years as 365 days.
+Note that `m` is ambiguous, but you can use `mi` for minutes and `mo` for months. Months are treated as 30 days and years as 365 days.
 
 # OPTIONS
 
@@ -89,7 +91,7 @@ _source_
 _target_
 : Dataset tree used for target-safety checks. If the target is omitted while **--prune-guard** is enabled, **zelta prune** returns an error. Use **--no-prune-guard** only for local-only retention.
 
-## Retention Filters
+## Retention Policy Options
 
 **--prune-num** _N_
 : Keep the newest _N_ snapshots after the guard point. With the default guard, this keeps snapshots newer than the latest common source/target match.
@@ -100,7 +102,17 @@ _target_
 **--prune-grid** _GRID_
 : Apply GFS-style grid retention. Example: `30x1 day, 52x1 week, 1 year`.
 
-## Safety And Selection Filters
+**--prune-size** _SIZE_
+: Select oldest eligible snapshots until their estimated reclaim reaches at least _SIZE_. This planner target is off by default. _SIZE_ accepts ZFS-style byte counts and suffixes such as `K`, `KB`, `M`, `GB`, and `T`.
+
+**--prune-size** is evaluated per dataset. On recursive dataset trees, each dataset may contribute up to the requested reclaim target, so the total candidate set can exceed _SIZE_. Use **--depth=1**, **--include**, or a non-recursive dataset selection when _SIZE_ should apply to one dataset only.
+
+The estimate is based on sequential oldest-first pruning. If other rules create gaps, run pruning in multiple passes or use **zprune(8)** preview as the final authority.
+
+**--prune-policy** _NAME_
+: Apply a named pruning policy from configuration.
+
+## Scope And Protection Options
 
 **--prune-guard** `latest`|`unsynced`|`none`
 : Select target safety behavior. The default is `latest`.
@@ -117,18 +129,10 @@ _target_
 **--no-prune-guard**
 : Equivalent to **--prune-guard=none**.
 
-**--prune-size** _SIZE_
-: Select oldest eligible snapshots until their estimated reclaim reaches at least _SIZE_. This planner target is off by default. _SIZE_ accepts ZFS-style byte counts and suffixes such as `K`, `KB`, `M`, `GB`, and `T`.
-
-The estimate is based on sequential oldest-first pruning. It does not factor in other retention shapes; if other filters create gaps, run pruning in multiple passes or use **zprune(8)** preview as the final authority.
-
 Snapshots with clones are never reported as prune candidates. **zprune** also previews with **zfs destroy -nvp** before destruction, so clone checks remain effective if state changes after candidate selection.
 
 **--prune-name** _PATTERN_
-: Select snapshots by name before applying retention filters. Use this when multiple snapshot tools or naming policies share the same dataset tree.
-
-**--prune-policy** _NAME_
-: Apply a named pruning policy from configuration.
+: Select snapshots by name before applying retention policies. Use this when multiple snapshot tools or naming policies share the same dataset tree.
 
 **-d**, **--depth** _LEVELS_
 : Limit dataset-tree recursion depth. A depth of `1` includes only the specified dataset.
