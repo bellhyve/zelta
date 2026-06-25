@@ -22,5 +22,5 @@ RECV	RECV	zfs recv	-v	flags origin ds
 SYNC	DEFAULT			zfs_send zfs_recv
 RENAME	DEFAULT	zfs rename	-fp	old_ds new_ds
 BOOKMARK	DEFAULT	zfs bookmark		source_snap bookmark
-BACKUP		zelta ipc-run backup		flags source target
+BACKUP		zelta backup		flags source target
 ROTATE		zelta ipc-run	rotate --log-mode=text --log-level=2

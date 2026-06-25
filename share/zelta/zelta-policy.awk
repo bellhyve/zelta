@@ -127,6 +127,18 @@ function resolve_target(tgt, opt, job,		_n, _i, _segments) {
 	return tgt
 }
 
+# Derive the hostname from a policy source key, which may include an SSH user.
+function source_host(source_remote,		_host) {
+	_host = source_remote
+	sub(/^.*@/, "", _host)
+	return _host
+}
+
+# Build the source endpoint passed to zelta backup.
+function source_ep(job) {
+	return job["source_remote"]":"job["source"]
+}
+
 # Generate the backup command string for a given job and options
 function create_backup_command(job, opts,		_key, _cmd_prefix, _cmd_arr, _src, _tgt, _cmd) {
 	for (_key in opts) {
@@ -137,7 +149,7 @@ function create_backup_command(job, opts,		_key, _cmd_prefix, _cmd_arr, _src, _t
 			_cmd_prefix = str_add(_cmd_prefix, ENV_PREFIX _key "=" dq(opts[_key]))
 	}
 	# Construct command using command builder
-	_src = q(job["host"]":"job["source"])
+	_src = q(source_ep(job))
 	_tgt = q(job["target"])
 	_cmd_arr["command_prefix"] = _cmd_prefix
 	_cmd_arr["source"] = _src
@@ -259,7 +271,8 @@ function load_config(		_conf_error, _arr, _context, _job, _line_num,
 		} else if (/^  [^ ]+:$/) {
 			if (_context == "global") config_usage(_line_num, _conf_error)
 			_context = "host"
-			_job["host"] = $2
+			_job["source_remote"] = $2
+			_job["host"] = source_host($2)
 			arr_copy(_site_opt, _opt)
 		} else if ($2 == "options") {
 			_context = "options"
@@ -278,11 +291,11 @@ function load_config(		_conf_error, _arr, _context, _job, _line_num,
 			}
 
 			if (!should_backup(_job)) continue
-			_opt["LOG_PREFIX"] = "[" _job["site"] ": " _job["target"] "] " _job["host"] ":" _job["source"]": "
+			_opt["LOG_PREFIX"] = "[" _job["site"] ": " _job["target"] "] " source_ep(_job) ": "
 
 			NumJobs++
-			Job[NumJobs, "name"]      = "[" _job["site"] ": " _job["target"] "] " _job["host"] ":" _job["source"]
-			Job[NumJobs, "source_ep"] = _job["host"] ":" _job["source"]
+			Job[NumJobs, "name"]      = "[" _job["site"] ": " _job["target"] "] " source_ep(_job)
+			Job[NumJobs, "source_ep"] = source_ep(_job)
 			Job[NumJobs, "target_ep"] = _job["target"]
 			Job[NumJobs, "command"]   = create_backup_command(_job, _opt)
 			# Track longest source endpoint for column alignment
@@ -306,12 +319,13 @@ function should_xargs() {
 # Check if a job should be backed up based on operands/patterns
 function should_backup(job,		_host_ep, _leaf, _list, _match_arr, _i) {
 	if (!NumOperands) return 1
-	_host_ep = job["host"]":"job["source"]
+	_host_ep = source_ep(job)
 	_leaf = job["source"]
 	sub(/.*\//,"",_leaf)
 
 	# Assemble possible match criteria; str_add() discards blank criteria
 	_list = str_add(job["site"], job["host"], SUBSEP)
+	_list = str_add(_list, job["source_remote"], SUBSEP)
 	_list = str_add(_list, job["source"], SUBSEP)
 	_list = str_add(_list, job["target"], SUBSEP)
 	_list = str_add(_list, _host_ep, SUBSEP)
