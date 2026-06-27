@@ -21,4 +21,9 @@ Describe 'Backup tests' standard:30
         The status should be success
         The output should include 'zelta backup'
     End
+    It 'sanitizes json carriage returns'
+        Skip if 'jq required' test -z "$(command -v jq)"
+        When call backup_check_json_cr_sanitized
+        The status should be success
+    End
 End

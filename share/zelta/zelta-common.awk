@@ -104,21 +104,30 @@ function json_write(_j, _depth, _fs, _rs, _val, _next_val) {
 			_depth++
 		}
 	}
+	if (!Opt["JSON_PRETTY"] && JsonNum) printf _rs
 }
 
 # Return a json value of null, num, or string
-function json_val(val) {
-	if (val == "") val = "null"
-	else if (val !~ /^-?[0-9\.]+$/) val = dq(val)
+function json_val(val,	_cr) {
+	_cr = sprintf("%c", 13)
+	gsub(_cr, "", val)
+	if (val "" == "") val = "null"
+	else if (val !~ /^-?[0-9\.]+$/) val = json_string(val)
 	return val
 }
 
+function json_string(str,	_cr) {
+	_cr = sprintf("%c", 13)
+	gsub(_cr, "", str)
+	return dq(str)
+}
+
 # Basic json contructors
-function json_new_object(name) { JsonOutput[++JsonNum] = (name ? dq(name) ": " : "") "{" }
+function json_new_object(name) { JsonOutput[++JsonNum] = (name ? json_string(name) ": " : "") "{" }
 function json_close_object() { JsonOutput[++JsonNum] = "}" }
-function json_new_array(name) { JsonOutput[++JsonNum] = (name ? dq(name) ": " : "") "[" }
+function json_new_array(name) { JsonOutput[++JsonNum] = (name ? json_string(name) ": " : "") "[" }
 function json_close_array() { JsonOutput[++JsonNum] = "]" }
-function json_member(name, val) { JsonOutput[++JsonNum] = dq(name) ": " json_val(val) }
+function json_member(name, val) { if (val "" != "") JsonOutput[++JsonNum] = json_string(name) ": " json_val(val) }
 function json_element(val) { JsonOutput[++JsonNum] = json_val(val) }
 
 # Lod global Summary for special output modes

@@ -144,6 +144,23 @@ backup_check_json() {
     backup_no_op_check 2>/dev/null | jq -re .output_version.command
 }
 
+backup_check_json_cr_sanitized() {
+	_repo_root="${REPO_ROOT:-$SHELLSPEC_PROJECT_ROOT}"
+	if [ -d "$SANDBOX_ZELTA_TMP_DIR" ]; then
+		_tmp="$SANDBOX_ZELTA_TMP_DIR/zelta_json_cr_$$"
+	else
+		_tmp="${TMPDIR:-/tmp}/zelta_json_cr_$$"
+	fi
+	env ZELTA_SHARE="$_repo_root/share/zelta" "$_repo_root/bin/zelta" backup --dryrun --json "$(printf 'local\rhost'):pool/source" pool/target >"$_tmp" 2>/dev/null
+	_lines=$(wc -l <"$_tmp" | tr -d ' ')
+	jq -re '.sourceHost == "localhost" and .sourceEndpoint == "localhost:pool/source" and (.errorMessages[0] | contains("localhost:pool/source")) and ([.. | select(. == null)] | length == 0)' "$_tmp" >/dev/null || {
+		rm -f "$_tmp"
+		return 1
+	}
+	rm -f "$_tmp"
+	[ "$_lines" -eq 1 ]
+}
+
 # Check if source pool is a prefix of source dataset
 src_pool_matches_ds() {
 	case "$SANDBOX_ZELTA_SRC_DS" in
