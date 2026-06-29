@@ -70,7 +70,6 @@ module ShellSpecGen
 
   class TestDefinition < Data.define(
     :test_name, :it_desc, :tag, :when_command,
-    :remove_timestamps,
     :output_clause,:allow_no_output, :setup_scripts
   ) do
     def self.from_h(h)
@@ -79,7 +78,6 @@ module ShellSpecGen
         it_desc: h.fetch(:it_desc),
         tag: h.fetch(:tag, nil),
         when_command: h.fetch(:when_command),
-        remove_timestamps: h.fetch(:remove_timestamps, true),
         output_clause: h.fetch(:output_clause, nil),
         allow_no_output: h.fetch(:allow_no_output, false),
         setup_scripts: h.fetch(:setup_scripts, []), # array of plain strings; no wrapper type

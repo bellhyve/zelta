@@ -103,10 +103,6 @@ definitions:
         description: shellspec tag to add to the generated It block
       when_command:
         type: string
-      remove_timestamps:
-        type : boolean
-        description: If true, remove timestamps from output
-        default : true
       output_clause:
         type: string
       allow_no_output:

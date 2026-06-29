@@ -198,5 +198,6 @@ class SpecWriter
     hooks_list.each do |hook|
       file.puts "  #{hook.name}  #{hook.command}"
     end
+    file.puts '' unless hooks_list.empty?
   end
 end

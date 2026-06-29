@@ -20,8 +20,12 @@ module RunTestGenerator
     elsif options[:validate_file]
       SchemaValidator.new(PathConfig.yaml_schema_path).validate_file(yaml_file)
     else
-      SchemaValidator.new(PathConfig.yaml_schema_path).validate_file(yaml_file)
-      ShellspecRunner.new(options[:setup_shellspec], yaml_file).generate_test(options[:verified_files_path_option])
+      result = SchemaValidator.new(PathConfig.yaml_schema_path).validate_file(yaml_file)
+      if result.valid?
+        ShellspecRunner.new(options[:setup_shellspec], yaml_file).generate_test(options[:verified_files_path_option])
+      else
+        puts "File #{yaml_file} does not conform to schema"
+      end
     end
   end
 

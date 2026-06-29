@@ -22,11 +22,13 @@ class ShellspecRunner
 
     generator = TestGenerator.new(yaml_test_def_path)
 
+    puts "\n***\n*** Generating shellspec test #{yaml_test_def_path}\n***"
     success = generator.generate_shellspec_test
     return false unless success
 
     return false unless prepare_test_env
 
+    puts "\n***\n*** Verifying shellspec test #{yaml_test_def_path}\n***"
     generator.verify_final_specfile(verified_files_dir_option)
   end
 

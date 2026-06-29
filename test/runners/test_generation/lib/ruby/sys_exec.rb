@@ -35,7 +35,8 @@ module SysExec
   end
 
   def self.run(cmd, timeout: 30, raise_on_failure: true, debug: true)
-    puts "Executing: #{cmd}" if debug
+    puts "\n⚡ Executing: #{cmd}" if debug
+    puts "=" * 80 if debug
 
     stdout = ''
     stderr = ''
