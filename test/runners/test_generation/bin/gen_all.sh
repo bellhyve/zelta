@@ -10,13 +10,27 @@ TEST_YML="${TEST_DEFS}/040_zelta_tests.yml"
 cd "$REPO_ROOT" || { echo "cannot cd to repo root $REPO_ROOT"; exit 1; }
 SPEC_SUBDIR=0100_standard
 PROD_SPEC_DIR="${REPO_ROOT}/test/spec/${SPEC_SUBDIR}"
-SHELLSPEC_CLEANUP=--setup="shellspec --tag=testgen-destroy"
-SHELLSPEC_SETUP=--setup="shellspec --tag=install,initialize,standard:22,standard:30"
+SHELLSPEC_CLEANUP=--teardown-shellspec="shellspec --tag=cleanup"
+SHELLSPEC_SETUP=--setup-shellspec="shellspec --tag=install,initialize,standard:22,standard:30"
 VERIFIED_DIR="--verified-dir=$PROD_SPEC_DIR"
+
+YML_GLOB="*.yml"
+
+# -----------------------------------------------------------------------------
+# NOTE: to generate a specific test, set SHELLSPEC_SETUP and YML_GLOB as needed
+#
+# Setup for generating test 70 shellspec
+# SHELLSPEC_SETUP=--setup-shellspec="shellspec --tag=install,initialize,standard:22,standard:30,standard:40,standard:50,standard:60"
+# YML_GLOB="070_*.yml"
+#
+# Setup for generating 80 shellspec
+# SHELLSPEC_SETUP=--setup-shellspec="shellspec --tag=install,initialize,standard:22,standard:30,standard:40,standard:50,standard:60,standard:70,standard:71"
+# YML_GLOB="080_*.yml"
+# -----------------------------------------------------------------------------
 
 
 shopt -s nullglob
-for path in ${TEST_DEFS}/${SPEC_SUBDIR}/*.yml; do
+for path in ${TEST_DEFS}/${SPEC_SUBDIR}/${YML_GLOB}; do
     # printf 'generating test file: %s\n' "$f"
     #for path in .../test_defs/0100_standard/*.yml; do
     printf 'SETUP: %s\n' "$SHELLSPEC_SETUP"

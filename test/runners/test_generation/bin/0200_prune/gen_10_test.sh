@@ -21,6 +21,8 @@ VERIFIED_DIR=
 #  --setup-shellspec="shellspec --tag=testgen-destroy"
 
 args=(
+    --setup-shellspec="shellspec --tag=install"
+    --teardown-shellspec="shellspec --tag=cleanup:install"
     "$TEST_YML"
 )
 set -x
