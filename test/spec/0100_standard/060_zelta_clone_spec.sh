@@ -1,5 +1,5 @@
 # Auto-generated ShellSpec test file
-# Generated at: 2026-06-12 03:58:38 -0400
+# Generated at: 2026-06-29 04:24:25 -0400
 # Source: 060_zelta_clone_spec
 # WARNING: This file was automatically generated. Manual edits may be lost.
 
@@ -26,12 +26,12 @@ output_for_zfs_list_for_clone() {
 Describe 'Test clone' standard:60
   Skip if 'SANDBOX_ZELTA_SRC_DS undefined' test -z "$SANDBOX_ZELTA_SRC_DS"
 
-  It "zelta clone sub2 (ignore warnings) - zelta clone -qq \"$SANDBOX_ZELTA_SRC_EP/sub2\" \"$SANDBOX_ZELTA_SRC_EP/copy_of_sub2\""
-    When call zelta clone -qq "$SANDBOX_ZELTA_SRC_EP/sub2" "$SANDBOX_ZELTA_SRC_EP/copy_of_sub2"
+  It "zelta clone sub2 (ignore warnings) - run zelta clone -qq \"$SANDBOX_ZELTA_SRC_EP/sub2\" \"$SANDBOX_ZELTA_SRC_EP/copy_of_sub2\""
+    When run zelta clone -qq "$SANDBOX_ZELTA_SRC_EP/sub2" "$SANDBOX_ZELTA_SRC_EP/copy_of_sub2"
     The status should be success
   End
 
-  It "verifies the clone - src_exec zfs list -ro name,origin $SANDBOX_ZELTA_SRC_DS/copy_of_sub2"
+  It "verifies the clone - call src_exec zfs list -ro name,origin $SANDBOX_ZELTA_SRC_DS/copy_of_sub2"
     When call src_exec zfs list -ro name,origin $SANDBOX_ZELTA_SRC_DS/copy_of_sub2
     The output should satisfy output_for_zfs_list_for_clone
     The status should be success

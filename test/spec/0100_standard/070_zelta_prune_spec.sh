@@ -1,5 +1,5 @@
 # Auto-generated ShellSpec test file
-# Generated at: 2026-06-12 04:00:20 -0400
+# Generated at: 2026-06-29 04:31:35 -0400
 # Source: 070_zelta_prune_spec
 # WARNING: This file was automatically generated. Manual edits may be lost.
 
@@ -32,8 +32,6 @@ output_for_prune_check() {
         "${SANDBOX_ZELTA_SRC_DS}@zelta_"*""|\
         "${SANDBOX_ZELTA_SRC_DS}/sub1@zelta_"*""|\
         "${SANDBOX_ZELTA_SRC_DS}/sub1/child@zelta_"*""|\
-        "${SANDBOX_ZELTA_SRC_DS}/sub2@zelta_"*""|\
-        "${SANDBOX_ZELTA_SRC_DS}/sub2/orphan@zelta_"*""|\
         "${SANDBOX_ZELTA_SRC_DS}/sub3@zelta_"*""|\
         "${SANDBOX_ZELTA_SRC_DS}/sub3/space name@zelta_"*""|\
         "${SANDBOX_ZELTA_SRC_DS}/sub4@zelta_"*""|\
@@ -54,14 +52,14 @@ Describe 'Test prune' standard:70
   Skip if 'SANDBOX_ZELTA_SRC_DS undefined' test -z "$SANDBOX_ZELTA_SRC_DS"
   Skip if 'SANDBOX_ZELTA_TGT_DS undefined' test -z "$SANDBOX_ZELTA_TGT_DS"
 
-  It "backup with snapshot - zelta backup --snapshot \"$SANDBOX_ZELTA_SRC_EP\" \"$SANDBOX_ZELTA_TGT_EP\""
-    When call zelta backup --snapshot "$SANDBOX_ZELTA_SRC_EP" "$SANDBOX_ZELTA_TGT_EP"
+  It "backup with snapshot - run zelta backup --snapshot \"$SANDBOX_ZELTA_SRC_EP\" \"$SANDBOX_ZELTA_TGT_EP\""
+    When run zelta backup --snapshot "$SANDBOX_ZELTA_SRC_EP" "$SANDBOX_ZELTA_TGT_EP"
     The output should satisfy output_for_backup_with_snapshot
     The status should be success
   End
 
-  It "only suggest snapshots existing on target - zelta prune --keep-snap-num=0 --keep-snap-days=0 \"$SANDBOX_ZELTA_SRC_EP\" \"$SANDBOX_ZELTA_TGT_EP\""
-    When call zelta prune --prune-num=0 --prune-time=0 "$SANDBOX_ZELTA_SRC_EP" "$SANDBOX_ZELTA_TGT_EP"
+  It "only suggest snapshots existing on target - run zelta prune --prune-num=0 --prune-time=0 \"$SANDBOX_ZELTA_SRC_EP\" \"$SANDBOX_ZELTA_TGT_EP\""
+    When run zelta prune --prune-num=0 --prune-time=0 "$SANDBOX_ZELTA_SRC_EP" "$SANDBOX_ZELTA_TGT_EP"
     The output should satisfy output_for_prune_check
     The status should be success
   End

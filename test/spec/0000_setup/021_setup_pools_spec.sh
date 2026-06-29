@@ -15,12 +15,12 @@ Describe 'Initialize Test Environment'  initialize
     Describe 'Pool setup'
         It 'create source'
             Skip if 'SANDBOX_ZELTA_SRC_POOL undefined' [ -z "$SANDBOX_ZELTA_SRC_POOL" ]
-            When call make_src_pool
+            When call make_new_src_pool
             The status should be success
         End
         It 'create target'
             Skip if 'SANDBOX_ZELTA_TGT_POOL undefined' [ -z "$SANDBOX_ZELTA_TGT_POOL" ]
-            When call make_tgt_pool
+            When call make_new_tgt_pool
             The status should be success
         End
     End

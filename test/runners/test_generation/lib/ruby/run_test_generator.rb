@@ -20,8 +20,12 @@ module RunTestGenerator
     elsif options[:validate_file]
       SchemaValidator.new(PathConfig.yaml_schema_path).validate_file(yaml_file)
     else
-      SchemaValidator.new(PathConfig.yaml_schema_path).validate_file(yaml_file)
-      ShellspecRunner.new(options[:setup_shellspec], yaml_file).generate_test(options[:verified_files_path_option])
+      result = SchemaValidator.new(PathConfig.yaml_schema_path).validate_file(yaml_file)
+      if result.valid?
+        ShellspecRunner.new(options[:setup_shellspec], options[:teardown_shellspec], yaml_file).generate_test(options[:verified_files_path_option])
+      else
+        puts "File #{yaml_file} does not conform to schema"
+      end
     end
   end
 
@@ -50,6 +54,9 @@ module RunTestGenerator
       opts.on('-s=SETUP', '--setup-shellspec=SETUP', 'Shellspec setup commands') do |setup|
         options[:setup_shellspec] << setup
       end
+      opts.on('-t=TEARDOWN', '--teardown-shellspec=TEARDOWN', 'Shellspec teardown commands') do |teardown|
+        options[:teardown_shellspec] << teardown
+      end
     end
   end
 
@@ -77,7 +84,7 @@ module RunTestGenerator
 
   def process_args
     require 'optparse'
-    options = { setup_shellspec: [], validate_file: false, validate_all: false, verified_files_path: nil }
+    options = { setup_shellspec: [], teardown_shellspec: [], validate_file: false, validate_all: false, verified_files_path: nil }
     parser = options_parser(options)
 
     begin
@@ -92,7 +99,7 @@ module RunTestGenerator
     return nil if options.nil?
 
     { file: options[:file], validate_file: options[:validate_file], validate_all: options[:validate_all],
-      setup_shellspec: options[:setup_shellspec], verified_files_path_option: options[:verified_files_path] }
+      setup_shellspec: options[:setup_shellspec], teardown_shellspec: options[:teardown_shellspec], verified_files_path_option: options[:verified_files_path] }
   end
 end
 

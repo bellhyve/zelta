@@ -1,5 +1,5 @@
 # Auto-generated ShellSpec test file
-# Generated at: 2026-06-12 03:57:05 -0400
+# Generated at: 2026-06-29 04:12:41 -0400
 # Source: 050_zelta_revert_spec
 # WARNING: This file was automatically generated. Manual edits may be lost.
 
@@ -82,36 +82,36 @@ output_for_rotate_after_revert() {
 Describe 'Test revert' standard:50
   Skip if 'SANDBOX_ZELTA_SRC_DS undefined' test -z "$SANDBOX_ZELTA_SRC_DS"
 
-  It "take a snapshot of tree before changes - zelta snapshot --snap-name \"manual_test\" \"$SANDBOX_ZELTA_SRC_EP\""
-    When call zelta snapshot --snap-name "manual_test" "$SANDBOX_ZELTA_SRC_EP"
+  It "take a snapshot of tree before changes - run zelta snapshot --snap-name \"manual_test\" \"$SANDBOX_ZELTA_SRC_EP\""
+    When run zelta snapshot --snap-name "manual_test" "$SANDBOX_ZELTA_SRC_EP"
     The output should satisfy output_for_snapshot
     The status should be success
   End
 
-  It "add and remove src datasets - add_tree_delta"
+  It "add and remove src datasets - call add_tree_delta"
     When call add_tree_delta
     The status should be success
   End
 
-  It "backup after deltas - zelta backup \"$SANDBOX_ZELTA_SRC_EP\" \"$SANDBOX_ZELTA_TGT_EP\""
-    When call zelta backup "$SANDBOX_ZELTA_SRC_EP" "$SANDBOX_ZELTA_TGT_EP"
+  It "backup after deltas - run zelta backup \"$SANDBOX_ZELTA_SRC_EP\" \"$SANDBOX_ZELTA_TGT_EP\""
+    When run zelta backup "$SANDBOX_ZELTA_SRC_EP" "$SANDBOX_ZELTA_TGT_EP"
     The output should satisfy output_for_backup_after_delta
     The status should be success
   End
 
-  It "take a snapshot of tree after changes - zelta snapshot --snap-name \"another_test\" \"$SANDBOX_ZELTA_SRC_EP\""
-    When call zelta snapshot --snap-name "another_test" "$SANDBOX_ZELTA_SRC_EP"
+  It "take a snapshot of tree after changes - run zelta snapshot --snap-name \"another_test\" \"$SANDBOX_ZELTA_SRC_EP\""
+    When run zelta snapshot --snap-name "another_test" "$SANDBOX_ZELTA_SRC_EP"
     The output should satisfy output_for_snapshot_again
     The status should be success
   End
 
-  It "revert to last snapshot (ignore warnings) - zelta revert -qq \"$SANDBOX_ZELTA_SRC_EP\"@manual_test"
-    When call zelta revert -qq "$SANDBOX_ZELTA_SRC_EP"@manual_test
+  It "revert to last snapshot (ignore warnings) - run zelta revert -qq \"$SANDBOX_ZELTA_SRC_EP\"@manual_test"
+    When run zelta revert -qq "$SANDBOX_ZELTA_SRC_EP"@manual_test
     The status should be success
   End
 
-  It "rotates after divergence - zelta rotate \"$SANDBOX_ZELTA_SRC_EP\" \"$SANDBOX_ZELTA_TGT_EP\""
-    When call zelta rotate "$SANDBOX_ZELTA_SRC_EP" "$SANDBOX_ZELTA_TGT_EP"
+  It "rotates after divergence - run zelta rotate \"$SANDBOX_ZELTA_SRC_EP\" \"$SANDBOX_ZELTA_TGT_EP\""
+    When run zelta rotate "$SANDBOX_ZELTA_SRC_EP" "$SANDBOX_ZELTA_TGT_EP"
     The output should satisfy output_for_rotate_after_revert
     The status should be success
   End
