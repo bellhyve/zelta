@@ -37,11 +37,17 @@ _target_
 **-q**, **\--quiet**
 : Decrease log output.
 
+Backup transport, send, receive, resume, bookmark, and snapshot naming options accepted by **zelta backup** may also be passed to **zelta failover**. The failover command uses them for the final backup step; see **zelta-backup(8)** for details.
+
 # EXAMPLES
 
 Promote a standby service tree:
 
     zelta failover primary.example.com:tank/service standby.example.com:tank/service
+
+Promote using source-initiated remote transport:
+
+    zelta failover --push primary.example.com:tank/service standby.example.com:tank/service
 
 Perform the same workflow explicitly:
 
