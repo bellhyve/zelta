@@ -104,21 +104,30 @@ function json_write(_j, _depth, _fs, _rs, _val, _next_val) {
 			_depth++
 		}
 	}
+	if (!Opt["JSON_PRETTY"] && JsonNum) printf _rs
 }
 
 # Return a json value of null, num, or string
-function json_val(val) {
-	if (val == "") val = "null"
-	else if (val !~ /^-?[0-9\.]+$/) val = dq(val)
+function json_val(val,	_cr) {
+	_cr = sprintf("%c", 13)
+	gsub(_cr, "", val)
+	if (val "" == "") val = "null"
+	else if (val !~ /^-?[0-9\.]+$/) val = json_string(val)
 	return val
 }
 
+function json_string(str,	_cr) {
+	_cr = sprintf("%c", 13)
+	gsub(_cr, "", str)
+	return dq(str)
+}
+
 # Basic json contructors
-function json_new_object(name) { JsonOutput[++JsonNum] = (name ? dq(name) ": " : "") "{" }
+function json_new_object(name) { JsonOutput[++JsonNum] = (name ? json_string(name) ": " : "") "{" }
 function json_close_object() { JsonOutput[++JsonNum] = "}" }
-function json_new_array(name) { JsonOutput[++JsonNum] = (name ? dq(name) ": " : "") "[" }
+function json_new_array(name) { JsonOutput[++JsonNum] = (name ? json_string(name) ": " : "") "[" }
 function json_close_array() { JsonOutput[++JsonNum] = "]" }
-function json_member(name, val) { JsonOutput[++JsonNum] = dq(name) ": " json_val(val) }
+function json_member(name, val) { if (val "" != "") JsonOutput[++JsonNum] = json_string(name) ": " json_val(val) }
 function json_element(val) { JsonOutput[++JsonNum] = json_val(val) }
 
 # Lod global Summary for special output modes
@@ -187,6 +196,8 @@ function stop(_error_code, _error_msg) {
 ## Simple String Utilities
 ##########################
 
+function is_null(_s) { return (_s "" == "") }
+
 function qq(_s) {
 	gsub(/ /, "\\ ", _s)
 	return "'"_s"'"
@@ -197,9 +208,9 @@ function q(s) { return "'" s "'" }
 function dq(s) { return "\"" s "\"" }
 
 function str_add(s, v, sep) {
-	if (!s || !v) return s v
-	if (!sep) sep = " "
-	return s ? s sep v : v
+	if (is_null(s) || is_null(v)) return s v
+	if (is_null(sep)) sep = " "
+	return !is_null(s) ? s sep v : v
 }
 
 function str_rep(str, num,    _out, _i) {
@@ -215,10 +226,10 @@ function rq(_r, _s) {
 
 # Joins non-blank elements of an array
 function arr_join(arr, sep,    _str, _idx, _i) {
-	if (!sep) sep = " "
+	if (is_null(sep)) sep = " "
 	for (_idx in arr)
-		if (arr[++_i])
-			_str = _str ? _str sep arr[_i] : arr[_i]
+		if (!is_null(arr[++_i]))
+			_str = !is_null(_str) ? _str sep arr[_i] : arr[_i]
 	return _str
 }
 
@@ -292,39 +303,47 @@ function h_num(num,	_suffix, _divisors, _h) {
 }
 
 # Convert a human-readable size to bytes
-function parse_size(str,	_num, _suffix, _divisors, _idx) {
+function parse_size(str,	_num, _suffix, _divisors, _idx, _power) {
 	if (str == "") return ""
 	_num = str
-	_suffix = substr(str, length(str), 1)
-	if (_suffix ~ /^[KMGTPEkmgtpe]$/) {
-		_num = substr(str, 1, length(str) - 1)
-		_suffix = toupper(_suffix)
-	}
-	else
-		_suffix = ""
+	_suffix = str
+	sub(/^[0-9][0-9]*(\.[0-9][0-9]*)?/, "", _suffix)
+	sub(/[bB]$/, "", _suffix)
+	sub(/[A-Za-z][A-Za-z]?$/, "", _num)
 	if (_num !~ /^[0-9][0-9]*(\.[0-9][0-9]*)?$/) return ""
-	_divisors = "KMGTPE"
-	for (_idx = 1; _idx <= index(_divisors, _suffix); _idx++)
+	_suffix = toupper(_suffix)
+	_divisors = "KMGTPEZ"
+	if (_suffix && !index(_divisors, _suffix)) return ""
+	_power = _suffix ? index(_divisors, _suffix) : 0
+	for (_idx = 1; _idx <= _power; _idx++)
 		_num *= 1024
 	return int(_num)
 }
 
-# Convert a relative duration to seconds
-function parse_duration(str,	_num, _suffix) {
+# Convert a relative duration to seconds.
+function parse_duration(str,	_num, _unit) {
 	if (str == "") return ""
-	if (substr(str, 1, 1) == "+" || substr(str, 1, 1) == "-")
-		str = substr(str, 2)
+	gsub(/^[-+]|[ 	]+/, "", str)
 	_num = str
-	_suffix = substr(str, length(str), 1)
-	if (_suffix ~ /^[smhdw]$/)
-		_num = substr(str, 1, length(str) - 1)
+	_unit = str
+	sub(/[A-Za-z].*/, "", _num)
+	sub(/^[0-9.]+)?/, "", _unit)
+	if (_num + 0 != _num) return ""
+	if ((_unit == "m") || (_unit == "M"))
+		stop(1, "ambiguous duration unit 'm'; use 'mi' or 'mo'")
+	else if (_unit)
+		_unit = "^" tolower(_unit)
 	else
-		_suffix = "s"
-	if (_num !~ /^[0-9][0-9]*(\.[0-9][0-9]*)?$/) return ""
-	if (_suffix == "m") _num *= 60
-	else if (_suffix == "h") _num *= 3600
-	else if (_suffix == "d") _num *= 86400
-	else if (_suffix == "w") _num *= 604800
+		return int(_num)
+	if ("seconds" ~ _unit) return int(_num)
+	else if ("minutes" ~ _unit) _num *= 60
+	else if ("hours" ~ _unit) _num *= 3600
+	else if ("days" ~ _unit) _num *= 86400
+	else if ("weeks" ~ _unit) _num *= 604800
+	else if ("months" ~ _unit) _num *= 2592000
+	else if ("years" ~ _unit) _num *= 31557600
+	else
+		stop(1, "invalid duration '"str"'")
 	return int(_num)
 }
 
@@ -414,10 +433,14 @@ function get_snap_name(		_snap_name, _snap_cmd) {
 		_snap_cmd | getline _snap_name
 		close(_snap_cmd)
 	}
-	if (!_snap_name)
+	if (_snap_name ~ "^@")
+		_snap_name = substr(_snap_name, 2)
+	# Note that a _snap_name of "0" is accepted
+	if (is_null(_snap_name))
 		_snap_name = Summary["startTime"]
-	if (_snap_name !~ "^@")
-		_snap_name = "@" _snap_name
+	if (Opt["SNAP_PREFIX"] && !sub(/^zelta/, Opt["SNAP_PREFIX"], _snap_name))
+		_snap_name = Opt["SNAP_PREFIX"] _snap_name
+	_snap_name = "@" _snap_name
 	return _snap_name
 }
 

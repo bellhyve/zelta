@@ -25,5 +25,14 @@ unset SANDBOX_ZELTA_TGT_REMOTE
 # standardize zelta sandbox install location
 export SANDBOX_ZELTA_TMP_SUFFIX=$LOGNAME
 
-# to enable test/spec/1000_test_gen/010_testgen_cleanup_spec.sh
-export TESTGEN_ZELTA_DESTRUCTIVE=1
+# _____________________________________________________________________________
+# NOTE: to enable test/spec/1000_test_gen/010_testgen_cleanup_spec.sh
+# convenient for test generation debugging to force unguarded cleanup
+# =============================================================================
+# export TESTGEN_ZELTA_DESTRUCTIVE=1
+
+# _____________________________________________________________________________
+# NOTE: fast execution can cause snapshot naming conflicts when running locally
+#       use nanoseconds in snapshot names to avoid timing conflicts
+# =============================================================================
+# export ZELTA_SNAP_NAME='$(date -u +zelta_%Y-%m-%d_%H.%M.%S.%4N)'

@@ -149,7 +149,7 @@ class SpecWriter
     it_desc = Placeholders.substitute(it_desc, test_def, inclusions: [:when_command])
     file.puts "#{indent}  It \"#{it_desc.gsub('"', '\\"')}\"#{ tag ? " #{tag}" : ''}"
 
-    file.puts "#{indent}    When call #{when_command}"
+    file.puts "#{indent}    When #{when_command}"
     if capture_output_only
       file.puts capture_output_clause(@paths.shellspec_name, test_name,indent)
     else
@@ -165,7 +165,8 @@ class SpecWriter
 
       stdout_filename = @paths.testdef_stdout_path(test_def.test_name)
       func_name = matcher_func_name(test_def.test_name)
-      file.puts CaseStmtFuncGenerator.matcher_function_from_file(stdout_filename, func_name)
+      # TODO pass in clean_output
+      file.puts CaseStmtFuncGenerator.matcher_function_from_file(stdout_filename, func_name, test_def.remove_timestamps)
     end
   end
 

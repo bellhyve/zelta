@@ -13,8 +13,8 @@ example_list:
         it_desc: generate zelta policy - %{when_command}
         allow_no_output: true
         # generate zelta policy config file from env variables
-        when_command: ./test/runners/test_generation/bin/generate_zelta_policy_config.sh
+        when_command: run ./test/runners/test_generation/bin/generate_zelta_policy_config.sh
 
       - test_name: policy_check
         it_desc: test zelta policy - %{when_command}
-        when_command: zelta policy -C ./test/runners/test_generation/config/zelta_test_policy.conf
+        when_command: run zelta policy -C ./test/runners/test_generation/config/zelta_test_policy.conf

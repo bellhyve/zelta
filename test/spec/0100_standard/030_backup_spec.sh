@@ -6,6 +6,8 @@ Describe 'Backup tests' standard:30
         # In json mode, all unsuppressed notices will be stderr
         The error should include 'would snapshot'
         The error should include 'zfs snapshot'
+        The error should include 'zfs send'
+        The error should include 'zfs recv'
         The error should include 'diverged'
         The error should not include 'snapshotting'
         The error should not include 'error:'
@@ -18,5 +20,10 @@ Describe 'Backup tests' standard:30
         When call backup_check_json
         The status should be success
         The output should include 'zelta backup'
+    End
+    It 'sanitizes json carriage returns'
+        Skip if 'jq required' test -z "$(command -v jq)"
+        When call backup_check_json_cr_sanitized
+        The status should be success
     End
 End

@@ -122,6 +122,11 @@ cleanup_temp_install() {
 	return 1
 }
 
+tmpfile_remove() {
+    rm "${SANDBOX_ZELTA_TMP_DIR}/${1}_${SANDBOX_ZELTA_TMP_SUFFIX}"
+}
+
+
 tmpfile_touch() {
     touch "${SANDBOX_ZELTA_TMP_DIR}/${1}_${SANDBOX_ZELTA_TMP_SUFFIX}"
 }
@@ -142,6 +147,23 @@ backup_no_op_check() {
 
 backup_check_json() {
     backup_no_op_check 2>/dev/null | jq -re .output_version.command
+}
+
+backup_check_json_cr_sanitized() {
+	_repo_root="${REPO_ROOT:-$SHELLSPEC_PROJECT_ROOT}"
+	if [ -d "$SANDBOX_ZELTA_TMP_DIR" ]; then
+		_tmp="$SANDBOX_ZELTA_TMP_DIR/zelta_json_cr_$$"
+	else
+		_tmp="${TMPDIR:-/tmp}/zelta_json_cr_$$"
+	fi
+	env ZELTA_SHARE="$_repo_root/share/zelta" "$_repo_root/bin/zelta" backup --dryrun --json "$(printf 'local\rhost'):pool/source" pool/target >"$_tmp" 2>/dev/null
+	_lines=$(wc -l <"$_tmp" | tr -d ' ')
+	jq -re '.sourceHost == "localhost" and .sourceEndpoint == "localhost:pool/source" and (.errorMessages[0] | contains("localhost:pool/source")) and ([.. | select(. == null)] | length == 0)' "$_tmp" >/dev/null || {
+		rm -f "$_tmp"
+		return 1
+	}
+	rm -f "$_tmp"
+	[ "$_lines" -eq 1 ]
 }
 
 # Check if source pool is a prefix of source dataset
@@ -198,7 +220,7 @@ nuke_pool() {
 	return 0
 }
 
-make_pool() {
+make_new_pool() {
 	_pool_name="$1"
 	_exec_func="$2"
 	_pool_file=/tmp/$_pool_name.img
@@ -217,8 +239,8 @@ nuke_tgt_pool() {
 	return $?
 }
 
-make_src_pool() {
-	make_pool "$SANDBOX_ZELTA_SRC_POOL" src_exec || return 1
+make_new_src_pool() {
+    make_new_pool "$SANDBOX_ZELTA_SRC_POOL" src_exec || return 1
 	tmpfile_touch "src_pool_created"
 
 	# Grant ZFS permissions for source pool
@@ -233,8 +255,8 @@ make_src_pool() {
 	return $?
 }
 
-make_tgt_pool() {
-	make_pool "$SANDBOX_ZELTA_TGT_POOL" tgt_exec || return 1
+make_new_tgt_pool() {
+    make_new_pool "$SANDBOX_ZELTA_TGT_POOL" tgt_exec || return 1
 	tmpfile_touch "tgt_pool_created"
 
 	# Grant ZFS permissions for target pool

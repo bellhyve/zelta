@@ -3,9 +3,9 @@
 !.shellspec
 !.github/
 test/runners/test_generation/config/zelta_test_policy.conf
+test/spec/helpers/golden
 *.swp
 *.swo
-doc/man?
 tmp
 hide.*
 *~

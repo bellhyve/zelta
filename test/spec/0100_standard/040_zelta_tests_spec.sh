@@ -1,5 +1,5 @@
 # Auto-generated ShellSpec test file
-# Generated at: 2026-06-12 03:55:53 -0400
+# Generated at: 2026-06-29 04:11:31 -0400
 # Source: 040_zelta_tests_spec
 # WARNING: This file was automatically generated. Manual edits may be lost.
 
@@ -43,7 +43,6 @@ output_for_rotate_after_divergence() {
         "source is written; snapshotting: @zelta_"*""|\
         "renaming '${SANDBOX_ZELTA_TGT_DS}' to '${SANDBOX_ZELTA_TGT_DS}_start'"|\
         "to ensure target is up-to-date, run: zelta backup ${SANDBOX_ZELTA_SRC_EP} ${SANDBOX_ZELTA_TGT_EP}"|\
-        "no source: ${SANDBOX_ZELTA_TGT_DS}/sub1/kid"|\
         ""*" sent, 10 streams received in "*" seconds")
         ;;
       *)
@@ -110,27 +109,27 @@ Describe 'Run zelta commands on divergent tree' standard:40
   Skip if 'SANDBOX_ZELTA_SRC_DS undefined' test -z "$SANDBOX_ZELTA_SRC_DS"
   Skip if 'SANDBOX_ZELTA_TGT_DS undefined' test -z "$SANDBOX_ZELTA_TGT_DS"
 
-  It "show divergence - zelta match \"$SANDBOX_ZELTA_SRC_EP\" \"$SANDBOX_ZELTA_TGT_EP\""
-    When call zelta match "$SANDBOX_ZELTA_SRC_EP" "$SANDBOX_ZELTA_TGT_EP"
+  It "show divergence - run zelta match \"$SANDBOX_ZELTA_SRC_EP\" \"$SANDBOX_ZELTA_TGT_EP\""
+    When run zelta match "$SANDBOX_ZELTA_SRC_EP" "$SANDBOX_ZELTA_TGT_EP"
     The output should satisfy output_for_match_after_divergence
     The status should be success
   End
 
-  It "rotates after divergence - zelta rotate \"$SANDBOX_ZELTA_SRC_EP\" \"$SANDBOX_ZELTA_TGT_EP\""
-    When call zelta rotate "$SANDBOX_ZELTA_SRC_EP" "$SANDBOX_ZELTA_TGT_EP"
+  It "rotates after divergence - run zelta rotate \"$SANDBOX_ZELTA_SRC_EP\" \"$SANDBOX_ZELTA_TGT_EP\""
+    When run zelta rotate "$SANDBOX_ZELTA_SRC_EP" "$SANDBOX_ZELTA_TGT_EP"
     The output should satisfy output_for_rotate_after_divergence
     The error should equal "warning: insufficient snapshots; performing full backup for 3 datasets"
     The status should be success
   End
 
-  It "match after rotate - zelta match \"$SANDBOX_ZELTA_SRC_EP\" \"$SANDBOX_ZELTA_TGT_EP\""
-    When call zelta match "$SANDBOX_ZELTA_SRC_EP" "$SANDBOX_ZELTA_TGT_EP"
+  It "match after rotate - run zelta match \"$SANDBOX_ZELTA_SRC_EP\" \"$SANDBOX_ZELTA_TGT_EP\""
+    When run zelta match "$SANDBOX_ZELTA_SRC_EP" "$SANDBOX_ZELTA_TGT_EP"
     The output should satisfy output_for_match_after_rotate
     The status should be success
   End
 
-  It "backup after rotate - zelta backup \"$SANDBOX_ZELTA_SRC_EP\" \"$SANDBOX_ZELTA_TGT_EP\""
-    When call zelta backup "$SANDBOX_ZELTA_SRC_EP" "$SANDBOX_ZELTA_TGT_EP"
+  It "backup after rotate - run zelta backup \"$SANDBOX_ZELTA_SRC_EP\" \"$SANDBOX_ZELTA_TGT_EP\""
+    When run zelta backup "$SANDBOX_ZELTA_SRC_EP" "$SANDBOX_ZELTA_TGT_EP"
     The output should satisfy output_for_backup_after_rotate
     The status should be success
   End

@@ -30,7 +30,9 @@ function usage(message) {
 	print "  -v, -vv                    Verbose/debug output"                   > STDERR
 	print "  -q, -qq                    Suppress warnings/errors"               > STDERR
 	print "  -j, --json                 JSON output"                            > STDERR
-	print "  -n, --dryrun               Show 'zelta backup' commands and exit"  > STDERR
+	print "  -n, --dryrun               Show source/target table and exit"      > STDERR
+	print "  -n -v, --dryrun --verbose  Show raw 'zelta backup' commands"       > STDERR
+	print "  -H                         Scripting mode: no header, space-delimited" > STDERR
 	print "  --snapshot                 Always snapshot"                        > STDERR
 	print "  --no-snapshot              Never snapshot\n"                       > STDERR
 	print "For complete documentation:  zelta help policy"                      > STDERR
@@ -46,7 +48,7 @@ function config_usage(line_num, message,		_line) {
 	usage(message " at " ConfigFile[line_num] ":" ConfigFileLine[line_num] ": " _line)
 }
 
-# Return the parent directory for resolving local include fragments.
+# Return the parent directory for resolving local import fragments.
 function file_dir(path,		_dir) {
 	_dir = path
 	if (_dir !~ /\//)
@@ -55,24 +57,24 @@ function file_dir(path,		_dir) {
 	return _dir ? _dir : "/"
 }
 
-# Resolve include paths relative to the file that references them.
-function resolve_include(path, base_file,		_dir) {
+# Resolve import paths relative to the file that references them.
+function resolve_import(path, base_file,		_dir) {
 	if (path ~ /^\//)
 		return path
 	_dir = file_dir(base_file)
 	return _dir "/" path
 }
 
-# Expand simple textual include fragments before parsing the policy stream.
+# Expand simple textual import fragments before parsing the policy stream.
 function load_config_lines(file, lines, files, file_lines, depth,		_arr, _base_indent, _child_file,
-						_include_file, _line, _line_num, _raw, _sub_files,
+						_import_file, _line, _line_num, _raw, _sub_files,
 						_sub_lines, _sub_line_nums, _sub_num, _i) {
 	if (depth > 8)
-		usage("include depth exceeded near " file)
-	if (IncludeStack[file])
-		usage("recursive include detected: " file)
+		usage("import depth exceeded near " file)
+	if (ImportStack[file])
+		usage("recursive import detected: " file)
 
-	IncludeStack[file] = 1
+	ImportStack[file] = 1
 	while ((getline _raw < file)>0) {
 		_line_num++
 		_line = _raw
@@ -80,12 +82,12 @@ function load_config_lines(file, lines, files, file_lines, depth,		_arr, _base_i
 			_line = _arr[1]
 		sub(/[ \t]+$/, "", _line)
 
-		if (_line ~ /^[ ]*include:[[:space:]]+[^[:space:]]+/) {
+		if (_line ~ /^[ ]*import:[[:space:]]+[^[:space:]]+/) {
 			_base_indent = _line
-			sub(/include:.*/, "", _base_indent)
-			_include_file = _line
-			sub(/^[ ]*include:[[:space:]]+/, "", _include_file)
-			_child_file = resolve_include(_include_file, file)
+			sub(/import:.*/, "", _base_indent)
+			_import_file = _line
+			sub(/^[ ]*import:[[:space:]]+/, "", _import_file)
+			_child_file = resolve_import(_import_file, file)
 
 			delete _sub_lines
 			delete _sub_files
@@ -103,7 +105,7 @@ function load_config_lines(file, lines, files, file_lines, depth,		_arr, _base_i
 		}
 	}
 	close(file)
-	delete IncludeStack[file]
+	delete ImportStack[file]
 	if (!_line_num)
 		usage("empty or unreadable policy file: " file)
 	return lines["count"]
@@ -125,6 +127,18 @@ function resolve_target(tgt, opt, job,		_n, _i, _segments) {
 	return tgt
 }
 
+# Derive the hostname from a policy source key, which may include an SSH user.
+function source_host(source_remote,		_host) {
+	_host = source_remote
+	sub(/^.*@/, "", _host)
+	return _host
+}
+
+# Build the source endpoint passed to zelta backup.
+function source_ep(job) {
+	return job["source_remote"]":"job["source"]
+}
+
 # Generate the backup command string for a given job and options
 function create_backup_command(job, opts,		_key, _cmd_prefix, _cmd_arr, _src, _tgt, _cmd) {
 	for (_key in opts) {
@@ -135,7 +149,7 @@ function create_backup_command(job, opts,		_key, _cmd_prefix, _cmd_arr, _src, _t
 			_cmd_prefix = str_add(_cmd_prefix, ENV_PREFIX _key "=" dq(opts[_key]))
 	}
 	# Construct command using command builder
-	_src = q(job["host"]":"job["source"])
+	_src = q(source_ep(job))
 	_tgt = q(job["target"])
 	_cmd_arr["command_prefix"] = _cmd_prefix
 	_cmd_arr["source"] = _src
@@ -257,7 +271,8 @@ function load_config(		_conf_error, _arr, _context, _job, _line_num,
 		} else if (/^  [^ ]+:$/) {
 			if (_context == "global") config_usage(_line_num, _conf_error)
 			_context = "host"
-			_job["host"] = $2
+			_job["source_remote"] = $2
+			_job["host"] = source_host($2)
 			arr_copy(_site_opt, _opt)
 		} else if ($2 == "options") {
 			_context = "options"
@@ -276,11 +291,16 @@ function load_config(		_conf_error, _arr, _context, _job, _line_num,
 			}
 
 			if (!should_backup(_job)) continue
-			_opt["LOG_PREFIX"] = "[" _job["site"] ": " _job["target"] "] " _job["host"] ":" _job["source"]": "
+			_opt["LOG_PREFIX"] = "[" _job["site"] ": " _job["target"] "] " source_ep(_job) ": "
 
 			NumJobs++
-			Job[NumJobs, "name"] = "[" _job["site"] ": " _job["target"] "] " _job["host"] ":" _job["source"]
-			Job[NumJobs, "command"]      = create_backup_command(_job, _opt)
+			Job[NumJobs, "name"]      = "[" _job["site"] ": " _job["target"] "] " source_ep(_job)
+			Job[NumJobs, "source_ep"] = source_ep(_job)
+			Job[NumJobs, "target_ep"] = _job["target"]
+			Job[NumJobs, "command"]   = create_backup_command(_job, _opt)
+			# Track longest source endpoint for column alignment
+			if (length(Job[NumJobs, "source_ep"]) > MaxSourceLen)
+				MaxSourceLen = length(Job[NumJobs, "source_ep"])
 		} else config_usage(_line_num, _conf_error)
 	}
 	if (!NumJobs) {
@@ -299,12 +319,13 @@ function should_xargs() {
 # Check if a job should be backed up based on operands/patterns
 function should_backup(job,		_host_ep, _leaf, _list, _match_arr, _i) {
 	if (!NumOperands) return 1
-	_host_ep = job["host"]":"job["source"]
+	_host_ep = source_ep(job)
 	_leaf = job["source"]
 	sub(/.*\//,"",_leaf)
 
 	# Assemble possible match criteria; str_add() discards blank criteria
 	_list = str_add(job["site"], job["host"], SUBSEP)
+	_list = str_add(_list, job["source_remote"], SUBSEP)
 	_list = str_add(_list, job["source"], SUBSEP)
 	_list = str_add(_list, job["target"], SUBSEP)
 	_list = str_add(_list, _host_ep, SUBSEP)
@@ -318,16 +339,42 @@ function should_backup(job,		_host_ep, _leaf, _list, _match_arr, _i) {
 	return 0
 }
 
+# Print a tabular source/target listing for --dryrun (default, non-verbose)
+function dryrun_table(		_j, _src, _tgt, _col, _line) {
+	# Ensure header label fits in the column even on tiny configs
+	_col = (MaxSourceLen > 6) ? MaxSourceLen : 6
+	if (!Opt["NO_HEADER"])
+		report(LOG_NOTICE, sprintf("%-*s  %s", _col, "SOURCE", "TARGET"))
+	for (_j = 1; _j <= NumJobs; _j++) {
+		_src = Job[_j, "source_ep"]
+		_tgt = Job[_j, "target_ep"]
+		if (Opt["NO_HEADER"])
+			_line = _src " " _tgt
+		else
+			_line = sprintf("%-*s  %s", _col, _src, _tgt)
+		report(LOG_NOTICE, _line)
+	}
+}
+
+# Print raw zelta backup commands for --dryrun --verbose, stripping policy-internal vars.
+# Policy sets ZELTA_LOG_PREFIX (which may contain spaces), LOG_MODE, LOG_LEVEL, and
+# LOG_COMMAND on each child command. These are meaningless when running zelta backup
+# standalone and clutter copy-pasteable output. Strip them via regex on the command string;
+# each var is double-quoted so we match ZELTA_KEY="..." including any spaces in the value.
+function dryrun_verbose(		_j, _cmd) {
+	for (_j = 1; _j <= NumJobs; _j++) {
+		_cmd = Job[_j, "command"]
+		gsub(/ZELTA_LOG_PREFIX="[^"]*" /,  "", _cmd)
+		gsub(/ZELTA_LOG_MODE="[^"]*" /,    "", _cmd)
+		gsub(/ZELTA_LOG_LEVEL="[^"]*" /,   "", _cmd)
+		gsub(/ZELTA_LOG_COMMAND="[^"]*" /, "", _cmd)
+		report(LOG_NOTICE, "+ " _cmd)
+	}
+}
+
 # Execute a single backup job and return success/failure
 function zelta_backup(job_num,		_cmd, _return_code) {
-	# Removed explicit output modes: LIST, ACTIVE, DEFAULT, VERBOSE
-	# LIST is undocumented
-	# ACTIVE creates a simplified indented print style
 	_cmd = Job[job_num, "command"]
-	if (Opt["DRYRUN"]) {
-		report(LOG_NOTICE, "+ " _cmd)
-		return 0
-	}
 	_return_code = system(_cmd)
 	close(_cmd)
 	# TO-DO: Use error codes to deduce if it seems to be retryable or not.
@@ -376,6 +423,15 @@ BEGIN {
 	load_option_list()
 	get_global_overrides()
 	load_config()
+	if (Opt["DRYRUN"]) {
+		# --dryrun --verbose: raw commands with policy-internal vars stripped
+		if (Opt["LOG_LEVEL"] >= LOG_INFO)
+			dryrun_verbose()
+		# --dryrun (default): clean source/target table
+		else
+			dryrun_table()
+		stop(0)
+	}
 	if (should_xargs()) xargs()
 	else backup_loop()
 	stop(0)

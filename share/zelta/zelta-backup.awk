@@ -52,7 +52,10 @@ function usage(message,		_ep_spec, _verb, _clone, _revert) {
 	_clone    = (_verb == "clone")
 	if (message) print message                                         > STDERR
 	printf "usage: " _verb " [OPTIONS] "                               > STDERR
-	print _revert ? "ENDPOINT" : "SOURCE TARGET"                       > STDERR
+	if (_clone)
+		print "SOURCE TARGET [ORIGIN TARGET_BACKUP]"                  > STDERR
+	else
+		print _revert ? "ENDPOINT" : "SOURCE TARGET"                 > STDERR
 	print "\nRequired Arguments:"                                      > STDERR
 	if (_revert)
 		print "  ENDPOINT  " _ep_spec                                  > STDERR
@@ -63,6 +66,7 @@ function usage(message,		_ep_spec, _verb, _clone, _revert) {
 	if (_clone) {
 		printf "Clone endpoints require the same 'user', "             > STDERR
 		print "'host', and 'pool'."                                    > STDERR
+		print "Four-endpoint clone also backs up the new clone."       > STDERR
 	}
 	print "\nCommon Options:"                                          > STDERR
         print "  -v, -vv                    Verbose/debug output"      > STDERR
@@ -71,12 +75,15 @@ function usage(message,		_ep_spec, _verb, _clone, _revert) {
 	if (!_revert) {
 		print "  --snapshot                 Always create snapshot"    > STDERR
 		print "  --snap-name NAME           Set snapshot name"         > STDERR
+		print "  --snap-prefix PREFIX       Prefix default snapshot names" > STDERR
 	}
 	if (!_clone) {
 		print "\nAdvanced Options:"                                    > STDERR
 		if (_verb == "backup")
 			print "  -i, --incremental          Incremental sync"      > STDERR
 		print "  -d, --depth NUM            Set max dataset depth"     > STDERR
+		if (_verb == "backup")
+			print "  --target-origin ENDPOINT   Back up an existing clone" > STDERR
 	}
 
 	print "\nFor complete documentation:  zelta help " _verb           > STDERR
@@ -113,7 +120,7 @@ function update_latest_snapshot(endpoint, ds_suffix, snap_name,		_idx, _src_late
 		if (snap_name == _src_latest) {
 			Dataset["SRC", ds_suffix, "next_snapshot"] = ""
 			DSTree["syncable"]--
-			Action[ds_suffix, "block_reason"] = "up-to-date"
+			Action[ds_suffix, "status_info"] = "up-to-date"
 			Action[ds_suffix, "can_sync"] = 0
 		}
 		# If the snapshot transferred isn't the latest, this is a 2-pass intermediate sync
@@ -217,11 +224,22 @@ function parse_zelta_match_row(		_ds_suffix, _src_idx, _tgt_idx) {
 }
 
 # Run 'zfs match' and pass to parser
+function ipc_endpoint_env(	_env) {
+	_env = "ZELTA_SRC_ID=" q(Opt["SRC_ID"])
+	_env = str_add(_env, "ZELTA_SRC_DS=" q(Opt["SRC_DS"]))
+	_env = str_add(_env, "ZELTA_SRC_REMOTE=" q(Opt["SRC_REMOTE"]))
+	_env = str_add(_env, "ZELTA_TGT_ID=" q(Opt["TGT_ID"]))
+	_env = str_add(_env, "ZELTA_TGT_DS=" q(Opt["TGT_DS"]))
+	_env = str_add(_env, "ZELTA_TGT_REMOTE=" q(Opt["TGT_REMOTE"]))
+	return _env
+}
+
 function load_snapshot_deltas(_cmd_arr, _cmd, _cmd_id) {
 	FS = "\t"
 	_cmd_id = (DSTree["target_exists"] && DSTree["source_encrypted"]) ? "MATCH_IVSET" : "MATCH"
+	_cmd_arr["command_prefix"] = ipc_endpoint_env()
 	if (!DSTree["target_exists"])
-		_cmd_arr["command_prefix"]	= "ZELTA_TGT_ID=''"
+		_cmd_arr["command_prefix"]	= str_add(_cmd_arr["command_prefix"], "ZELTA_TGT_ID=''")
 	if (Opt["DRYRUN"])
 		_cmd_arr["command_prefix"]	= str_add(_cmd_arr["command_prefix"], "ZELTA_DRYRUN=''")
 	# Depth is already in the environment
@@ -264,18 +282,20 @@ function compute_send_range(ds_suffix,		_ds_suffix, _src_idx, _final_ds_snap) {
 	DSPair[_ds_suffix, "source_end"]	= _final_ds_snap
 }
 
-# Report block reasons for datasets that couldn't be synced
+# Report status notes for datasets that couldn't be synced
 function explain_sync_status(ds_suffix,		_tgt_ds) {
 	_tgt_ds = Opt["TGT_DS"] ds_suffix
-	# Only report if there's a block reason to explain
-	if (Action[ds_suffix, "block_reason"])
-		report(LOG_NOTICE, Action[ds_suffix, "block_reason"]": " _tgt_ds)
+	if (Action[ds_suffix, "status_notice"])
+		report(LOG_NOTICE, Action[ds_suffix, "status_notice"]": " _tgt_ds)
+	if (Action[ds_suffix, "status_info"])
+		report(LOG_INFO, Action[ds_suffix, "status_info"]": " _tgt_ds)
 }
 
 # Ensure source snapshots are available and load snapshot relationship data
 function validate_snapshots(		_i, _ds_suffix, _src_idx, _match, _src_exists, _src_latest) {
 	create_source_snapshot()
 	load_snapshot_deltas()
+	apply_predicted_source_snapshot()
 	for (_i in DSList) {
 		_ds_suffix	= DSList[_i]
 		_src_idx	= "SRC" SUBSEP _ds_suffix
@@ -290,6 +310,7 @@ function validate_snapshots(		_i, _ds_suffix, _src_idx, _match, _src_exists, _sr
 		}
 	}
 	create_source_snapshot()
+	apply_predicted_source_snapshot()
 	for (_i in DSList) {
 		_src_idx = "SRC" SUBSEP DSList[_i]
 		if (Dataset[_src_idx, "latest_snapshot"])
@@ -329,7 +350,7 @@ function compute_eligibility(           _i, _ds_suffix, _src_idx, _tgt_idx,
 
 		# No source
 		if (!_src_exists) {
-			Action[_ds_suffix, "block_reason"] = "no source"
+			Action[_ds_suffix, "status_info"] = "no source"
 			DSTree["no_source_count"]++
 			continue
 		}
@@ -337,7 +358,7 @@ function compute_eligibility(           _i, _ds_suffix, _src_idx, _tgt_idx,
 
 		# No source snapshot
 		if (!_src_latest) {
-			Action[_ds_suffix, "block_reason"] = "no source snapshot"
+			Action[_ds_suffix, "status_notice"] = "no source snapshot"
 			DSTree["needs_snapshot"]++
 			continue
 		}
@@ -361,12 +382,12 @@ function compute_eligibility(           _i, _ds_suffix, _src_idx, _tgt_idx,
 		}
 
 		if (!_tgt_latest) {
-			Action[_ds_suffix, "block_reason"] = "no snapshot; target diverged"
+			Action[_ds_suffix, "status_notice"] = "no snapshot; target diverged"
 			continue
 		}
 
 		if (!_has_match) {
-			Action[_ds_suffix, "block_reason"] = "no common snapshot (diverged)"
+			Action[_ds_suffix, "status_notice"] = "no common snapshot (diverged)"
 			if (Dataset[_src_idx, "origin"]) {
 				Action[_ds_suffix, "check_source_origin"] = 1
 				DSTree["snapshots_diverged"]++
@@ -380,18 +401,18 @@ function compute_eligibility(           _i, _ds_suffix, _src_idx, _tgt_idx,
 		if (_match == _src_latest) {
 			# Target has local changes
 			if (Dataset[_tgt_idx, "written"]) {
-				Action[_ds_suffix, "block_reason"] = "target has local writes"
+				Action[_ds_suffix, "status_notice"] = "target has local writes"
 				continue
 			}
 			# TO-DO: Improve verbose output
-			#Action[_ds_suffix, "block_reason"] = "up-to-date"
+			#Action[_ds_suffix, "status_info"] = "up-to-date"
 			DSTree["up_to_date"]++
 			continue
 		}
 
 		# Target is ahead or has diverged otherwise
 		if (_match != _tgt_latest) {
-			Action[_ds_suffix, "block_reason"] = "target has diverged"
+			Action[_ds_suffix, "status_notice"] = "target has diverged"
 			Action[_ds_suffix, "can_rotate"] = 1
 			DSTree["rotatable"]++
 			continue
@@ -436,7 +457,7 @@ function snapshot_thresholds_allow_skip(	_time, _size, _cutoff, _time_suffix) {
 # Decide whether or not to take a snapshot; if so, returns a reason
 function should_snapshot(		_snapshotting) {
 	# Only attempt a snapshot once
-        if (DSTree["snapshot_attempted"]) return
+	if (DSTree["snapshot_attempted"]) return
 	if (Opt["DRYRUN"])
 		_snapshotting = "would snapshot: "
 	else
@@ -458,6 +479,15 @@ function should_snapshot(		_snapshotting) {
 	else return 0
 }
 
+# Let dry-run planning predict send/receive work caused by a successful snapshot.
+function apply_predicted_source_snapshot(		_i) {
+	if (!Opt["DRYRUN"] || !DSTree["predicted_snapshot"] || DSTree["predicted_snapshot_applied"])
+		return
+	for (_i = 1; _i <= NumDS; _i++)
+		update_latest_snapshot("SRC", DSList[_i], DSTree["predicted_snapshot"])
+	DSTree["predicted_snapshot_applied"] = 1
+}
+
 # This function replaces the original 'zelta snapshot' command
 function create_source_snapshot(force_snap,	_snap_name, _ds_snap, _cmd_arr, _cmd, _snap_failed, _should_snap, _i) {
 	_should_snap = force_snap ? force_snap : should_snapshot()
@@ -475,6 +505,7 @@ function create_source_snapshot(force_snap,	_snap_name, _ds_snap, _cmd_arr, _cmd
 	_cmd = build_command("SNAP", _cmd_arr)
 
 	if (Opt["DRYRUN"]) {
+		DSTree["predicted_snapshot"] = _snap_name
 		report(LOG_NOTICE, "+ "_cmd)
 		return 1
 	}
@@ -619,6 +650,15 @@ function validate_target_dataset() {
 	validate_target_parent_dataset()
 }
 
+function load_opt_endpoint(prefix, ep_arr) {
+	Opt[prefix "ID"]		= ep_arr["ID"]
+	Opt[prefix "REMOTE"]	= ep_arr["REMOTE"]
+	Opt[prefix "USER"]		= ep_arr["USER"]
+	Opt[prefix "HOST"]		= ep_arr["HOST"]
+	Opt[prefix "DS"]		= ep_arr["DS"]
+	Opt[prefix "SNAP"]		= ep_arr["SNAP"]
+}
+
 function validate_datasets(	_verb, _src_only, _cloners, _pv_fd) {
 	_verb			= Opt["VERB"]
 	_cloners["rotate"]	= 1
@@ -626,13 +666,19 @@ function validate_datasets(	_verb, _src_only, _cloners, _pv_fd) {
 	_src_only["revert"]	= 1
 	load_endpoint(Operands[1], Source)
 	load_endpoint(Operands[2], Target)
+	if ((_verb == "clone") && (NumOperands == 4)) {
+		load_endpoint(Operands[3], CloneOriginTarget)
+		load_endpoint(Operands[4], CloneBackupTarget)
+	}
+	if (Opt["ORIGIN_ID"])
+		load_endpoint(Opt["ORIGIN_ID"], Origin)
 
 	# Check command line
 	if (Opt["USAGE"])
 		usage()
 	else if (!NumOperands)
 		usage("no endpoints given")
-	else if (NumOperands > 2)
+	else if ((NumOperands > 2) && !((_verb == "clone") && (NumOperands == 4)))
 		usage("too many operands: " Operands[3])
 	else if (NumOperands == 1 && !(_verb in _src_only)) {
                 if (_verb in _cloners)
@@ -659,9 +705,132 @@ function validate_datasets(	_verb, _src_only, _cloners, _pv_fd) {
 	}
 }
 
+function reset_runtime_state(	_src_ds_tree, _tgt_ds_tree) {
+	delete Dataset
+	delete DSPair
+	delete DSTree
+	delete Action
+	delete DSList
+	NumDS = 0
+	DSTree["final_snapshot"]  = Opt["SRC_SNAP"]
+	DSTree["target_exists"]   = 0
+	DSTree["sync_passes"]     = 0
+	split(Opt["SRC_DS"], _src_ds_tree, "/")
+	split(Opt["TGT_DS"], _tgt_ds_tree, "/")
+	DSTree["source_pool"]     = _src_ds_tree[1]
+	DSTree["target_pool"]     = _tgt_ds_tree[1]
+	if (Opt["SNAP_MODE"] == "ALWAYS")
+		DSTree["snapshot_needed"] = SNAP_ALWAYS
+}
+
 
 ## Assemble `zfs send` command
 ##############################
+
+function send_check_active() {
+	return Opt["SEND_CHECK"] && !Opt["SEND_OVERRIDE"]
+}
+
+function send_option_error(line) {
+	return line ~ /(invalid|illegal|unknown|unrecognized) option|usage: zfs send/
+}
+
+function send_option_error_matches_feature(line, feature,	_opt) {
+	_opt = line
+	if (_opt ~ /(invalid|illegal|unknown|unrecognized) option '[^']*'/) {
+		sub(/^.*(invalid|illegal|unknown|unrecognized) option '/, "", _opt)
+		sub(/'.*$/, "", _opt)
+		return !_opt || _opt == feature || _opt == substr(feature, 2, 1)
+	}
+	_opt = line
+	if (_opt ~ /(invalid|illegal|unknown|unrecognized) option -- ./) {
+		sub(/^.* option -- /, "", _opt)
+		_opt = substr(_opt, 1, 1)
+		return _opt == substr(feature, 2, 1)
+	}
+	return 1
+}
+
+function send_check_feature_longopt(feature, opt) {
+	if (feature == "-e")	return opt == "--embed" || opt == "--embedded-data"
+	if (feature == "-c")	return opt == "--compressed"
+	if (feature == "-L")	return opt == "--largeblock" || opt == "--large-block"
+	return 0
+}
+
+function send_flags_have_feature(flags, feature, 	_i, _n, _parts, _token, _short) {
+	if (is_null(flags)) return 0
+	_short = substr(feature, 2, 1)
+	_n = split(flags, _parts, " ")
+	for (_i = 1; _i <= _n; _i++) {
+		_token = _parts[_i]
+		if (_token == feature || send_check_feature_longopt(feature, _token))
+			return 1
+		if (_token ~ /^-[^-]/ && index(substr(_token, 2), _short))
+			return 1
+	}
+	return 0
+}
+
+function remove_send_feature_from_short_token(token, feature, 	_i, _short, _out, _char) {
+	if (token !~ /^-[^-]/) return token
+	_short = substr(feature, 2, 1)
+	_out = "-"
+	for (_i = 2; _i <= length(token); _i++) {
+		_char = substr(token, _i, 1)
+		if (_char != _short)
+			_out = _out _char
+	}
+	return (_out == "-") ? "" : _out
+}
+
+function remove_send_feature(flags, feature, 	_i, _n, _parts, _token, _out) {
+	if (is_null(flags)) return flags
+	_n = split(flags, _parts, " ")
+	for (_i = 1; _i <= _n; _i++) {
+		_token = _parts[_i]
+		if (_token == feature || send_check_feature_longopt(feature, _token))
+			continue
+		_token = remove_send_feature_from_short_token(_token, feature)
+		_out = str_add(_out, _token)
+	}
+	return _out
+}
+
+function apply_send_check_flags(flags) {
+	if (!send_check_active()) return flags
+	if (SendCheckDisabled["-e"])	flags = remove_send_feature(flags, "-e")
+	if (SendCheckDisabled["-c"])	flags = remove_send_feature(flags, "-c")
+	if (SendCheckDisabled["-L"])	flags = remove_send_feature(flags, "-L")
+	return flags
+}
+
+function send_check_normalize_flags(ds_suffix, idx, flags) {
+	if (!send_check_active()) return flags
+	if (Opt["VERB"] == "replicate") return flags
+	if (Action[ds_suffix, "send_decrypted"]) return flags
+	if (Dataset[idx, "encryption"]) return flags
+	if (flags == "--raw") return "-L -c -e"
+	return flags
+}
+
+function drop_next_send_feature(ds_suffix, error_msg,	_idx, _flags, _i, _feature, _order) {
+	if (!send_check_active()) return 0
+	if (!send_option_error(error_msg)) return 0
+	_idx = "SRC" SUBSEP ds_suffix
+	_flags = get_send_command_flags(ds_suffix, _idx)
+	split("-e -c -L", _order, " ")
+	for (_i = 1; _i <= 3; _i++) {
+		_feature = _order[_i]
+		if (SendCheckDisabled[_feature]) continue
+		if (!send_option_error_matches_feature(error_msg, _feature)) continue
+		if (!send_flags_have_feature(_flags, _feature)) continue
+		SendCheckDisabled[_feature] = 1
+		report(LOG_WARNING, "send-check dropping unsupported zfs send option: " _feature)
+		return 1
+	}
+	return 0
+}
 
 # Detect and configure send flags
 function get_send_command_flags(ds_suffix, idx,		_f, _idx, _flags, _flag_list) {
@@ -679,9 +848,11 @@ function get_send_command_flags(ds_suffix, idx,		_f, _idx, _flags, _flag_list) {
 		_flag_list[++_f]	= Opt["SEND_DECRYPTED"]
 	}
 	else if (Dataset[idx,"encryption"])
-      	     _flag_list[++_f]		= Opt["SEND_RAW"]
+		_flag_list[++_f]		= Opt["SEND_RAW"]
 	else _flag_list[++_f]		= Opt["SEND_DEFAULT"]
 	_flags = arr_join(_flag_list)
+	_flags = send_check_normalize_flags(ds_suffix, idx, _flags)
+	_flags = apply_send_check_flags(_flags)
 	return _flags
 }
 
@@ -696,7 +867,7 @@ function get_send_command_incr_snap(ds_suffix, idx, remote_ep,	 _flag, _ds_snap,
 		_ds_snap = Opt["SRC_DS"] ds_suffix DSPair[ds_suffix, "source_start"]
 	else
 		return
-	_flag		= Opt["SEND_INTR"] ? "-I" : "-i"
+	_flag		= (Opt["SEND_INTR"] && !Action[ds_suffix, "force_incremental"]) ? "-I" : "-i"
 	_ds_snap	= remote_ep ? qq(_ds_snap) : q(_ds_snap)
 	_intr_snap	= str_add(_flag, _ds_snap)
 	return _intr_snap
@@ -719,6 +890,41 @@ function create_send_command(ds_suffix, idx, remote_ep, 		_cmd_arr, _cmd, _ds_sn
 	_cmd_arr["ds_snap"]	= get_send_command_dataset(ds_suffix, remote_ep)
 	_cmd			= build_command("SEND", _cmd_arr)
 	return _cmd
+}
+
+function create_send_check_command(ds_suffix, idx, remote_ep, 		_cmd_arr, _cmd) {
+	if (!Opt[remote_ep "_REMOTE"]) remote_ep = ""
+	_cmd_arr["endpoint"]	= remote_ep
+	_cmd_arr["flags"]	= get_send_command_flags(ds_suffix, idx)
+	_cmd_arr["intr_snap"]	= get_send_command_incr_snap(ds_suffix, idx, remote_ep)
+	_cmd_arr["ds_snap"]	= get_send_command_dataset(ds_suffix, remote_ep)
+	_cmd			= build_command("SEND_CHECK", _cmd_arr)
+	return _cmd
+}
+
+function run_send_check(		_ds_suffix, _idx, _remote_ep, _cmd, _line, _error_msg, _retry) {
+	if (!send_check_active()) return
+	if (Opt["DRYRUN"]) return
+	_ds_suffix = ""
+	if (!Action[_ds_suffix, "can_sync"]) return
+	_idx = "SRC" SUBSEP _ds_suffix
+	_remote_ep = Opt["SRC_REMOTE"] ? "SRC" : ""
+	do {
+		_retry = 0
+		_cmd = create_send_check_command(_ds_suffix, _idx, _remote_ep)
+		report(LOG_DEBUG, "`"_cmd"`")
+		_cmd = _cmd CAPTURE_OUTPUT
+		while (_cmd | getline _line) {
+			if (send_option_error(_line))
+				_error_msg = _line
+			else if (_line ~ COMMAND_ERROR)
+				report(LOG_WARNING, _line)
+		}
+		close(_cmd)
+		if (_error_msg && drop_next_send_feature(_ds_suffix, _error_msg))
+			_retry = 1
+		_error_msg = ""
+	} while (_retry)
 }
 
 
@@ -775,8 +981,13 @@ function create_recv_command(ds_suffix, src_idx, remote_ep,		 _cmd_arr, _cmd, _t
 ###############################
 
 # Runs a sync, collecting "zfs send" output
+function sync_error_message(line, ds_suffix) {
+	return line (line ~ /:$/ ? " " : ": ") Opt["TGT_DS"] ds_suffix
+}
+
 function run_zfs_sync(ds_suffix,		_cmd, _stream_info, _message, _ds_snap,
-		      				_size, _time, _streams, _sync_msg, _error_msg) {
+						_size, _time, _streams, _sync_msg, _error_msg,
+						_cmd_status, _sync_error) {
 	# TO-DO: Make 'rotate' logic more explicit
 	# TO-DO: Dryrun mode probably goes here
 	if (Opt["VERB"] == "rotate" && !Action[ds_suffix, "can_rotate"]) return
@@ -785,6 +996,7 @@ function run_zfs_sync(ds_suffix,		_cmd, _stream_info, _message, _ds_snap,
 	IGNORE_RESUME_OUTPUT = "^nvlist version|^\t(fromguid|object|offset|bytes|toguid|toname|embedok|compressok)"
 	WARN_ZFS_RECV_PROPS = "cannot receive .* property"
 	FAIL_ZFS_SEND_RECV_OUTPUT = "^(cannot receive .* stream|cannot send|missing.*argument)"
+	FAIL_ZFS_OPTION_OUTPUT = "^(invalid|illegal|unknown|unrecognized) option|^usage:"
 	_message            = Source["DS"] ds_suffix
 	if (DSPair[ds_suffix, "source_start"])
 		_message        = _message DSPair[ds_suffix, "source_start"] "%" substr(DSPair[ds_suffix, "source_end"], 2)
@@ -800,6 +1012,7 @@ function run_zfs_sync(ds_suffix,		_cmd, _stream_info, _message, _ds_snap,
 	_cmd = get_sync_command(ds_suffix)
 	if (Opt["DRYRUN"]) {
 		report(LOG_NOTICE, "+ "_cmd)
+		track_bookmark_snapshot(ds_suffix)
 		return 1
 	}
 
@@ -832,10 +1045,22 @@ function run_zfs_sync(ds_suffix,		_cmd, _stream_info, _message, _ds_snap,
 			report(LOG_INFO, "to abort a failed resume, run: 'zfs receive -A " Opt["SRC_DS"] ds_suffix"'")
 		}
 		else if ($0 ~ FAIL_ZFS_SEND_RECV_OUTPUT) {
-			_error_msg = $0 ": " Opt["TGT_DS"] ds_suffix
+			_error_msg = sync_error_message($0, ds_suffix)
 			report(LOG_ERROR, _error_msg)
+			_sync_error = 1
 			Summary["replicationErrorCode"] = 2
-			break
+		}
+		else if (send_check_active() && send_option_error($0)) {
+			_error_msg = sync_error_message($0, ds_suffix)
+			report(LOG_ERROR, _error_msg)
+			_sync_error = 1
+			Summary["replicationErrorCode"] = 2
+		}
+		else if ($0 ~ FAIL_ZFS_OPTION_OUTPUT) {
+			_error_msg = sync_error_message($0, ds_suffix)
+			report(LOG_ERROR, _error_msg)
+			_sync_error = 1
+			Summary["replicationErrorCode"] = 2
 		}
 		else if ($0 ~ WARN_ZFS_RECV_PROPS) {
 			report(LOG_DEBUG, $0 ": " Opt["TGT_DS"] ds_suffix)
@@ -849,22 +1074,143 @@ function run_zfs_sync(ds_suffix,		_cmd, _stream_info, _message, _ds_snap,
 		else if ($0 ~ IGNORE_RESUME_OUTPUT) {}
 		else if (log_common_command_feedback() == LOG_ERROR) {
 			_error_msg = $0
+			_sync_error = 1
 			Summary["replicationErrorCode"] = 2
-			break
 		}
 	}
-	close(_cmd)
+	_cmd_status = close(_cmd)
+	if (!_streams && !_sync_error && _cmd_status) {
+		_error_msg = "sync command failed before receiving stream: " _ds_snap " -> " Opt["TGT_DS"] ds_suffix
+		report(LOG_ERROR, _error_msg)
+		_sync_error = 1
+		Summary["replicationErrorCode"] = 2
+	}
 	if (_streams) {
 		# At least one stream has been received, but was it fully successful?
 		_message = h_num(_size) " " _sync_msg " received in " _time " seconds"
 		if (_streams > 1) _message = str_add(_message, "("_streams" streams)")
 		report(LOG_INFO, _message)
 		update_latest_snapshot("TGT", ds_suffix, DSPair[ds_suffix, "source_end"])
+		track_bookmark_snapshot(ds_suffix)
 	} else {
-		Action[ds_suffix, "blocked_reason"] = "sync attempted with errors"
+		if (_sync_error && drop_next_send_feature(ds_suffix, _error_msg)) {
+			Summary["replicationErrorCode"] = 0
+			Summary["replicationStreamsSent"]--
+			NumStreamsSent--
+			run_zfs_sync(ds_suffix)
+			return
+		}
+		if (!_sync_error) {
+			_error_msg = "sync failed before receiving stream: " _ds_snap " -> " Opt["TGT_DS"] ds_suffix
+			report(LOG_ERROR, _error_msg)
+			Summary["replicationErrorCode"] = 2
+		}
+		Action[ds_suffix, "status_notice"] = "sync attempted with errors"
 		DSTree["syncable"]--
 		Action[ds_suffix, "can_sync"] = 0
 	}
+}
+
+function track_bookmark_snapshot(ds_suffix,		_snap) {
+	if (!Opt["BOOKMARK_MODE"]) return
+	_snap = DSPair[ds_suffix, "source_end"]
+	if (!_snap) return
+	if (!Bookmark[ds_suffix, "tracked"]++)
+		NumBookmarkDS++
+	Bookmark[ds_suffix, "snap"] = _snap
+	Bookmark[ds_suffix, "target_snap"] = Opt["TGT_DS"] ds_suffix _snap
+	Bookmark[ds_suffix, "source_snap"] = Opt["SRC_DS"] ds_suffix _snap
+}
+
+function bookmark_name(ds_suffix,		_snap, _name, _prefix) {
+	_snap = Bookmark[ds_suffix, "snap"]
+	_name = _snap
+	sub(/^[@#]/, "", _name)
+	_prefix = Opt["BOOKMARK_PREFIX"] ? Opt["BOOKMARK_PREFIX"] : Target["HOST"] "_"
+	return Opt["SRC_DS"] ds_suffix "#" _prefix _name
+}
+
+function confirm_bookmark_target(ds_suffix,		_tgt_snap, _cmd_arr, _cmd, _confirmed, _failed) {
+	_tgt_snap = Bookmark[ds_suffix, "target_snap"]
+	_cmd_arr["endpoint"] = "TGT"
+	_cmd_arr["ds"] = rq(Target["REMOTE"], _tgt_snap)
+	_cmd = build_command("CHECK", _cmd_arr)
+	if (Opt["DRYRUN"]) {
+		report(LOG_NOTICE, "+ " _cmd)
+		return 1
+	}
+	report(LOG_DEBUG, "`"_cmd"`")
+	_cmd = _cmd CAPTURE_OUTPUT
+	while (_cmd | getline) {
+		if ($0 == _tgt_snap)
+			_confirmed = 1
+		else {
+			_failed = 1
+			report(LOG_ERROR, "cannot confirm replicated snapshot: " _tgt_snap ": " $0)
+		}
+	}
+	close(_cmd)
+	if (!_confirmed && !_failed)
+		report(LOG_ERROR, "cannot confirm replicated snapshot: " _tgt_snap)
+	return _confirmed
+}
+
+function create_source_bookmark(ds_suffix,		_cmd_arr, _cmd, _src_snap, _bookmark, _failed) {
+	_src_snap = Bookmark[ds_suffix, "source_snap"]
+	_bookmark = bookmark_name(ds_suffix)
+	_cmd_arr["endpoint"] = "SRC"
+	_cmd_arr["source_snap"] = rq(Source["REMOTE"], _src_snap)
+	_cmd_arr["bookmark"] = rq(Source["REMOTE"], _bookmark)
+	_cmd = build_command("BOOKMARK", _cmd_arr)
+	report(LOG_INFO, "bookmarking: " _bookmark)
+	if (Opt["DRYRUN"]) {
+		report(LOG_NOTICE, "+ " _cmd)
+		return 1
+	}
+	report(LOG_DEBUG, "`"_cmd"`")
+	_cmd = _cmd CAPTURE_OUTPUT
+	while (_cmd | getline) {
+		_failed = 1
+		report(LOG_ERROR, "cannot bookmark replicated snapshot: " _src_snap ": " $0)
+	}
+	close(_cmd)
+	return !_failed
+}
+
+function bookmark_failed() {
+	if (!Summary["replicationErrorCode"])
+		Summary["replicationErrorCode"] = 1
+}
+
+function run_bookmark(		_i, _ds_suffix, _snapshots, _bookmarked) {
+	if (!Opt["BOOKMARK_MODE"]) return
+	if (RunVerb == "revert" || RunVerb == "clone") return
+	if (Opt["BOOKMARK_MODE"] != 1)
+		stop(1, "invalid bookmark mode: " Opt["BOOKMARK_MODE"])
+	if (!NumBookmarkDS) return
+
+	for (_i = NumDS; _i >= 1; _i--) {
+		_ds_suffix = DSList[_i]
+		if (!Bookmark[_ds_suffix, "tracked"]) continue
+		if (!confirm_bookmark_target(_ds_suffix)) {
+			bookmark_failed()
+			continue
+		}
+		if (create_source_bookmark(_ds_suffix))
+			_bookmarked++
+		else
+			bookmark_failed()
+	}
+	_snapshots = (_bookmarked == 1) ? "snapshot" : "snapshots"
+	if (!Opt["DRYRUN"])
+		report(LOG_NOTICE, _bookmarked " " _snapshots " bookmarked")
+}
+
+function validate_bookmark_mode() {
+	if (!Opt["BOOKMARK_MODE"])
+		Opt["BOOKMARK_MODE"] = 0
+	if (Opt["BOOKMARK_MODE"] != 0 && Opt["BOOKMARK_MODE"] != 1)
+		stop(1, "invalid bookmark mode: " Opt["BOOKMARK_MODE"])
 }
 
 ## Construct replication commands
@@ -982,6 +1328,39 @@ function check_origin_match(origin_ds,		_i, _c, _ds_suffix, _origin_arr, _origin
 	#exit
 }
 
+function configure_origin_backup(	_i, _ds_suffix, _origin_arr, _src_origin, _origin_ds, _origin_snap,
+					_target_origin, _origin_count) {
+	if (!Opt["ORIGIN_ID"]) return
+	if (!Origin["DS"])
+		load_endpoint(Opt["ORIGIN_ID"], Origin)
+	_target_origin = Origin["DS"]
+	for (_i = 1; _i <= NumDS; _i++) {
+		_ds_suffix  = DSList[_i]
+		_src_origin = Dataset["SRC", _ds_suffix, "origin"]
+		if (split(_src_origin, _origin_arr, "@") != 2) continue
+		_origin_snap = "@" _origin_arr[2]
+		if (DSPair[_ds_suffix, "match"]) continue
+		DSPair[_ds_suffix, "source_origin_match"] = _src_origin
+		DSPair[_ds_suffix, "target_origin"] = _target_origin
+		DSPair[_ds_suffix, "match"] = _origin_snap
+		DSPair[_ds_suffix, "source_start"] = _origin_snap
+		DSPair[_ds_suffix, "source_end"] = Dataset["SRC", _ds_suffix, "latest_snapshot"]
+		Action[_ds_suffix, "can_sync"] = 1
+		Action[_ds_suffix, "status_notice"] = ""
+		Action[_ds_suffix, "status_info"] = ""
+		_origin_count++
+	}
+	if (!_origin_count)
+		stop(1, "source has no clone origin: " Opt["SRC_ID"])
+}
+
+function clone_backup_needs_snapshot(	_origin_arr, _origin_snap) {
+	if (split(Dataset["SRC", "", "origin"], _origin_arr, "@") != 2)
+		return 0
+	_origin_snap = "@" _origin_arr[2]
+	return Dataset["SRC", "", "latest_snapshot"] == _origin_snap
+}
+
 # 'zelta rotate' renames a divergent dataset out of the way
 function run_rotate(		_src_ds_snap, _up_to_date, _src_origin_ds, _origin_arr, _num_full_backup,
 		    		_origin_ds, _origin_snap, _i, _ds_suffix, _tgt_idx, _can_rotate, _target_origin) {
@@ -1073,6 +1452,29 @@ function create_recursive_clone(endpoint, origin_ds, new_ds,		_remote, _user_sna
 		report(LOG_NOTICE, "no source snapshots to clone")
 }
 
+function run_clone_shuffle() {
+	create_recursive_clone("SRC", Opt["SRC_DS"], Opt["TGT_DS"])
+	Opt["VERB"] = "backup"
+	load_opt_endpoint("SRC_", Target)
+	load_opt_endpoint("TGT_", CloneBackupTarget)
+	Opt["ORIGIN_ID"] = CloneOriginTarget["ID"]
+	delete Source
+	delete Target
+	load_endpoint(Opt["SRC_ID"], Source)
+	load_endpoint(Opt["TGT_ID"], Target)
+	load_endpoint(Opt["ORIGIN_ID"], Origin)
+	reset_runtime_state()
+	validate_source_dataset()
+	validate_target_dataset()
+	validate_snapshots()
+	if (clone_backup_needs_snapshot()) {
+		create_source_snapshot("snapshotting: ")
+	}
+	compute_eligibility()
+	configure_origin_backup()
+	run_backup()
+}
+
 function run_revert(		_ds) {
 	# Disable snapshot
 	# TO-DO: Add a mechanism to revert to the previous (rather than named) snapshot
@@ -1097,6 +1499,63 @@ function run_backup(		_i, _ds_suffix, _syncing, _syncable) {
 	}
 }
 
+function filtered_intermediate_mode() {
+	return Opt["SEND_INTR"] && (Opt["EXCLUDE"] || Opt["INCLUDE"]) &&
+	    (Opt["VERB"] != "replicate")
+}
+
+function load_send_range(ds_suffix, snap_arr,		_cmd, _base_name, _snap, _count, _prefix) {
+	_base_name = Opt["SRC_DS"] ds_suffix
+	_prefix = _base_name "@"
+	_cmd = "ZELTA_DRYRUN='' zelta ipc-run prune --log-mode=text --log-level=2 --no-prune-guard --no-ranges --send-range=" q(DSPair[ds_suffix, "match"]) " " q(Source["ID"])
+	report(LOG_DEBUG, "`"_cmd"`")
+	_cmd = _cmd CAPTURE_OUTPUT
+	while (_cmd | getline) {
+		if (index($0, _prefix) == 1) {
+			_snap = substr($0, length(_base_name) + 1)
+			snap_arr[++_count] = _snap
+		}
+		else if (log_common_command_feedback() == LOG_ERROR)
+			Summary["replicationErrorCode"] = 2
+	}
+	close(_cmd)
+	return _count
+}
+
+function run_filtered_intermediate_backup(		_i, _s, _ds_suffix, _snap_num,
+						_snap_arr, _last_snap, _syncing) {
+	_syncing = Opt["DRYRUN"] ? "would sync " : "syncing "
+	if (DSTree["syncable"])
+		report(LOG_NOTICE, _syncing NumDS " datasets")
+
+	for (_i = 1; _i <= NumDS; _i++) {
+		_ds_suffix = DSList[_i]
+		if (!Action[_ds_suffix, "can_sync"]) continue
+
+		delete _snap_arr
+		if (!DSPair[_ds_suffix, "match"]) {
+			run_zfs_sync(_ds_suffix)
+			if (Summary["replicationErrorCode"]) continue
+			if (Opt["DRYRUN"])
+				DSPair[_ds_suffix, "match"] = DSPair[_ds_suffix, "source_end"]
+		}
+
+		_snap_num = load_send_range(_ds_suffix, _snap_arr)
+		_last_snap = DSPair[_ds_suffix, "match"]
+		Action[_ds_suffix, "force_incremental"] = 1
+
+		for (_s = 1; _s <= _snap_num; _s++) {
+			DSPair[_ds_suffix, "source_start"] = _last_snap
+			DSPair[_ds_suffix, "source_end"] = _snap_arr[_s]
+			run_zfs_sync(_ds_suffix)
+			if (Summary["replicationErrorCode"]) break
+			_last_snap = _snap_arr[_s]
+		}
+
+		Action[_ds_suffix, "force_incremental"] = 0
+	}
+}
+
 function print_summary(		_status, _i, _ds_suffix, _num_streams) {
 	if(Summary["failed_props"])
 		report(LOG_WARNING, "missing `zfs allow` permissions: " Summary["failed_props"])
@@ -1118,6 +1577,12 @@ function print_summary(		_status, _i, _ds_suffix, _num_streams) {
 # Main planning function
 BEGIN {
 	if (Opt["USAGE"]) usage()
+	RunVerb = Opt["VERB"]
+
+	# Validate arguments
+	if (!is_null(Opt["DEPTH"]) && (Opt["DEPTH"] < 1))
+		stop(1, "depth of '"Opt["DEPTH"]"' invalid; must be positive")
+	validate_bookmark_mode()
 
 	## Globals and overrides
 	########################
@@ -1160,11 +1625,17 @@ BEGIN {
 	validate_datasets()
 	validate_snapshots()
 	compute_eligibility()
+	configure_origin_backup()
+	run_send_check()
 
-	if (Opt["VERB"] == "clone")		create_recursive_clone("SRC", Opt["SRC_DS"], Opt["TGT_DS"])
+	if ((Opt["VERB"] == "clone") && (NumOperands == 4)) run_clone_shuffle()
+	else if (Opt["VERB"] == "clone")	create_recursive_clone("SRC", Opt["SRC_DS"], Opt["TGT_DS"])
 	else if (Opt["VERB"] == "revert")	run_revert()
 	else if (Opt["VERB"] == "rotate")	run_rotate()
+	else if (filtered_intermediate_mode())	run_filtered_intermediate_backup()
 	else					run_backup()
+
+	run_bookmark()
 
 	Summary["endTime"]			= sys_time()
 	Summary["runTime"]			= Summary["endTime"] - Summary["startTime"]

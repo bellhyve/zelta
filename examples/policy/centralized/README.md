@@ -11,7 +11,7 @@ The top-level policy objects (`AWS0`, `NYC1`, `DAL1`, etc.) are operator-defined
 
 ## Running The Example
 
-Relative `include:` paths are resolved from the active policy file location. Set `ZELTA_ETC` to the policy directory and `ZELTA_CONFIG` to the exact policy file path:
+Relative `import:` paths are resolved from the active policy file location. Set `ZELTA_ETC` to the policy directory and `ZELTA_CONFIG` to the exact policy file path:
 
 ```sh
 export ZELTA_ETC=/path/to/zelta/examples/policy/centralized

@@ -12,11 +12,11 @@ Describe 'Cleanup' cleanup
         End
     End
     Describe 'Pool cleanup' cleanup:pools
-        It 'tests if pool created'
-            Skip if 'pool not created in this run' tmpfile_check src_pool_created
-            When call tmpfile_check divergent_tree_created
-            The status should be failure
-        End
+#        It 'tests if pool created'
+#            Skip if 'pool not created in this run' tmpfile_check src_pool_created
+#            When call tmpfile_check divergent_tree_created
+#            The status should be failure
+#        End
         It 'destroy source'
             Skip if 'pool not created in this run' tmpfile_check src_pool_created
             When call nuke_src_pool

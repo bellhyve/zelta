@@ -1,5 +1,5 @@
 # Auto-generated ShellSpec test file
-# Generated at: 2026-06-12 04:02:11 -0400
+# Generated at: 2026-06-29 04:36:44 -0400
 # Source: 080_zelta_policy_spec
 # WARNING: This file was automatically generated. Manual edits may be lost.
 
@@ -25,13 +25,13 @@ Describe 'Test zelta policy' standard:80
   Skip if 'SANDBOX_ZELTA_SRC_DS undefined' test -z "$SANDBOX_ZELTA_SRC_DS"
   Skip if 'SANDBOX_ZELTA_TGT_DS undefined' test -z "$SANDBOX_ZELTA_TGT_DS"
 
-  It "generate zelta policy - ./test/runners/test_generation/bin/generate_zelta_policy_config.sh"
-    When call ./test/runners/test_generation/bin/generate_zelta_policy_config.sh
+  It "generate zelta policy - run ./test/runners/test_generation/bin/generate_zelta_policy_config.sh"
+    When run ./test/runners/test_generation/bin/generate_zelta_policy_config.sh
     The status should be success
   End
 
-  It "test zelta policy - zelta policy -C ./test/runners/test_generation/config/zelta_test_policy.conf"
-    When call zelta policy -C ./test/runners/test_generation/config/zelta_test_policy.conf
+  It "test zelta policy - run zelta policy -C ./test/runners/test_generation/config/zelta_test_policy.conf"
+    When run zelta policy -C ./test/runners/test_generation/config/zelta_test_policy.conf
     The output should satisfy output_for_policy_check
     The status should be success
   End
