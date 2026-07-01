@@ -14,7 +14,30 @@ SHELLSPEC_CLEANUP=--teardown-shellspec="shellspec --tag=cleanup"
 SHELLSPEC_SETUP=--setup-shellspec="shellspec --tag=install,initialize,standard:22,standard:30"
 VERIFIED_DIR="--verified-dir=$PROD_SPEC_DIR"
 
-YML_GLOB="*.yml"
+if [ -z "${SANDBOX_ZELTA_SRC_REMOTE:-}" ]; then
+    echo "" >&2
+    echo "*** ERROR: SANDBOX_ZELTA_SRC_REMOTE is not set" >&2
+    echo "*** Test generation fidelity requires using remotes" >&2
+    echo "" >&2
+    exit 1
+fi
+
+if [ -z "${SANDBOX_ZELTA_TGT_REMOTE:-}" ]; then
+    echo "" >&2
+    echo "*** ERROR: SANDBOX_ZELTA_TGT_REMOTE is not set" >&2
+    echo "*** Test generation fidelity requires using remotes" >&2
+    echo "" >&2
+
+    exit 1
+fi
+
+
+#YML_GLOB="*.yml"
+ZELTA_TESTGEN_DEBUG=1
+
+# Setup for generating test 70 shellspec
+SHELLSPEC_SETUP=--setup-shellspec="shellspec --tag=install,initialize,standard:22,standard:30"
+YML_GLOB="040_*.yml"
 
 # -----------------------------------------------------------------------------
 # NOTE: to generate a specific test, set SHELLSPEC_SETUP and YML_GLOB as needed
