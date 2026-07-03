@@ -32,15 +32,16 @@ if [ -z "${SANDBOX_ZELTA_TGT_REMOTE:-}" ]; then
 fi
 
 
-#YML_GLOB="*.yml"
-ZELTA_TESTGEN_DEBUG=1
+YML_GLOB="*.yml"
+ZELTA_TESTGEN_DEBUG=0 # print defined environment variables on test generation
 
-# Setup for generating test 70 shellspec
-SHELLSPEC_SETUP=--setup-shellspec="shellspec --tag=install,initialize,standard:22,standard:30"
-YML_GLOB="040_*.yml"
 
 # -----------------------------------------------------------------------------
 # NOTE: to generate a specific test, set SHELLSPEC_SETUP and YML_GLOB as needed
+#
+# Setup for generating test 40 shellspec
+# SHELLSPEC_SETUP=--setup-shellspec="shellspec --tag=install,initialize,standard:22,standard:30"
+# YML_GLOB="040_*.yml"
 #
 # Setup for generating test 70 shellspec
 # SHELLSPEC_SETUP=--setup-shellspec="shellspec --tag=install,initialize,standard:22,standard:30,standard:40,standard:50,standard:60"
