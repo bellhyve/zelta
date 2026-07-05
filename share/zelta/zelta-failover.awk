@@ -30,26 +30,43 @@ function endpoint_build_cmd(ep, action, vars,    _cmd) {
 	return endpoint_cmd(ep, _cmd)
 }
 
+function unmount_flags() {
+	if (Opt["FAILOVER_FORCE"])
+		return "-f"
+	return ""
+}
+
 ## Lock and unlock
 ##################
 
 function lock_dataset(ep,    _cmd, _cmd_arr, _list_cmd, _mount_cmd, _list_local, _mount_local, _ds, _mounted) {
 	_cmd_arr["ds"] = q(ep["DS"])
-	_list_local = build_command("FAILOVER_LIST_LOCK_NAMES", _cmd_arr)
-	_mount_local = build_command("FAILOVER_LIST_LOCK_MOUNTED", _cmd_arr)
+	_cmd_arr["props"] = "name"
+	_cmd_arr["flags"] = "-t filesystem -Screatetxg"
+	_list_local = build_command("LIST", _cmd_arr)
+	_cmd_arr["props"] = "name,mounted"
+	_mount_local = build_command("LIST", _cmd_arr)
 	_list_cmd = endpoint_cmd(ep, _list_local)
 	_mount_cmd = endpoint_cmd(ep, _mount_local)
 	if (Opt["DRYRUN"]) {
-		report(LOG_NOTICE, "+ " endpoint_build_cmd(ep, "FAILOVER_SET_READONLY", _cmd_arr))
+		delete _cmd_arr
+		_cmd_arr["prop"] = "readonly=on"
+		_cmd_arr["ds"] = q(ep["DS"])
+		report(LOG_NOTICE, "+ " endpoint_build_cmd(ep, "SET", _cmd_arr))
 		report(LOG_NOTICE, "+ " endpoint_cmd(ep, _list_local " | xargs -n1 zfs set canmount=noauto"))
-		report(LOG_NOTICE, "+ " endpoint_cmd(ep, _mount_local " | while read ds mounted; do [ \\\"$mounted\\\" = yes ] && zfs unmount \\\"$ds\\\"; done"))
+		report(LOG_NOTICE, "+ " endpoint_cmd(ep, _mount_local " | while read ds mounted; do [ \\\"$mounted\\\" = yes ] && zfs unmount " unmount_flags() " \\\"$ds\\\"; done"))
 		return
 	}
-	run_cmd(endpoint_build_cmd(ep, "FAILOVER_SET_READONLY", _cmd_arr))
+	delete _cmd_arr
+	_cmd_arr["prop"] = "readonly=on"
+	_cmd_arr["ds"] = q(ep["DS"])
+	run_cmd(endpoint_build_cmd(ep, "SET", _cmd_arr))
 	_cmd = _list_cmd
 	while ((_cmd | getline) > 0) {
+		delete _cmd_arr
+		_cmd_arr["prop"] = "canmount=noauto"
 		_cmd_arr["ds"] = q($1)
-		run_cmd(endpoint_build_cmd(ep, "FAILOVER_SET_CANMOUNT_NOAUTO", _cmd_arr))
+		run_cmd(endpoint_build_cmd(ep, "SET", _cmd_arr))
 	}
 	close(_cmd)
 	_cmd = _mount_cmd
@@ -57,8 +74,10 @@ function lock_dataset(ep,    _cmd, _cmd_arr, _list_cmd, _mount_cmd, _list_local,
 		_ds = $1
 		_mounted = $2
 		if (_mounted == "yes") {
+			delete _cmd_arr
+			_cmd_arr["flags"] = unmount_flags()
 			_cmd_arr["ds"] = q(_ds)
-			run_cmd(endpoint_build_cmd(ep, "FAILOVER_UNMOUNT", _cmd_arr))
+			run_cmd(endpoint_build_cmd(ep, "UNMOUNT", _cmd_arr))
 		}
 	}
 	close(_cmd)
@@ -66,23 +85,33 @@ function lock_dataset(ep,    _cmd, _cmd_arr, _list_cmd, _mount_cmd, _list_local,
 
 function unlock_dataset(ep,    _cmd, _cmd_arr, _list_cmd, _mount_cmd, _list_local, _mount_local, _ds, _canmount, _mounted) {
 	_cmd_arr["ds"] = q(ep["DS"])
-	_list_local = build_command("FAILOVER_LIST_UNLOCK_NAMES", _cmd_arr)
-	_mount_local = build_command("FAILOVER_LIST_UNLOCK_MOUNTED", _cmd_arr)
+	_cmd_arr["props"] = "name"
+	_cmd_arr["flags"] = "-t filesystem -s createtxg"
+	_list_local = build_command("LIST", _cmd_arr)
+	_cmd_arr["props"] = "name,canmount,mounted"
+	_mount_local = build_command("LIST", _cmd_arr)
 	_list_cmd = endpoint_cmd(ep, _list_local)
 	_mount_cmd = endpoint_cmd(ep, _mount_local)
-	run_cmd(endpoint_build_cmd(ep, "FAILOVER_INHERIT_READONLY", _cmd_arr))
+	delete _cmd_arr
+	_cmd_arr["prop"] = "readonly"
+	_cmd_arr["ds"] = q(ep["DS"])
+	run_cmd(endpoint_build_cmd(ep, "INHERIT", _cmd_arr))
 	if (Opt["DRYRUN"])
 		report(LOG_NOTICE, "+ " endpoint_cmd(ep, _list_local " | xargs -n1 zfs set canmount=on"))
 	else {
 		_cmd = _list_cmd
 		while ((_cmd | getline) > 0) {
+			delete _cmd_arr
+			_cmd_arr["prop"] = "canmount=on"
 			_cmd_arr["ds"] = q($1)
-			run_cmd(endpoint_build_cmd(ep, "FAILOVER_SET_CANMOUNT_ON", _cmd_arr))
+			run_cmd(endpoint_build_cmd(ep, "SET", _cmd_arr))
 		}
 		close(_cmd)
 	}
+	delete _cmd_arr
+	_cmd_arr["flags"] = "-R"
 	_cmd_arr["ds"] = q(ep["DS"])
-	run_cmd(endpoint_build_cmd(ep, "FAILOVER_MOUNT_RECURSIVE", _cmd_arr))
+	run_cmd(endpoint_build_cmd(ep, "MOUNT", _cmd_arr))
 	if (Opt["DRYRUN"]) {
 		report(LOG_NOTICE, "+ " endpoint_cmd(ep, _mount_local " | while read ds canmount mounted; do [ \\\"$canmount\\\" != off ] && [ \\\"$mounted\\\" != yes ] && zfs mount \\\"$ds\\\"; done"))
 		return
@@ -93,8 +122,9 @@ function unlock_dataset(ep,    _cmd, _cmd_arr, _list_cmd, _mount_cmd, _list_loca
 		_canmount = $2
 		_mounted = $3
 		if (_canmount != "off" && _mounted != "yes") {
+			delete _cmd_arr
 			_cmd_arr["ds"] = q(_ds)
-			run_cmd(endpoint_build_cmd(ep, "FAILOVER_MOUNT", _cmd_arr))
+			run_cmd(endpoint_build_cmd(ep, "MOUNT", _cmd_arr))
 		}
 	}
 	close(_cmd)
@@ -102,6 +132,8 @@ function unlock_dataset(ep,    _cmd, _cmd_arr, _list_cmd, _mount_cmd, _list_loca
 
 function skip_ordered_option(arg, idx) {
 	if (arg == "-n" || arg == "--dryrun" || arg == "--dry-run")
+		return 1
+	if (arg == "-f" || arg == "--force")
 		return 1
 	if (arg ~ /^-[vq]+$/ || arg == "--verbose" || arg == "--quiet")
 		return 1
@@ -159,8 +191,10 @@ function rel_suffix(root, ds) {
 }
 
 function load_local_props(ep, props, seen_ds,    _cmd, _cmd_arr, _ds, _prop, _val, _suffix) {
+	_cmd_arr["flags"] = "-s local"
+	_cmd_arr["props"] = "all"
 	_cmd_arr["ds"] = q(ep["DS"])
-	_cmd = endpoint_build_cmd(ep, "FAILOVER_PROPS", _cmd_arr)
+	_cmd = endpoint_build_cmd(ep, "PROPS", _cmd_arr)
 	while ((_cmd | getline) > 0) {
 		_ds = $1
 		_prop = $2
@@ -184,9 +218,10 @@ function playback_source_props(tgt_ep,    _key, _parts, _suffix, _prop, _ds, _cm
 		_suffix = _parts[1]
 		_prop = _parts[2]
 		_ds = tgt_ep["DS"] _suffix
+		delete _cmd_arr
 		_cmd_arr["prop"] = _prop "=" q(SourceProp[_key])
 		_cmd_arr["ds"] = q(_ds)
-		run_cmd(endpoint_build_cmd(tgt_ep, "FAILOVER_PROP_SET", _cmd_arr))
+		run_cmd(endpoint_build_cmd(tgt_ep, "SET", _cmd_arr))
 	}
 }
 
@@ -198,9 +233,10 @@ function inherit_target_only_props(tgt_ep,    _key, _parts, _suffix, _prop, _ds,
 		_suffix = _parts[1]
 		_prop = _parts[2]
 		_ds = tgt_ep["DS"] _suffix
+		delete _cmd_arr
 		_cmd_arr["prop"] = _prop
 		_cmd_arr["ds"] = q(_ds)
-		run_cmd(endpoint_build_cmd(tgt_ep, "FAILOVER_PROP_INHERIT", _cmd_arr))
+		run_cmd(endpoint_build_cmd(tgt_ep, "INHERIT", _cmd_arr))
 	}
 }
 
@@ -208,7 +244,7 @@ function sync_locked_source(src_ep, tgt_ep,    _cmd_arr, _cmd) {
 	_cmd_arr["flags"] = "--snapshot --log-mode=text --log-level=" Opt["LOG_LEVEL"]
 	_cmd_arr["source"] = q(src_ep["ID"])
 	_cmd_arr["target"] = q(tgt_ep["ID"])
-	_cmd = build_command("FAILOVER_BACKUP", _cmd_arr)
+	_cmd = build_command("BACKUP_IPC", _cmd_arr)
 	run_cmd(_cmd)
 }
 
