@@ -37,6 +37,12 @@ _target_
 **-q**, **\--quiet**
 : Decrease log output.
 
+**-f**, **\--force**
+: Force source unmounts during the lock phase.
+
+**\--no-unmount**
+: Lock the source read-only but leave mounted filesystems mounted.
+
 Backup transport, send, receive, resume, bookmark, and snapshot naming options accepted by **zelta backup** may also be passed to **zelta failover**. The failover command uses them for the final backup step; see **zelta-backup(8)** for details.
 
 # EXAMPLES
@@ -57,7 +63,9 @@ Perform the same workflow explicitly:
     zelta unlock standby.example.com:tank/service
 
 # EXIT STATUS
-Returns 0 on success, non-zero on error.
+Returns 0 on success, 1 if non-critical mount or unmount operations fail after the state transition continues, 2 if the final backup fails after source lock, and 255 if Zelta cannot safely set or clear dataset readonly state.
+
+Unmount failures on the locked source and mount failures on the unlocked target are reported but do not stop failover. Readonly and final backup failures stop immediately.
 
 # NOTES
 

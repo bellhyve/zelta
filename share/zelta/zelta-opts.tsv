@@ -68,9 +68,8 @@ backup,clone,rebase,failover	--target-origin,--origin	ORIGIN_ID		set		clone orig
 rebase	--rebase-file	REBASE_FILE		set		override path to preserve file
 
 # 'zelta failover', 'zelta lock', 'zelta unlock', and 'zelta propsync' options
-failover,lock,unlock,propsync	--lock	FAILOVER_ACTION		set	lock	lock following operands
-failover,lock,unlock,propsync	--unlock	FAILOVER_ACTION		set	unlock	unlock following operands
-failover,unlock	--force,-f	FAILOVER_FORCE		true		force unmount during unlock
+failover,lock	--force,-f	FORCE_UNMOUNT		true		force unmount during lock
+failover,lock	--no-unmount	NO_UNMOUNT		true		do not unmount locked datasets
 
 # `zfs send/zfs recv` options
 policy,backup,replicate,sync,failover	-I,--intermediate	SEND_INTR	INTERMEDIATE	true		intermediate mode: sync all possible snapshots
