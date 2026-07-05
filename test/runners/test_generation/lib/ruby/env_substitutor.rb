@@ -15,18 +15,19 @@ class EnvSubstitutor
   end
 
   def debug_mode?
-    #%w[yes 1 true].include?(ENV["ZELTA_TESTGEN_DEBUG"].to_s.downcase)
-    true
+    false
   end
 
   def load_env_from_script(relative_path)
     script = File.expand_path(relative_path, __dir__)
     # Source the script in a subshell, then dump the env
-    env_output = `bash -c 'source #{script} && env' | grep SANDBOX`
-    env_output.each_line do |line|
-      key, value = line.strip.split('=', 2)
-      puts "Key: #{key}, Value: #{value}" if debug_mode?
-      ENV[key] = value if key && value
+    if debug_mode?
+      env_output = `bash -c 'source #{script} && env' | grep SANDBOX`
+      env_output.each_line do |line|
+        key, value = line.strip.split('=', 2)
+        puts "Key: #{key}, Value: #{value}"
+        ENV[key] = value if key && value
+      end
     end
   end
 

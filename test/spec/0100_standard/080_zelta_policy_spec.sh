@@ -1,5 +1,5 @@
 # Auto-generated ShellSpec test file
-# Generated at: 2026-07-03 03:18:32 -0400
+# Generated at: 2026-06-29 04:36:44 -0400
 # Source: 080_zelta_policy_spec
 # WARNING: This file was automatically generated. Manual edits may be lost.
 
