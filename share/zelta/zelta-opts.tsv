@@ -25,19 +25,19 @@ all	--exclude,-X	EXCLUDE		list		exclude source dataset or snapshot patterns
 all	--include	INCLUDE		list		include only source dataset or snapshot patterns
 
 # Options for 'zelta backup' and other 'zfs send/recv/clone' verbs
-policy,backup,replicate,sync,rotate	--json,-j	LOG_MODE		set	json	json output
-policy,backup,replicate,sync,rotate	--send-check	SEND_CHECK		true
-policy,backup,replicate,sync,rotate	-b,--backup,-c,--compressed,-D,--dedup,-e,--embed,--holds,-L,--largeblock,-p,--parsable,--proctitle,--props,--raw,--skipmissing,-V,-w	SEND_OVERRIDE		arglist
-policy,backup,replicate,sync,rotate	-F	SEND_OVERRIDE		arglist	 		destructive option 'F' used; consider 'zelta rotate' when possible
-policy,backup,replicate,sync,rotate	--send-override	SEND_OVERRIDE		set	 
-policy,backup,replicate,sync,rotate	-M,-u	RECV_OVERRIDE		arglist
-policy,backup,replicate,sync,rotate	--recv-override	RECV_OVERRIDE		set
+policy,backup,replicate,sync,rotate,failover	--json,-j	LOG_MODE		set	json	json output
+policy,backup,replicate,sync,rotate,failover	--send-check	SEND_CHECK		true
+policy,backup,replicate,sync,rotate,failover	-b,--backup,-c,--compressed,-D,--dedup,-e,--embed,--holds,-L,--largeblock,-p,--parsable,--proctitle,--props,--raw,--skipmissing,-V,-w	SEND_OVERRIDE		arglist
+policy,backup,replicate,sync,rotate,failover	-F	SEND_OVERRIDE		arglist	 		destructive option 'F' used; consider 'zelta rotate' when possible
+policy,backup,replicate,sync,rotate,failover	--send-override	SEND_OVERRIDE		set	 
+policy,backup,replicate,sync,rotate,failover	-M,-u	RECV_OVERRIDE		arglist
+policy,backup,replicate,sync,rotate,failover	--recv-override	RECV_OVERRIDE		set
 policy,backup,replicate,sync,rotate	--rotate	VERB		set	rotate
 policy,backup,replicate,sync,rotate	--replicate,-R	VERB		set	replicate
-policy,backup,replicate,sync,rotate	--resume	RESUME		true		save partial transfers (default)
-policy,backup,replicate,sync,rotate	--no-resume	RESUME		false		discard failed partial transfers
-policy,backup,replicate,snapshot,sync,revert,rotate,clone	--snap-name	SNAP_NAME		set		specify a snapshot name
-policy,backup,replicate,snapshot,sync,revert,rotate,clone	--snap-prefix	SNAP_PREFIX		set		prefix default snapshot names
+policy,backup,replicate,sync,rotate,failover	--resume	RESUME		true		save partial transfers (default)
+policy,backup,replicate,sync,rotate,failover	--no-resume	RESUME		false		discard failed partial transfers
+policy,backup,replicate,snapshot,sync,revert,rotate,clone,failover	--snap-name	SNAP_NAME		set		specify a snapshot name
+policy,backup,replicate,snapshot,sync,revert,rotate,clone,failover	--snap-prefix	SNAP_PREFIX		set		prefix default snapshot names
 policy,backup,replicate,sync,rotate,clone	--snap-mode	SNAP_MODE	SNAPSHOT	set
 policy,backup,replicate,sync,rotate,clone	--snap-time	SNAP_TIME		set		skip snapshot if the dataset age is not older than this number of seconds
 policy,backup,replicate,sync,rotate,clone	--snap-size	SNAP_SIZE		set		skip snapshot if the dataset size has not increased by this many bytes
@@ -46,23 +46,23 @@ policy,backup,replicate,sync,rotate,clone	--snapshot	SNAP_MODE		set	ALWAYS	take 
 policy,backup,replicate,sync,rotate,clone	--snapshot-skip	SNAP_MODE		set	SKIP
 policy,backup,replicate,sync,rotate,clone	-s	SNAP_MODE		set	IF_NEEDED		option '-s' for '--snapshot' is ambiguous and will be deprecated; use --snapshot, --snapshot-skip, --partial, or --skip-missing
 policy,backup,replicate,sync,rotate,clone	-S	SNAP_MODE		set	ALWAYS		option '-S' is ambiguous and will be deprecated; use --snapshot or --partial
-policy,backup,replicate,sync,rotate	--sync-direction	SYNC_DIRECTION		set
-policy,backup,replicate,sync,rotate	--push	SYNC_DIRECTION		set	PUSH	remote source connects to remote target
-policy,backup,replicate,sync,rotate	-t	SYNC_DIRECTION		set	PUSH		option '-t' is deprecated; use '--push'
-policy,backup,replicate,sync,rotate	--pull	SYNC_DIRECTION		set	PULL	remote target connects to remote source
-policy,backup,replicate,sync,rotate	--no-pull	SYNC_DIRECTION		false		proxy sync between remote endpoints
-policy,backup,replicate,sync,rotate	-T	SYNC_DIRECTION		set	PULL		option '-T' is deprecated; use '--pull' (default)
-policy,backup,replicate,sync,rotate	--initiator	INITIATOR		invalid			--initiator is deprecated; use '--pull' (default) or '--push'
-policy,backup,replicate,sync,rotate	--recv-pipe	RECV_PIPE		set		pipe output through the indicated command such as 'pv'
+policy,backup,replicate,sync,rotate,failover	--sync-direction	SYNC_DIRECTION		set
+policy,backup,replicate,sync,rotate,failover	--push	SYNC_DIRECTION		set	PUSH	remote source connects to remote target
+policy,backup,replicate,sync,rotate,failover	-t	SYNC_DIRECTION		set	PUSH		option '-t' is deprecated; use '--push'
+policy,backup,replicate,sync,rotate,failover	--pull	SYNC_DIRECTION		set	PULL	remote target connects to remote source
+policy,backup,replicate,sync,rotate,failover	--no-pull	SYNC_DIRECTION		false		proxy sync between remote endpoints
+policy,backup,replicate,sync,rotate,failover	-T	SYNC_DIRECTION		set	PULL		option '-T' is deprecated; use '--pull' (default)
+policy,backup,replicate,sync,rotate,failover	--initiator	INITIATOR		invalid			--initiator is deprecated; use '--pull' (default) or '--push'
+policy,backup,replicate,sync,rotate,failover	--recv-pipe	RECV_PIPE		set		pipe output through the indicated command such as 'pv'
 policy,backup,replicate,sync,rotate	--progress			invalid			option '--progress' is deprecated; use '--recv-pipe'
 policy,backup,replicate,sync,rotate	--rate-limit			invalid			option '--rate-limit' is deprecated; use '--recv-pipe'
 policy,backup,replicate,sync,rotate	-z			invalid			option '-z' is deprecated; consider '--json'
 policy,backup,replicate,sync,rotate	-h	USAGE		true		option '-h' is ambiguous; use '--holds' or see SEND/RECV options in 'zelta help options'
-policy,backup,replicate,sync,rotate	--bookmark	BOOKMARK_MODE		set	1	bookmark successfully replicated source snapshots
-policy,backup,replicate,sync,rotate	--no-bookmark	BOOKMARK_MODE		set	0	do not bookmark successfully replicated source snapshots
-policy,backup,replicate,sync,rotate	--bookmark-mode	BOOKMARK_MODE		set		set bookmark mode
-policy,backup,replicate,sync,rotate	--bookmark-prefix	BOOKMARK_PREFIX		set		prefix for replication success bookmarks
-backup,clone,rebase	--target-origin,--origin	ORIGIN_ID		set		clone origin dataset already backed up on the target
+policy,backup,replicate,sync,rotate,failover	--bookmark	BOOKMARK_MODE		set	1	bookmark successfully replicated source snapshots
+policy,backup,replicate,sync,rotate,failover	--no-bookmark	BOOKMARK_MODE		set	0	do not bookmark successfully replicated source snapshots
+policy,backup,replicate,sync,rotate,failover	--bookmark-mode	BOOKMARK_MODE		set		set bookmark mode
+policy,backup,replicate,sync,rotate,failover	--bookmark-prefix	BOOKMARK_PREFIX		set		prefix for replication success bookmarks
+backup,clone,rebase,failover	--target-origin,--origin	ORIGIN_ID		set		clone origin dataset already backed up on the target
 
 # 'zelta rebase' options
 rebase	--rebase-file	REBASE_FILE		set		override path to preserve file
@@ -72,19 +72,19 @@ failover,lock,unlock,propsync	--lock	FAILOVER_ACTION		set	lock	lock following op
 failover,lock,unlock,propsync	--unlock	FAILOVER_ACTION		set	unlock	unlock following operands
 
 # `zfs send/zfs recv` options
-policy,backup,replicate,sync	-I,--intermediate	SEND_INTR	INTERMEDIATE	true		intermediate mode: sync all possible snapshots
-policy,backup,replicate,sync	-i,--incremental	SEND_INTR	INTERMEDIATE	false		incremental mode: sync only the latest snapshots
-policy,backup,replicate,sync	--send-default	SEND_DEFAULT		set
-policy,backup,sync	--send-decrypted	SEND_DECRYPTED		set
-policy,backup,replicate,sync	--send-raw	SEND_RAW		set
-policy,backup,replicate,sync	--send-new	SEND_NEW		set
-policy,backup,replicate,sync	--recv-default	RECV_DEFAULT		set
-policy,backup,replicate,sync	--recv-top	RECV_TOP		set
-policy,backup,replicate,sync	--recv-fs	RECV_FS		set
-policy,backup,replicate,sync	--recv-vol	RECV_VOL		set
-policy,backup,replicate,sync	--recv-partial	RECV_PARTIAL		set
-policy,backup,replicate,sync	-o	RECV_PROPS_ADD		list		add 'zfs recv -o' property options
-policy,backup,replicate,sync	-x	RECV_PROPS_DEL		list		add 'zfs recv -x' excluded properties
+policy,backup,replicate,sync,failover	-I,--intermediate	SEND_INTR	INTERMEDIATE	true		intermediate mode: sync all possible snapshots
+policy,backup,replicate,sync,failover	-i,--incremental	SEND_INTR	INTERMEDIATE	false		incremental mode: sync only the latest snapshots
+policy,backup,replicate,sync,failover	--send-default	SEND_DEFAULT		set
+policy,backup,sync,failover	--send-decrypted	SEND_DECRYPTED		set
+policy,backup,replicate,sync,failover	--send-raw	SEND_RAW		set
+policy,backup,replicate,sync,failover	--send-new	SEND_NEW		set
+policy,backup,replicate,sync,failover	--recv-default	RECV_DEFAULT		set
+policy,backup,replicate,sync,failover	--recv-top	RECV_TOP		set
+policy,backup,replicate,sync,failover	--recv-fs	RECV_FS		set
+policy,backup,replicate,sync,failover	--recv-vol	RECV_VOL		set
+policy,backup,replicate,sync,failover	--recv-partial	RECV_PARTIAL		set
+policy,backup,replicate,sync,failover	-o	RECV_PROPS_ADD		list		add 'zfs recv -o' property options
+policy,backup,replicate,sync,failover	-x	RECV_PROPS_DEL		list		add 'zfs recv -x' excluded properties
 
 # 'zelta match' options
 match	-H	SCRIPTING_MODE		true		suppress headers and separate columns with a tab
