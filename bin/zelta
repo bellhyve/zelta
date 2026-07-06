@@ -225,10 +225,10 @@ zelta_print_env() {
 # Load awk common functions plus the verb utility
 zelta_run_awk() {
 	_verb="$1"
-	_yule="$AWK -f $ZELTA_SHARE/zelta-color.awk"
 	shift
-	if [ -z "$ZELTA_LOG_MODE" ] && [ -n "$ZELTA_YULE" ] ; then
-		$AWK -f "$ZELTA_SHARE/zelta-common.awk" -f "$ZELTA_SHARE/zelta-$_verb.awk" -- "$@" |$_yule
+	if [ "$_verb" != "args" ] && [ "$ZELTA_LOG_MODE" = json ] && [ -n "$ZELTA_LOG_FILE" ]; then
+		_log_file="$ZELTA_LOG_FILE"
+		(unset ZELTA_LOG_FILE; $AWK -f "$ZELTA_SHARE/zelta-common.awk" -f "$ZELTA_SHARE/zelta-$_verb.awk" -- "$@") >>"$_log_file"
 	else
 		$AWK -f "$ZELTA_SHARE/zelta-common.awk" -f "$ZELTA_SHARE/zelta-$_verb.awk" -- "$@"
 	fi
@@ -253,18 +253,19 @@ zelta_log() {
 	_fd_term=4
 	_sep="$(printf '\034')"
 	if [ -n "$ZELTA_LOG_FILE" ] ; then
-		#_fd=" >> '${ZELTA_LOG_FILE}'"
 		exec 3>>"$ZELTA_LOG_FILE"
 		exec 4>&3
 	else
 		exec 3>&2
 		exec 4>&1
 	fi
-	case "$ZELTA_LOG_MODE" in
-	'')    _term="1" ;;
-	text)  unset ZELTA_LOG_PREFIX
-	       _term="1" ;;
-	esac
+	if [ -z "$ZELTA_LOG_FILE" ] ; then
+		case "$ZELTA_LOG_MODE" in
+		'')    _term="1" ;;
+		text)  unset ZELTA_LOG_PREFIX
+		       _term="1" ;;
+		esac
+	fi
 	while IFS="$_sep" read log_level log_message; do
 		: ${log_level:=${log_level:-2}}
 		# If no log_level is given, treat it as a "notice"
@@ -288,17 +289,21 @@ zelta_log() {
 			# "Info" is regular stderr on a term
 			printf '%s\n' "$log_message" >&${_fd}
 		else
-			case "$log_level" in
-			1)	log_prefix="warning: " ;;
-			2)	log_prefix="notice: " ;;
-			3)	log_prefix="info: " ;;
-			4)	log_prefix="debug: " ;;
-			*)	log_prefix="error: " ;;
-			esac
-			printf '%s\n' "${log_prefix}${log_message}" >&${_fd}
+			zelta_log_prefixed "$log_level" "$log_message"
 		fi
 	done
 	exit
+}
+
+zelta_log_prefixed() {
+	case "$1" in
+	1)	_log_prefix="warning: " ;;
+	2)	_log_prefix="notice: " ;;
+	3)	_log_prefix="info: " ;;
+	4)	_log_prefix="debug: " ;;
+	*)	_log_prefix="error: " ;;
+	esac
+	printf '%s\n' "${_log_prefix}${2}" >&${_fd}
 }
 
 # Try script name or legacy symlink name as command, else he verb to the first argument.

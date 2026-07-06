@@ -18,7 +18,7 @@ Unlock a promoted standby tree:
     zelta unlock standby.example.com:tank/service
 
 # EXIT STATUS
-Returns 0 on success, non-zero on error.
+Returns 0 on success, 1 if mount operations fail after unlock continues, and 255 if Zelta cannot safely clear readonly state.
 
 # SEE ALSO
 zelta(8), zelta-failover(8), zelta-lock(8), zelta-propsync(8), zelta-backup(8), zfs(8)

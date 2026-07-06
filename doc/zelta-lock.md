@@ -11,6 +11,14 @@
 
 Most users should start with **zelta-failover(8)**.
 
+# OPTIONS
+
+**-f**, **\--force**
+: Force unmounts during lock.
+
+**\--no-unmount**
+: Set readonly and canmount state but leave mounted filesystems mounted.
+
 # EXAMPLES
 
 Lock an active service tree before final backup:
@@ -18,7 +26,7 @@ Lock an active service tree before final backup:
     zelta lock primary.example.com:tank/service
 
 # EXIT STATUS
-Returns 0 on success, non-zero on error.
+Returns 0 on success, 1 if unmounts fail after lock continues, and 255 if Zelta cannot safely set readonly state.
 
 # SEE ALSO
 zelta(8), zelta-failover(8), zelta-unlock(8), zelta-propsync(8), zelta-backup(8), zfs(8)
