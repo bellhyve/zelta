@@ -85,6 +85,11 @@ parse_args() {
 
 	init_zelta_env "$@"
 
+	if zelta_bool_true "$ZELTA_PRUNE_VISUAL"; then
+		zelta ipc-run prune
+		unset ZELTA_PRUNE_VISUAL
+	fi
+
 	ZPRUNE_LOG_LEVEL=${ZELTA_LOG_LEVEL:-2}
 	[ "${ZELTA_LOG_LEVEL:-2}" -lt 2 ] && ZPRUNE_QUIET=1
 	zelta_bool_true "$ZELTA_DRYRUN" && ZPRUNE_DRYRUN=1
@@ -97,10 +102,6 @@ parse_args() {
 	if [ -z "$ZELTA_SRC_ID" ]; then
 		error "source operand required"
 		zprune_usage
-	fi
-	if [ -z "$ZELTA_TGT_ID" ] && ! prune_guard_disabled; then
-		error "target operand required unless prune guard is disabled"
-		exit 1
 	fi
 }
 
@@ -430,6 +431,11 @@ main() {
 
 	if [ -n "$ZPRUNE_DRYRUN" ]; then
 		exit 0
+	fi
+
+	if [ -z "$ZELTA_TGT_ID" ] && ! prune_guard_disabled; then
+		error "target operand required for destructive prune; use --no-prune-guard to override"
+		exit 1
 	fi
 
 	if [ -z "$ZELTA_PRUNE_FORCE" ]; then

@@ -666,8 +666,7 @@ function analyze_prune_candidates(		_d, _ds_suffix, _src_ds_id, _tgt_ds_id, _num
 	}
 	_min_age = Global["now"] - _snap_seconds
 	_keep_after_match = Opt["PRUNE_NUM"]
-	if ((Opt["PRUNE_GUARD"] == GUARD_NONE) && Target["DS"])
-		report(LOG_INFO, "prune guard is disabled and target is given; excluding latest match if available")
+
 
 	for (_d = 1; _d <= NumDSPair; _d++) {
 		_ds_suffix = DSPairList[_d]
@@ -688,17 +687,6 @@ function analyze_prune_candidates(		_d, _ds_suffix, _src_ds_id, _tgt_ds_id, _num
 		_seen_after_match = 0
 
 		_match_idx = DSPair[_ds_suffix, "match_idx"]
-		if (!_match_idx && (Opt["PRUNE_GUARD"] != GUARD_NONE)) {
-			if (!Target["DS"]) {
-				if (!_warned_no_target++)
-					report(LOG_WARNING, "no target dataset; prune guard cannot verify incremental source snapshots; use --no-prune-guard to suppress")
-			}
-			else {
-				if (!_warned_no_match++)
-					report(LOG_WARNING, Row[_src_ds_id, "name"] ": cannot confirm prune safety without a target match; use --no-prune-guard or set ZELTA_PRUNE_GUARD=none to skip this check")
-				continue
-			}
-		}
 		if (!_match_idx)
 			_match_idx = 0
 		_grid_anchor_creation = _match_idx ? Row[Snap[_src_ds_id, _match_idx], "creation"] : Row[Snap[_src_ds_id, 1], "creation"]
@@ -925,6 +913,7 @@ function output_prune_visual(		_d, _ds_suffix, _src_ds_id, _p, _s, _row) {
 	for (_d = 1; _d <= NumDSPair; _d++) {
 		_ds_suffix = DSPairList[_d]
 		_src_ds_id = Source["ID"] S _ds_suffix S ""
+		printf "%s\n", Source["ID"] _ds_suffix
 		for (_p = 1; _p <= PruneSnapNum[_src_ds_id]; _p++)
 			Kill[_src_ds_id, PruneSnapIdx[_src_ds_id, _p]] = 1
 		for (_s = NumSnaps[_src_ds_id]; _s >= 1; _s--) {
@@ -932,8 +921,8 @@ function output_prune_visual(		_d, _ds_suffix, _src_ds_id, _p, _s, _row) {
 			if (Row[_row, "type"] == IS_SNAPSHOT)
 				printf "%s", (Kill[_src_ds_id, Row[_row, "snap_idx"]] ? "❌" : "🔹")
 		}
+		printf "\n"
 	}
-	printf "\n"
 }
 
 ## Output
@@ -1110,6 +1099,9 @@ BEGIN {
 
 	if (! ((Opt["PRUNE_GUARD"] >= 0) && (Opt["PRUNE_GUARD"] <= 2)))
 		stop(1, "invalid prune-guard mode: " Opt["PRUNE_GUARD"])
+
+	if (NumOperands < 2)
+		Opt["PRUNE_GUARD"] = GUARD_NONE
 
 	load_endpoint(Operands[1], Source)
 	load_endpoint(Operands[2], Target)
