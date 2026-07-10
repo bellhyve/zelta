@@ -85,6 +85,11 @@ parse_args() {
 
 	init_zelta_env "$@"
 
+	if zelta_bool_true "$ZELTA_PRUNE_VISUAL"; then
+		zelta ipc-run prune
+		unset ZELTA_PRUNE_VISUAL
+	fi
+
 	ZPRUNE_LOG_LEVEL=${ZELTA_LOG_LEVEL:-2}
 	[ "${ZELTA_LOG_LEVEL:-2}" -lt 2 ] && ZPRUNE_QUIET=1
 	zelta_bool_true "$ZELTA_DRYRUN" && ZPRUNE_DRYRUN=1
@@ -97,10 +102,6 @@ parse_args() {
 	if [ -z "$ZELTA_SRC_ID" ]; then
 		error "source operand required"
 		zprune_usage
-	fi
-	if [ -z "$ZELTA_TGT_ID" ] && ! prune_guard_disabled; then
-		error "target operand required unless prune guard is disabled"
-		exit 1
 	fi
 }
 
@@ -271,6 +272,40 @@ preview_reclaim_bytes() {
 	awk '/^reclaim[ 	]/ { bytes += $2 } /would reclaim / { bytes += $NF } END { print bytes + 0 }' "$1"
 }
 
+preview_dataset_count() {
+	awk '
+	function remember(ds) {
+		if (!(ds in seen)) {
+			seen[ds] = 1
+			num_ds++
+		}
+	}
+	/^destroy[ 	]/ {
+		ds = $2
+		sub(/@.*/, "", ds)
+		remember(ds)
+		next
+	}
+	/^would destroy / {
+		ds = $3
+		sub(/@.*/, "", ds)
+		remember(ds)
+		next
+	}
+	END { print num_ds + 0 }
+	' "$1"
+}
+
+print_prune_size_notice() {
+	_dataset_count=$1
+
+	[ -n "$ZELTA_PRUNE_SIZE" ] || return 0
+	[ "$_dataset_count" -gt 1 ] || return 0
+
+	printf 'Estimating %s per dataset savings on %s datasets.\n\n' \
+		"$ZELTA_PRUNE_SIZE" "$_dataset_count"
+}
+
 print_preview_commands() {
 	awk -F@ '
 	BEGIN {
@@ -420,9 +455,11 @@ main() {
 
 	_destroy_count=$(preview_destroy_count "$_preview_file")
 	_reclaim_bytes=$(preview_reclaim_bytes "$_preview_file")
+	_dataset_count=$(preview_dataset_count "$_preview_file")
 	_total_count=$(count_source_snapshots)
 	_total_bytes=$(sum_source_snapshot_written)
 	if [ -n "$ZPRUNE_DRYRUN" ] || [ -z "$ZPRUNE_QUIET" ] || [ -z "$ZELTA_PRUNE_FORCE" ]; then
+		print_prune_size_notice "$_dataset_count"
 		print_dataset_summary "$_preview_file"
 		print_summary "$_destroy_count" "$_total_count" "$_reclaim_bytes" "$_total_bytes"
 	fi
@@ -430,6 +467,11 @@ main() {
 
 	if [ -n "$ZPRUNE_DRYRUN" ]; then
 		exit 0
+	fi
+
+	if [ -z "$ZELTA_TGT_ID" ] && ! prune_guard_disabled; then
+		error "target operand required for destructive prune; use --no-prune-guard to override"
+		exit 1
 	fi
 
 	if [ -z "$ZELTA_PRUNE_FORCE" ]; then

@@ -54,7 +54,7 @@ The following options should be modified in the environment to ensure proper ins
 # LOGGING OPTIONS
 
 **LOG_FILE**
-:   Divert all output into the indicated file.
+:   Append log output to the indicated file. In JSON mode, write the JSON output to this file while status messages remain separate on stderr.
 
 **LOG_LEVEL**
 :   Specify a log level value 0-4: errors (0), warnings (1), notices (2, default), info (3, verbose), and debug (4).
