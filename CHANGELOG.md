@@ -84,7 +84,7 @@ All notable changes to Zelta will be documented in this file.
 - Dataset type detection with environment variables for each (TOP, NEW, FS, VOL, RAW, etc.).
 - Improved option hierarchy for `zelta policy`.
 - Fixed namespace configuration and repeated targets in `zelta policy`.
-- Workaround for GNU Awk 5.2.1 bug.
+- Workaround for GNU Awk 5.2.1/5.3.2 memory bug.
 - Resume token handling and other context-aware ZFS option handling.
 - Added `SYSTIME` option for mawk compatibility with JSON timestamps.
 
