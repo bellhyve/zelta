@@ -1,5 +1,5 @@
 # Auto-generated ShellSpec test file
-# Generated at: 2026-07-03 03:09:44 -0400
+# Generated at: 2026-07-10 23:42:26 -0400
 # Source: 010_prune_options_spec
 # WARNING: This file was automatically generated. Manual edits may be lost.
 
@@ -118,7 +118,7 @@ output_for_prune_grid_weekly() {
   return 0
 }
 
-Describe 'Test prune options' prune-scenario
+Describe 'Test prune options' prune-scenario:10
   Include "${SHELLSPEC_HELPERDIR}/golden_pool_helper.sh"
   
   EXPECTED_SNAPSHOTS=168
