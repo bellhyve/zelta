@@ -235,7 +235,7 @@ Returns 0 on success and non-zero on error.
 
 # NOTES
 
-**zelta prune** is under active development for the BSDCan 2026 prune workflow. Review output carefully before destructive use.
+**zelta prune** is nondestructive: it only plans candidates. Use **zprune(8)** when you intend to destroy snapshots, and review the preview carefully.
 
 This command is driven by the same comparison engine as **zelta match**. See **zelta-match(8)** for source/target matching behavior.
 

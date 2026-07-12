@@ -16,6 +16,7 @@ Examples:
 
     Local:  pool/dataset@snapshot
     Remote: user@example.com:pool/dataset@snapshot
+    IPv6:   user@[2001:db8::1]:pool/dataset
 
 See **zfs(8)** for dataset naming conventions.
 

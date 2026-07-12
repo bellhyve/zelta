@@ -1,6 +1,6 @@
 ![Zelta Logo](https://zelta.space/index/zelta-banner.svg)
 # The Zelta Backup and Recovery Suite
-*Current release: 1.2*
+*Current release: 1.2.0*
 
 ---
 > - **What's New:** Check [CHANGELOG.md](CHANGELOG.md) for the latest changes
@@ -66,7 +66,7 @@ sudo ./install.sh
 ```
 
 ### FreeBSD Ports
-Zelta is available in the FreeBSD Ports Collection. Ports may lag the GitHub release; use the installer for current 1.2 features.
+Zelta is available in the FreeBSD Ports Collection. Ports may lag the GitHub release; use the installer for current 1.2.0 features.
 ```sh
 pkg install zelta
 ```
@@ -195,4 +195,4 @@ For commercial support, custom feature development, and consulting on secure, hi
 
 ## Current Direction
 
-Zelta 1.2 adds the prune planner/`zprune` split, rebase, failover, lock/unlock, propsync, snapshot thresholds, policy imports, and broader include/exclude filtering. See [CHANGELOG.md](CHANGELOG.md) for release details and current known issues.
+Zelta 1.2.0 adds the prune planner/`zprune` split, rebase, failover, lock/unlock, propsync, snapshot thresholds, policy imports, replication-success bookmarks, and broader include/exclude filtering. See [CHANGELOG.md](CHANGELOG.md) for release details and current known issues.

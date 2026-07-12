@@ -5,7 +5,7 @@
 # zelta prune selects snapshots. zprune adds the destructive prompt and runs
 # zfs destroy against the exact candidates emitted by zelta prune.
 
-ZPRUNE_VERSION="zprune 1.2.BSDCan2026"
+ZPRUNE_VERSION="zprune 1.2.0"
 
 zprune_usage() {
 	exec >&2

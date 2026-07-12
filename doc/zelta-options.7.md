@@ -184,6 +184,12 @@ The following options should be modified in the environment to ensure proper ins
 **SNAP_SIZE**
 :   In `IF_NEEDED` mode, skip snapshot creation if cumulative source writes are below the threshold. Bare numbers are bytes; supported suffixes are `K`, `M`, `G`, `T`, `P`, and `E`.
 
+**BOOKMARK_MODE**
+:   After a successful receive, create a ZFS bookmark on each confirmed source snapshot. `0` (default) disables bookmarking; `1` bookmarks the latest confirmed source snapshot per successfully received dataset. Command-line: `--bookmark`, `--no-bookmark`, or `--bookmark-mode`.
+
+**BOOKMARK_PREFIX**
+:   Prefix for replication-success bookmark names. Default is `{targethost}_`, producing names such as `pool/ds#backuphost_snapname`. Command-line: `--bookmark-prefix`.
+
 **SYNC_DIRECTION**
 :   If both endpoints are remote, use `PULL` (the default) or `PUSH` sync. If set to `0`, traffic will stream through the local host. Note that this feature PUSH and PULL features require appropriate ssh configurations with keys properly installed and/or ssh agent forwarding enabled.
 
