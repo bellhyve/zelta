@@ -43,13 +43,11 @@ Written in portable Bourne shell and AWK, Zelta runs anywhere ZFS runs. No packa
 Run as root for a system install or as a backup user for a user-local install. No `git` required.
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/bell-tower/zelta/main/contrib/web-install.sh | sh
-```
+# Latest (may include beta features)
+curl -fsSL https://zelta.space/web-install.sh | sh
 
-To install a specific branch:
-
-```sh
-curl -fsSL https://raw.githubusercontent.com/bell-tower/zelta/release/bsdcan2026/contrib/web-install.sh | sh -s -- --branch=release/bsdcan2026
+# Latest release (package-repo track)
+curl -fsSL https://zelta.space/web-install.sh | sh -s -- --branch=release/1.2
 ```
 
 The installer uses sane defaults for system-wide or user installs. Advanced install paths can be overridden with `ZELTA_BIN`, `ZELTA_SHARE`, `ZELTA_ETC`, and `ZELTA_DOC`; see the install documentation for details.

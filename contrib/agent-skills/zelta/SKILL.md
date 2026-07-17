@@ -22,7 +22,10 @@ zelta help options
 If Zelta is missing:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/bell-tower/zelta/main/contrib/web-install.sh | sh
+# Latest (may include beta features)
+curl -fsSL https://zelta.space/web-install.sh | sh
+# Latest release track
+curl -fsSL https://zelta.space/web-install.sh | sh -s -- --branch=release/1.2
 ```
 
 Inspect install scripts before piping them to `sh` when the user wants a security review or production change control.
