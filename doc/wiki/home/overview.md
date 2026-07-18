@@ -27,6 +27,26 @@ For quick help, use `zelta usage` to see available commands and options, or `zel
 
 ---
 
+## Which Command?
+
+Man pages list every flag. Use this table to pick the workflow, then open the linked guide or man page.
+
+| Goal | Command | Where to read |
+|------|---------|----------------|
+| See if two trees match | `zelta match` | [First Backup](/home/start), [zelta-match(8)](/man/zelta-match) |
+| Create or update a replica | `zelta backup` | [Simple Backups](/guides/backup), [zelta-backup(8)](/man/zelta-backup) |
+| Many jobs / sites | `zelta policy` | [Policy](/guides/policy), [zelta-policy(8)](/man/zelta-policy) |
+| Writable test copy | `zelta clone` | [Recovery](/guides/recovery), [zelta-clone(8)](/man/zelta-clone) |
+| Rewind live dataset, keep old state | `zelta revert` | [Recovery](/guides/recovery), [zelta-revert(8)](/man/zelta-revert) |
+| Fix diverged source/target | `zelta rotate` | [Recovery](/guides/recovery), [zelta-rotate(8)](/man/zelta-rotate) |
+| Promote standby twin | `zelta failover` | [Failover](/guides/sync), [Twin](/guides/twin) |
+| Plan snapshot deletion | `zelta prune` | [Recovery](/guides/recovery), [zelta-prune(8)](/man/zelta-prune) |
+| Destroy planned snapshots | `zprune` | [zprune(8)](/man/zprune) |
+
+**Safety boundary:** `zelta*` does not destroy data. `zprune` destroys snapshots only. Raw `zfs` can do anything else.
+
+---
+
 ## Endpoint Format
 
 Zelta uses an SCP-like syntax to specify datasets and snapshots:
