@@ -9,7 +9,11 @@ This page is the short path from installation to a verified backup. For full set
 ### One-Shot Installer
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/bell-tower/zelta/main/contrib/web-install.sh | sh
+# Latest (may include beta features)
+curl -fsSL https://zelta.space/web-install.sh | sh
+
+# Latest release (package-repo track)
+curl -fsSL https://zelta.space/web-install.sh | sh -s -- --branch=release/1.2
 ```
 
 Run as root for a system install or as a backup user for a user-local install. No `git` required.

@@ -1,6 +1,6 @@
 # Getting Started with ZFS
 
-If you're looking for entprise storage that benefits from the simplicity and power of Zelta, you first need ZFS systems.
+If you're looking for enterprise storage that benefits from the simplicity and power of Zelta, you first need ZFS systems.
 
 Note that Zelta can orchestrate backups and other workflows from anywhere, and no dependencies are required to use Zelta on the ZFS servers themselves.
 
@@ -44,7 +44,7 @@ If you want ZFS without managing the underlying system:
 
 - **ZFS hosting** — Services like [zfs.rent](https://zfs.rent) provide ready-to-use ZFS storage
 
-- **Appliances** — There are many turnkey storage appliances with a web interfaces such as TrueNAS. 
+- **Appliances** — There are many turnkey storage appliances with web interfaces such as TrueNAS. 
 
 ---
 

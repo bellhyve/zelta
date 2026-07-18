@@ -125,7 +125,7 @@ zelta backup user@server1:tank/data user@server2:pool/backup
 
 **You never need to run Zelta as root.** Using ZFS delegation (`zfs allow`) and SSH keys, you can safely replicate datasets without privileged access. This dramatically reduces your attack surface and makes Zelta ideal for regulated environments.
 
-See [ZFS Allow Delegation](/en/conf/zfs-allow) for setup instructions.
+See [ZFS Allow Delegation](/conf/zfs-allow) for setup instructions.
 
 ### Portable and Dependency-Free
 
@@ -139,6 +139,6 @@ Replication decisions are based on ZFS metadata and available features, not nami
 
 ## Next Steps
 
-Ready to try Zelta? Head over to [First Backup](/en/home/start) for practical examples.
+Ready to try Zelta? Head over to [First Backup](/home/start) for practical examples.
 
 For detailed command usage, run `zelta help` or explore the [Zelta Wiki](https://zelta.space/en/home).

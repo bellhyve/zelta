@@ -3,6 +3,8 @@
 Zelta configuration is split between environment defaults, policy files, SSH access, and ZFS delegation.
 
 - [Environment & Policy Files](/conf/env): Which file to edit, syntax differences, option precedence, and references.
+- [zelta.env](/conf/zelta-env): Cross-command defaults (shell `KEY=value` syntax).
+- [zelta.conf](/conf/zelta-conf): Policy jobs for `zelta policy` (YAML-like, `import:` fragments).
 - [SSH Configuration](/conf/ssh): Keys, bastions, agent forwarding, and connection tuning.
 - [ZFS Allow Delegation](/conf/zfs-allow): Non-root ZFS permissions for backup, recovery, failover, and pruning.
 - [Getting Started With ZFS](/conf/zfs): ZFS background for new users.

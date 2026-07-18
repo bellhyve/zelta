@@ -12,7 +12,6 @@ This guide covers installing Zelta and configuring it for your environment. Whet
 [Environment Variables](#environment-variables)
 [Updating Zelta](#updating-zelta)
 [Uninstalling Zelta](#uninstalling-zelta)
-[Environment Variables](#environment-variables)
 [Convenience Aliases](#convenience-aliases)
 [Next Steps](#next-steps)
 
@@ -44,13 +43,11 @@ No package dependencies. No daemons. No configuration databases.
 The web installer downloads a GitHub branch archive and runs the normal `install.sh` installer. No `git` required:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/bell-tower/zelta/main/contrib/web-install.sh | sh
-```
+# Latest (may include beta features)
+curl -fsSL https://zelta.space/web-install.sh | sh
 
-To install a specific branch:
-
-```sh
-curl -fsSL https://raw.githubusercontent.com/bell-tower/zelta/main/contrib/web-install.sh | sh -s -- --branch=release/bsdcan2026
+# Latest release (package-repo track)
+curl -fsSL https://zelta.space/web-install.sh | sh -s -- --branch=release/1.2
 ```
 
 ### From Repository
@@ -434,7 +431,7 @@ See [Environment & Policy Files](/conf/env) for a comprehensive reference. Here 
 Rerun the same installer command to update an existing install. The installer reports when the installed version is already current.
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/bell-tower/zelta/main/contrib/web-install.sh | sh
+curl -fsSL https://zelta.space/web-install.sh | sh
 ```
 
 ### From Source

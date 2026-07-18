@@ -26,6 +26,9 @@ Rename and clone a dataset in-place to rewind state
 ### [zelta-rotate(8)](zelta-rotate)
 Recover sync continuity after divergence
 
+### [zelta-snapshot(8)](zelta-snapshot)
+Create recursive snapshots on local or remote endpoints
+
 ### [zelta-prune(8)](zelta-prune)
 Plan snapshot pruning without destroying data
 

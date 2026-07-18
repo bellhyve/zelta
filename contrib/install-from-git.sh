@@ -2,8 +2,9 @@
 # Zelta Web Installer
 # Downloads Zelta from GitHub and runs install.sh
 #
-# Usage: curl -fsSL https://raw.githubusercontent.com/bell-tower/zelta/main/contrib/web-install.sh | sh
-# Or specify branch: curl ... | sh -s -- --branch=release/bsdcan2026
+# Usage: curl -fsSL https://zelta.space/web-install.sh | sh
+# Or specify branch: curl -fsSL https://zelta.space/web-install.sh | sh -s -- --branch=release/1.2
+# Source: https://github.com/bell-tower/zelta/blob/main/contrib/web-install.sh
 
 set -e
 

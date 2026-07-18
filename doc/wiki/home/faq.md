@@ -8,7 +8,7 @@ The first colon (before a `/` or space) will be interpreted as a host name. Pref
 Yes. For most user-local installs, use the web installer as the target user:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/bell-tower/zelta/main/contrib/web-install.sh | sh
+curl -fsSL https://zelta.space/web-install.sh | sh
 ```
 
 You can also run the source installer from a checkout:

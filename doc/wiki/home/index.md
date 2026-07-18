@@ -47,10 +47,24 @@ All Zelta commands operate recursively on dataset trees and work locally or remo
 
 
 
+## Guides
+
+
+
+- **[Simple Backups](/guides/backup):** Create and verify direct backups.
+- **[Policy-Based Automatic Backups](/guides/policy):** Run multiple backup jobs from configuration.
+- **[Zelta Twin](/guides/twin):** Asynchronous cluster pairs and guarded failover.
+- **[Failover Workflows](/guides/sync):** Backup, lock/unlock, propsync, and failover.
+- **[Rollback & Recovery](/guides/recovery):** Snapshots, clones, revert, and rotate.
+- **[JSON Output](/guides/json):** Machine-readable output for monitoring.
+
+
+
 ## Configuration Examples
 
 
 
+- **[Environment & Policy Files](/conf/env):** Which file to edit, syntax, and precedence.
 - **[Configuration: ssh](/conf/ssh):** SSH best practices for efficient ZFS backup.
 - **[Configuration: zfs allow](/conf/zfs-allow):** Set up ZFS permissions with minimal access.
 - **[Configuration: zelta.conf](/conf/zelta-conf):** Policy configuration for complex backups.
