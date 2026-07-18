@@ -10,62 +10,93 @@
 
 # DESCRIPTION
 
-**zelta prune** reports snapshots on a source dataset tree that are candidates for pruning. It is nondestructive. To destroy snapshots, use **zprune(8)** with identical prune options.
+**zelta prune** reports snapshots on a source dataset tree that are candidates for pruning. It does not destroy snapshots. Use **zprune(8)** with the same options after reviewing a strategy.
 
-Pruning has two stages: first choose which snapshots are eligible, then apply a retention policy to that eligible set.
+A pruning strategy combines scope filters, snapshot protections, and retention options. Scope filters first narrow the dataset tree or snapshot names. Clone and replication checks protect snapshots within that scope. Retention options protect snapshots by count, age, or retention grid. `--prune-size` can further limit candidates to an estimated reclaim target.
 
-Scope and protection options decide eligibility. **--depth**, **--include**, and **--prune-name** narrow the dataset tree or snapshot names. **--exclude**, clone checks, and snapshots protected by **--prune-guard** remove snapshots from deletion. **--prune-guard=unsynced** requires every reported candidate to exist on the target.
+All selected rules stack. A snapshot is a prune candidate only if it remains in scope and no protection or retention rule keeps it. For example, the default strategy is:
 
-Retention policy options decide which eligible snapshots to keep. Others are reported. By default, **zelta prune** applies this failsafe policy:
+- `--prune-guard=latest`: Use the latest common source/target snapshot, when one exists, as a protected boundary.
+- `--prune-num=30`: Keep the newest 30 snapshots older than that protected boundary.
+- `--prune-time=30days`: Keep snapshots from the last 30 days.
 
-- protect snapshots newer than the latest common source/target match
-- keep the newest 30 eligible snapshots after that guard point
-- keep eligible snapshots newer than 30 days
+The count and time windows overlap. Older than a protected replication boundary, the default keeps the newest 30 snapshots or all snapshots from the last 30 days when that protects more. The boundary and everything newer remain protected separately. Specifying any retention option replaces the count and time defaults.
 
-Defining any explicit retention policy replaces the 30/30 default. Options can be combined; a snapshot is reported only when all selected rules allow it.
+# OPTIONS
 
-As with other Zelta commands, **zelta prune** works recursively on dataset trees. Source and target endpoints may be local or remote using **scp(1)**-style syntax.
+## Endpoint Arguments
 
-# RETENTION POLICIES
+_source_
+: Dataset tree containing snapshots to evaluate.
 
-The examples below show time moving left to right. `o` means kept. `x` means selected as a prune candidate.
+_target_
+: Optional replica used for `--prune-guard` safety checks. Without a _target_, **zelta prune** applies no prune guard. **zprune** requires either a _target_ or `--no-prune-guard`.
 
-## Keep Window
+## Output Options
 
-Keep windows count from the latest snapshots. They protect recent history and prune older history.
+General output, logging, and help options work as described in **zelta-options(7)**. The following options are especially relevant to pruning.
 
-```text
-oldest                                      latest
-x x x x x x x x x x x x x x x x x x o o o o
-                                      keep 4
-```
+`--dryrun`, `-n`
+: Display the **zfs list** command(s) that would be used.
 
-Common options:
+`--no-ranges`
+: Disable range compression. By default, consecutive snapshots are emitted as ZFS snapshot ranges suitable for **zfs destroy(8)**.
 
-- **--prune-num** _N_: keep the newest _N_ snapshots after the guard point.
-- **--prune-time** _TIME_: keep snapshots newer than _TIME_.
+`--verbose`, `-v`
+: Increase verbosity. Specify once for operational detail, twice for debug output.
 
-## GFS Grid
+`--visual`
+: Replace the candidate list with `🔹` for each protected snapshot and `❌` for each prune candidate. Snapshots appear in creation order, oldest first. Terminals may wrap long rows. Visual output is written directly to standard output rather than through the normal logging modes.
 
-The grid keeps sparse historical points and prunes snapshots between them. Grid mode always protects the oldest snapshot and latest protected boundary in each dataset.
+## Filters
 
-```text
-oldest                                      latest
-o x x x o x x x o x o x o x o o o o o o o o
-weekly      daily      hourly       recent
-```
+Scope filters are processed before retention options. For example, `--depth=1` considers only the top-level dataset and ignores its children. Snapshots excluded by a scope filter cannot become prune candidates. Snapshots that are clone origins are always protected.
 
-Grid terms use _COUNT_`x`_INTERVAL_. A term without `x` keeps one snapshot per interval forever from that point onward. Separate terms with commas or vertical bars. Whitespace is allowed around `x` and between interval numbers and units.
+The following global filters work as they do for other Zelta verbs; see **zelta-options(7)**.
 
-```sh
-zelta prune --prune-grid='30x1 day, 52x1 week, 1 year' source target
-```
+`--depth`, `-d` _LEVELS_
+: Limit dataset-tree recursion depth. A depth of `1` includes only the specified dataset.
 
-Grid intervals use the same duration syntax as **--prune-time**. Buckets are measured backward from the latest protected boundary, not from the wall-clock time when **zelta prune** runs. With the default prune guard, that boundary is the latest common source/target match. With **--prune-guard=none**, the boundary is the latest source snapshot. Zelta protects that boundary and the oldest snapshot in the dataset, then keeps the newest snapshot found in each older grid bucket.
+`--exclude`, `-X` _PATTERN_
+: Exclude datasets or source snapshots matching _PATTERN_. See _INCLUDE AND EXCLUDE PATTERNS_ in **zelta-options(7)**.
 
-Snapshots older than a bounded grid span are prune candidates unless protected by another rule. An unbounded term such as `1 year` keeps one snapshot per year for all older history. Zelta recommends putting unbounded terms last, but does not enforce it.
+`--include` _PATTERN_
+: Include only datasets or source snapshots matching _PATTERN_. See _INCLUDE AND EXCLUDE PATTERNS_ in **zelta-options(7)**.
 
-## Duration Syntax
+Additionally, **zelta prune** protects candidates based on their replication state.
+
+`--prune-guard=latest`
+: When the source and target have a common snapshot, protect the latest match and everything newer on the source. If no match exists, evaluate from the latest source snapshot. This is the default when a _target_ is given.
+
+`--prune-guard=unsynced`
+: Require the candidate snapshot to be present on the _target_. Snapshots not confirmed on the target are protected.
+
+`--prune-guard=none`, `--no-prune-guard`
+: Do not require a target or confirm that candidates exist on it. If a _target_ is supplied, its latest common snapshot still defines the retention boundary. **zprune** requires this option when a _target_ is omitted.
+
+## Retention Options
+
+Retention options apply within the scope selected by `--depth`, `--include`, `--exclude`, and `--prune-guard`. Count, time, and grid options overlap: a snapshot is protected when any selected retention option keeps it. If no retention options are given, **zelta prune** uses `--prune-num=30 --prune-time=30days`.
+
+`--prune-grid` _GRID_
+: Keep snapshots in one or more aging intervals written as [_COUNT_`x`]_INTERVAL_. For example, `30x1day, 52x1week, 1year` keeps one snapshot per day for 30 days, then one per week for 52 weeks, then one per year for all older history.
+
+Grid terms are evaluated from left to right. A term without _COUNT_ applies to all remaining history. Separate terms with commas or vertical bars. Whitespace is allowed.
+
+Grid ages are measured backward from the latest common source/target snapshot when one exists, or from the latest source snapshot or bookmark otherwise. **zelta prune** protects the newest snapshot found in each interval.
+
+`--prune-num` _N_
+: Keep the newest _N_ snapshots.
+
+`--prune-size` _SIZE_
+: Select the oldest remaining snapshots until their estimated reclaim reaches at least _SIZE_. Suffixes such as `M`, `G`, and `T` are supported.
+
+Like all other options, each dataset is evaluated separately. On a dataset tree, every dataset is evaluated against the full _SIZE_. Use `--depth=1` or another filter to target one dataset. The estimate assumes sequential oldest-first pruning; use the **zprune(8)** preview for a more accurate estimate of reclaimed space.
+
+`--prune-time` _TIME_
+: Keep snapshots newer than _TIME_ relative to the current time.
+
+### Duration Syntax
 
 Bare numbers are seconds. Use unambiguous units for anything else:
 
@@ -79,86 +110,7 @@ months    mo, mon, month, months
 years     y, year, years
 ```
 
-Note that `m` is ambiguous, but you can use `mi` for minutes and `mo` for months. Months are treated as 30 days and years as 365 days.
-
-# OPTIONS
-
-## Endpoint Arguments
-
-_source_
-: Dataset tree containing snapshots to evaluate.
-
-_target_
-: Dataset tree used for target-safety checks. If the target is omitted while **--prune-guard** is enabled, **zelta prune** returns an error. Use **--no-prune-guard** only for local-only retention.
-
-## Retention Policy Options
-
-**--prune-num** _N_
-: Keep the newest _N_ snapshots after the guard point. With the default guard, this keeps snapshots newer than the latest common source/target match.
-
-**--prune-time** _TIME_
-: Keep snapshots newer than _TIME_. Bare numbers are seconds.
-
-**--prune-grid** _GRID_
-: Apply GFS-style grid retention. Example: `30x1 day, 52x1 week, 1 year`.
-
-**--prune-size** _SIZE_
-: Select oldest eligible snapshots until their estimated reclaim reaches at least _SIZE_. This planner target is off by default. _SIZE_ accepts ZFS-style byte counts and suffixes such as `K`, `KB`, `M`, `GB`, and `T`.
-
-**--prune-size** is evaluated per dataset. On recursive dataset trees, each dataset may contribute up to the requested reclaim target, so the total candidate set can exceed _SIZE_. Use **--depth=1**, **--include**, or a non-recursive dataset selection when _SIZE_ should apply to one dataset only.
-
-The estimate is based on sequential oldest-first pruning. If other rules create gaps, run pruning in multiple passes or use **zprune(8)** preview as the final authority.
-
-**--prune-policy** _NAME_
-: Apply a named pruning policy from configuration.
-
-## Scope And Protection Options
-
-**--prune-guard** `latest`|`unsynced`|`none`
-: Select target safety behavior. The default is `latest`.
-
-`latest`
-: Require a common source/target snapshot match. Snapshots newer than the latest match are protected from pruning.
-
-`unsynced`
-: Require each candidate to exist on the target with the same GUID and snapshot name. Snapshots not confirmed on the target are protected from pruning.
-
-`none`
-: Do not use target matching. This is local-only retention.
-
-**--no-prune-guard**
-: Equivalent to **--prune-guard=none**.
-
-Snapshots with clones are never reported as prune candidates. **zprune** also previews with **zfs destroy -nvp** before destruction, so clone checks remain effective if state changes after candidate selection.
-
-**--prune-name** _PATTERN_
-: Select snapshots by name before applying retention policies. Use this when multiple snapshot tools or naming policies share the same dataset tree.
-
-**-d**, **--depth** _LEVELS_
-: Limit dataset-tree recursion depth. A depth of `1` includes only the specified dataset.
-
-**-X**, **--exclude** _PATTERN_
-: Exclude datasets or snapshots matching _PATTERN_. Snapshot patterns begin with `@`. Dataset patterns may be exact dataset names or glob patterns containing `/`. See _INCLUDE AND EXCLUDE PATTERNS_ in **zelta-options(7)**.
-
-**--include** _PATTERN_
-: Include only datasets or snapshots matching _PATTERN_. This uses the same pattern style as **--exclude**. See _INCLUDE AND EXCLUDE PATTERNS_ in **zelta-options(7)**.
-
-## Output Options
-
-**-f**, **--force**
-: Suppress the interactive prompt. With **zelta prune**, this only affects the prompt shown before the candidate list. With **zprune(8)**, this permits destruction after preview without asking for confirmation.
-
-**-q**, **--quiet**
-: Hide the snapshot candidate list. If **-f** is also given, **zelta prune** suppresses the prompt and snapshot list.
-
-**--no-ranges**
-: Disable range compression. By default, consecutive snapshots are emitted as ZFS snapshot ranges.
-
-**-v**, **--verbose**
-: Increase verbosity. Specify once for operational detail, twice for debug output.
-
-**-n**, **--dryrun**, **--dry-run**
-: Display underlying listing commands without running them.
+The unit `m` is ambiguous and is rejected. Use `mi` for minutes or `mo` for months. Months are treated as 30 days and years as 365.25 days.
 
 # OUTPUT FORMAT
 
@@ -168,7 +120,7 @@ By default, **zelta prune** outputs ZFS snapshot names or ranges, one per line:
 pool/dataset@oldest_snapshot%newest_snapshot
 ```
 
-With **--no-ranges**, each candidate snapshot is emitted individually:
+With `--no-ranges`, each candidate snapshot is emitted individually:
 
 ```text
 pool/dataset@snapshot
@@ -176,57 +128,77 @@ pool/dataset@snapshot
 
 The output is suitable for review and for **zprune(8)**. Manual piping to **zfs destroy** is discouraged; **zprune** previews candidates with **zfs destroy -nvp** and prompts before deletion.
 
+With `--visual`, each dataset is followed by one symbol per snapshot:
+
+```text
+tank/data
+❌❌❌❌🔹🔹🔹🔹
+```
+
+Snapshots run from oldest to newest. A `🔹` is protected; a `❌` is a prune candidate. The symbols show the result of the complete strategy, including filters, prune guards, and overlapping retention options.
+
 # EXAMPLES
 
-Report candidates using the default 30/30 failsafe:
+Inspect the default strategy before working with its candidate list:
 
 ```sh
-zelta prune tank/data backup:tank/data
+zelta prune --visual tank/data backup:tank/data
 ```
 
-Preview and confirm destructive pruning with the wrapper:
+When a common snapshot exists, the default protects that latest match and everything newer. Among older snapshots, it also protects the newest 30 and all snapshots from the last 30 days. Diamonds may extend farther into history when the time window protects more than the count window.
+
+Select the oldest snapshots until their estimated reclaim reaches 150 GiB. Limiting depth makes the reclaim target apply only to `tank/data`:
 
 ```sh
-zprune tank/data backup:tank/data
+zelta prune --visual --prune-size=150G --depth=1 tank/data
 ```
 
-Require every candidate to exist on the target:
+Add a replica guard when old snapshots should be candidates only after reaching the target:
 
 ```sh
-zelta prune --prune-guard=unsynced tank/data backup:tank/data
-```
-
-Run local-only retention:
-
-```sh
-zelta prune --no-prune-guard tank/data
-```
-
-Keep a larger recent window:
-
-```sh
-zelta prune --prune-num=200 --prune-time=180days \
+zelta prune --visual --prune-size=150G --prune-guard=unsynced \
     tank/data backup:tank/data
 ```
 
-Apply GFS-style retention:
+Comparing this with the preceding size-only view reveals old history that the replica guard protects because it is missing from the target.
+
+Compare count and time windows independently:
 
 ```sh
-zelta prune --prune-grid='30x1 day, 52x1 week, 1 year' \
-    tank/data backup:tank/data
+zelta prune --visual --prune-num=30 tank/data
+zelta prune --visual --prune-time=30days tank/data
 ```
 
-Exclude temporary datasets and include only daily snapshots:
+Limit the strategy to snapshots whose names begin with `zelta`. Snapshots with other names remain protected:
 
 ```sh
-zelta prune --exclude='*/tmp' --include='@daily-*' \
-    tank/data backup:tank/data
+zelta prune --visual --include='@zelta*' tank/data
 ```
 
-Prune from the oldest eligible snapshots until at least 1 GiB is selected:
+Keep one snapshot per week throughout all history considered by the filters:
 
 ```sh
-zelta prune --prune-size=1G tank/data backup:tank/data
+zelta prune --visual --prune-grid=1week tank/data
+```
+
+Apply a longer data-lifecycle grid:
+
+```sh
+zelta prune --visual --prune-grid='30x1day, 52x1week, 1year' \
+    tank/data
+```
+
+After inspecting a strategy, report its candidates in the default pipeable format:
+
+```sh
+zelta prune --prune-grid='30x1day, 52x1week, 1year' tank/data
+```
+
+Preview the exact **zfs destroy** commands and confirm destructive pruning. Because this example has no replica target, **zprune** requires an explicit `--no-prune-guard`:
+
+```sh
+zprune --no-prune-guard \
+    --prune-grid='30x1day, 52x1week, 1year' tank/data
 ```
 
 # EXIT STATUS
