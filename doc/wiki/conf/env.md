@@ -9,14 +9,14 @@ For the complete option reference, see [zelta-options(7)](/man/zelta-options) or
 
 ---
 
-## Syntax At A Glance
+## Syntax at a glance
 
 `zelta.env` uses Bourne shell syntax:
 
 ```sh
 # ~/.config/zelta/zelta.env or /usr/local/etc/zelta/zelta.env
 # This example sets a preferred snapshot naming scheme,
-# enables SSH agent forwarding, and globally enables "verbose" mode. 
+# enables SSH agent forwarding, and globally enables "verbose" mode.
 SNAP_NAME='$(date -u +manual_backup_%Y-%m-%d_%H.%M.%S)'
 REMOTE_SEND="ssh -An"
 LOG_LEVEL=3

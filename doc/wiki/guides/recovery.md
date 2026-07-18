@@ -43,7 +43,7 @@ Use `zelta clone` when you need a writable tree from a backup or snapshot withou
 zelta clone backup:tank/Backups/data tank/recovery/data-test
 ```
 
-Clones start as zero-cost references until you write new data. See [zelta-clone(8)](/man/zelta-clone).
+Clones are zero-cost references; they share existing storage until they diverge. See [zelta-clone(8)](/man/zelta-clone).
 
 ## Rewind In Place: `zelta revert`
 
@@ -58,7 +58,7 @@ Typical case: a bad update broke a service. Revert restores a known-good tree; t
 
 After a local revert, a replica may no longer match. Use `zelta rotate` (below) if backups must continue from the rewound source.
 
-## Restore Sync Continuity: `zelta rotate`
+## Restore Backup Continuity: `zelta rotate`
 
 Use `zelta rotate` when source and target have diverged and you want both histories kept:
 
@@ -88,7 +88,7 @@ zelta prune --prune-time 30d tank/data backup:tank/Backups/data
 zprune --prune-time 30d tank/data backup:tank/Backups/data
 ```
 
-`zelta prune` previews and can pipe candidates. `zprune` is the only tool in the suite meant to destroy snapshots. Keep retention users and permissions separate from routine backup users; see [ZFS Allow Delegation](/conf/zfs-allow).
+`zelta prune` previews and can pipe candidates. `zprune` is the only tool in the suite meant to destroy snapshots. For complete retention strategies, see [Retention Strategies](/guides/retention). Keep retention users and permissions separate from routine backup users; see [ZFS Allow Delegation](/conf/zfs-allow).
 
 ## Related
 

@@ -34,13 +34,13 @@ zelta match primary.example.com:tank/service standby.example.com:tank/service
 | `zelta propsync` | Copy local properties the promoted side needs |
 | `zelta unlock` | Make the promoted side writable |
 
-See [zelta-lock(8)](/man/zelta-lock), [zelta-unlock(8)](/man/zelta-unlock), and [zelta-propsync(8)](/man/zelta-propsync).
+See [zelta-failover(8)](/man/zelta-failover) for the lower-level command details.
 
-## Rules Of Thumb
+## Rules of thumb
 
 - Do not run both sides read-write at the same time.
 - Always verify with `zelta match` before and after promotion.
-- If `zelta match` reports divergence (not merely behind), fix continuity with [zelta rotate](/guides/recovery) before expecting a normal backup or failover.
+- If `zelta match` reports divergence (not merely behind), fix backup continuity with [zelta rotate](/guides/recovery) before expecting a normal backup or failover.
 - After promotion, reverse your recurring backup direction (or rely on twin policy that already defines both sides).
 
 ## Related

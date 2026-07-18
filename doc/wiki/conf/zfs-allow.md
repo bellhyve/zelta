@@ -168,7 +168,7 @@ Always test the actual host:
 
 ```sh
 zfs allow tank/backups
-# Attempt the real zelta command as the delegated user
+# Then run the following tests as the delegated user, not as root.
 ```
 
 Older systems may lack `receive:append` or `send:raw`. In that case, use plain `receive` or `send` only for the smallest necessary dataset tree and compensate operationally with separate users, careful SSH keys, and explicit review.
@@ -200,7 +200,7 @@ zelta backup backup@source:tank/production backup@target:tank/backups/production
 zelta match backup@source:tank/production backup@target:tank/backups/production
 ```
 
-If dry-run succeeds but the real run fails, compare the verbose send/recv lines with `zfs allow` on both roots. The failing verb is almost always the missing grant.
+If dry-run succeeds but the real run fails, compare the verbose send/receive lines with `zfs allow` on both roots. Zelta usually reports a missing ZFS permission directly; if the error comes from a secondary system, also check SSH, network connectivity, holds, mount behavior, and the dataset root.
 
 ## Troubleshooting
 

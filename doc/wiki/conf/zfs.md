@@ -44,7 +44,7 @@ If you want ZFS without managing the underlying system:
 
 - **ZFS hosting** — Services like [zfs.rent](https://zfs.rent) provide ready-to-use ZFS storage
 
-- **Appliances** — There are many turnkey storage appliances with web interfaces such as TrueNAS. 
+- **Appliances** — There are many turnkey storage appliances with web interfaces such as TrueNAS.
 
 ---
 

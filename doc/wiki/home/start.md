@@ -12,7 +12,7 @@ This page is the short path from installation to a verified backup. For full set
 # Latest (may include beta features)
 curl -fsSL https://zelta.space/web-install.sh | sh
 
-# Latest release (package-repo track)
+# Latest release branch
 curl -fsSL https://zelta.space/web-install.sh | sh -s -- --branch=release/1.2
 ```
 
@@ -177,6 +177,7 @@ After the first backup, expand from direct commands into policies and recovery t
 - `zelta rotate`: Handle divergent histories without destructive receives
 - `zelta clone`: Create temporary read-write copies for testing
 - `zelta prune` and `zprune`: Plan and execute snapshot pruning as separate steps
+- `zelta snapshot`: Create recursive snapshots on local or remote endpoints
 - `zelta failover`: Promote a backup target safely
 - `zelta rebase`: Move a production tree to an upgraded upstream while keeping backup continuity
 
@@ -188,6 +189,8 @@ Run `zelta usage` for quick command reference, or `zelta help` for the full manu
 - [ZFS Allow Delegation](/conf/zfs-allow): Fine-grained permission management
 - [Policy Guide](/guides/policy): Multi-job policy configuration
 - [Backup Guide](/guides/backup): Backup and verification workflows
+- [Retention Strategies](/guides/retention): Snapshot retention and prune safety
+- [Failover Workflows](/guides/sync): Lock, final backup, property sync, and unlock
 
 ### Get Help
 

@@ -40,10 +40,11 @@ Man pages list every flag. Use this table to pick the workflow, then open the li
 | Rewind live dataset, keep old state | `zelta revert` | [Recovery](/guides/recovery), [zelta-revert(8)](/man/zelta-revert) |
 | Fix diverged source/target | `zelta rotate` | [Recovery](/guides/recovery), [zelta-rotate(8)](/man/zelta-rotate) |
 | Promote standby twin | `zelta failover` | [Failover](/guides/sync), [Twin](/guides/twin) |
+| Create a recursive snapshot | `zelta snapshot` | [zelta-snapshot(8)](/man/zelta-snapshot) |
 | Plan snapshot deletion | `zelta prune` | [Recovery](/guides/recovery), [zelta-prune(8)](/man/zelta-prune) |
 | Destroy planned snapshots | `zprune` | [zprune(8)](/man/zprune) |
 
-**Safety boundary:** `zelta*` does not destroy data. `zprune` destroys snapshots only. Raw `zfs` can do anything else.
+**Safety boundary:** `zelta*` does not destroy data. `zprune` destroys snapshots only.
 
 ---
 
@@ -70,7 +71,7 @@ Understanding these terms will help you get the most out of Zelta. For foundatio
 - **Archive:** A static replica that doesn't need incremental updates, such as backups of retired datasets or unused clone origins.
 - **Backup:** A replica that receives ongoing replication updates.
 - **Match:** The most recent common snapshot (or source bookmark/target snapshot pair) between two replicas. If a match exists, incremental replication is possible.
-- **Replica:** A copy of a dataset tree used for backup, archival, or failover. ZFS replicas are cryptographically confirmed to be identical.
+- **Replica:** A copy of a dataset tree used for backup, archival, or failover. Zelta compares replication metadata to confirm whether replicas share usable history.
 - **Savepoint:** Zelta's internal term for a bookmark or snapshot used as a replication reference point.
 - **Source/Target:** The original dataset tree and its replica destination.
 

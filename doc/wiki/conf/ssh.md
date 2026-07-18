@@ -108,7 +108,7 @@ Agent forwarding allows the bastion's SSH credentials to be used by remote syste
 
 Here's what makes this remarkable: your source and target systems can authenticate to each other using your bastion's credentials, but they never have access to the private key itself. The bastion can be an OpenBSD system with minimal attack surface, and your replication partners only need non-destructive ZFS permissions.
 
-**This is a security posture your cloud provider cannot offer.**
+This keeps private keys on the bastion instead of copying them to replication partners.
 
 ### Configuring Agent Forwarding
 
@@ -316,5 +316,5 @@ For Zelta-specific questions, see:
 For SSH-specific questions, consult:
 
 - `man ssh_config` - SSH client configuration
-- `man sshd_config` - SSH server configuration  
+- `man sshd_config` - SSH server configuration
 - [OpenSSH Documentation](https://www.openssh.com/manual.html)

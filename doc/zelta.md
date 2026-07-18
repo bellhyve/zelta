@@ -60,13 +60,13 @@ For detailed usage of each subcommand, run **zelta help <subcommand>** or see th
 :    Rebase a dataset onto an upgraded upstream while preserving local files and incremental backup continuity. See **zelta-rebase(8)**.
 
 **zelta lock** _endpoint_
-:    Apply ordered dataset-tree readonly, canmount, unmount, and remount operations for promotion workflows. See **zelta-lock(8)**.
+:    Apply ordered dataset-tree readonly, canmount, unmount, and remount operations for promotion workflows. See **zelta-failover(8)**.
 
 **zelta unlock** _endpoint_
-:    Reverse **zelta lock** for a promoted or maintained dataset tree. See **zelta-unlock(8)**.
+:    Reverse **zelta lock** for a promoted or maintained dataset tree. See **zelta-failover(8)**.
 
 **zelta propsync** _source_ _target_
-:    Replay local ZFS properties from one dataset tree to another while preserving target-only local overrides. See **zelta-propsync(8)**.
+:    Replay local ZFS properties from one dataset tree to another while preserving target-only local overrides. See **zelta-failover(8)**.
 
 ## Retention
 
@@ -144,7 +144,7 @@ See **zelta-options(7)** for environment variables and `zelta.env` configuration
 **zelta sync** remains available for compatibility as an alias for **zelta backup -i**. New documentation uses explicit **zelta backup** commands.
 
 # SEE ALSO
-zelta-match(8), zelta-backup(8), zelta-policy(8), zelta-clone(8), zelta-options(7), zelta-prune(8), zprune(8), zelta-rebase(8), zelta-failover(8), zelta-lock(8), zelta-unlock(8), zelta-propsync(8), zelta-revert(8), zelta-rotate(8), zelta-snapshot(8), cron(8), ssh(1), zfs(8)
+zelta-match(8), zelta-backup(8), zelta-policy(8), zelta-clone(8), zelta-options(7), zelta-prune(8), zprune(8), zelta-rebase(8), zelta-failover(8), zelta-revert(8), zelta-rotate(8), zelta-snapshot(8), cron(8), ssh(1), zfs(8)
 
 # AUTHORS
 Daniel J. Bell <_bellhyve@zelta.space_>

@@ -2,44 +2,43 @@
 
 ## Command Reference
 
-### [zelta(8)](zelta)
+### [zelta(8)](/man/zelta)
 Main Zelta command interface and controller
 
-### [zelta-options(7)](zelta-options)
+### [zelta-options(7)](/man/zelta-options)
 Common options and configuration for Zelta commands
 
-### [zelta-match(8)](zelta-match)
+### [zelta-match(8)](/man/zelta-match)
 Compare datasets and report matching snapshots or discrepancies
 
-### [zelta-backup(8)](zelta-backup)
+### [zelta-backup(8)](/man/zelta-backup)
 Create and update ZFS backups with robust replication
 
-### [zelta-policy(8)](zelta-policy)
+### [zelta-policy(8)](/man/zelta-policy)
 Run configured backup jobs using policy-based automation
 
-### [zelta-clone(8)](zelta-clone)
+### [zelta-clone(8)](/man/zelta-clone)
 Clone ZFS datasets for testing or recovery
 
-### [zelta-revert(8)](zelta-revert)
+### [zelta-revert(8)](/man/zelta-revert)
 Rename and clone a dataset in-place to rewind state
 
-### [zelta-rotate(8)](zelta-rotate)
+### [zelta-rotate(8)](/man/zelta-rotate)
 Recover sync continuity after divergence
 
-### [zelta-snapshot(8)](zelta-snapshot)
+### [zelta-snapshot(8)](/man/zelta-snapshot)
 Create recursive snapshots on local or remote endpoints
 
-### [zelta-prune(8)](zelta-prune)
+### [zelta-prune(8)](/man/zelta-prune)
 Plan snapshot pruning without destroying data
 
-### [zprune(8)](zprune)
+### [zprune(8)](/man/zprune)
 Validate and destroy snapshots selected by `zelta prune`
 
-### [zelta-failover(8)](zelta-failover)
+### [zelta-failover(8)](/man/zelta-failover)
 Promote a backup target through a guarded failover workflow
 
-### [zelta-rebase(8)](zelta-rebase)
+### [zelta-rebase(8)](/man/zelta-rebase)
 Build a new dataset tree from an upgraded upstream while preserving backup continuity
 
-### [zelta-lock(8)](zelta-lock), [zelta-unlock(8)](zelta-unlock), [zelta-propsync(8)](zelta-propsync)
-Lower-level commands used by the failover workflow
+The failover manual also documents the lower-level `zelta lock`, `zelta unlock`, and `zelta propsync` steps.

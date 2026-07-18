@@ -11,6 +11,7 @@ Flags and precise behavior live in the [manual pages](/man) (also published on t
 | [Zelta Twin](/guides/twin) | Reciprocal pair, day-2 twin operations |
 | [Failover Workflows](/guides/sync) | Promote standby; lock / propsync / unlock |
 | [Rollback & Recovery](/guides/recovery) | Clone, revert, rotate, prune decision tree |
+| [Retention Strategies](/guides/retention) | Snapshot retention, replica guards, and safe destruction |
 | [JSON Output](/guides/json) | Logs and monitoring |
 
 Not sure which command? See [Which Command?](/home/overview#which-command) in Core Concepts.
