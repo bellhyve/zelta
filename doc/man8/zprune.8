@@ -7,99 +7,45 @@ prune
 .SH SYNOPSIS
 \f[B]zprune\f[R] [\f[I]OPTIONS\f[R]] \f[I]source\f[R] [\f[I]target\f[R]]
 .SH DESCRIPTION
-\f[B]zprune\f[R] destroys snapshots using the candidate selection
-options described in \f[B]zelta prune\f[R].
-It displays a list of \f[CR]zfs destroy\f[R] commands and a summary,
-asks for confirmation, and destroys the snapshots.
+\f[B]zprune\f[R] destroys snapshots selected by \f[B]zelta prune\f[R].
+It previews grouped \f[CR]zfs destroy\f[R] commands with \f[B]zfs
+destroy \-nvp\f[R], prints a summary of snapshot count and estimated
+reclaim, asks for confirmation, then destroys the same candidates.
 .PP
-While \f[B]zelta prune\f[R] is limited to \f[CR]zfs list\f[R] and
-\f[CR]zfs get\f[R] commands for computing a retention policy,
-\f[B]zprune\f[R] uses \f[CR]zfs destroy\f[R] to provide additional
-detail and the destructive actions.
-.PP
-Candidate selection starts by narrowing the snapshot set.
-Dataset depth, include and exclude patterns, snapshot\-name filters, and
-the prune guard decide which snapshots are eligible before retention
-filters are applied.
-.PP
-Remote dataset endpoints follow \f[B]scp(1)\f[R] conventions.
-Operations can be performed without installing \f[B]zelta\f[R] on remote
-systems\(emonly standard ZFS utilities and SSH access are required.
-.PP
-Examples:
-.IP
-.EX
-Local:  pool/dataset\(atsnapshot
-Remote: user\(atexample.com:pool/dataset\(atsnapshot
-.EE
-.PP
-See \f[B]zfs(8)\f[R] for dataset naming conventions.
+Candidate selection, filters, prune guards, and retention options are
+identical to \f[B]zelta prune\f[R].
+See \f[B]zelta\-prune(8)\f[R] for strategy details.
+\f[B]zprune\f[R] requires a \f[I]target\f[R] or
+\f[CR]\-\-no\-prune\-guard\f[R].
 .SH OPTIONS
 .SS zprune Options
 .TP
-\f[B]\-f\f[R], \f[B]\(enforce\f[R]
+\f[CR]\-\-force\f[R], \f[CR]\-f\f[R]
 Destroy candidates without asking for confirmation.
 .TP
-\f[B]\-q\f[R], \f[B]\(enquiet\f[R]
-Do not display the \f[CR]zfs destroy\f[R] commands.
+\f[CR]\-\-quiet\f[R], \f[CR]\-q\f[R]
+Do not display the \f[CR]zfs destroy\f[R] command list.
 .TP
-\f[B]\-n\f[R], \f[B]\(endryrun\f[R], \f[B]\(endry\-run\f[R]
-Do not prompt or destroy snapshots.
+\f[CR]\-\-dryrun\f[R], \f[CR]\-n\f[R]
+Preview compact destroy commands and the summary, then exit without
+prompting or destroying.
 .TP
-\f[B]\-h\f[R], \f[B]\(enhelp\f[R]
+\f[CR]\-\-verbose\f[R], \f[CR]\-v\f[R]
+Expand snapshot ranges in the command preview.
+With \f[CR]\-\-quiet\f[R], print only the summary and exit.
+.TP
+\f[CR]\-\-help\f[R], \f[CR]\-h\f[R]
 Show command usage.
 .TP
-\f[B]\-v\f[R], \f[B]\(enverbose\f[R]
-Expand snapshot ranges in the command preview.
-With \f[B]\(enquiet\f[R], print only the summary and exit.
-.TP
-\f[B]\-V\f[R], \f[B]\(enversion\f[R]
+\f[CR]\-\-version\f[R], \f[CR]\-V\f[R]
 Show \f[B]zprune\f[R] version information and exit.
-.SS ZELTA PRUNE OPTIONS
-See \f[B]zelta\-prune(8)\f[R] for complete behavior and safety details.
-.PP
-Common prune options:
-.TP
-\f[B]\(enprune\-num\f[R] \f[I]N\f[R]
-Keep the newest \f[I]N\f[R] snapshots.
-.TP
-\f[B]\(enprune\-time\f[R] \f[I]TIME\f[R]
-Keep snapshots newer than \f[I]TIME\f[R], such as \f[CR]1 month\f[R].
-.TP
-\f[B]\(enprune\-grid\f[R] \f[I]GRID\f[R]
-Apply GFS\-style list of retention times, such as
-\f[CR]30x1 day, 52x1 week, 1 year\f[R].
-.TP
-\f[B]\(enprune\-size\f[R] \f[I]SIZE\f[R]
-Allow deletion of oldest snapshots until \f[I]SIZE\f[R] bytes are
-reached.
-.PP
-\f[B]\(enprune\-size\f[R] is evaluated per dataset.
-On recursive dataset trees, each dataset may contribute up to the
-requested reclaim target, so the total candidate set can exceed
-\f[I]SIZE\f[R].
-Use \f[B]\(endepth=1\f[R], \f[B]\(eninclude\f[R], or a non\-recursive
-dataset selection when \f[I]SIZE\f[R] should apply to one dataset only.
-.TP
-\f[B]\(enprune\-guard\f[R] \f[CR]latest\f[R]|\f[CR]unsynced\f[R]|\f[CR]none\f[R]
-Select safety behavior based on replication status with the
-\f[I]target\f[R].
-.TP
-\f[B]\(enno\-prune\-guard\f[R]
-Disable target matching checks.
-.TP
-\f[B]\(eninclude\f[R] \f[I]PATTERN\f[R]
-Include only datasets or snapshots matching \f[I]PATTERN\f[R].
-See \f[B]INCLUDE AND EXCLUDE PATTERNS\f[R] in
-\f[B]zelta\-options(7)\f[R].
-.TP
-\f[B]\-X\f[R], \f[B]\(enexclude\f[R] \f[I]PATTERN\f[R]
-Exclude datasets or snapshots matching \f[I]PATTERN\f[R].
-See \f[B]INCLUDE AND EXCLUDE PATTERNS\f[R] in
-\f[B]zelta\-options(7)\f[R].
-.TP
-\f[B]\-d\f[R], \f[B]\(endepth\f[R] \f[I]LEVELS\f[R]
-Limit dataset\-tree recursion depth.
+.SS Candidate Selection
+All other options are forwarded to \f[B]zelta prune\f[R].
+See \f[B]zelta\-prune(8)\f[R] for complete behavior, including
+\f[CR]\-\-prune\-num\f[R], \f[CR]\-\-prune\-time\f[R],
+\f[CR]\-\-prune\-grid\f[R], \f[CR]\-\-prune\-size\f[R],
+\f[CR]\-\-prune\-guard\f[R], \f[CR]\-\-include\f[R],
+\f[CR]\-\-exclude\f[R], and \f[CR]\-\-depth\f[R].
 .SH SAFETY MODEL
 \f[B]zprune\f[R] applies these checks before destruction:
 .IP \(bu 2
@@ -114,23 +60,18 @@ destruction uses the same grouped candidate form as the preview;
 .IP \(bu 2
 the prompt summarizes snapshot count and estimated reclaimed space;
 .IP \(bu 2
-\f[B]\(endryrun\f[R] shows compact destroy commands and summary, then
+\f[CR]\-\-dryrun\f[R] shows compact destroy commands and summary, then
 exits before prompting;
 .IP \(bu 2
 the operator must answer \f[CR]y\f[R] or \f[CR]yes\f[R] unless
-\f[B]\(enforce\f[R] is used;
+\f[CR]\-\-force\f[R] is used;
 .IP \(bu 2
 \f[B]zfs destroy \-R\f[R] is never used.
 .PP
-Unless \f[B]\(enno\-prune\-guard\f[R] is used, a target operand is
-required so \f[B]zelta prune\f[R] can confirm target safety before
-\f[B]zprune\f[R] destroys source snapshots.
-.PP
-If the source is remote, destruction is executed on that source host
-through \f[B]ZELTA_REMOTE_COMMAND\f[R].
-The default remote command is \f[B]ssh\f[R].
+If the source is remote, destruction runs on that host through
+\f[B]ZELTA_REMOTE_COMMAND\f[R] (default \f[B]ssh\f[R]).
 .SH EXAMPLES
-Preview default prune candidates and confirm before destroying:
+Preview default candidates and confirm before destroying:
 .IP
 .EX
 zprune tank/data backup:tank/data
@@ -154,44 +95,32 @@ Print only the dry\-run summary:
 zprune \-qn tank/data backup:tank/data
 .EE
 .PP
-Use an explicit keep window:
+Apply a retention strategy and destroy (same options as \f[B]zelta
+prune\f[R]):
 .IP
 .EX
-zprune \-\-prune\-num=60 \-\-prune\-time=\(aq14 days\(aq \(rs
+zprune \-\-prune\-grid=\(aq30x1day, 52x1week, 1year\(aq \(rs
     tank/data backup:tank/data
 .EE
 .PP
-Use a GFS count and time based retention list:
+Without a replica target, pass \f[CR]\-\-no\-prune\-guard\f[R]
+explicitly:
 .IP
 .EX
-zprune \-\-prune\-grid=\(aq30x1 day, 52x1 week, 1 year\(aq \(rs
-    tank/data backup:tank/data
-.EE
-.PP
-Prune from the oldest eligible snapshots until at least 10 GiB is
-selected:
-.IP
-.EX
-zprune \-\-prune\-size=10G tank/data backup:tank/data
+zprune \-\-no\-prune\-guard \-\-prune\-size=10G tank/data
 .EE
 .SH ENVIRONMENT
 \f[B]zprune\f[R] bootstraps through \f[B]zelta\f[R], so
 \f[B]ZELTA_ENV\f[R] settings such as \f[B]PRUNE_GUARD\f[R] are loaded
-before prune candidates are selected.
+before candidates are selected.
 See \f[B]zelta\-options(7)\f[R] and \f[B]zelta\-prune(8)\f[R].
 .SH EXIT STATUS
 Returns 0 on success and non\-zero on error, aborted confirmation,
 failed candidate preview, or failed destruction.
 .SH NOTES
-For non\-destructive candidate reporting, use \f[B]zelta prune\f[R]
-directly.
-To preview the exact destroy operations that \f[B]zprune\f[R] would run,
-use \f[B]zprune \(endryrun\f[R].
-.PP
-Manual piping from \f[B]zelta prune\f[R] to \f[B]zfs destroy\f[R] is
-discouraged.
-\f[B]zprune\f[R] preserves the review, preview, summary, and
-confirmation workflow.
+For non\-destructive candidate reporting, use \f[B]zelta prune\f[R].
+To preview the exact destroy operations \f[B]zprune\f[R] would run, use
+\f[CR]zprune \-\-dryrun\f[R].
 .SH SEE ALSO
 \f[B]zelta\-prune(8)\f[R], \f[B]zelta(8)\f[R],
 \f[B]zelta\-options(7)\f[R], \f[B]zfs(8)\f[R],

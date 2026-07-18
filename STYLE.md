@@ -220,3 +220,4 @@ The README is the project's front door: **welcoming**, **focused**, **honest**, 
 *   Internal docs: Relative links
 *   External docs: Full URLs
 *   Be specific: "See EXCLUSION PATTERNS in **zelta-options(7)**"
+*   Use backticks for `--options`; this saves characters and avoids the need of a dash escape: **\-** 
