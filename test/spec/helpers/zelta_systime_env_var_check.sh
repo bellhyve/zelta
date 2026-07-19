@@ -1,0 +1,1 @@
+echo "ZELTA_SYSTIME: {$ZELTA_SYSTIME}"

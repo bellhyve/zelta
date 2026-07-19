@@ -1,5 +1,5 @@
 # Auto-generated ShellSpec test file
-# Generated at: 2026-07-10 23:42:26 -0400
+# Generated at: 2026-07-19 05:00:03 -0400
 # Source: 010_prune_options_spec
 # WARNING: This file was automatically generated. Manual edits may be lost.
 
@@ -9,7 +9,7 @@ output_for_prune_newest_3_without_guard() {
     normalized=$(printf '%s' "$line" | tr -s '[:space:]' ' ' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
     # check line against expected output
     case "$normalized" in
-        "${SANDBOX_ZELTA_SRC_DS}@zelta_2023-06-20_21.00.00%zelta_2026-06-14_03.00.00")
+        "${SANDBOX_ZELTA_SRC_DS}@zelta_yearly_2023-06-20_21.00.00%zelta_daily_2026-06-14_03.00.00")
         ;;
       *)
         printf "Unexpected line format : %s\n" "$line" >&2
@@ -27,7 +27,7 @@ output_for_prune_all_without_guard() {
     normalized=$(printf '%s' "$line" | tr -s '[:space:]' ' ' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
     # check line against expected output
     case "$normalized" in
-        "${SANDBOX_ZELTA_SRC_DS}@zelta_2023-06-20_21.00.00%zelta_2026-06-14_21.00.00")
+        "${SANDBOX_ZELTA_SRC_DS}@zelta_yearly_2023-06-20_21.00.00%zelta_daily_2026-06-14_21.00.00")
         ;;
       *)
         printf "Unexpected line format : %s\n" "$line" >&2
@@ -45,7 +45,7 @@ output_for_prune_3_with_guard() {
     normalized=$(printf '%s' "$line" | tr -s '[:space:]' ' ' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
     # check line against expected output
     case "$normalized" in
-        "${SANDBOX_ZELTA_SRC_DS}@zelta_2023-06-20_21.00.00%zelta_2026-06-13_21.00.00")
+        "${SANDBOX_ZELTA_SRC_DS}@zelta_yearly_2023-06-20_21.00.00%zelta_daily_2026-06-13_21.00.00")
         ;;
       *)
         printf "Unexpected line format : %s\n" "$line" >&2
@@ -63,7 +63,7 @@ output_for_prune_all_synced() {
     normalized=$(printf '%s' "$line" | tr -s '[:space:]' ' ' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
     # check line against expected output
     case "$normalized" in
-        "${SANDBOX_ZELTA_SRC_DS}@zelta_2023-06-20_21.00.00%zelta_2026-06-14_15.00.00")
+        "${SANDBOX_ZELTA_SRC_DS}@zelta_yearly_2023-06-20_21.00.00%zelta_daily_2026-06-14_15.00.00")
         ;;
       *)
         printf "Unexpected line format : %s\n" "$line" >&2
@@ -81,32 +81,32 @@ output_for_prune_grid_weekly() {
     normalized=$(printf '%s' "$line" | tr -s '[:space:]' ' ' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
     # check line against expected output
     case "$normalized" in
-        "${SANDBOX_ZELTA_SRC_DS}@zelta_2026-06-08_03.00.00%zelta_2026-06-14_09.00.00"|\
-        "${SANDBOX_ZELTA_SRC_DS}@zelta_2026-06-01_21.00.00%zelta_2026-06-06_21.00.00"|\
-        "${SANDBOX_ZELTA_SRC_DS}@zelta_2026-05-25_21.00.00%zelta_2026-05-30_21.00.00"|\
-        "${SANDBOX_ZELTA_SRC_DS}@zelta_2026-05-18_21.00.00%zelta_2026-05-23_21.00.00"|\
-        "${SANDBOX_ZELTA_SRC_DS}@zelta_2026-05-12_21.00.00%zelta_2026-05-16_21.00.00"|\
-        "${SANDBOX_ZELTA_SRC_DS}@zelta_2026-05-06_21.00.00"|\
-        "${SANDBOX_ZELTA_SRC_DS}@zelta_2026-04-27_21.00.00%zelta_2026-04-30_21.00.00"|\
-        "${SANDBOX_ZELTA_SRC_DS}@zelta_2026-04-21_21.00.00"|\
-        "${SANDBOX_ZELTA_SRC_DS}@zelta_2026-04-15_21.00.00"|\
-        "${SANDBOX_ZELTA_SRC_DS}@zelta_2026-04-06_21.00.00%zelta_2026-04-09_21.00.00"|\
-        "${SANDBOX_ZELTA_SRC_DS}@zelta_2026-03-31_21.00.00"|\
-        "${SANDBOX_ZELTA_SRC_DS}@zelta_2026-03-25_21.00.00"|\
-        "${SANDBOX_ZELTA_SRC_DS}@zelta_2026-03-16_21.00.00%zelta_2026-03-19_21.00.00"|\
-        "${SANDBOX_ZELTA_SRC_DS}@zelta_2026-03-10_21.00.00"|\
-        "${SANDBOX_ZELTA_SRC_DS}@zelta_2026-03-04_21.00.00"|\
-        "${SANDBOX_ZELTA_SRC_DS}@zelta_2026-02-23_21.00.00%zelta_2026-02-26_21.00.00"|\
-        "${SANDBOX_ZELTA_SRC_DS}@zelta_2026-02-17_21.00.00"|\
-        "${SANDBOX_ZELTA_SRC_DS}@zelta_2026-02-11_21.00.00"|\
-        "${SANDBOX_ZELTA_SRC_DS}@zelta_2026-02-02_21.00.00%zelta_2026-02-05_21.00.00"|\
-        "${SANDBOX_ZELTA_SRC_DS}@zelta_2026-01-27_21.00.00"|\
-        "${SANDBOX_ZELTA_SRC_DS}@zelta_2026-01-21_21.00.00"|\
-        "${SANDBOX_ZELTA_SRC_DS}@zelta_2026-01-12_21.00.00%zelta_2026-01-15_21.00.00"|\
-        "${SANDBOX_ZELTA_SRC_DS}@zelta_2026-01-06_21.00.00"|\
-        "${SANDBOX_ZELTA_SRC_DS}@zelta_2025-12-31_21.00.00"|\
-        "${SANDBOX_ZELTA_SRC_DS}@zelta_2025-12-22_21.00.00%zelta_2025-12-25_21.00.00"|\
-        "${SANDBOX_ZELTA_SRC_DS}@zelta_2025-12-16_21.00.00")
+        "${SANDBOX_ZELTA_SRC_DS}@zelta_weekly_2026-06-08_03.00.00%zelta_daily_2026-06-14_09.00.00"|\
+        "${SANDBOX_ZELTA_SRC_DS}@zelta_monthly_2026-06-01_21.00.00%zelta_daily_2026-06-06_21.00.00"|\
+        "${SANDBOX_ZELTA_SRC_DS}@zelta_weekly_2026-05-25_21.00.00%zelta_daily_2026-05-30_21.00.00"|\
+        "${SANDBOX_ZELTA_SRC_DS}@zelta_weekly_2026-05-18_21.00.00%zelta_daily_2026-05-23_21.00.00"|\
+        "${SANDBOX_ZELTA_SRC_DS}@zelta_weekly_2026-05-12_21.00.00%zelta_daily_2026-05-16_21.00.00"|\
+        "${SANDBOX_ZELTA_SRC_DS}@zelta_weekly_2026-05-06_21.00.00"|\
+        "${SANDBOX_ZELTA_SRC_DS}@zelta_weekly_2026-04-27_21.00.00%zelta_daily_2026-04-30_21.00.00"|\
+        "${SANDBOX_ZELTA_SRC_DS}@zelta_weekly_2026-04-21_21.00.00"|\
+        "${SANDBOX_ZELTA_SRC_DS}@zelta_weekly_2026-04-15_21.00.00"|\
+        "${SANDBOX_ZELTA_SRC_DS}@zelta_weekly_2026-04-06_21.00.00%zelta_daily_2026-04-09_21.00.00"|\
+        "${SANDBOX_ZELTA_SRC_DS}@zelta_weekly_2026-03-31_21.00.00"|\
+        "${SANDBOX_ZELTA_SRC_DS}@zelta_weekly_2026-03-25_21.00.00"|\
+        "${SANDBOX_ZELTA_SRC_DS}@zelta_weekly_2026-03-16_21.00.00%zelta_daily_2026-03-19_21.00.00"|\
+        "${SANDBOX_ZELTA_SRC_DS}@zelta_weekly_2026-03-10_21.00.00"|\
+        "${SANDBOX_ZELTA_SRC_DS}@zelta_weekly_2026-03-04_21.00.00"|\
+        "${SANDBOX_ZELTA_SRC_DS}@zelta_weekly_2026-02-23_21.00.00%zelta_daily_2026-02-26_21.00.00"|\
+        "${SANDBOX_ZELTA_SRC_DS}@zelta_weekly_2026-02-17_21.00.00"|\
+        "${SANDBOX_ZELTA_SRC_DS}@zelta_weekly_2026-02-11_21.00.00"|\
+        "${SANDBOX_ZELTA_SRC_DS}@zelta_monthly_2026-02-02_21.00.00%zelta_daily_2026-02-05_21.00.00"|\
+        "${SANDBOX_ZELTA_SRC_DS}@zelta_weekly_2026-01-27_21.00.00"|\
+        "${SANDBOX_ZELTA_SRC_DS}@zelta_weekly_2026-01-21_21.00.00"|\
+        "${SANDBOX_ZELTA_SRC_DS}@zelta_weekly_2026-01-12_21.00.00%zelta_daily_2026-01-15_21.00.00"|\
+        "${SANDBOX_ZELTA_SRC_DS}@zelta_weekly_2026-01-06_21.00.00"|\
+        "${SANDBOX_ZELTA_SRC_DS}@zelta_weekly_2025-12-31_21.00.00"|\
+        "${SANDBOX_ZELTA_SRC_DS}@zelta_weekly_2025-12-22_21.00.00%zelta_daily_2025-12-25_21.00.00"|\
+        "${SANDBOX_ZELTA_SRC_DS}@zelta_weekly_2025-12-16_21.00.00")
         ;;
       *)
         printf "Unexpected line format : %s\n" "$line" >&2
@@ -121,24 +121,45 @@ output_for_prune_grid_weekly() {
 Describe 'Test prune options' prune-scenario:10
   Include "${SHELLSPEC_HELPERDIR}/golden_pool_helper.sh"
   
+  ZELTA_SYSTIME_VALUE='date -d "2026-06-14 00:00:00 EDT" +%s'
   EXPECTED_SNAPSHOTS=168
+  EXPECTED_PRUNE_DAILY_1_DAY_COUNT=65
+  EXPECTED_PRUNE_DAILY_30_DAY_COUNT=24
   PRUNE_HOOK_DEBUG_LOG="/tmp/zelta_sandbox_prune_hooks_log.txt"
   
-  # don't use ShellSpec Before/After All hooks, they are executed even when this spec isn't selected
+  snapshot_count() {
+    out=$(tgt_exec zfs list -r -t snapshot "$1") || return
+    count=$(printf '%s\n' "$out" | wc -l)
+    #[ "$count" -eq "$expected" ]
+    printf 'found %s snapshots\n' "$count"
+  }
+  
+  set_zelta_systime() {
+    export ZELTA_SYSTIME="$ZELTA_SYSTIME_VALUE"
+    %logger "ZELTA_SYSTIME=$ZELTA_SYSTIME"
+  }
+  
+  # run the command represented by the $@ in a shell with ZELTA_SYSTIME override
+  systime_cmd_count_lines() {
+    out=$(set_zelta_systime; "$@")
+    count=$(printf '%s\n' "$out" | wc -l)
+    cmd="$@"
+    %logger "systime cmd found count $count"
+    printf 'command {%s}\n\t returned line count %s\n' "$cmd" "$count"
+  }
+  
+  # WARNING: don't use ShellSpec Before/After All hooks, they are executed even when this spec isn't selected
   # before / after hooks are not It clauses 'restores golden pools' and 'removes golden pools' respectively
   # TODO: after testing redirect stdout to /dev/null, stderr output is intended to fail the tests
   setup_pools() { make_golden_pools > $PRUNE_HOOK_DEBUG_LOG; }
   teardown_pools() { teardown_golden_pools >> $PRUNE_HOOK_DEBUG_LOG; }
-  
-  snapshot_count() {
-    out=$(tgt_exec zfs list -r -t snapshot "$1") || return
-    printf '%s\n' "$out" | wc
-  }
 
   Skip if 'SANDBOX_ZELTA_SRC_EP undefined' test -z "$SANDBOX_ZELTA_SRC_EP"
   Skip if 'SANDBOX_ZELTA_TGT_EP undefined' test -z "$SANDBOX_ZELTA_TGT_EP"
 
-  It "restores golden pools" prune-scenario:restore
+  BeforeRun  set_zelta_systime
+
+  It "restores golden pools" prune-scenario:10-restore
     When call setup_pools
     The status should be success
   End
@@ -185,7 +206,25 @@ Describe 'Test prune options' prune-scenario:10
     The status should be success
   End
 
-  It "teardown golden pools" prune-scenario:teardown
+  It "check prune time 1 day daily count - call systime_cmd_count_lines zelta prune --no-ranges --include=\"@zelta_daily_*\" --prune-time=1day \"$SANDBOX_ZELTA_SRC_EP\" \"$SANDBOX_ZELTA_TGT_EP\""
+    When call systime_cmd_count_lines zelta prune --no-ranges --include="@zelta_daily_*" --prune-time=1day "$SANDBOX_ZELTA_SRC_EP" "$SANDBOX_ZELTA_TGT_EP"
+    The output should include "$EXPECTED_PRUNE_DAILY_1_DAY_COUNT"
+    The status should be success
+  End
+
+  It "check prune time 30 day daily count - call systime_cmd_count_lines zelta prune --no-ranges --include=\"@zelta_daily_*\" --prune-time=30day \"$SANDBOX_ZELTA_SRC_EP\" \"$SANDBOX_ZELTA_TGT_EP\""
+    When call systime_cmd_count_lines zelta prune --no-ranges --include="@zelta_daily_*" --prune-time=30day "$SANDBOX_ZELTA_SRC_EP" "$SANDBOX_ZELTA_TGT_EP"
+    The output should include "$EXPECTED_PRUNE_DAILY_30_DAY_COUNT"
+    The status should be success
+  End
+
+  It "check value of ZELTA_SYSTIME env var - run \"${SHELLSPEC_HELPERDIR}/zelta_systime_env_var_check.sh\"" prune-scenario:10-timecheck
+    When run "${SHELLSPEC_HELPERDIR}/zelta_systime_env_var_check.sh"
+    The output should equal "ZELTA_SYSTIME: {$ZELTA_SYSTIME_VALUE}"
+    The status should be success
+  End
+
+  It "teardown golden pools" prune-scenario:10-teardown
     When call teardown_pools
     The status should be success
   End

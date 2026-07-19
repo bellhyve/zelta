@@ -16,16 +16,46 @@ class SchemaValidator
     @schema_doc = YAML.safe_load_file(yaml_schema_path) # string keys — see below
   end
 
-  def validate_file(data_path)
-    data   = YAML.safe_load_file(data_path)
-    errors = JSON::Validator.fully_validate(@schema_doc, data) #, strict: true)
 
-    # noinspection RubyArgCount
-    result = Result.new(
+  # @@default_opts = {
+  #   list: false,
+  #   version: nil,
+  #   validate_schema: false,
+  #   record_errors: false,
+  #   errors_as_objects: false,
+  #   insert_defaults: false,
+  #   clear_cache: false,
+  #   strict: false,
+  #   allPropertiesRequired: false,
+  #   noAdditionalProperties: false,
+  #   parse_data: true,
+  #   parse_integer: true,
+  # }
+
+
+  def check_file(data_path)
+    data = YAML.safe_load_file(data_path)
+    errors = JSON::Validator.fully_validate(@schema_doc, data)
+                                            #data, strict: true, validate_schema: true,
+                                            #record_errors: true)
+    Result.new(
       valid: errors.nil? || errors.empty?,
       errors: errors,
       parsed_data: errors.empty? ? data : nil
     )
+
+  rescue Errno::ENOENT => e
+    Result.new(valid: false, errors: ["File not found: #{e.message}"], parsed_data: nil)
+  rescue Psych::SyntaxError => e
+    Result.new(valid: false, errors: ["YAML parse error: #{e.message}"], parsed_data: nil)
+  rescue JSON::Schema::ValidationError => e
+    Result.new(valid: false, errors: [e.message], parsed_data: nil)
+  rescue StandardError => e
+    Result.new(valid: false, errors: ["Unexpected error: #{e.message}"], parsed_data: nil)
+  end
+
+  def validate_file(data_path)
+    result = check_file(data_path)
     show_validation_result(result, data_path)
     result
   end

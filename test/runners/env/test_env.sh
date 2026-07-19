@@ -14,6 +14,9 @@ export SANDBOX_ZELTA_TGT_DS=bpool/backups
 unset SANDBOX_ZELTA_SRC_REMOTE
 unset SANDBOX_ZELTA_TGT_REMOTE
 
+export SANDBOX_ZELTA_SRC_REMOTE=dever@uvm1  # e.g. Ubuntu source
+export SANDBOX_ZELTA_TGT_REMOTE=dever@lusvr01  # e.g. Ubuntu remote
+
 # * leave these undefined if you're running locally
 # * the endpoints are defined automatically and are REMOTE + DS
 # Examples: uncomment and customize these if you want to run against remotes.
@@ -24,6 +27,9 @@ unset SANDBOX_ZELTA_TGT_REMOTE
 
 # standardize zelta sandbox install location
 export SANDBOX_ZELTA_TMP_SUFFIX=$LOGNAME
+
+#export ZELTA_SYSTIME='date -d "2026-06-14 00:00:00 EDT" +%s'
+
 
 # _____________________________________________________________________________
 # NOTE: to enable test/spec/1000_test_gen/010_testgen_cleanup_spec.sh

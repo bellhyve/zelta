@@ -3,13 +3,7 @@ shellspec_name: "020_prune_options_spec"
 
 example_list:
   - describe_desc: "Test prune options"
-    tag: prune-scenario:20
-
-    hooks_list:
-      - name: BeforeRun
-        command: export ZELTA_SYSTIME='date -d "2026-06-14 00:00:00 EDT" +%s'
-        invocation: evaluated_command
-
+    tag: prune-scenario:30
     shell_code: |
       Include "${SHELLSPEC_HELPERDIR}/golden_pool_helper.sh"
       
@@ -33,7 +27,7 @@ example_list:
 
     test_list:
       - test_name: setup_pools
-        tag: prune-scenario:10-restore
+        tag: prune-scenario:30-restore
         allow_no_output: true
         it_desc: restores golden pools
         when_command: call setup_pools
@@ -53,10 +47,10 @@ example_list:
       - test_name: prune_30x1_day_52x1_week_1yr
         it_desc: prune multiple grid - %{when_command}
         remove_timestamps: false
-        when_command: run zelta prune --prune-grid='30x1 day, 52x1 week, 1 year'  "$SANDBOX_ZELTA_SRC_EP"  "$SANDBOX_ZELTA_TGT_EP"
+        when_command: run zelta prune --include prune-grid='30x1 day, 52x1 week, 1 year'  "$SANDBOX_ZELTA_SRC_EP"  "$SANDBOX_ZELTA_TGT_EP"
 
       - test_name: teardown_pools
-        tag: prune-scenario:20-teardown
+        tag: prune-scenario:30-teardown
         allow_no_output: true
         it_desc: teardown golden pools
         when_command: call teardown_pools
