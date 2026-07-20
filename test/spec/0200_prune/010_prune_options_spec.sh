@@ -1,5 +1,5 @@
 # Auto-generated ShellSpec test file
-# Generated at: 2026-07-19 05:00:03 -0400
+# Generated at: 2026-07-20 01:53:19 -0400
 # Source: 010_prune_options_spec
 # WARNING: This file was automatically generated. Manual edits may be lost.
 
@@ -136,7 +136,7 @@ Describe 'Test prune options' prune-scenario:10
   
   set_zelta_systime() {
     export ZELTA_SYSTIME="$ZELTA_SYSTIME_VALUE"
-    %logger "ZELTA_SYSTIME=$ZELTA_SYSTIME"
+    #%logger "ZELTA_SYSTIME=$ZELTA_SYSTIME"
   }
   
   # run the command represented by the $@ in a shell with ZELTA_SYSTIME override
@@ -144,7 +144,7 @@ Describe 'Test prune options' prune-scenario:10
     out=$(set_zelta_systime; "$@")
     count=$(printf '%s\n' "$out" | wc -l)
     cmd="$@"
-    %logger "systime cmd found count $count"
+    #%logger "systime cmd found count $count"
     printf 'command {%s}\n\t returned line count %s\n' "$cmd" "$count"
   }
   
