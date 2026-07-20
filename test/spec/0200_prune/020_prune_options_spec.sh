@@ -1,5 +1,5 @@
 # Auto-generated ShellSpec test file
-# Generated at: 2026-07-16 17:53:45 -0400
+# Generated at: 2026-07-20 01:29:09 -0400
 # Source: 020_prune_options_spec
 # WARNING: This file was automatically generated. Manual edits may be lost.
 
@@ -54,29 +54,45 @@ output_for_prune_30x1_day_52x1_week_1yr() {
 Describe 'Test prune options' prune-scenario:20
   Include "${SHELLSPEC_HELPERDIR}/golden_pool_helper.sh"
   
-  TEST_DATE='2026-06-14 00:00:00 EDT'
+  ZELTA_SYSTIME_VALUE='date -d "2026-06-14 00:00:00 EDT" +%s'
   EXPECTED_SNAPSHOTS=168
+  EXPECTED_PRUNE_DAILY_1_DAY_COUNT=65
+  EXPECTED_PRUNE_DAILY_30_DAY_COUNT=24
   PRUNE_HOOK_DEBUG_LOG="/tmp/zelta_sandbox_prune_hooks_log.txt"
-  EXPECTED_PRUNE_DAILY_1_DAY_COUNT=69
-
-  setup_time() {
-    export ZELTA_SYSTIME="date -d $TEST_DATE +%s"
+  
+  snapshot_count() {
+    out=$(tgt_exec zfs list -r -t snapshot "$1") || return
+    count=$(printf '%s\n' "$out" | wc -l)
+    #[ "$count" -eq "$expected" ]
+    printf 'found %s snapshots\n' "$count"
   }
-
+  
+  set_zelta_systime() {
+    export ZELTA_SYSTIME="$ZELTA_SYSTIME_VALUE"
+    %logger "ZELTA_SYSTIME=$ZELTA_SYSTIME"
+  }
+  
+  # run the command represented by the $@ in a shell with ZELTA_SYSTIME override
+  systime_cmd_count_lines() {
+    out=$(set_zelta_systime; "$@")
+    count=$(printf '%s\n' "$out" | wc -l)
+    cmd="$@"
+    %logger "systime cmd found count $count"
+    printf 'command {%s}\n\t returned line count %s\n' "$cmd" "$count"
+  }
+  
+  PRUNE_HOOK_DEBUG_LOG="/tmp/zelta_sandbox_prune_hooks_log.txt"
   
   # don't use ShellSpec Before/After All hooks, they are executed even when this spec isn't selected
   # before / after hooks are not It clauses 'restores golden pools' and 'removes golden pools' respectively
   # TODO: after testing redirect stdout to /dev/null, stderr output is intended to fail the tests
   setup_pools() { make_golden_pools > $PRUNE_HOOK_DEBUG_LOG; }
   teardown_pools() { teardown_golden_pools >> $PRUNE_HOOK_DEBUG_LOG; }
-  
-  snapshot_count() {
-    out=$(tgt_exec zfs list -r -t snapshot "$1") || return
-    printf '%s\n' "$out" | wc
-  }
 
   Skip if 'SANDBOX_ZELTA_SRC_EP undefined' test -z "$SANDBOX_ZELTA_SRC_EP"
   Skip if 'SANDBOX_ZELTA_TGT_EP undefined' test -z "$SANDBOX_ZELTA_TGT_EP"
+
+  BeforeRun  set_zelta_systime
 
   It "restores golden pools" prune-scenario:10-restore
     When call setup_pools
