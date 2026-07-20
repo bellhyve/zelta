@@ -27,13 +27,13 @@ jobs:
         id: goldens
         with:
           path: ${{ env.SANDBOX_ZELTA_GOLD_PRUNE_SCEN_DIR }}/*.img
-          key: goldens-test-fixtures-v1
+          key: goldens-test-fixtures-v2
 
       - name: Download golden fixtures
         if: steps.goldens.outputs.cache-hit != 'true'
         run: |
           mkdir -p "$SANDBOX_ZELTA_GOLD_PRUNE_SCEN_DIR"
-          gh release download test-fixtures/v1 --pattern '*.img.gz' \
+          gh release download test-fixtures/v2 --pattern '*.img.gz' \
             --dir "$SANDBOX_ZELTA_GOLD_PRUNE_SCEN_DIR"
           gunzip "$SANDBOX_ZELTA_GOLD_PRUNE_SCEN_DIR"/*.gz
         env:
