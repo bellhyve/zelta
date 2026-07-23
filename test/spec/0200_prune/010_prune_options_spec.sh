@@ -1,5 +1,5 @@
 # Auto-generated ShellSpec test file
-# Generated at: 2026-07-20 01:53:19 -0400
+# Generated at: 2026-07-23 03:02:45 -0400
 # Source: 010_prune_options_spec
 # WARNING: This file was automatically generated. Manual edits may be lost.
 
@@ -118,6 +118,64 @@ output_for_prune_grid_weekly() {
   return 0
 }
 
+output_for_prune_keep_12_monthlies() {
+  while IFS= read -r line; do
+    # normalize whitespace, remove leading/trailing spaces
+    normalized=$(printf '%s' "$line" | tr -s '[:space:]' ' ' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
+    # check line against expected output
+    case "$normalized" in
+        "${SANDBOX_ZELTA_SRC_DS}@zelta_monthly_2023-07-04_21.00.00"|\
+        "${SANDBOX_ZELTA_SRC_DS}@zelta_monthly_2023-08-01_21.00.00"|\
+        "${SANDBOX_ZELTA_SRC_DS}@zelta_monthly_2023-09-12_21.00.00"|\
+        "${SANDBOX_ZELTA_SRC_DS}@zelta_monthly_2023-10-10_21.00.00"|\
+        "${SANDBOX_ZELTA_SRC_DS}@zelta_monthly_2023-11-07_21.00.00"|\
+        "${SANDBOX_ZELTA_SRC_DS}@zelta_monthly_2023-12-05_21.00.00"|\
+        "${SANDBOX_ZELTA_SRC_DS}@zelta_monthly_2024-02-13_21.00.00"|\
+        "${SANDBOX_ZELTA_SRC_DS}@zelta_monthly_2024-03-12_21.00.00"|\
+        "${SANDBOX_ZELTA_SRC_DS}@zelta_monthly_2024-04-09_21.00.00"|\
+        "${SANDBOX_ZELTA_SRC_DS}@zelta_monthly_2024-05-07_21.00.00"|\
+        "${SANDBOX_ZELTA_SRC_DS}@zelta_monthly_2024-06-04_21.00.00"|\
+        "${SANDBOX_ZELTA_SRC_DS}@zelta_monthly_2024-07-02_21.00.00"|\
+        "${SANDBOX_ZELTA_SRC_DS}@zelta_monthly_2024-08-13_21.00.00"|\
+        "${SANDBOX_ZELTA_SRC_DS}@zelta_monthly_2024-09-10_21.00.00"|\
+        "${SANDBOX_ZELTA_SRC_DS}@zelta_monthly_2024-10-08_21.00.00"|\
+        "${SANDBOX_ZELTA_SRC_DS}@zelta_monthly_2024-11-05_21.00.00"|\
+        "${SANDBOX_ZELTA_SRC_DS}@zelta_monthly_2024-12-03_21.00.00"|\
+        "${SANDBOX_ZELTA_SRC_DS}@zelta_monthly_2025-02-11_21.00.00"|\
+        "${SANDBOX_ZELTA_SRC_DS}@zelta_monthly_2025-03-11_21.00.00"|\
+        "${SANDBOX_ZELTA_SRC_DS}@zelta_monthly_2025-04-08_21.00.00")
+        ;;
+      *)
+        printf "Unexpected line format : %s\n" "$line" >&2
+        printf "Comparing to normalized: %s\n" "$normalized" >&2
+        return 1
+        ;;
+    esac
+  done
+  return 0
+}
+
+output_for_zprune_keep_12_monthlies() {
+  while IFS= read -r line; do
+    # normalize whitespace, remove leading/trailing spaces
+    normalized=$(printf '%s' "$line" | tr -s '[:space:]' ' ' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
+    # check line against expected output
+    case "$normalized" in
+        "zfs destroy ${SANDBOX_ZELTA_SRC_DS}@zelta_monthly_2023-07-04_21.00.00,zelta_monthly_2023-08-01_21.00.00,zelta_monthly_2023-09-12_21.00.00,zelta_monthly_2023-10-10_21.00.00,zelta_monthly_2023-11-07_21.00.00,zelta_monthly_2023-12-05_21.00.00,zelta_monthly_2024-02-13_21.00.00,zelta_monthly_2024-03-12_21.00.00,zelta_monthly_2024-04-09_21.00.00,zelta_monthly_2024-05-07_21.00.00,zelta_monthly_2024-06-04_21.00.00,zelta_monthly_2024-07-02_21.00.00,zelta_monthly_2024-08-13_21.00.00,zelta_monthly_2024-09-10_21.00.00,zelta_monthly_2024-10-08_21.00.00,zelta_monthly_2024-11-05_21.00.00,zelta_monthly_2024-12-03_21.00.00,zelta_monthly_2025-02-11_21.00.00,zelta_monthly_2025-03-11_21.00.00,zelta_monthly_2025-04-08_21.00.00"|\
+        ""|\
+        "20 snapshots (12% of 167) will be destroyed"|\
+        "2.2M total reclaimed (6% of 35.0M)")
+        ;;
+      *)
+        printf "Unexpected line format : %s\n" "$line" >&2
+        printf "Comparing to normalized: %s\n" "$normalized" >&2
+        return 1
+        ;;
+    esac
+  done
+  return 0
+}
+
 Describe 'Test prune options' prune-scenario:10
   Include "${SHELLSPEC_HELPERDIR}/golden_pool_helper.sh"
   
@@ -215,6 +273,24 @@ Describe 'Test prune options' prune-scenario:10
   It "check prune time 30 day daily count - call systime_cmd_count_lines zelta prune --no-ranges --include=\"@zelta_daily_*\" --prune-time=30day \"$SANDBOX_ZELTA_SRC_EP\" \"$SANDBOX_ZELTA_TGT_EP\""
     When call systime_cmd_count_lines zelta prune --no-ranges --include="@zelta_daily_*" --prune-time=30day "$SANDBOX_ZELTA_SRC_EP" "$SANDBOX_ZELTA_TGT_EP"
     The output should include "$EXPECTED_PRUNE_DAILY_30_DAY_COUNT"
+    The status should be success
+  End
+
+  It "prune monthlies keep 12 - run zelta prune --no-ranges --include=\"@zelta_monthly_*\" --prune-num=12 \"$SANDBOX_ZELTA_SRC_EP\" \"$SANDBOX_ZELTA_TGT_EP\""
+    When run zelta prune --no-ranges --include="@zelta_monthly_*" --prune-num=12 "$SANDBOX_ZELTA_SRC_EP" "$SANDBOX_ZELTA_TGT_EP"
+    The output should satisfy output_for_prune_keep_12_monthlies
+    The status should be success
+  End
+
+  It "zprune monthlies keep 12 - run zprune -f --no-ranges --include=\"@zelta_monthly_*\" --prune-num=12 \"$SANDBOX_ZELTA_SRC_EP\" \"$SANDBOX_ZELTA_TGT_EP\""
+    When run zprune -f --no-ranges --include="@zelta_monthly_*" --prune-num=12 "$SANDBOX_ZELTA_SRC_EP" "$SANDBOX_ZELTA_TGT_EP"
+    The output should satisfy output_for_zprune_keep_12_monthlies
+    The status should be success
+  End
+
+  It "check monthlies count is 12 - call systime_cmd_count_lines zelta prune --no-ranges --prune-guard=none --include=\"@zelta_monthly_*\" --prune-num=0 \"$SANDBOX_ZELTA_SRC_EP\" \"$SANDBOX_ZELTA_TGT_EP\""
+    When call systime_cmd_count_lines zelta prune --no-ranges --prune-guard=none --include="@zelta_monthly_*" --prune-num=0 "$SANDBOX_ZELTA_SRC_EP" "$SANDBOX_ZELTA_TGT_EP"
+    The output should include "12"
     The status should be success
   End
 

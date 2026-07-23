@@ -102,12 +102,29 @@ example_list:
         when_command: call systime_cmd_count_lines zelta prune --no-ranges --include="@zelta_daily_*" --prune-time=1day "$SANDBOX_ZELTA_SRC_EP" "$SANDBOX_ZELTA_TGT_EP"
         output_clause: The output should include "$EXPECTED_PRUNE_DAILY_1_DAY_COUNT"
 
-      - test_name: prune_time_30_day
+      - test_name: prune_time_30_day_count
         it_desc: check prune time 30 day daily count - %{when_command}
         allow_no_output: true
         remove_timestamps: false
         when_command: call systime_cmd_count_lines zelta prune --no-ranges --include="@zelta_daily_*" --prune-time=30day "$SANDBOX_ZELTA_SRC_EP" "$SANDBOX_ZELTA_TGT_EP"
         output_clause: The output should include "$EXPECTED_PRUNE_DAILY_30_DAY_COUNT"
+
+      - test_name: prune_keep_12_monthlies
+        it_desc: prune monthlies keep 12 - %{when_command}
+        remove_timestamps: false
+        when_command: run zelta prune --no-ranges --include="@zelta_monthly_*" --prune-num=12 "$SANDBOX_ZELTA_SRC_EP" "$SANDBOX_ZELTA_TGT_EP"
+
+      - test_name: zprune_keep_12_monthlies
+        it_desc: zprune monthlies keep 12 - %{when_command}
+        remove_timestamps: false
+        when_command: run zprune -f --no-ranges --include="@zelta_monthly_*" --prune-num=12 "$SANDBOX_ZELTA_SRC_EP" "$SANDBOX_ZELTA_TGT_EP"
+
+      - test_name: zprune_monthly_count
+        it_desc: check monthlies count is 12 - %{when_command}
+        allow_no_output: true
+        remove_timestamps: false
+        when_command: call systime_cmd_count_lines zelta prune --no-ranges --prune-guard=none --include="@zelta_monthly_*" --prune-num=0 "$SANDBOX_ZELTA_SRC_EP" "$SANDBOX_ZELTA_TGT_EP"
+        output_clause: The output should include "12"
 
       - test_name: zelta_systime_value_check
         tag: prune-scenario:10-timecheck
