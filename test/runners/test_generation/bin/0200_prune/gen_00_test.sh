@@ -5,7 +5,7 @@ TEST_GEN_DIR="${REPO_ROOT}/test/runners/test_generation"
 
 TEST_DEFS="${TEST_GEN_DIR}/config/test_defs"
 RUBY_DIR="${TEST_GEN_DIR}/lib/ruby"
-TEST_YML="${TEST_DEFS}/0200_prune/40_verify_zfs_permissions_test.yml"
+TEST_YML="${TEST_DEFS}/0200_prune/00_verify_zfs_permissions_test.yml"
 
 cd "$REPO_ROOT" || { echo "cannot cd to repo root $REPO_ROOT"; exit 1; }
 

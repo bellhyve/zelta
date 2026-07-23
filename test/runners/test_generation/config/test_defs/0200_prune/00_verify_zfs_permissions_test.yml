@@ -1,9 +1,9 @@
 output_dir: tmp
-shellspec_name: "040_verify_zfs_permissions_spec"
+shellspec_name: "000_verify_zfs_permissions_spec"
 
 example_list:
   - describe_desc: "Test zfs delegation and permissions"
-    tag: prune-scenario:40
+    tag: prune-scenario:00
 
     hooks_list:
       - name: BeforeRun
@@ -53,7 +53,7 @@ example_list:
 
     test_list:
       - test_name: setup_pools
-        tag: prune-scenario:40-restore
+        tag: prune-scenario:00-restore
         allow_no_output: true
         it_desc: restores golden pools
         when_command: call setup_pools
@@ -81,7 +81,7 @@ example_list:
         when_command: call src_exec zfs allow "$SANDBOX_ZELTA_SRC_DS"
 
       - test_name: teardown_pools
-        tag: prune-scenario:40-teardown
+        tag: prune-scenario:00-teardown
         allow_no_output: true
         it_desc: teardown golden pools
         when_command: call teardown_pools

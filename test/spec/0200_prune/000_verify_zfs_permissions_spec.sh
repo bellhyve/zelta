@@ -1,6 +1,6 @@
 # Auto-generated ShellSpec test file
-# Generated at: 2026-07-23 17:27:36 -0400
-# Source: 040_verify_zfs_permissions_spec
+# Generated at: 2026-07-23 17:41:21 -0400
+# Source: 000_verify_zfs_permissions_spec
 # WARNING: This file was automatically generated. Manual edits may be lost.
 
 output_for_zfs_check_delegation() {
@@ -42,7 +42,7 @@ output_for_zfs_check_allow_permissions() {
   return 0
 }
 
-Describe 'Test zfs delegation and permissions' prune-scenario:40
+Describe 'Test zfs delegation and permissions' prune-scenario:00
   Include "${SHELLSPEC_HELPERDIR}/golden_pool_helper.sh"
   
   ZELTA_SYSTIME_VALUE='date -d "2026-06-14 00:00:00 EDT" +%s'
@@ -83,7 +83,7 @@ Describe 'Test zfs delegation and permissions' prune-scenario:40
 
   BeforeRun  set_zelta_systime
 
-  It "restores golden pools" prune-scenario:40-restore
+  It "restores golden pools" prune-scenario:00-restore
     When call setup_pools
     The status should be success
   End
@@ -100,7 +100,7 @@ Describe 'Test zfs delegation and permissions' prune-scenario:40
     The status should be success
   End
 
-  It "teardown golden pools" prune-scenario:40-teardown
+  It "teardown golden pools" prune-scenario:00-teardown
     When call teardown_pools
     The status should be success
   End
