@@ -70,26 +70,8 @@ jobs:
           zfs version || true
           whoami
           id
-
-      - name: Create test user
-        run: |
-          sudo useradd --create-home --shell /bin/bash testuser
-
-      - name: Import fixture pool
-        run: |
-          # Your image setup and zpool import commands go here
-          sudo zpool import apool
-
-      - name: Verify delegation
-        run: |
-          
-          sudo zpool get delegation apool
-          sudo zfs allow apool
-          sudo zfs list -r apool
+          sudo -u testuser whoami
           sudo -u testuser id
-          sudo -u testuser zfs destroy apool/treetop
-
-
 
       - name: Run Standard ShellSpec tests
         run: |
