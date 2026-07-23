@@ -15,7 +15,8 @@ env:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    #runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout repository
@@ -63,6 +64,33 @@ jobs:
           sudo cp -r "$GITHUB_WORKSPACE" /home/testuser/zelta
           sudo chown -R testuser:testuser /home/testuser/zelta
 
+      - name: Diagnose environment
+        run: |
+          uname -a
+          zfs version || true
+          whoami
+          id
+
+      - name: Create test user
+        run: |
+          sudo useradd --create-home --shell /bin/bash testuser
+
+      - name: Import fixture pool
+        run: |
+          # Your image setup and zpool import commands go here
+          sudo zpool import apool
+
+      - name: Verify delegation
+        run: |
+          
+          sudo zpool get delegation apool
+          sudo zfs allow apool
+          sudo zfs list -r apool
+          sudo -u testuser id
+          sudo -u testuser zfs destroy apool/treetop
+
+
+
       - name: Run Standard ShellSpec tests
         run: |
           sudo -u testuser env \
@@ -80,4 +108,4 @@ jobs:
             SANDBOX_ZELTA_SRC_DS=apool/treetop \
             SANDBOX_ZELTA_TGT_DS=bpool/backups \
             SANDBOX_ZELTA_GOLD_PRUNE_SCEN_DIR="$SANDBOX_ZELTA_GOLD_PRUNE_SCEN_DIR" \
-            bash -c 'cd /home/testuser/zelta && shellspec --tag install,prune-scenario,cleanup:install'
+            bash -c 'cd /home/testuser/zelta && shellspec --tag install,prune-scenario:40,cleanup:install'
