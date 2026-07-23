@@ -32,7 +32,7 @@ Candidate selection, filters, prune guards, and retention options are identical 
 : Preview compact destroy commands and the summary, then exit without prompting or destroying.
 
 `--verbose`, `-v`
-: Expand snapshot ranges in the command preview. With `--quiet`, print only the summary and exit.
+: Expand snapshot ranges in the command preview as a trailing `#` shell comment so each line stays copy/pasteable. With `--quiet`, print only the summary and exit.
 
 `--help`, `-h`
 : Show command usage.
