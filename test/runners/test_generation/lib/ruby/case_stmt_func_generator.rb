@@ -99,9 +99,10 @@ class CaseStmtFuncGenerator
   end
 
   def generate_function(lines, func_name)
+    # allow blank lines, don't skip l.strip.empty?
     patterns = lines
-               .reject { |l| l.strip.empty? || l.match?(/\A\s*#/) }
-               .map { |l|                   l.gsub(/\s+/, ' ').strip }
+                 .reject { |l| l.match?(/\A\s*#/) }
+                 .map { |l| l.gsub(/\s+/, ' ').strip }
 
     build_function(patterns, func_name)
   end
