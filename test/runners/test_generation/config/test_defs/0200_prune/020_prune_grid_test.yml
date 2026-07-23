@@ -1,9 +1,9 @@
 output_dir: tmp
-shellspec_name: "010_prune_options_spec"
+shellspec_name: "020_prune_options_spec"
 
 example_list:
   - describe_desc: "Test prune options"
-    tag: prune-scenario:10
+    tag: prune-scenario:20
     shell_code: |
       Include "${SHELLSPEC_HELPERDIR}/golden_pool_helper.sh"
       
@@ -44,30 +44,10 @@ example_list:
         it_desc: ${SANDBOX_ZELTA_TGT_EP} has $EXPECTED_SNAPSHOTS snapshots
         when_command: call snapshot_count "$SANDBOX_ZELTA_TGT_DS"
 
-      - test_name: prune_newest_3_without_guard
-        it_desc: prune keep 3 without guard - %{when_command}
+      - test_name: prune_30x1_day_52x1_week_1yr
+        it_desc: prune multiple grid - %{when_command}
         remove_timestamps: false
-        when_command: run zelta prune --prune-num=3 --no-prune-guard "$SANDBOX_ZELTA_SRC_EP"
-
-      - test_name: prune_all_without_guard
-        it_desc: prune all without guard - %{when_command}
-        remove_timestamps: false
-        when_command: run zelta prune --prune-num=0 --no-prune-guard "$SANDBOX_ZELTA_SRC_EP"
-
-      - test_name: prune_3_with_guard
-        it_desc: prune 3 with guard - %{when_command}
-        remove_timestamps: false
-        when_command: run zelta prune --prune-num=3 "$SANDBOX_ZELTA_SRC_EP" "$SANDBOX_ZELTA_TGT_EP"
-
-      - test_name: prune_all_synced
-        it_desc: prune all with unsynced guard - %{when_command}
-        remove_timestamps: false
-        when_command: run zelta prune --prune-num=0 --prune-guard=unsynced "$SANDBOX_ZELTA_SRC_EP" "$SANDBOX_ZELTA_TGT_EP"
-
-      - test_name: prune_grid_weekly
-        it_desc: prune all with unsynced guard - %{when_command}
-        remove_timestamps: false
-        when_command: run zelta prune --prune-grid=1week "$SANDBOX_ZELTA_SRC_EP" "$SANDBOX_ZELTA_TGT_EP"
+        when_command: run zelta prune --prune-grid='30x1 day, 52x1 week, 1 year'  "$SANDBOX_ZELTA_SRC_EP"  "$SANDBOX_ZELTA_TGT_EP"
 
       - test_name: teardown_pools
         tag: prune-scenario:teardown

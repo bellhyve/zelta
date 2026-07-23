@@ -15,8 +15,7 @@ class EnvSubstitutor
   end
 
   def debug_mode?
-    #%w[yes 1 true].include?(ENV["ZELTA_TESTGEN_DEBUG"].to_s.downcase)
-    true
+    %w[yes 1 true].include?(ENV["ZELTA_TESTGEN_DEBUG"].to_s.downcase)
   end
 
   def load_env_from_script(relative_path)
