@@ -236,7 +236,7 @@ create_pool "$BPOOL" "$BPOOL_IMG" || die "failed to create $BPOOL"
 # "target diverged" failure.
 log "creating source dataset $SRC_DS"
 zfs create "$SRC_DS" || die "failed to create $SRC_DS"
-zfs allow -e destroy "$SRC_DS"
+zfs allow -e destroy,mount "$SRC_DS"
 
 SRC_MNT=$(zfs get -H -o value mountpoint "$SRC_DS") || die "cannot resolve mountpoint of $SRC_DS"
 [ -d "$SRC_MNT" ] || die "mountpoint $SRC_MNT for $SRC_DS does not exist"
@@ -307,7 +307,7 @@ log "verify: src_span=$_src_span tgt_span=$_tgt_span"
 
 # ---- PHASE 5: EXPORT (leave golden images ready to copy) -------------------
 log "exporting pools"
-zfs allow -e destroy "$TGT_DS"
+zfs allow -e destroy,mount "$TGT_DS"
 zpool export "$BPOOL" || die "export of $BPOOL failed (busy? check mounts under $TGT_DS)"
 zpool export "$APOOL" || warn "export of $APOOL failed"
 
