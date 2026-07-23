@@ -99,8 +99,9 @@ match	--time	CHECK_TIME		true
 prune	--prune-time	PRUNE_TIME		set		duration of recent snapshots to keep
 prune	--prune-num	PRUNE_NUM		set		number of old matches to skip
 prune	--prune-grid	PRUNE_GRID		set		GFS grid retention such as '30x1 day, 52x1 week, 1 year'
-prune	--prune-guard	PRUNE_GUARD		set		prune sync safety: match, always, or never
-prune	--no-prune-guard	PRUNE_GUARD		set	none	disable target safety checks
+prune	--match-endpoint,--guard-endpoint,--prune-guard-endpoint	MATCH_ENDPOINT		set		endpoint used for match validation and prune-guard
+prune	--prune-guard	PRUNE_GUARD		set		prune sync safety: latest, unsynced, or none
+prune	--no-prune-guard	PRUNE_GUARD		set	none	disable match-endpoint safety checks
 prune	--force,-f	PRUNE_FORCE		true		destroy without asking for confirmation when used by zprune
 prune	--prune-size	PRUNE_SIZE		set		select oldest eligible snapshots until size is reached
 prune	--no-ranges	NO_RANGES		true		disable range compression (output individual snapshots)

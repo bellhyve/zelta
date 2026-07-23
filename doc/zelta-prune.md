@@ -6,17 +6,19 @@
 
 # SYNOPSIS
 
-**zelta prune** [_OPTIONS_] _source_ [_target_]
+**zelta prune** [_OPTIONS_] _endpoint_
 
 # DESCRIPTION
 
-**zelta prune** reports snapshots on a source dataset tree that are candidates for pruning. It does not destroy snapshots. Use **zprune(8)** with the same options after reviewing a strategy.
+**zelta prune** reports snapshots on an endpoint dataset tree that are candidates for pruning. It does not destroy snapshots. Use **zprune(8)** with the same options after reviewing a strategy.
+
+Only _endpoint_ is evaluated for prune candidates. An optional match endpoint is never destroyed; it is used only for match validation and **--prune-guard** protection.
 
 A pruning strategy combines scope filters, snapshot protections, and retention options. Scope filters first narrow the dataset tree or snapshot names. Clone and replication checks protect snapshots within that scope. Retention options protect snapshots by count, age, or retention grid. `--prune-size` can further limit candidates to an estimated reclaim target.
 
 All selected rules stack. A snapshot is a prune candidate only if it remains in scope and no protection or retention rule keeps it. For example, the default strategy is:
 
-- `--prune-guard=latest`: Use the latest common source/target snapshot, when one exists, as a protected boundary.
+- `--prune-guard=latest`: Use the latest common snapshot between _endpoint_ and the match endpoint, when one exists, as a protected boundary.
 - `--prune-num=30`: Keep the newest 30 snapshots older than that protected boundary.
 - `--prune-time=30days`: Keep snapshots from the last 30 days.
 
@@ -24,13 +26,19 @@ The count and time windows overlap. Older than a protected replication boundary,
 
 # OPTIONS
 
-## Endpoint Arguments
+## Endpoint
 
-_source_
-: Dataset tree containing snapshots to evaluate.
+_endpoint_
+: Dataset tree containing snapshots to evaluate. **zprune** destroys candidates on this endpoint only.
 
-_target_
-: Optional replica used for `--prune-guard` safety checks. Without a _target_, **zelta prune** applies no prune guard. **zprune** requires either a _target_ or `--no-prune-guard`.
+## Match Endpoint
+
+`--match-endpoint` _guard_, `--guard-endpoint` _guard_, `--prune-guard-endpoint` _guard_
+: Second dataset tree used only for match validation and `--prune-guard` protection (and as the grid/latest boundary peer). Snapshots on _guard_ are never destroyed.
+
+  A second positional operand is accepted as the same match endpoint (`zelta prune` _endpoint_ _guard_) but is not shown in the synopsis; prefer the flag. Do not combine `--match-endpoint` with a second positional operand.
+
+Without a match endpoint, **zelta prune** applies no prune guard. **zprune** requires either `--match-endpoint` or `--no-prune-guard`.
 
 ## Output Options
 
@@ -58,21 +66,21 @@ The following global filters work as they do for other Zelta verbs; see **zelta-
 : Limit dataset-tree recursion depth. A depth of `1` includes only the specified dataset.
 
 `--exclude`, `-X` _PATTERN_
-: Exclude datasets or source snapshots matching _PATTERN_. See _INCLUDE AND EXCLUDE PATTERNS_ in **zelta-options(7)**.
+: Exclude datasets or snapshots matching _PATTERN_. See _INCLUDE AND EXCLUDE PATTERNS_ in **zelta-options(7)**.
 
 `--include` _PATTERN_
-: Include only datasets or source snapshots matching _PATTERN_. See _INCLUDE AND EXCLUDE PATTERNS_ in **zelta-options(7)**.
+: Include only datasets or snapshots matching _PATTERN_. See _INCLUDE AND EXCLUDE PATTERNS_ in **zelta-options(7)**.
 
-Additionally, **zelta prune** protects candidates based on their replication state.
+Additionally, **zelta prune** protects candidates based on their replication state when a match endpoint is supplied.
 
 `--prune-guard=latest`
-: When the source and target have a common snapshot, protect the latest match and everything newer on the source. If no match exists, evaluate from the latest source snapshot. This is the default when a _target_ is given.
+: When _endpoint_ and the match endpoint have a common snapshot, protect the latest match and everything newer on _endpoint_. If no match exists, evaluate from the latest snapshot on _endpoint_. This is the default when a match endpoint is given.
 
 `--prune-guard=unsynced`
-: Require the candidate snapshot to be present on the _target_. Snapshots not confirmed on the target are protected.
+: Require the candidate snapshot to be present on the match endpoint. Snapshots not confirmed there are protected.
 
 `--prune-guard=none`, `--no-prune-guard`
-: Do not require a target or confirm that candidates exist on it. If a _target_ is supplied, its latest common snapshot still defines the retention boundary. **zprune** requires this option when a _target_ is omitted.
+: Do not require a match endpoint or confirm that candidates exist on it. If a match endpoint is supplied, its latest common snapshot still defines the retention boundary. **zprune** requires this option when a match endpoint is omitted.
 
 ## Retention Options
 
@@ -83,7 +91,7 @@ Retention options apply within the scope selected by `--depth`, `--include`, `--
 
 Grid terms are evaluated from left to right. A term without _COUNT_ applies to all remaining history. Separate terms with commas or vertical bars. Whitespace is allowed.
 
-Grid ages are measured backward from the latest common source/target snapshot when one exists, or from the latest source snapshot or bookmark otherwise. **zelta prune** protects the newest snapshot found in each interval.
+Grid ages are measured backward from the latest common snapshot between _endpoint_ and the match endpoint when one exists, or from the latest snapshot or bookmark on _endpoint_ otherwise. **zelta prune** protects the newest snapshot found in each interval.
 
 `--prune-num` _N_
 : Keep the newest _N_ snapshots.
@@ -91,7 +99,7 @@ Grid ages are measured backward from the latest common source/target snapshot wh
 `--prune-size` _SIZE_
 : Select the oldest remaining snapshots until their estimated reclaim reaches at least _SIZE_. Suffixes such as `M`, `G`, and `T` are supported.
 
-Like all other options, each dataset is evaluated separately. On a dataset tree, every dataset is evaluated against the full _SIZE_. Use `--depth=1` or another filter to target one dataset. The estimate assumes sequential oldest-first pruning; use the **zprune(8)** preview for a more accurate estimate of reclaimed space.
+Like all other options, each dataset is evaluated separately. On a dataset tree, every dataset is evaluated against the full _SIZE_. Use `--depth=1` or another filter to limit one dataset. The estimate assumes sequential oldest-first pruning; use the **zprune(8)** preview for a more accurate estimate of reclaimed space.
 
 `--prune-time` _TIME_
 : Keep snapshots newer than _TIME_ relative to the current time.
@@ -142,25 +150,25 @@ Snapshots run from oldest to newest. A `🔹` is protected; a `❌` is a prune c
 Inspect the default strategy before working with its candidate list:
 
 ```sh
-zelta prune --visual tank/data backup:tank/data
+zelta prune --visual --match-endpoint=backup:tank/data tank/data
 ```
 
 When a common snapshot exists, the default protects that latest match and everything newer. Among older snapshots, it also protects the newest 30 and all snapshots from the last 30 days. Diamonds may extend farther into history when the time window protects more than the count window.
 
-Select the oldest snapshots until their estimated reclaim reaches 150 GiB. Limiting depth makes the reclaim target apply only to `tank/data`:
+Select the oldest snapshots until their estimated reclaim reaches 150 GiB. Limiting depth makes the reclaim apply only to `tank/data`:
 
 ```sh
 zelta prune --visual --prune-size=150G --depth=1 tank/data
 ```
 
-Add a replica guard when old snapshots should be candidates only after reaching the target:
+Add a match endpoint when old snapshots should be candidates only after reaching the peer:
 
 ```sh
 zelta prune --visual --prune-size=150G --prune-guard=unsynced \
-    tank/data backup:tank/data
+    --match-endpoint=backup:tank/data tank/data
 ```
 
-Comparing this with the preceding size-only view reveals old history that the replica guard protects because it is missing from the target.
+Comparing this with the preceding size-only view reveals old history that the replica guard protects because it is missing from the match endpoint.
 
 Compare count and time windows independently:
 
@@ -194,7 +202,7 @@ After inspecting a strategy, report its candidates in the default pipeable forma
 zelta prune --prune-grid='30x1day, 52x1week, 1year' tank/data
 ```
 
-Preview the exact **zfs destroy** commands and confirm destructive pruning. Because this example has no replica target, **zprune** requires an explicit `--no-prune-guard`:
+Preview the exact **zfs destroy** commands and confirm destructive pruning. Because this example has no match endpoint, **zprune** requires an explicit `--no-prune-guard`:
 
 ```sh
 zprune --no-prune-guard \
@@ -209,7 +217,7 @@ Returns 0 on success and non-zero on error.
 
 **zelta prune** is nondestructive: it only plans candidates. Use **zprune(8)** when you intend to destroy snapshots, and review the preview carefully.
 
-This command is driven by the same comparison engine as **zelta match**. See **zelta-match(8)** for source/target matching behavior.
+This command is driven by the same comparison engine as **zelta match**. See **zelta-match(8)** for endpoint matching behavior.
 
 # SEE ALSO
 

@@ -6,13 +6,17 @@
 
 # SYNOPSIS
 
-**zprune** [_OPTIONS_] _source_ [_target_]
+**zprune** [_OPTIONS_] **--match-endpoint=**_guard_ _endpoint_
+
+**zprune** [_OPTIONS_] **--no-prune-guard** _endpoint_
 
 # DESCRIPTION
 
 **zprune** destroys snapshots selected by **zelta prune**. It previews grouped `zfs destroy` commands with **zfs destroy -nvp**, prints a summary of snapshot count and estimated reclaim, asks for confirmation, then destroys the same candidates.
 
-Candidate selection, filters, prune guards, and retention options are identical to **zelta prune**. See **zelta-prune(8)** for strategy details. **zprune** requires a _target_ or `--no-prune-guard`.
+Only _endpoint_ is destroyed. A match endpoint (_guard_) is used only for match validation and prune-guard protection.
+
+Candidate selection, filters, prune guards, and retention options are identical to **zelta prune**. See **zelta-prune(8)** for strategy details. **zprune** requires `--match-endpoint` or `--no-prune-guard`.
 
 # OPTIONS
 
@@ -38,7 +42,7 @@ Candidate selection, filters, prune guards, and retention options are identical 
 
 ## Candidate Selection
 
-All other options are forwarded to **zelta prune**. See **zelta-prune(8)** for complete behavior, including `--prune-num`, `--prune-time`, `--prune-grid`, `--prune-size`, `--prune-guard`, `--include`, `--exclude`, and `--depth`.
+All other options are forwarded to **zelta prune**. See **zelta-prune(8)** for complete behavior, including `--match-endpoint`, `--prune-num`, `--prune-time`, `--prune-grid`, `--prune-size`, `--prune-guard`, `--include`, `--exclude`, and `--depth`.
 
 # SAFETY MODEL
 
@@ -51,44 +55,45 @@ All other options are forwarded to **zelta prune**. See **zelta-prune(8)** for c
 - the prompt summarizes snapshot count and estimated reclaimed space;
 - `--dryrun` shows compact destroy commands and summary, then exits before prompting;
 - the operator must answer `y` or `yes` unless `--force` is used;
-- **zfs destroy -R** is never used.
+- **zfs destroy -R** is never used;
+- only _endpoint_ is destroyed; the match endpoint is never destroyed.
 
-If the source is remote, destruction runs on that host through **ZELTA_REMOTE_COMMAND** (default **ssh**).
+If _endpoint_ is remote, destruction runs on that host through **ZELTA_REMOTE_COMMAND** (default **ssh**).
 
 # EXAMPLES
 
 Preview default candidates and confirm before destroying:
 
 ```sh
-zprune tank/data backup:tank/data
+zprune --match-endpoint=backup:tank/data tank/data
 ```
 
 Destroy without the confirmation prompt:
 
 ```sh
-zprune --force tank/data backup:tank/data
+zprune --force --match-endpoint=backup:tank/data tank/data
 ```
 
 Preview destroy commands and summary without prompting:
 
 ```sh
-zprune --dryrun tank/data backup:tank/data
+zprune --dryrun --match-endpoint=backup:tank/data tank/data
 ```
 
 Print only the dry-run summary:
 
 ```sh
-zprune -qn tank/data backup:tank/data
+zprune -qn --match-endpoint=backup:tank/data tank/data
 ```
 
 Apply a retention strategy and destroy (same options as **zelta prune**):
 
 ```sh
 zprune --prune-grid='30x1day, 52x1week, 1year' \
-    tank/data backup:tank/data
+    --match-endpoint=backup:tank/data tank/data
 ```
 
-Without a replica target, pass `--no-prune-guard` explicitly:
+Without a match endpoint, pass `--no-prune-guard` explicitly:
 
 ```sh
 zprune --no-prune-guard --prune-size=10G tank/data

@@ -27,22 +27,22 @@ retain. The command details and safeguards follow below and in the man pages.
 Start with a visual plan:
 
 ```sh
-zelta prune --visual compute:cask/vm vault:vat/Backups/vm
+zelta prune --visual --match-endpoint=vault:vat/Backups/vm compute:cask/vm
 ```
 
 Then preview the exact `zfs destroy` commands without changing anything:
 
 ```sh
-zprune --dryrun compute:cask/vm vault:vat/Backups/vm
+zprune --dryrun --match-endpoint=vault:vat/Backups/vm compute:cask/vm
 ```
 
 When both reviews look correct, run the prompted operation:
 
 ```sh
-zprune compute:cask/vm vault:vat/Backups/vm
+zprune --match-endpoint=vault:vat/Backups/vm compute:cask/vm
 ```
 
-Without a replica target, explicitly disable the guard for both planning and destruction:
+Without a match endpoint, explicitly disable the guard for both planning and destruction:
 
 ```sh
 zelta prune --no-prune-guard --visual compute:cask/vm
@@ -50,7 +50,7 @@ zprune --no-prune-guard --dryrun compute:cask/vm
 zprune --no-prune-guard compute:cask/vm
 ```
 
-`zprune` requires either a target or `--no-prune-guard`. Keep `--force` for controlled automation; it bypasses the confirmation prompt.
+`zprune` requires either `--match-endpoint` or `--no-prune-guard`. Only the acted-on endpoint is destroyed; the match endpoint is never destroyed. Keep `--force` for controlled automation; it bypasses the confirmation prompt.
 
 ## Default Retention
 
@@ -60,7 +60,7 @@ When no retention option is supplied, Zelta uses:
 --prune-num=30 --prune-time=30days
 ```
 
-When a target is supplied, `--prune-guard=latest` is also the default. It protects the latest common snapshot and everything newer on the source. Among older snapshots, the count and time windows overlap: a snapshot is kept when either rule protects it.
+When a match endpoint is supplied, `--prune-guard=latest` is also the default. It protects the latest common snapshot and everything newer on the acted-on endpoint. Among older snapshots, the count and time windows overlap: a snapshot is kept when either rule protects it.
 
 Supplying any retention option replaces the count and time defaults. It does not add another rule to the default pair.
 
@@ -69,20 +69,22 @@ Supplying any retention option replaces the count and time defaults. It does not
 Keep the newest 30 eligible snapshots:
 
 ```sh
-zelta prune --prune-num=30 compute:cask/vm vault:vat/Backups/vm
+zelta prune --prune-num=30 --match-endpoint=vault:vat/Backups/vm \
+    compute:cask/vm
 ```
 
 Keep snapshots newer than 30 days:
 
 ```sh
-zelta prune --prune-time=30days compute:cask/vm vault:vat/Backups/vm
+zelta prune --prune-time=30days --match-endpoint=vault:vat/Backups/vm \
+    compute:cask/vm
 ```
 
 Select the oldest eligible snapshots until the estimated reclaim reaches 150 GiB:
 
 ```sh
 zelta prune --prune-size=150G --depth=1 \
-    compute:cask/vm vault:vat/Backups/vm
+    --match-endpoint=vault:vat/Backups/vm compute:cask/vm
 ```
 
 `--prune-size` is evaluated separately for each dataset. Use `--depth=1` or another filter when the reclaim target is meant for one dataset. The `zprune --dryrun` preview gives a more useful reclaim estimate.
@@ -95,7 +97,7 @@ Use `--prune-grid` for a GFS-style lifecycle policy:
 
 ```sh
 zelta prune --visual --prune-grid='30x1day, 52x1week, 1year' \
-    compute:cask/vm vault:vat/Backups/vm
+    --match-endpoint=vault:vat/Backups/vm compute:cask/vm
 ```
 
 This keeps one snapshot per day for 30 days, one per week for 52 weeks, and one per year for the remaining history. Grid terms are evaluated left to right. A term without a count applies to all remaining history.
@@ -117,18 +119,18 @@ zelta prune --exclude='/temporary' compute:cask/vm
 
 Quote patterns so the shell does not expand them. Snapshot patterns begin with `@`; dataset-relative patterns begin with `/`. Filtered-out snapshots remain protected and cannot become candidates.
 
-## Replica Guards
+## Match Endpoint and Replica Guards
 
-Use a target to protect history that has not safely reached the replica:
+Use `--match-endpoint` to protect history that has not safely reached a peer:
 
 ```sh
 zelta prune --prune-guard=unsynced \
-    compute:cask/vm vault:vat/Backups/vm
+    --match-endpoint=vault:vat/Backups/vm compute:cask/vm
 ```
 
-- `latest` protects the latest common snapshot and everything newer. It is the default when a target is supplied.
-- `unsynced` protects snapshots unless the target has the matching snapshot and name. Use this when missing replica history must never be deleted.
-- `none` or `--no-prune-guard` disables target confirmation.
+- `latest` protects the latest common snapshot and everything newer. It is the default when a match endpoint is supplied.
+- `unsynced` protects snapshots unless the match endpoint has the matching snapshot and name. Use this when missing peer history must never be deleted.
+- `none` or `--no-prune-guard` disables match-endpoint confirmation.
 
 Clone origins are always protected. The complete strategy combines scope filters, clone protection, replica guards, and retention rules.
 
@@ -146,7 +148,7 @@ A retention user can be granted snapshot destruction on the backup tree:
 zfs allow -u retention destroy tank/backups
 ```
 
-For role design and platform caveats, see [ZFS Allow Delegation](/conf/zfs-allow). For a remote source, destruction runs on that source through the configured SSH transport.
+For role design and platform caveats, see [ZFS Allow Delegation](/conf/zfs-allow). For a remote endpoint, destruction runs on that host through the configured SSH transport.
 
 ## Operational Cautions
 

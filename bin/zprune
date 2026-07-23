@@ -10,18 +10,18 @@ ZPRUNE_VERSION="zprune 1.2.0"
 zprune_usage() {
 	exec >&2
 	cat << 'EOF'
-usage: zprune [OPTIONS] source target
+usage: zprune [OPTIONS] --match-endpoint=GUARD ENDPOINT
+       zprune [OPTIONS] --no-prune-guard ENDPOINT
 
-Destructively prune source snapshots selected by zelta prune.
+Destructively prune snapshots on ENDPOINT selected by 'zelta prune'.
 
 zprune options:
-  --force              Destroy without asking for confirmation
-  --quiet              Do not display the snapshot list
-  --dryrun, -n         Preview destroy commands and exit
+  --force                 Destroy without asking for confirmation
+  --quiet                 Do not display the snapshot list
+  --dryrun                Preview destroy commands and exit
 
-zelta prune options:
 EOF
-  zelta prune --help 2>&1 | grep -- --
+  zelta prune --help 2>&1 | grep -e Options -e --
 	cat << 'EOF'
 
 For complete documentation:  man zprune
@@ -100,7 +100,7 @@ parse_args() {
 	export ZELTA_LOG_LEVEL ZELTA_VERB ZPRUNE_DRYRUN ZPRUNE_LOG_LEVEL
 
 	if [ -z "$ZELTA_SRC_ID" ]; then
-		error "source operand required"
+		error "endpoint required"
 		zprune_usage
 	fi
 }
@@ -469,8 +469,8 @@ main() {
 		exit 0
 	fi
 
-	if [ -z "$ZELTA_TGT_ID" ] && ! prune_guard_disabled; then
-		error "target operand required for destructive prune; use --no-prune-guard to override"
+	if [ -z "$ZELTA_TGT_ID" ] && [ -z "$ZELTA_MATCH_ENDPOINT" ] && ! prune_guard_disabled; then
+		error "match endpoint required to destroy snapshots with prune guard enabled;\n  use --match-endpoint=GUARD or --no-prune-guard"
 		exit 1
 	fi
 

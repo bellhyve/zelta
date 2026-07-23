@@ -47,17 +47,23 @@ function usage(message,		_counter, _c, _key) {
 function usage_prune(message) {
 	STDERR = "/dev/stderr"
 	printf (message ? message "\n" : "") "usage:"                                                 > STDERR
-	print "\tprune [OPTIONS] SOURCE [TARGET]\n"                                                   > STDERR
-	print "Reports snapshot prune candidates on SOURCE.\n"                                        > STDERR
-	print "Options:"                                                                              > STDERR
-	print "\t--prune-num=N        Minimum number of snapshots to keep after match"                > STDERR
-	print "\t--prune-time=T       Keep snapshots newer than duration T"                           > STDERR
-	print "\t--prune-size=N       Select oldest eligible snapshots until N bytes are reached"     > STDERR
-	print "\t--prune-grid=GRID    GFS grid such as '30x1 day, 52x1 week, 1 year'"                 > STDERR
-	print "\t--prune-guard=MODE   Protect sync continuity: latest (default), unsynced, none"      > STDERR
-	print "\t--no-ranges          Disable range compression (output individual snapshots)"        > STDERR
-	print "\t--exclude pattern    Exclude datasets or snapshots matching pattern"                 > STDERR
-	print "\t--include pattern    Include only datasets or snapshots matching pattern"            > STDERR
+	print "\tprune [OPTIONS] ENDPOINT\n"                                                          > STDERR
+	print "Reports snapshot prune candidates on ENDPOINT.\n"                                      > STDERR
+	print "Guard Options:"                                                                        > STDERR
+	print "  --match-endpoint=GUARD  Compare against GUARD for match protection"                  > STDERR
+	print "  --prune-guard=latest    Protect latest match with GUARD"                             > STDERR
+	print "  --prune-guard=unsynced  Only consider pruning snapshots replicated with GUARD"       > STDERR
+	print "  --no-prune-guard        Disable match-endpoint safety checks"                        > STDERR
+	print "Filter Options:"                                                                       > STDERR
+	print "  --depth=NUM             Set max dataset depth"                                       > STDERR
+	print "  --exclude=pattern       Exclude datasets or snapshots matching pattern"              > STDERR
+	print "  --include=pattern       Include only datasets or snapshots matching pattern"         > STDERR
+	print "Retention Options:"                                                                    > STDERR
+	print "  --prune-num=N           Minimum number of snapshots to keep"                         > STDERR
+	print "  --prune-time=T          Keep snapshots newer than duration T (from current time)"    > STDERR
+	print "  --prune-size=N          Select oldest eligible snapshots until N bytes are reached"  > STDERR
+	print "  --prune-grid=GRID       GFS grid such as '30x1 day, 52x1 week, 1 year', measured"    > STDERR
+	print "                          from  the latest unfiltered snapshot"
 	print "Default: '--prune-num=30 --prune-time=1month'\n"                                       > STDERR
 	print "To review and destroy snapshots, use 'zprune'.\n"                                      > STDERR
 	print "For complete documentation:  zelta help prune"                                         > STDERR
@@ -1099,6 +1105,13 @@ BEGIN {
 
 	if (! ((Opt["PRUNE_GUARD"] >= 0) && (Opt["PRUNE_GUARD"] <= 2)))
 		stop(1, "invalid prune-guard mode: " Opt["PRUNE_GUARD"])
+
+	if (Opt["VERB"] == "prune" && (Opt["MATCH_ENDPOINT"] != "")) {
+		if (Operands[2] != "")
+			stop(1, "cannot use --match-endpoint with a second positional operand")
+		Operands[2] = Opt["MATCH_ENDPOINT"]
+		NumOperands = 2
+	}
 
 	if (NumOperands < 2)
 		Opt["PRUNE_GUARD"] = GUARD_NONE

@@ -70,10 +70,10 @@ For detailed usage of each subcommand, run **zelta help <subcommand>** or see th
 
 ## Retention
 
-**zelta prune** _source_ [_target_]
+**zelta prune** _endpoint_
 :    Plan snapshot pruning without destroying data. See **zelta-prune(8)**.
 
-**zprune** _source_ [_target_]
+**zprune** **--match-endpoint=**_guard_ _endpoint_
 :    Validate and destroy snapshots selected by **zelta prune**. See **zprune(8)**.
 
 ## Automation
