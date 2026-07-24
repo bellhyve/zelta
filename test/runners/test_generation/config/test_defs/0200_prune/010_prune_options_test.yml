@@ -117,7 +117,7 @@ example_list:
       - test_name: zprune_keep_12_monthlies
         it_desc: zprune monthlies keep 12 - %{when_command}
         remove_timestamps: false
-        when_command: run zprune -f --no-ranges --include="@zelta_monthly_*" --prune-num=12 "$SANDBOX_ZELTA_SRC_EP" "$SANDBOX_ZELTA_TGT_EP"
+        when_command: run zprune -vv -f --no-ranges --include="@zelta_monthly_*" --prune-num=12 "$SANDBOX_ZELTA_SRC_EP" "$SANDBOX_ZELTA_TGT_EP"
 
       - test_name: zprune_monthly_count
         it_desc: check monthlies count is 12 - %{when_command}

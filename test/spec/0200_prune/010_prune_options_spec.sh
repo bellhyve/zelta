@@ -1,5 +1,5 @@
 # Auto-generated ShellSpec test file
-# Generated at: 2026-07-23 03:02:45 -0400
+# Generated at: 2026-07-24 02:00:17 -0400
 # Source: 010_prune_options_spec
 # WARNING: This file was automatically generated. Manual edits may be lost.
 
@@ -282,8 +282,8 @@ Describe 'Test prune options' prune-scenario:10
     The status should be success
   End
 
-  It "zprune monthlies keep 12 - run zprune -f --no-ranges --include=\"@zelta_monthly_*\" --prune-num=12 \"$SANDBOX_ZELTA_SRC_EP\" \"$SANDBOX_ZELTA_TGT_EP\""
-    When run zprune -f --no-ranges --include="@zelta_monthly_*" --prune-num=12 "$SANDBOX_ZELTA_SRC_EP" "$SANDBOX_ZELTA_TGT_EP"
+  It "zprune monthlies keep 12 - run zprune -vv -f --no-ranges --include=\"@zelta_monthly_*\" --prune-num=12 \"$SANDBOX_ZELTA_SRC_EP\" \"$SANDBOX_ZELTA_TGT_EP\""
+    When run zprune -vv -f --no-ranges --include="@zelta_monthly_*" --prune-num=12 "$SANDBOX_ZELTA_SRC_EP" "$SANDBOX_ZELTA_TGT_EP"
     The output should satisfy output_for_zprune_keep_12_monthlies
     The status should be success
   End
