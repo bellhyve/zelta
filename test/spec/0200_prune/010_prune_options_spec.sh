@@ -1,5 +1,10 @@
+# WARNING: HandCrafted test
+# Embedded Quoting issues corrected by hand in output_for_zprune_keep_12_monthlies()
+# Verbose error output for zprune -vv moved to function
+# TODO: Test generator needs and update to handle both 
+
 # Auto-generated ShellSpec test file
-# Generated at: 2026-07-24 02:00:17 -0400
+# Generated at: 2026-07-24 14:41:22 -0400
 # Source: 010_prune_options_spec
 # WARNING: This file was automatically generated. Manual edits may be lost.
 
@@ -161,7 +166,8 @@ output_for_zprune_keep_12_monthlies() {
     normalized=$(printf '%s' "$line" | tr -s '[:space:]' ' ' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
     # check line against expected output
     case "$normalized" in
-        "zfs destroy ${SANDBOX_ZELTA_SRC_DS}@zelta_monthly_2023-07-04_21.00.00,zelta_monthly_2023-08-01_21.00.00,zelta_monthly_2023-09-12_21.00.00,zelta_monthly_2023-10-10_21.00.00,zelta_monthly_2023-11-07_21.00.00,zelta_monthly_2023-12-05_21.00.00,zelta_monthly_2024-02-13_21.00.00,zelta_monthly_2024-03-12_21.00.00,zelta_monthly_2024-04-09_21.00.00,zelta_monthly_2024-05-07_21.00.00,zelta_monthly_2024-06-04_21.00.00,zelta_monthly_2024-07-02_21.00.00,zelta_monthly_2024-08-13_21.00.00,zelta_monthly_2024-09-10_21.00.00,zelta_monthly_2024-10-08_21.00.00,zelta_monthly_2024-11-05_21.00.00,zelta_monthly_2024-12-03_21.00.00,zelta_monthly_2025-02-11_21.00.00,zelta_monthly_2025-03-11_21.00.00,zelta_monthly_2025-04-08_21.00.00"|\
+        "Preparing to prune \"${SANDBOX_ZELTA_SRC_EP}\" using the following commands:"|\
+        "ssh dever@uvm1 \"zfs destroy '${SANDBOX_ZELTA_SRC_DS}@zelta_monthly_2023-07-04_21.00.00,zelta_monthly_2023-08-01_21.00.00,zelta_monthly_2023-09-12_21.00.00,zelta_monthly_2023-10-10_21.00.00,zelta_monthly_2023-11-07_21.00.00,zelta_monthly_2023-12-05_21.00.00,zelta_monthly_2024-02-13_21.00.00,zelta_monthly_2024-03-12_21.00.00,zelta_monthly_2024-04-09_21.00.00,zelta_monthly_2024-05-07_21.00.00,zelta_monthly_2024-06-04_21.00.00,zelta_monthly_2024-07-02_21.00.00,zelta_monthly_2024-08-13_21.00.00,zelta_monthly_2024-09-10_21.00.00,zelta_monthly_2024-10-08_21.00.00,zelta_monthly_2024-11-05_21.00.00,zelta_monthly_2024-12-03_21.00.00,zelta_monthly_2025-02-11_21.00.00,zelta_monthly_2025-03-11_21.00.00,zelta_monthly_2025-04-08_21.00.00'\""|\
         ""|\
         "20 snapshots (12% of 167) will be destroyed"|\
         "2.2M total reclaimed (6% of 35.0M)")
@@ -174,6 +180,11 @@ output_for_zprune_keep_12_monthlies() {
     esac
   done
   return 0
+}
+
+expected_zprune_error() { %text
+  #|debug: `zelta ipc-run prune`
+  #|debug: `ssh dever@uvm1 "zfs destroy 'apool/treetop@zelta_monthly_2023-07-04_21.00.00,zelta_monthly_2023-08-01_21.00.00,zelta_monthly_2023-09-12_21.00.00,zelta_monthly_2023-10-10_21.00.00,zelta_monthly_2023-11-07_21.00.00,zelta_monthly_2023-12-05_21.00.00,zelta_monthly_2024-02-13_21.00.00,zelta_monthly_2024-03-12_21.00.00,zelta_monthly_2024-04-09_21.00.00,zelta_monthly_2024-05-07_21.00.00,zelta_monthly_2024-06-04_21.00.00,zelta_monthly_2024-07-02_21.00.00,zelta_monthly_2024-08-13_21.00.00,zelta_monthly_2024-09-10_21.00.00,zelta_monthly_2024-10-08_21.00.00,zelta_monthly_2024-11-05_21.00.00,zelta_monthly_2024-12-03_21.00.00,zelta_monthly_2025-02-11_21.00.00,zelta_monthly_2025-03-11_21.00.00,zelta_monthly_2025-04-08_21.00.00'"`
 }
 
 Describe 'Test prune options' prune-scenario:10
@@ -285,6 +296,7 @@ Describe 'Test prune options' prune-scenario:10
   It "zprune monthlies keep 12 - run zprune -vv -f --no-ranges --include=\"@zelta_monthly_*\" --prune-num=12 \"$SANDBOX_ZELTA_SRC_EP\" \"$SANDBOX_ZELTA_TGT_EP\""
     When run zprune -vv -f --no-ranges --include="@zelta_monthly_*" --prune-num=12 "$SANDBOX_ZELTA_SRC_EP" "$SANDBOX_ZELTA_TGT_EP"
     The output should satisfy output_for_zprune_keep_12_monthlies
+    The error should equal "$(expected_zprune_error)"
     The status should be success
   End
 
