@@ -2,7 +2,7 @@ output_dir: tmp
 shellspec_name: "000_verify_zfs_permissions_spec"
 
 example_list:
-  - describe_desc: "Test zfs delegation and permissions"
+  - describe_desc: "Test zfs"
     tag: prune-scenario:00
 
     hooks_list:
@@ -72,13 +72,19 @@ example_list:
 
       - test_name: zfs_check_delegation
         tag: prune-scenario:zfs-check
-        it_desc: enables delegation on ${SANDBOX_ZELTA_SRC_POOL} - %{when_command}
+        it_desc: checks zfs delegation on ${SANDBOX_ZELTA_SRC_POOL} - %{when_command}
         when_command: call src_exec zpool get delegation "$SANDBOX_ZELTA_SRC_POOL"
 
       - test_name: zfs_check_allow_permissions
         tag: prune-scenario:zfs-check
-        it_desc: grants everyone destroy and mount on ${SANDBOX_ZELTA_SRC_DS}  - %{when_command}
+        it_desc: check permissions on ${SANDBOX_ZELTA_SRC_DS}  - %{when_command}
         when_command: call src_exec zfs allow "$SANDBOX_ZELTA_SRC_DS"
+
+      - test_name: zfs_destroy_check
+        tag: prune-scenario:zfs-destroy
+        it_desc: verify ability to destroy a snapshot - %{when_command}
+        allow_no_output: true
+        when_command: call src_exec zfs destroy $SANDBOX_ZELTA_SRC_DS@zelta_monthly_2023-07-04_21.00.00
 
       - test_name: teardown_pools
         tag: prune-scenario:00-teardown

@@ -1,5 +1,5 @@
 # Auto-generated ShellSpec test file
-# Generated at: 2026-07-23 17:41:21 -0400
+# Generated at: 2026-07-24 01:36:39 -0400
 # Source: 000_verify_zfs_permissions_spec
 # WARNING: This file was automatically generated. Manual edits may be lost.
 
@@ -42,7 +42,7 @@ output_for_zfs_check_allow_permissions() {
   return 0
 }
 
-Describe 'Test zfs delegation and permissions' prune-scenario:00
+Describe 'Test zfs' prune-scenario:00
   Include "${SHELLSPEC_HELPERDIR}/golden_pool_helper.sh"
   
   ZELTA_SYSTIME_VALUE='date -d "2026-06-14 00:00:00 EDT" +%s'
@@ -88,15 +88,20 @@ Describe 'Test zfs delegation and permissions' prune-scenario:00
     The status should be success
   End
 
-  It "enables delegation on ${SANDBOX_ZELTA_SRC_POOL} - call src_exec zpool get delegation \"$SANDBOX_ZELTA_SRC_POOL\"" prune-scenario:zfs-check
+  It "checks zfs delegation on ${SANDBOX_ZELTA_SRC_POOL} - call src_exec zpool get delegation \"$SANDBOX_ZELTA_SRC_POOL\"" prune-scenario:zfs-check
     When call src_exec zpool get delegation "$SANDBOX_ZELTA_SRC_POOL"
     The output should satisfy output_for_zfs_check_delegation
     The status should be success
   End
 
-  It "grants everyone destroy and mount on ${SANDBOX_ZELTA_SRC_DS}  - call src_exec zfs allow \"$SANDBOX_ZELTA_SRC_DS\"" prune-scenario:zfs-check
+  It "check permissions on ${SANDBOX_ZELTA_SRC_DS}  - call src_exec zfs allow \"$SANDBOX_ZELTA_SRC_DS\"" prune-scenario:zfs-check
     When call src_exec zfs allow "$SANDBOX_ZELTA_SRC_DS"
     The output should satisfy output_for_zfs_check_allow_permissions
+    The status should be success
+  End
+
+  It "verify ability to destroy a snapshot - call src_exec zfs destroy $SANDBOX_ZELTA_SRC_DS@zelta_monthly_2023-07-04_21.00.00" prune-scenario:zfs-destroy
+    When call src_exec zfs destroy $SANDBOX_ZELTA_SRC_DS@zelta_monthly_2023-07-04_21.00.00
     The status should be success
   End
 
