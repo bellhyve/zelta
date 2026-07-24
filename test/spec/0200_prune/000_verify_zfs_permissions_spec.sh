@@ -1,5 +1,5 @@
 # Auto-generated ShellSpec test file
-# Generated at: 2026-07-24 01:36:39 -0400
+# Generated at: 2026-07-24 15:19:31 -0400
 # Source: 000_verify_zfs_permissions_spec
 # WARNING: This file was automatically generated. Manual edits may be lost.
 
@@ -100,8 +100,8 @@ Describe 'Test zfs' prune-scenario:00
     The status should be success
   End
 
-  It "verify ability to destroy a snapshot - call src_exec zfs destroy $SANDBOX_ZELTA_SRC_DS@zelta_monthly_2023-07-04_21.00.00" prune-scenario:zfs-destroy
-    When call src_exec zfs destroy $SANDBOX_ZELTA_SRC_DS@zelta_monthly_2023-07-04_21.00.00
+  It "verify ability to destroy a snapshot - call src_exec zfs destroy $SANDBOX_ZELTA_SRC_DS@zelta_monthly_2023-07-04_21.00.00,zelta_monthly_2023-08-01_21.00.00,zelta_monthly_2023-09-12_21.00.00,zelta_monthly_2023-10-10_21.00.00,zelta_monthly_2023-11-07_21.00.00,zelta_monthly_2023-12-05_21.00.00,zelta_monthly_2024-02-13_21.00.00,zelta_monthly_2024-03-12_21.00.00,zelta_monthly_2024-04-09_21.00.00,zelta_monthly_2024-05-07_21.00.00,zelta_monthly_2024-06-04_21.00.00,zelta_monthly_2024-07-02_21.00.00,zelta_monthly_2024-08-13_21.00.00,zelta_monthly_2024-09-10_21.00.00,zelta_monthly_2024-10-08_21.00.00,zelta_monthly_2024-11-05_21.00.00,zelta_monthly_2024-12-03_21.00.00,zelta_monthly_2025-02-11_21.00.00,zelta_monthly_2025-03-11_21.00.00,zelta_monthly_2025-04-08_21.00.00" prune-scenario:zfs-destroy
+    When call src_exec zfs destroy $SANDBOX_ZELTA_SRC_DS@zelta_monthly_2023-07-04_21.00.00,zelta_monthly_2023-08-01_21.00.00,zelta_monthly_2023-09-12_21.00.00,zelta_monthly_2023-10-10_21.00.00,zelta_monthly_2023-11-07_21.00.00,zelta_monthly_2023-12-05_21.00.00,zelta_monthly_2024-02-13_21.00.00,zelta_monthly_2024-03-12_21.00.00,zelta_monthly_2024-04-09_21.00.00,zelta_monthly_2024-05-07_21.00.00,zelta_monthly_2024-06-04_21.00.00,zelta_monthly_2024-07-02_21.00.00,zelta_monthly_2024-08-13_21.00.00,zelta_monthly_2024-09-10_21.00.00,zelta_monthly_2024-10-08_21.00.00,zelta_monthly_2024-11-05_21.00.00,zelta_monthly_2024-12-03_21.00.00,zelta_monthly_2025-02-11_21.00.00,zelta_monthly_2025-03-11_21.00.00,zelta_monthly_2025-04-08_21.00.00
     The status should be success
   End
 

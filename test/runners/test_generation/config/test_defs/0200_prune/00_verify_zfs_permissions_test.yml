@@ -84,7 +84,8 @@ example_list:
         tag: prune-scenario:zfs-destroy
         it_desc: verify ability to destroy a snapshot - %{when_command}
         allow_no_output: true
-        when_command: call src_exec zfs destroy $SANDBOX_ZELTA_SRC_DS@zelta_monthly_2023-07-04_21.00.00
+        #when_command: call src_exec zfs destroy $SANDBOX_ZELTA_SRC_DS@zelta_monthly_2023-07-04_21.00.00
+        when_command: call src_exec zfs destroy $SANDBOX_ZELTA_SRC_DS@zelta_monthly_2023-07-04_21.00.00,zelta_monthly_2023-08-01_21.00.00,zelta_monthly_2023-09-12_21.00.00,zelta_monthly_2023-10-10_21.00.00,zelta_monthly_2023-11-07_21.00.00,zelta_monthly_2023-12-05_21.00.00,zelta_monthly_2024-02-13_21.00.00,zelta_monthly_2024-03-12_21.00.00,zelta_monthly_2024-04-09_21.00.00,zelta_monthly_2024-05-07_21.00.00,zelta_monthly_2024-06-04_21.00.00,zelta_monthly_2024-07-02_21.00.00,zelta_monthly_2024-08-13_21.00.00,zelta_monthly_2024-09-10_21.00.00,zelta_monthly_2024-10-08_21.00.00,zelta_monthly_2024-11-05_21.00.00,zelta_monthly_2024-12-03_21.00.00,zelta_monthly_2025-02-11_21.00.00,zelta_monthly_2025-03-11_21.00.00,zelta_monthly_2025-04-08_21.00.00
 
       - test_name: teardown_pools
         tag: prune-scenario:00-teardown
