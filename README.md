@@ -1,6 +1,6 @@
 ![Zelta Logo](https://zelta.space/index/zelta-banner.svg)
 # The Zelta Backup and Recovery Suite
-*Current release: 1.2*
+*Current release: 1.2.0*
 
 ---
 > - **What's New:** Check [CHANGELOG.md](CHANGELOG.md) for the latest changes
@@ -43,13 +43,11 @@ Written in portable Bourne shell and AWK, Zelta runs anywhere ZFS runs. No packa
 Run as root for a system install or as a backup user for a user-local install. No `git` required.
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/bell-tower/zelta/main/contrib/web-install.sh | sh
-```
+# Latest (may include beta features)
+curl -fsSL https://zelta.space/web-install.sh | sh
 
-To install a specific branch:
-
-```sh
-curl -fsSL https://raw.githubusercontent.com/bell-tower/zelta/release/bsdcan2026/contrib/web-install.sh | sh -s -- --branch=release/bsdcan2026
+# Latest release (package-repo track)
+curl -fsSL https://zelta.space/web-install.sh | sh -s -- --branch=release/1.2
 ```
 
 The installer uses sane defaults for system-wide or user installs. Advanced install paths can be overridden with `ZELTA_BIN`, `ZELTA_SHARE`, `ZELTA_ETC`, and `ZELTA_DOC`; see the install documentation for details.
@@ -66,7 +64,7 @@ sudo ./install.sh
 ```
 
 ### FreeBSD Ports
-Zelta is available in the FreeBSD Ports Collection. Ports may lag the GitHub release; use the installer for current 1.2 features.
+Zelta is available in the FreeBSD Ports Collection. Ports may lag the GitHub release; use the installer for current 1.2.0 features.
 ```sh
 pkg install zelta
 ```
@@ -195,4 +193,4 @@ For commercial support, custom feature development, and consulting on secure, hi
 
 ## Current Direction
 
-Zelta 1.2 adds the prune planner/`zprune` split, rebase, failover, lock/unlock, propsync, snapshot thresholds, policy imports, and broader include/exclude filtering. See [CHANGELOG.md](CHANGELOG.md) for release details and current known issues.
+Zelta 1.2.0 adds the prune planner/`zprune` split, rebase, failover, lock/unlock, propsync, snapshot thresholds, policy imports, replication-success bookmarks, and broader include/exclude filtering. See [CHANGELOG.md](CHANGELOG.md) for release details and current known issues.

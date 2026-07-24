@@ -1,7 +1,7 @@
 ---
 name: zelta
 description: Generic Zelta ZFS workflow skill. Use for teaching, installing, dry-running, composing, scheduling, and operating ZFS backup, replication, recovery, clone, rebase, failover, prune, and policy workflows with Zelta.
-version: 1.2-beta
+version: 1.2.0
 canonical_url: https://zelta.space/.well-known/agent-skills/zelta/SKILL.md
 source_url: https://github.com/bell-tower/zelta/tree/main/contrib/agent-skills/zelta/SKILL.md
 ---
@@ -19,10 +19,13 @@ zelta help
 zelta help options
 ```
 
-If Zelta is missing and the user wants the QA branch for the upcoming 1.2 release:
+If Zelta is missing:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/bell-tower/zelta/main/contrib/web-install.sh | sh -s -- --branch=feature/rebase
+# Latest (may include beta features)
+curl -fsSL https://zelta.space/web-install.sh | sh
+# Latest release track
+curl -fsSL https://zelta.space/web-install.sh | sh -s -- --branch=release/1.2
 ```
 
 Inspect install scripts before piping them to `sh` when the user wants a security review or production change control.

@@ -33,8 +33,17 @@ function zelta_init(	_o, _prefix_re, _val) {
 function load_endpoint(ep, ep_arr,	_str_parts, _id, _remote ,_user, _host, _ds, _snap, _depth, _pool, _leaf) {
 	if (!ep) return
 	_id	= ep				# ID is the user's endpoint string
-	# Find the connection info for ssh, '[user@]host'
-	if (ep ~ /^[^ :\/]+:/) {
+	# Find the connection info for ssh: [user@]host: or [user@][ipv6]:
+	if (match(ep, /^([^\/: ]+@)?\[[^]]+\]:/)) {
+		_remote = substr(ep, 1, RLENGTH - 1)
+		ep = substr(ep, RLENGTH + 1)
+		# Strip IPv6 brackets: ssh wants user@addr, HOST is bare for prefixes
+		gsub(/[\[\]]/, "", _remote)
+		if (split(_remote, _str_parts, "@") == 2) {
+			_user = _str_parts[1]
+			_host = _str_parts[2]
+		} else _host = _remote
+	} else if (ep ~ /^[^ :\/]+:/) {
 		_remote	= ep
 		sub(/:.*/, "", _remote)		# REMOTE is '[user@]host'
 		sub(/^[^ :\/]+:/,"", ep)	# Don't split(), ep may have ':'

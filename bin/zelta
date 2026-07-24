@@ -4,7 +4,7 @@
 #
 # Initialize the environment for Zelta subcommands
 
-ZELTA_VERSION="Zelta 1.2.BSDCan2026"
+ZELTA_VERSION="Zelta 1.2.0"
 
 zelta_usage() {
 	exec >&2
@@ -128,17 +128,18 @@ zelta_init() {
 	fi
 
 	# Debian/Ubuntu awk bug workaround
+	# https://lists.gnu.org/archive/html/bug-gawk/2026-06/msg00067.html
 	if [ -z "$ZELTA_AWK" ]; then
 		_awk_ver=$(awk -V 2>/dev/null | head -n 1)
 		case "$_awk_ver" in
-		*"GNU Awk 5.2.1"*)
+		*"GNU Awk 5.2.1"*|*"GNU Awk 5.3.2"*)
 			if command -v mawk >/dev/null 2>&1; then
 				_good_awk=mawk
 			elif command -v original-awk >/dev/null 2>&1; then
 				_good_awk=original-awk
 			else
 				cat >&2 <<-EOF
-				warning: GNU Awk 5.2.1 has a serious memory bug; upgrade gawk or install original-awk/mawk:
+				warning: GNU Awk 5.2.1/5.3.2 has a serious memory bug; upgrade gawk or install original-awk/mawk:
 				  Ubuntu/Debian: apt install mawk
 				EOF
 			fi

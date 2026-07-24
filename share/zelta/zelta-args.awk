@@ -2,53 +2,21 @@
 #
 # zelta-args.awk: serialize common zelta arguments
 
-# Choose a hostname for logging
-function validate_host(host,		_hostname_cmd) {
-	if (!host || (host == "localhost"))
-		return Opt["HOSTNAME"]
-	else
-		return host
-}
-
-# TO-DO: Move to 'zelta-common.awk' as a generic endpoint calculator
-# Load and parse two endpoints, the source and target, sequentially
-# Create a set of variables from an scp-like host-dataset argument
-# [[user@]host:]dataset[@snapshot]
-function get_endpoint(		ep_type, _str_parts, _id, _remote ,_user, _host, _ds, _snap) {
-
+# Load SRC then TGT Opt fields from scp-like operands via load_endpoint()
+# [[user@]host:]dataset[@snapshot]  or  [[user@][ipv6]:]dataset[@snapshot]
+function get_endpoint(		ep_type, ep_arr) {
 	if (!NewOpt["SRC_ID"]) ep_type = "SRC_"
 	else if (!NewOpt["TGT_ID"]) ep_type = "TGT_"
 	else return
 
-	_id = $0				# ID is the user's endpoint string
-
-	# Find the connection info for ssh, '[user@]host'
-	if (/^[^ :\/]+:/) {
-		_remote = $0
-		sub(/:.*/, "", _remote)		# REMOTE is '[user@]host'
-		sub(/^[^ :\/]+:/,i "")		# Don't split(), $0 may have ':'
-		if (split(_remote, _str_parts, "@")==2) {
-			_user = _str_parts[1]	# USER from 'user@host'
-			_host = _str_parts[2]	# HOST
-		} else _host = _str_parts[1]	# HOST only
-		# Special case: If the DS or SNAP contains a ':' and our target is local, we
-		# have a work around: 'localhost:' _remote (with no user) gets cleared (so no ssh).
-		if (!_user && (_host == "localhost")) _remote = ""
-	}
-	if (split($0, _str_parts, "@") == 2) {
-		_snap = "@" _str_parts[2]
-	}
-	_ds = _str_parts[1]
-	if (!_user) { _user = ENVIRON["USER"] }	# USER may be useful for logging
-
-	# Validate and define the endpoint
-	if (! _ds) stop(1, "invalid endpoint '"_id"'")
-	NewOpt[ep_type "ID"]		= _id
-	NewOpt[ep_type "REMOTE"]	= _remote
-	NewOpt[ep_type "USER"]		= _user
-	NewOpt[ep_type "HOST"]		= validate_host(_host)
-	NewOpt[ep_type "DS"]		= _ds
-	NewOpt[ep_type "SNAP"]		= _snap
+	load_endpoint($0, ep_arr)
+	if (!ep_arr["DS"]) stop(1, "invalid endpoint '"$0"'")
+	NewOpt[ep_type "ID"]		= ep_arr["ID"]
+	NewOpt[ep_type "REMOTE"]	= ep_arr["REMOTE"]
+	NewOpt[ep_type "USER"]		= ep_arr["USER"]
+	NewOpt[ep_type "HOST"]		= ep_arr["HOST"]
+	NewOpt[ep_type "DS"]		= ep_arr["DS"]
+	NewOpt[ep_type "SNAP"]		= ep_arr["SNAP"]
 }
 
 function match_arg(arg, 	_flag) {

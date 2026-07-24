@@ -2,7 +2,7 @@
 
 This guide covers installing Zelta and configuring it for your environment. Whether you're setting up a single-user backup system or managing enterprise-scale replication across multiple teams, Zelta's flexible installation model adapts to your needs.
 
-## Table Of Contents
+## Table of contents
 
 [System Requirements](#system-requirements)
 [Installation Methods](#installation-methods)
@@ -12,7 +12,6 @@ This guide covers installing Zelta and configuring it for your environment. Whet
 [Environment Variables](#environment-variables)
 [Updating Zelta](#updating-zelta)
 [Uninstalling Zelta](#uninstalling-zelta)
-[Environment Variables](#environment-variables)
 [Convenience Aliases](#convenience-aliases)
 [Next Steps](#next-steps)
 
@@ -44,13 +43,11 @@ No package dependencies. No daemons. No configuration databases.
 The web installer downloads a GitHub branch archive and runs the normal `install.sh` installer. No `git` required:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/bell-tower/zelta/main/contrib/web-install.sh | sh
-```
+# Latest (may include beta features)
+curl -fsSL https://zelta.space/web-install.sh | sh
 
-To install a specific branch:
-
-```sh
-curl -fsSL https://raw.githubusercontent.com/bell-tower/zelta/main/contrib/web-install.sh | sh -s -- --branch=release/bsdcan2026
+# Latest release branch
+curl -fsSL https://zelta.space/web-install.sh | sh -s -- --branch=release/1.2
 ```
 
 ### From Repository
@@ -229,9 +226,9 @@ Production:
 
 **Purpose:** Fast bidirectional replication for high-availability failover
 
-This setup creates a Zelta Twin: an active-passive asynchronous cluster pattern where whichever dataset is read-write will generate "written" data, which Zelta automatically snapshots and replicates to the read-only side. Both replication directions are defined in a single policy file, and Zelta intelligently determines which direction needs syncing on each run.
+This setup creates a Zelta Twin: an active-passive asynchronous cluster pattern where the active, read-write dataset receives application writes. Zelta automatically snapshots it and replicates those changes to the read-only side. Both replication directions are defined in a single policy file, and Zelta determines which direction needs a backup on each run.
 
-**The model:** Whichever side is read-write is live; the read-only side is standby. Failover is just toggling `readonly`—lock the primary, verify the final backup, unlock the secondary. No Ceph, no daemons, no shared storage. Zelta 1.2 provides `zelta failover`, `zelta lock`, `zelta unlock`, and `zelta propsync` to automate that workflow.
+**The model:** Whichever side is read-write is live; the read-only side is standby. Failover is locking the primary, verifying the final backup, syncing local properties, and unlocking the secondary. No Ceph, no daemons, no shared storage. Zelta 1.2 provides `zelta failover` to automate that workflow.
 
 See [Zelta Twin](/guides/twin) for the full guide.
 
@@ -434,7 +431,7 @@ See [Environment & Policy Files](/conf/env) for a comprehensive reference. Here 
 Rerun the same installer command to update an existing install. The installer reports when the installed version is already current.
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/bell-tower/zelta/main/contrib/web-install.sh | sh
+curl -fsSL https://zelta.space/web-install.sh | sh
 ```
 
 ### From Source
@@ -489,7 +486,7 @@ rm -rf ~/.config/zelta
 Remove the environment variable exports from your shell's startup script.
 
 ## Convenience Aliases
-Zelta pre-1.0 included convenience aliases for several zelta subcommands. 
+Zelta pre-1.0 included convenience aliases for several zelta subcommands.
 
 Zelta supports adding these as aliases (global):
 

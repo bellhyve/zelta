@@ -54,6 +54,7 @@ Examples:
     Local:  pool/dataset@snapshot
     Remote: user@example.com:pool/dataset
     Remote: user@example.com:pool/dataset@snapshot
+    IPv6:   user@[2001:db8::1]:pool/dataset
 
 # OPTIONS
 
@@ -124,6 +125,17 @@ _target_
 : In `IF_NEEDED` mode, skip snapshot creation if cumulative source writes are below the threshold. Bare numbers are bytes; supported suffixes are `K`, `M`, `G`, `T`, `P`, and `E`. Example: `--snap-size 128K`.
 
 `--snapshot` and `--no-snapshot` ignore `--snap-time` and `--snap-size`.
+
+## Bookmark Options
+
+**\--bookmark**
+: After a successful receive, create a ZFS bookmark on each confirmed source snapshot. Default is off.
+
+**\--no-bookmark**
+: Do not create source bookmarks after replication (default).
+
+**\--bookmark-prefix** _PREFIX_
+: Prefix for bookmark names. Default is `{targethost}_`, producing names such as `pool/ds#backuphost_snapname`.
 
 ## Sync Options
 

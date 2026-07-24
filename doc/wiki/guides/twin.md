@@ -4,7 +4,7 @@ Zelta Twin is an asynchronous cluster pattern built from ordinary Zelta commands
 
 People may also search for this as standby nodes, replicas, mirrors, secondary instances, failover partners, or asynchronous clustering. In Zelta docs, the preferred term is **Zelta Twin**.
 
-## Why Twin Is Different From A Cold Backup
+## Why Twin Is Different from a Cold Backup
 
 A normal backup is optimized for history and recovery. A twin is optimized for continuity.
 

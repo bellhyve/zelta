@@ -27,6 +27,27 @@ For quick help, use `zelta usage` to see available commands and options, or `zel
 
 ---
 
+## Which Command?
+
+Man pages list every flag. Use this table to pick the workflow, then open the linked guide or man page.
+
+| Goal | Command | Where to read |
+|------|---------|----------------|
+| See if two trees match | `zelta match` | [First Backup](/home/start), [zelta-match(8)](/man/zelta-match) |
+| Create or update a replica | `zelta backup` | [Simple Backups](/guides/backup), [zelta-backup(8)](/man/zelta-backup) |
+| Many jobs / sites | `zelta policy` | [Policy](/guides/policy), [zelta-policy(8)](/man/zelta-policy) |
+| Writable test copy | `zelta clone` | [Recovery](/guides/recovery), [zelta-clone(8)](/man/zelta-clone) |
+| Rewind live dataset, keep old state | `zelta revert` | [Recovery](/guides/recovery), [zelta-revert(8)](/man/zelta-revert) |
+| Fix diverged source/target | `zelta rotate` | [Recovery](/guides/recovery), [zelta-rotate(8)](/man/zelta-rotate) |
+| Promote standby twin | `zelta failover` | [Failover](/guides/sync), [Twin](/guides/twin) |
+| Create a recursive snapshot | `zelta snapshot` | [zelta-snapshot(8)](/man/zelta-snapshot) |
+| Plan snapshot deletion | `zelta prune` | [Recovery](/guides/recovery), [zelta-prune(8)](/man/zelta-prune) |
+| Destroy planned snapshots | `zprune` | [zprune(8)](/man/zprune) |
+
+**Safety boundary:** `zelta*` does not destroy data. `zprune` destroys snapshots only.
+
+---
+
 ## Endpoint Format
 
 Zelta uses an SCP-like syntax to specify datasets and snapshots:
@@ -50,7 +71,7 @@ Understanding these terms will help you get the most out of Zelta. For foundatio
 - **Archive:** A static replica that doesn't need incremental updates, such as backups of retired datasets or unused clone origins.
 - **Backup:** A replica that receives ongoing replication updates.
 - **Match:** The most recent common snapshot (or source bookmark/target snapshot pair) between two replicas. If a match exists, incremental replication is possible.
-- **Replica:** A copy of a dataset tree used for backup, archival, or failover. ZFS replicas are cryptographically confirmed to be identical.
+- **Replica:** A copy of a dataset tree used for backup, archival, or failover. Zelta compares replication metadata to confirm whether replicas share usable history.
 - **Savepoint:** Zelta's internal term for a bookmark or snapshot used as a replication reference point.
 - **Source/Target:** The original dataset tree and its replica destination.
 
@@ -125,7 +146,7 @@ zelta backup user@server1:tank/data user@server2:pool/backup
 
 **You never need to run Zelta as root.** Using ZFS delegation (`zfs allow`) and SSH keys, you can safely replicate datasets without privileged access. This dramatically reduces your attack surface and makes Zelta ideal for regulated environments.
 
-See [ZFS Allow Delegation](/en/conf/zfs-allow) for setup instructions.
+See [ZFS Allow Delegation](/conf/zfs-allow) for setup instructions.
 
 ### Portable and Dependency-Free
 
@@ -139,6 +160,6 @@ Replication decisions are based on ZFS metadata and available features, not nami
 
 ## Next Steps
 
-Ready to try Zelta? Head over to [First Backup](/en/home/start) for practical examples.
+Ready to try Zelta? Head over to [First Backup](/home/start) for practical examples.
 
 For detailed command usage, run `zelta help` or explore the [Zelta Wiki](https://zelta.space/en/home).

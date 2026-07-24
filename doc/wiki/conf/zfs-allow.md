@@ -158,11 +158,20 @@ Add `destroy` only when the rescue workflow really needs it.
 
 ## Platform Notes
 
-FreeBSD 14 and newer OpenZFS builds generally support modern delegation features such as `receive:append`, `send:raw`, and `volmode`. Check the installed OpenZFS version and test the actual delegation on your host.
+| Platform | Modern grants (`send:raw`, `receive:append`, `volmode`) | Notes |
+|----------|----------------------------------------------------------|--------|
+| FreeBSD 14+ / recent OpenZFS | Usually available | Preferred baseline for least-privilege Zelta |
+| Older FreeBSD / Illumos variants | Check locally | Fall back to plain `send` / `receive` on the smallest tree |
+| Linux OpenZFS | Often available on current packages; mount delegation differs | Backups still work well unmounted; do not assume mount grants match FreeBSD |
+
+Always test the actual host:
+
+```sh
+zfs allow tank/backups
+# Then run the following tests as the delegated user, not as root.
+```
 
 Older systems may lack `receive:append` or `send:raw`. In that case, use plain `receive` or `send` only for the smallest necessary dataset tree and compensate operationally with separate users, careful SSH keys, and explicit review.
-
-Linux delegation has limitations around mount namespace operations. Zelta still normally works well because backups are received unmounted and with safe properties, but mount-related grants may not behave identically across platforms.
 
 ## Testing Delegation
 
@@ -172,43 +181,59 @@ Check current grants:
 zfs allow tank/backups
 ```
 
-Test read access and matching first:
+Test as the delegated user, not as root. Start with match (read-only):
 
 ```sh
 zelta match backup@source:tank/production backup@target:tank/backups/production
 ```
 
-Then test replication with dry-run and verbose output:
+Then dry-run and verbose backup:
 
 ```sh
 zelta backup -nv backup@source:tank/production backup@target:tank/backups/production
 ```
 
-Finally run one real backup and verify it:
+Finally one real backup and verify:
 
 ```sh
 zelta backup backup@source:tank/production backup@target:tank/backups/production
 zelta match backup@source:tank/production backup@target:tank/backups/production
 ```
 
+If dry-run succeeds but the real run fails, compare the verbose send/receive lines with `zfs allow` on both roots. Zelta usually reports a missing ZFS permission directly; if the error comes from a secondary system, also check SSH, network connectivity, holds, mount behavior, and the dataset root.
+
 ## Troubleshooting
+
+### SSH works, ZFS says permission denied
+
+Separate layers:
+
+1. **SSH** — can the user log in and run `zfs list`?
+2. **Delegation** — does `zfs allow` on the correct dataset root include the needed permission?
+3. **Wrong root** — grants on `tank` do not always cover a different top-level; grants on a child do not cover a sibling.
 
 ### `cannot receive: permission denied`
 
 Common causes:
 
 - Missing `receive:append` or legacy `receive` on the target.
-- Missing `create` for child datasets.
+- Missing `create` for child datasets during recursive receive.
 - Missing property grants such as `readonly`, `compression`, `recordsize`, or `volmode`.
 - Grant was applied to the wrong dataset root.
+- Expecting destructive receive behavior (`zfs receive -F` style) while only `receive:append` is granted — that is intentional. Use a separate high-trust role with plain `receive` only when rewrite is deliberate.
 
 ### `cannot send: permission denied`
 
 Common causes:
 
 - Missing `send:raw` or legacy `send` on the source.
-- Encrypted dataset requires raw send permission.
+- Encrypted dataset requires raw send permission (`send:raw`).
 - Missing `snapshot` when Zelta needs to create a snapshot.
+- Missing `hold` or `bookmark` when those features are enabled in the job.
+
+### `cannot mount` or mount-related failures on Linux
+
+Linux mount namespace and delegation differ from FreeBSD. Zelta normally receives backups unmounted with `canmount=noauto` and inherited mountpoints, so routine backup often does not need broad mount rights. If a workflow truly must mount as a non-root user, test on that host and prefer a rescue role over expanding the cron backup user.
 
 ### zvol replication fails
 
@@ -226,9 +251,14 @@ zfs allow -u backup readonly,compression,recordsize,volmode tank/backups
 
 Split the role. Keep `destroy` with a retention user, and keep routine replication on `receive:append`.
 
+### Twin failover fails after first promotion
+
+After promotion, the former standby must send and the former active must receive. Twin users need send and receive grants on **both** twin roots, not only the original direction. See [Zelta Twin](/guides/twin).
+
 ## See Also
 
 - [SSH Configuration](/conf/ssh)
 - [Zelta Twin](/guides/twin)
 - [Policy-Based Automatic Backups](/guides/policy)
 - [Simple Backups](/guides/backup)
+- [Rollback & Recovery](/guides/recovery)

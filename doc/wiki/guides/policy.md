@@ -89,18 +89,18 @@ EXCLUDE: /backups,/swap,/tmp
 DAL1_TO_BACKUP_A:
   app1.example.com:
     options:
-      include: targets/backup-a.yaml
-      include: rules/hostbackup.yaml
+      import: targets/backup-a.yaml
+      import: rules/hostbackup.yaml
     datasets:
-      include: sources/app1.yaml
+      import: sources/app1.yaml
 
 DAL1_TO_BACKUP_B:
   app1.example.com:
     options:
-      include: targets/backup-b.yaml
-      include: rules/hostbackup.yaml
+      import: targets/backup-b.yaml
+      import: rules/hostbackup.yaml
     datasets:
-      include: sources/app1.yaml
+      import: sources/app1.yaml
 ```
 
 This keeps policy readable without turning Zelta into a server. Zelta still lowers each entry to ordinary `zelta backup` jobs.

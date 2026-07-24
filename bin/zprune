@@ -5,23 +5,23 @@
 # zelta prune selects snapshots. zprune adds the destructive prompt and runs
 # zfs destroy against the exact candidates emitted by zelta prune.
 
-ZPRUNE_VERSION="zprune 1.2.BSDCan2026"
+ZPRUNE_VERSION="zprune 1.2.0"
 
 zprune_usage() {
 	exec >&2
 	cat << 'EOF'
-usage: zprune [OPTIONS] source target
+usage: zprune [OPTIONS] --match-endpoint=GUARD ENDPOINT
+       zprune [OPTIONS] --no-prune-guard ENDPOINT
 
-Destructively prune source snapshots selected by zelta prune.
+Destructively prune snapshots on ENDPOINT selected by 'zelta prune'.
 
 zprune options:
-  --force              Destroy without asking for confirmation
-  --quiet              Do not display the snapshot list
-  --dryrun, -n         Preview destroy commands and exit
+  --force                 Destroy without asking for confirmation
+  --quiet                 Do not display the snapshot list
+  --dryrun                Preview destroy commands and exit
 
-zelta prune options:
 EOF
-  zelta prune --help 2>&1 | grep -- --
+  zelta prune --help 2>&1 | grep -e Options -e --
 	cat << 'EOF'
 
 For complete documentation:  man zprune
@@ -85,11 +85,6 @@ parse_args() {
 
 	init_zelta_env "$@"
 
-	if zelta_bool_true "$ZELTA_PRUNE_VISUAL"; then
-		zelta ipc-run prune
-		unset ZELTA_PRUNE_VISUAL
-	fi
-
 	ZPRUNE_LOG_LEVEL=${ZELTA_LOG_LEVEL:-2}
 	[ "${ZELTA_LOG_LEVEL:-2}" -lt 2 ] && ZPRUNE_QUIET=1
 	zelta_bool_true "$ZELTA_DRYRUN" && ZPRUNE_DRYRUN=1
@@ -99,13 +94,21 @@ parse_args() {
 	ZELTA_VERB=prune
 	export ZELTA_LOG_LEVEL ZELTA_VERB ZPRUNE_DRYRUN ZPRUNE_LOG_LEVEL
 
+	if zelta_bool_true "$ZELTA_PRUNE_VISUAL"; then
+		run_zelta_prune
+		unset ZELTA_PRUNE_VISUAL
+	fi
+
 	if [ -z "$ZELTA_SRC_ID" ]; then
-		error "source operand required"
+		error "endpoint required"
 		zprune_usage
 	fi
 }
 
 run_zelta_prune() {
+	if [ "${ZPRUNE_LOG_LEVEL:-2}" -ge 4 ]; then
+		printf 'debug: `zelta ipc-run prune`\n' >&2
+	fi
 	zelta ipc-run prune
 }
 
@@ -143,9 +146,34 @@ validate_candidates() {
 	return 0
 }
 
+format_destroy_command() {
+	_flags=$1
+	_destroy_target=$2
+
+	if [ -n "$ZELTA_SRC_REMOTE" ]; then
+		: ${ZELTA_REMOTE_COMMAND:=ssh}
+		if [ -n "$_flags" ]; then
+			printf '%s %s "zfs destroy %s '\''%s'\''"' \
+				"$ZELTA_REMOTE_COMMAND" "$ZELTA_SRC_REMOTE" "$_flags" "$_destroy_target"
+		else
+			printf '%s %s "zfs destroy '\''%s'\''"' \
+				"$ZELTA_REMOTE_COMMAND" "$ZELTA_SRC_REMOTE" "$_destroy_target"
+		fi
+	elif [ -n "$_flags" ]; then
+		printf 'zfs destroy %s %s' "$_flags" "$_destroy_target"
+	else
+		printf 'zfs destroy %s' "$_destroy_target"
+	fi
+}
+
 run_zfs_destroy() {
 	_flags=$1
 	_destroy_target=$2
+
+	# Log real destroys only (not -nvp preview probes)
+	if [ -z "$_flags" ] && [ "${ZPRUNE_LOG_LEVEL:-2}" -ge 4 ]; then
+		printf 'debug: `%s`\n' "$(format_destroy_command "$_flags" "$_destroy_target")" >&2
+	fi
 
 	if [ -n "$ZELTA_SRC_REMOTE" ]; then
 		: ${ZELTA_REMOTE_COMMAND:=ssh}
@@ -311,12 +339,20 @@ print_preview_commands() {
 	BEGIN {
 		if (ENVIRON["ZPRUNE_LOG_LEVEL"] > 2)
 			VERBOSE = 1
+		if (ENVIRON["ZELTA_SRC_REMOTE"] != "") {
+			REMOTE = ENVIRON["ZELTA_SRC_REMOTE"]
+			REMOTE_CMD = ENVIRON["ZELTA_REMOTE_COMMAND"]
+			if (REMOTE_CMD == "") REMOTE_CMD = "ssh"
+		}
 	}
 	function flush_command() {
 		if (!arg) return
-		printf "zfs destroy %s", arg
+		if (REMOTE)
+			printf "%s %s \"zfs destroy '\''%s'\''\"", REMOTE_CMD, REMOTE, arg
+		else
+			printf "zfs destroy %s", arg
 		if (VERBOSE && (arg ~ /%/ && snaps))
-			printf ": %s", snaps
+			printf " # %s", snaps
 		printf "\n"
 		arg = ""
 		snaps = ""
@@ -451,7 +487,11 @@ main() {
 		error "destroy aborted"
 		exit 1
 	fi
-	[ -z "$ZPRUNE_QUIET" ] && print_preview_commands "$_preview_file" && echo ""
+	if [ -z "$ZPRUNE_QUIET" ]; then
+		printf 'Preparing to prune "%s" using the following commands:\n' "$ZELTA_SRC_ID"
+		print_preview_commands "$_preview_file"
+		echo ""
+	fi
 
 	_destroy_count=$(preview_destroy_count "$_preview_file")
 	_reclaim_bytes=$(preview_reclaim_bytes "$_preview_file")
@@ -469,8 +509,8 @@ main() {
 		exit 0
 	fi
 
-	if [ -z "$ZELTA_TGT_ID" ] && ! prune_guard_disabled; then
-		error "target operand required for destructive prune; use --no-prune-guard to override"
+	if [ -z "$ZELTA_TGT_ID" ] && [ -z "$ZELTA_MATCH_ENDPOINT" ] && ! prune_guard_disabled; then
+		error "match endpoint required to destroy snapshots with prune guard enabled;\n  use --match-endpoint=GUARD or --no-prune-guard"
 		exit 1
 	fi
 
