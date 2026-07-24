@@ -37,7 +37,8 @@ zprune_version() {
 }
 
 error() {
-	echo "zprune: $1" >&2
+	# %b interprets \n etc.; trailing \n is always added
+	printf 'zprune: %b\n' "$1" >&2
 }
 
 init_zelta_env() {
