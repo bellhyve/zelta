@@ -384,12 +384,11 @@ case $zelta_verb in
 	# Time
 	time)		"$@" | sh -c "time -p cat" ;;
 	# Info
-	--help|\
 	-V|\
 	--version |\
 	version)	echo $ZELTA_VERSION ;;
-	''|-?|usage)	zelta_usage ;;
-	help)		zelta_man "$@" ;;
+	''|-?|usage|-h)	zelta_usage ;;
+	help|--help)	zelta_man "$@" ;;
 	*)		# Try zelta-VERB.awk
 			if [ -r "$ZELTA_SHARE/zelta-$zelta_verb.awk" ]; then
 				zelta_run_awk "$zelta_verb"
