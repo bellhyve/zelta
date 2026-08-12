@@ -1419,8 +1419,8 @@ function run_rotate(		_src_ds_snap, _up_to_date, _src_origin_ds, _origin_arr, _n
 }
 
 function create_recursive_clone(endpoint, origin_ds, new_ds,		_remote, _user_snap, _i, _ds_suffix, _cmd_arr,
-			       						_cmd, _idx, _last_snap, _snap, _origin_ds_snap,
-									_clone_ds, _ds_count) {
+																																							_cmd, _idx, _last_snap, _snap, _origin_ds_snap,
+																																					_clone_ds, _clone_count, _success_count, _cmd_status, _clone_action) {
 	_remote			= Opt[endpoint"_REMOTE"]
 	_user_snap		= Opt[endpoint"_SNAP"]
 	for (_i = 1; _i <= NumDS; _i++) {
@@ -1432,12 +1432,17 @@ function create_recursive_clone(endpoint, origin_ds, new_ds,		_remote, _user_sna
 		_clone_ds		= new_ds _ds_suffix
 
 		if (!_last_snap) continue
-		_ds_count++
+		_clone_count++
 		_cmd_arr["ds_snap"]	= rq(_remote, _origin_ds_snap)
 		_cmd_arr["ds"]		= rq(_remote, _clone_ds)
 		_cmd_arr["endpoint"]	= endpoint
 		_cmd			= build_command("CLONE", _cmd_arr)
-		report(LOG_INFO, "cloning: " _cmd_arr["ds_snap"])
+		_clone_action = Opt["DRYRUN"] ? "would clone: " : "cloning: "
+		report(LOG_INFO, _clone_action _cmd_arr["ds_snap"])
+		if (Opt["DRYRUN"]) {
+			report(LOG_NOTICE, "+ " _cmd)
+			continue
+		}
 		report(LOG_DEBUG, "`"_cmd"`")
 		_cmd			= _cmd CAPTURE_OUTPUT
 		FS="[[:space:]]"
@@ -1445,9 +1450,13 @@ function create_recursive_clone(endpoint, origin_ds, new_ds,		_remote, _user_sna
 			if (/encryption key not loaded/) report(LOG_INFO, "to mount " clone_ds " load encryption key in " $NF)
 			else report(LOG_WARNING, "unexpected 'zfs clone' output: " $0)
 		}
+		_cmd_status = close(_cmd)
+		if (_cmd_status)
+			stop(1, "error creating clone '" _clone_ds "'")
+		_success_count++
 	}
-	if (_ds_count)
-		report(LOG_NOTICE, "cloned " _ds_count "/" NumDS " datasets to " new_ds)
+	if (_clone_count)
+		report(LOG_NOTICE, (Opt["DRYRUN"] ? "would clone " _clone_count : "cloned " _success_count) "/" NumDS " datasets to " new_ds)
 	else
 		report(LOG_NOTICE, "no source snapshots to clone")
 }
@@ -1468,20 +1477,24 @@ function run_clone_shuffle() {
 	validate_target_dataset()
 	validate_snapshots()
 	if (clone_backup_needs_snapshot()) {
-		create_source_snapshot("snapshotting: ")
+		create_source_snapshot(Opt["DRYRUN"] ? "would snapshot: " : "snapshotting: ")
 	}
 	compute_eligibility()
 	configure_origin_backup()
 	run_backup()
 }
 
-function run_revert(		_ds) {
+function run_revert(		_ds, _followup) {
 	# Disable snapshot
 	# TO-DO: Add a mechanism to revert to the previous (rather than named) snapshot
 	_ds = rename_dataset("SRC")
 	create_recursive_clone("SRC", _ds, Opt["SRC_DS"])
-	create_source_snapshot("snapshotting: ")
-	report(LOG_NOTICE, "to retain replica history, run: zelta rotate '"Opt["SRC_DS"]"' 'TARGET'")
+	create_source_snapshot(Opt["DRYRUN"] ? "would snapshot: " : "snapshotting: ")
+	_followup = "zelta rotate '" Opt["SRC_DS"] "' 'TARGET'"
+	if (Opt["DRYRUN"])
+		report(LOG_NOTICE, "would recommend: " _followup)
+	else
+		report(LOG_NOTICE, "to retain replica history, run: " _followup)
 }
 
 # 'zelta backup' and 'zelta sync' orchestration
