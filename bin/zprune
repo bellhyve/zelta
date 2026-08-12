@@ -17,7 +17,7 @@ Destructively prune snapshots on ENDPOINT selected by 'zelta prune'.
 
 zprune options:
   --force                 Destroy without asking for confirmation
-  --quiet                 Do not display the snapshot list
+  --quiet                 Decrease verbosity (-qq skips dry-run/summary)
   --dryrun                Preview destroy commands and exit
 
 EOF
@@ -275,6 +275,41 @@ run_grouped_destroy() {
 	return $_failed
 }
 
+# Print grouped destroy commands from candidates (no zfs dry-run required).
+print_destroy_commands() {
+	_candidates=$1
+	_ds=""
+	_arg=""
+
+	IFS='
+'
+	for _candidate in $_candidates; do
+		[ -n "$_candidate" ] || continue
+		case "$_candidate" in
+			*@*) ;;
+			*) continue ;;
+		esac
+
+		_candidate_ds=${_candidate%@*}
+		_candidate_spec=${_candidate#*@}
+		if [ -z "$_ds" ]; then
+			_ds=$_candidate_ds
+			_arg=$_candidate
+		elif [ "$_candidate_ds" = "$_ds" ]; then
+			_arg=$_arg,$_candidate_spec
+		else
+			printf '%s\n' "$(format_destroy_command "" "$_arg")"
+			_ds=$_candidate_ds
+			_arg=$_candidate
+		fi
+	done
+	unset IFS
+
+	if [ -n "$_arg" ]; then
+		printf '%s\n' "$(format_destroy_command "" "$_arg")"
+	fi
+}
+
 preview_candidates() {
 	_candidates=$1
 
@@ -333,51 +368,6 @@ print_prune_size_notice() {
 
 	printf 'Estimating %s per dataset savings on %s datasets.\n\n' \
 		"$ZELTA_PRUNE_SIZE" "$_dataset_count"
-}
-
-print_preview_commands() {
-	awk -F@ '
-	BEGIN {
-		if (ENVIRON["ZPRUNE_LOG_LEVEL"] > 2)
-			VERBOSE = 1
-		if (ENVIRON["ZELTA_SRC_REMOTE"] != "") {
-			REMOTE = ENVIRON["ZELTA_SRC_REMOTE"]
-			REMOTE_CMD = ENVIRON["ZELTA_REMOTE_COMMAND"]
-			if (REMOTE_CMD == "") REMOTE_CMD = "ssh"
-		}
-	}
-	function flush_command() {
-		if (!arg) return
-		if (REMOTE)
-			printf "%s %s \"zfs destroy '\''%s'\''\"", REMOTE_CMD, REMOTE, arg
-		else
-			printf "zfs destroy %s", arg
-		if (VERBOSE && (arg ~ /%/ && snaps))
-			printf " # %s", snaps
-		printf "\n"
-		arg = ""
-		snaps = ""
-	}
-	/^destroy[ 	]/ {
-		snaps = snaps ? snaps "," $NF : "@" $NF
-		next
-	}
-	/^would destroy / {
-		snaps = snaps ? snaps "," $NF : "@" $NF
-		next
-	}
-	/^reclaim[ 	]/ || /^would reclaim / {
-		next
-	}
-	/@/ {
-		flush_command()
-		arg = $0
-		next
-	}
-	END {
-		flush_command()
-	}
-	' "$1"
 }
 
 print_dataset_summary() {
@@ -461,6 +451,13 @@ confirm_destruction() {
 	esac
 }
 
+want_preview_summary() {
+	# LOG_LEVEL < 1 (-qq): skip expensive destroy dry-run and summary.
+	# -qqf is silent (cron); -qq still prompts; -nqq selects candidates only.
+	[ "${ZPRUNE_LOG_LEVEL:-2}" -ge 1 ] || return 1
+	[ -n "$ZPRUNE_DRYRUN" ] || [ -z "$ZPRUNE_QUIET" ] || [ -z "$ZELTA_PRUNE_FORCE" ]
+}
+
 main() {
 	parse_args "$@"
 
@@ -481,30 +478,34 @@ main() {
 		exit 1
 	fi
 
-	_preview_file=${TMPDIR:-/tmp}/zprune.$$.preview
-	if ! preview_candidates "$_candidates" > "$_preview_file"; then
-		[ -z "$ZPRUNE_QUIET" ] && cat "$_preview_file"
-		rm -f "$_preview_file"
-		error "destroy aborted"
-		exit 1
-	fi
-	if [ -z "$ZPRUNE_QUIET" ]; then
-		printf 'Preparing to prune "%s" using the following commands:\n' "$ZELTA_SRC_ID"
-		print_preview_commands "$_preview_file"
-		echo ""
-	fi
+	if want_preview_summary; then
+		# Normal+ (LOG_LEVEL >= 2): show destroy commands first, then dry-run.
+		if [ "${ZPRUNE_LOG_LEVEL:-2}" -ge 2 ]; then
+			printf 'Preparing to prune "%s" using the following commands:\n' "$ZELTA_SRC_ID"
+			print_destroy_commands "$_candidates"
+			echo ""
+			printf 'Calculating snapshots and space to be freed...\n'
+		fi
 
-	_destroy_count=$(preview_destroy_count "$_preview_file")
-	_reclaim_bytes=$(preview_reclaim_bytes "$_preview_file")
-	_dataset_count=$(preview_dataset_count "$_preview_file")
-	_total_count=$(count_source_snapshots)
-	_total_bytes=$(sum_source_snapshot_written)
-	if [ -n "$ZPRUNE_DRYRUN" ] || [ -z "$ZPRUNE_QUIET" ] || [ -z "$ZELTA_PRUNE_FORCE" ]; then
+		_preview_file=${TMPDIR:-/tmp}/zprune.$$.preview
+		if ! preview_candidates "$_candidates" > "$_preview_file"; then
+			[ -z "$ZPRUNE_QUIET" ] && cat "$_preview_file"
+			rm -f "$_preview_file"
+			error "destroy aborted"
+			exit 1
+		fi
+		[ "${ZPRUNE_LOG_LEVEL:-2}" -ge 2 ] && echo ""
+
+		_destroy_count=$(preview_destroy_count "$_preview_file")
+		_reclaim_bytes=$(preview_reclaim_bytes "$_preview_file")
+		_dataset_count=$(preview_dataset_count "$_preview_file")
+		_total_count=$(count_source_snapshots)
+		_total_bytes=$(sum_source_snapshot_written)
 		print_prune_size_notice "$_dataset_count"
 		print_dataset_summary "$_preview_file"
 		print_summary "$_destroy_count" "$_total_count" "$_reclaim_bytes" "$_total_bytes"
+		rm -f "$_preview_file"
 	fi
-	rm -f "$_preview_file"
 
 	if [ -n "$ZPRUNE_DRYRUN" ]; then
 		exit 0

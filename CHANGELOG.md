@@ -35,6 +35,7 @@ All notable changes to Zelta will be documented in this file.
 - **Prune**: Candidate selection now avoids cloned snapshots and keeps selection separate from destruction; `zelta prune` reports, `zprune` destroys.
 - **Prune**: `zelta prune` no longer emits prune-guard warnings (nondestructive); `zprune` still surfaces guard guidance before destruction.
 - **Prune**: `--prune-size` multi-dataset notice reports per-dataset reclaim estimates without prescribing `--depth`.
+- **zprune**: At normal verbosity, prints destroy commands and a “calculating…” notice before the expensive `zfs destroy -nvp` summary. **-qq** skips dry-run and summary (`-qqf` silent for cron; `-qq` still prompts; `-nqq` candidate-select only).
 - **Backup**: Encrypted incremental sends can fall back to decrypted send options when a raw incremental is unavailable because of a broken encryption chain.
 - **Backup**: Improved filtered intermediate backup handling when `--include`/`--exclude` patterns narrow the snapshot stream.
 - **Failover / lock / unlock / propsync**: More resilient local-only and mount-failure paths; continue final snapshot and replication after readonly is set; multi-operand lock/unlock without loop mode.

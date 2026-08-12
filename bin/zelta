@@ -387,7 +387,7 @@ case $zelta_verb in
 	-V|\
 	--version |\
 	version)	echo $ZELTA_VERSION ;;
-	''|-?|usage|-h)	zelta_usage ;;
+	''|usage|-h|-?)	zelta_usage ;;
 	help|--help)	zelta_man "$@" ;;
 	*)		# Try zelta-VERB.awk
 			if [ -r "$ZELTA_SHARE/zelta-$zelta_verb.awk" ]; then
