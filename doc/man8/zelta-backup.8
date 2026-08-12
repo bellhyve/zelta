@@ -85,6 +85,7 @@ Local:  pool/dataset
 Local:  pool/dataset\(atsnapshot
 Remote: user\(atexample.com:pool/dataset
 Remote: user\(atexample.com:pool/dataset\(atsnapshot
+IPv6:   user\(at[2001:db8::1]:pool/dataset
 .EE
 .SH OPTIONS
 .SS Endpoint Arguments (Required)
@@ -196,6 +197,20 @@ Example: \f[CR]\-\-snap\-size 128K\f[R].
 .PP
 \f[CR]\-\-snapshot\f[R] and \f[CR]\-\-no\-snapshot\f[R] ignore
 \f[CR]\-\-snap\-time\f[R] and \f[CR]\-\-snap\-size\f[R].
+.SS Bookmark Options
+.TP
+\f[B]\-\-bookmark\f[R]
+After a successful receive, create a ZFS bookmark on each confirmed
+source snapshot.
+Default is off.
+.TP
+\f[B]\-\-no\-bookmark\f[R]
+Do not create source bookmarks after replication (default).
+.TP
+\f[B]\-\-bookmark\-prefix\f[R] \f[I]PREFIX\f[R]
+Prefix for bookmark names.
+Default is \f[CR]{targethost}_\f[R], producing names such as
+\f[CR]pool/ds#backuphost_snapname\f[R].
 .SS Sync Options
 .TP
 \f[B]\-\-target\-origin\f[R], \f[B]\-\-origin\f[R] \f[I]TARGET_ORIGIN\f[R]

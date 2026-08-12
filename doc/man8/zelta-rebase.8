@@ -2,38 +2,41 @@
 .\"
 .TH "zelta\-rebase" "8" "" "" "System Manager\(cqs Manual"
 .SH NAME
-\f[B]zelta rebase\f[R] \- build a new dataset tree from an upgraded
-upstream while preserving backup continuity
+\f[B]zelta rebase\f[R] \- rebase a dataset onto an upgraded upstream
+while preserving local files
 .SH SYNOPSIS
-\f[B]zelta rebase\f[R] [\f[I]OPTIONS\f[R]] \f[I]origin\f[R]
-\f[I]target\f[R] \f[I]upstream\f[R] [\f[I]new\f[R]]
+\f[B]zelta rebase\f[R] [\f[I]OPTIONS\f[R]] \f[I]upstream\f[R]
+\f[I]target\f[R]
 .SH DESCRIPTION
-\f[B]zelta rebase\f[R] composes a replication workflow for replacing a
-production tree with a new tree based on an upgraded upstream while
-preserving incremental backup continuity through an existing origin
-backup.
+\f[B]zelta rebase\f[R] replaces a production dataset with a new dataset
+based on an upgraded upstream while preserving incremental backup
+continuity and local files.
+.PP
+The old target is automatically renamed out of the way using its clone
+origin snapshot name, and the new upstream is received at the original
+target name.
+If a preserve file is found, specified local files are copied from the
+old target into the new one.
 .PP
 This is useful for image, template, appliance, and development workflows
 where local changes must move forward onto a newer upstream base without
 forcing a full backup history restart.
-.PP
-The workflow uses existing ZFS lineage information and Zelta backup
-state.
-It is not a destructive overwrite workflow; divergent datasets are
-preserved according to Zelta\(cqs normal safety model.
-.SH OPTIONS
-.TP
-\f[I]origin\f[R]
-Existing origin backup or lineage member used as the continuity basis.
-.TP
-\f[I]target\f[R]
-Current production or working dataset tree to be rebased.
+.SH OPERANDS
 .TP
 \f[I]upstream\f[R]
-Upgraded upstream dataset tree.
+Upgraded base dataset.
+If a snapshot is specified (e.g., \f[I]pool/dataset\(atsnap\f[R]), that
+snapshot is used; otherwise the latest snapshot is used.
 .TP
-\f[I]new\f[R]
-Optional destination for the newly composed dataset tree.
+\f[I]target\f[R]
+Current production dataset to rebase.
+.SH OPTIONS
+.TP
+\f[B]\-\-rebase\-file\f[R] \f[I]file\f[R]
+Override the default preserve file path.
+If not specified, \f[B]zelta rebase\f[R] looks for
+\f[I].zelta\-rebase.preserve\f[R] in the upstream dataset\(cqs
+mountpoint.
 .TP
 \f[B]\-n\f[R], \f[B]\-\-dryrun\f[R], \f[B]\-\-dry\-run\f[R]
 Display underlying commands without executing them.
@@ -44,15 +47,46 @@ Specify once for operational detail, twice for debug output.
 .TP
 \f[B]\-q\f[R], \f[B]\-\-quiet\f[R]
 Decrease log output.
+.SH PRESERVE FILE
+The upstream dataset may contain a \f[I].zelta\-rebase.preserve\f[R]
+file listing paths relative to the dataset mountpoint to copy from the
+old target into the new target.
+.PP
+Resolution order:
+.IP "1." 3
+\f[B]\-\-rebase\-file\f[R] \f[I]file\f[R] (CLI override)
+.IP "2." 3
+\f[I].zelta\-rebase.preserve\f[R] in the upstream dataset\(cqs
+mountpoint
+.IP "3." 3
+Neither found \(em no files are preserved; rebase behaves like a rotate
+that preserves mountability
 .SH EXAMPLES
-Compose a rebased tree from an upgraded upstream:
+Rebase a production dataset onto the latest upstream snapshot:
 .IP
 .EX
-zelta rebase backup:tank/origin tank/app upstream:tank/app\-v2 tank/app\-v2
+zelta rebase apool/jails/base cpool/jails/web01
+.EE
+.PP
+Rebase onto a specific snapshot:
+.IP
+.EX
+zelta rebase apool/jails/base\(atfreebsd14.2\-p1 cpool/jails/web01
+.EE
+.PP
+Use an external preserve file:
+.IP
+.EX
+zelta rebase \-\-rebase\-file /etc/jails/web01.preserve apool/jails/base cpool/jails/web01
 .EE
 .SH EXIT STATUS
 Returns 0 on success, non\-zero on error.
 .SH NOTES
+The old target is renamed to
+\f[I]target\f[R]_\f[I]origin\-snapshot\f[R], where
+\f[I]origin\-snapshot\f[R] is the name of the snapshot from which the
+target was originally cloned.
+.PP
 Use \f[B]zelta match\f[R] before and after rebasing to confirm lineage
 and backup state.
 .SH SEE ALSO

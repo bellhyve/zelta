@@ -5,7 +5,7 @@ Regular replication accumulates large numbers of snapshots over time, which usua
 - `zelta prune` plans and reports candidates. It does not destroy snapshots.
 - `zprune` uses the same strategy, previews the exact destroy commands, and destroys after confirmation.
 
-These tools can help you build retention policies based on the snapshot size, age, name, or a variety of patterns. For all available options and examples, see [zelta-prune(8)](/man/zelta-prune) and [zprune(8)](/man/zprune).
+These tools can help you build retention policies based on the snapshot size, age, name, or a variety of patterns. For all available options and examples, see [zelta-prune(8)](/docs/man/zelta-prune/) and [zprune(8)](/docs/man/zprune/).
 
 Note that different host and dataset types need different retention policies and workflows. Replication keeps a dataset tree current; retention decides how much history that particular system should keep. Those decisions may happen on different schedules and should not be treated as one step in the replication job. A compute server may need compact, frequent history, while a vault may retain older snapshots for recovery or compliance.
 
@@ -148,7 +148,7 @@ A retention user can be granted snapshot destruction on the backup tree:
 zfs allow -u retention destroy tank/backups
 ```
 
-For role design and platform caveats, see [ZFS Allow Delegation](/conf/zfs-allow). For a remote endpoint, destruction runs on that host through the configured SSH transport.
+For role design and platform caveats, see [ZFS Allow Delegation](/docs/conf/zfs-allow/). For a remote endpoint, destruction runs on that host through the configured SSH transport.
 
 ## Operational Cautions
 
@@ -159,6 +159,6 @@ For role design and platform caveats, see [ZFS Allow Delegation](/conf/zfs-allow
 
 ## Related Guides
 
-- [Simple Backups](/guides/backup)
-- [Rollback & Recovery](/guides/recovery)
-- [ZFS Allow Delegation](/conf/zfs-allow)
+- [Simple Backups](/docs/guides/backup/)
+- [Rollback & Recovery](/docs/guides/recovery/)
+- [ZFS Allow Delegation](/docs/conf/zfs-allow/)

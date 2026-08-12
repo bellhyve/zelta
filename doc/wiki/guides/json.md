@@ -1,6 +1,6 @@
 # JSON Output
 
-Use JSON output when feeding Zelta into monitoring, logs, or reporting tools. This page is operator-focused; field lists and option inheritance live in [zelta-options(7)](/man/zelta-options).
+Use JSON output when feeding Zelta into monitoring, logs, or reporting tools. This page is operator-focused; field lists and option inheritance live in [zelta-options(7)](/docs/man/zelta-options/).
 
 ```sh
 zelta backup --json tank/data backup:tank/Backups/data
@@ -22,5 +22,5 @@ For cron jobs, redirect JSON to a log and import it with your normal telemetry p
 
 ## Related
 
-- [Simple Backups](/guides/backup)
-- [Policy-Based Automatic Backups](/guides/policy)
+- [Simple Backups](/docs/guides/backup/)
+- [Policy-Based Automatic Backups](/docs/guides/policy/)

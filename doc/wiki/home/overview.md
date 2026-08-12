@@ -33,16 +33,16 @@ Man pages list every flag. Use this table to pick the workflow, then open the li
 
 | Goal | Command | Where to read |
 |------|---------|----------------|
-| See if two trees match | `zelta match` | [First Backup](/home/start), [zelta-match(8)](/man/zelta-match) |
-| Create or update a replica | `zelta backup` | [Simple Backups](/guides/backup), [zelta-backup(8)](/man/zelta-backup) |
-| Many jobs / sites | `zelta policy` | [Policy](/guides/policy), [zelta-policy(8)](/man/zelta-policy) |
-| Writable test copy | `zelta clone` | [Recovery](/guides/recovery), [zelta-clone(8)](/man/zelta-clone) |
-| Rewind live dataset, keep old state | `zelta revert` | [Recovery](/guides/recovery), [zelta-revert(8)](/man/zelta-revert) |
-| Fix diverged source/target | `zelta rotate` | [Recovery](/guides/recovery), [zelta-rotate(8)](/man/zelta-rotate) |
-| Promote standby twin | `zelta failover` | [Failover](/guides/sync), [Twin](/guides/twin) |
-| Create a recursive snapshot | `zelta snapshot` | [zelta-snapshot(8)](/man/zelta-snapshot) |
-| Plan snapshot deletion | `zelta prune` | [Recovery](/guides/recovery), [zelta-prune(8)](/man/zelta-prune) |
-| Destroy planned snapshots | `zprune` | [zprune(8)](/man/zprune) |
+| See if two trees match | `zelta match` | [First Backup](/docs/start/), [zelta-match(8)](/docs/man/zelta-match/) |
+| Create or update a replica | `zelta backup` | [Simple Backups](/docs/guides/backup/), [zelta-backup(8)](/docs/man/zelta-backup/) |
+| Many jobs / sites | `zelta policy` | [Policy](/docs/guides/policy/), [zelta-policy(8)](/docs/man/zelta-policy/) |
+| Writable test copy | `zelta clone` | [Recovery](/docs/guides/recovery/), [zelta-clone(8)](/docs/man/zelta-clone/) |
+| Rewind live dataset, keep old state | `zelta revert` | [Recovery](/docs/guides/recovery/), [zelta-revert(8)](/docs/man/zelta-revert/) |
+| Fix diverged source/target | `zelta rotate` | [Recovery](/docs/guides/recovery/), [zelta-rotate(8)](/docs/man/zelta-rotate/) |
+| Promote standby twin | `zelta failover` | [Failover](/docs/guides/sync/), [Twin](/docs/guides/twin/) |
+| Create a recursive snapshot | `zelta snapshot` | [zelta-snapshot(8)](/docs/man/zelta-snapshot/) |
+| Plan snapshot deletion | `zelta prune` | [Recovery](/docs/guides/recovery/), [zelta-prune(8)](/docs/man/zelta-prune/) |
+| Destroy planned snapshots | `zprune` | [zprune(8)](/docs/man/zprune/) |
 
 **Safety boundary:** `zelta*` does not destroy data. `zprune` destroys snapshots only.
 
@@ -146,7 +146,7 @@ zelta backup user@server1:tank/data user@server2:pool/backup
 
 **You never need to run Zelta as root.** Using ZFS delegation (`zfs allow`) and SSH keys, you can safely replicate datasets without privileged access. This dramatically reduces your attack surface and makes Zelta ideal for regulated environments.
 
-See [ZFS Allow Delegation](/conf/zfs-allow) for setup instructions.
+See [ZFS Allow Delegation](/docs/conf/zfs-allow/) for setup instructions.
 
 ### Portable and Dependency-Free
 
@@ -160,6 +160,6 @@ Replication decisions are based on ZFS metadata and available features, not nami
 
 ## Next Steps
 
-Ready to try Zelta? Head over to [First Backup](/home/start) for practical examples.
+Ready to try Zelta? Head over to [First Backup](/docs/start/) for practical examples.
 
-For detailed command usage, run `zelta help` or explore the [Zelta Wiki](https://zelta.space/en/home).
+For detailed command usage, run `zelta help` or explore the [Zelta Wiki](https://zelta.space/docs/home/).

@@ -1,6 +1,6 @@
 # FAQ
 
-Short answers to common operator questions. How-to workflows live under [Guides](/guides); flags live in the [manual pages](/man).
+Short answers to common operator questions. How-to workflows live under [Guides](/docs/guides/); flags live in the [manual pages](/docs/man/).
 
 ### If my pool has a colon `:` in its name, how can I replicate it with Zelta?
 
@@ -29,11 +29,11 @@ export ZELTA_SHARE="$(pwd)/share/zelta"
 
 ### Do I need Zelta installed on the source and target?
 
-No. Zelta only needs standard ZFS tools and SSH on the endpoints. You can orchestrate from a bastion that has no ZFS at all. See [SSH Configuration](/conf/ssh).
+No. Zelta only needs standard ZFS tools and SSH on the endpoints. You can orchestrate from a bastion that has no ZFS at all. See [SSH Configuration](/docs/conf/ssh/).
 
 ### Do I need root?
 
-No. Use `zfs allow` and SSH keys so backup and twin users run with least privilege. Recipes: [ZFS Allow Delegation](/conf/zfs-allow).
+No. Use `zfs allow` and SSH keys so backup and twin users run with least privilege. Recipes: [ZFS Allow Delegation](/docs/conf/zfs-allow/).
 
 ### Will Zelta work with Sanoid, TrueNAS, or other snapshot names?
 
@@ -41,28 +41,28 @@ Yes. Zelta does not require a naming convention. Match and backup use ZFS metada
 
 ### Full history or only latest snapshots?
 
-By default, `zelta backup` preserves intermediate snapshots so the target keeps a usable history. That is safer for recovery and costs more transfer and space. To limit what is sent, use snapshot filters (for example `--include='@daily*'`) or intermediate-skip options documented in [zelta-options(7)](/man/zelta-options). See also [Simple Backups](/guides/backup).
+By default, `zelta backup` preserves intermediate snapshots so the target keeps a usable history. That is safer for recovery and costs more transfer and space. To limit what is sent, use snapshot filters (for example `--include='@daily*'`) or intermediate-skip options documented in [zelta-options(7)](/docs/man/zelta-options/). See also [Simple Backups](/docs/guides/backup/).
 
 ### How do encrypted datasets work?
 
-Zelta prefers raw send when appropriate so encrypted datasets stay encrypted in transit and on the backup. Grant `send:raw` (not only plain `send`) for backup users on encrypted trees. Details: [ZFS Allow Delegation](/conf/zfs-allow) and [zelta-backup(8)](/man/zelta-backup).
+Zelta prefers raw send when appropriate so encrypted datasets stay encrypted in transit and on the backup. Grant `send:raw` (not only plain `send`) for backup users on encrypted trees. Details: [ZFS Allow Delegation](/docs/conf/zfs-allow/) and [zelta-backup(8)](/docs/man/zelta-backup/).
 
 ### What is the difference between `zelta` and `zprune`?
 
-Commands that start with **zelta** are nondestructive. **zprune** is deliberately separate because it destroys snapshots after `zelta prune` plans them. If something goes wrong, you should never have to say “Zelta deleted my data.” See [Rollback & Recovery](/guides/recovery).
+Commands that start with **zelta** are nondestructive. **zprune** is deliberately separate because it destroys snapshots after `zelta prune` plans them. If something goes wrong, you should never have to say “Zelta deleted my data.” See [Rollback & Recovery](/docs/guides/recovery/).
 
 ### When do I use clone, revert, rotate, or failover?
 
 | Goal | Command | Guide |
 |------|---------|-------|
-| Writable inspection copy | `zelta clone` | [Recovery](/guides/recovery) |
-| Rewind live dataset, keep broken state | `zelta revert` | [Recovery](/guides/recovery) |
-| Diverged source/target, keep both histories | `zelta rotate` | [Recovery](/guides/recovery) |
-| Promote a read-only twin | `zelta failover` | [Failover](/guides/sync), [Twin](/guides/twin) |
+| Writable inspection copy | `zelta clone` | [Recovery](/docs/guides/recovery/) |
+| Rewind live dataset, keep broken state | `zelta revert` | [Recovery](/docs/guides/recovery/) |
+| Diverged source/target, keep both histories | `zelta rotate` | [Recovery](/docs/guides/recovery/) |
+| Promote a read-only twin | `zelta failover` | [Failover](/docs/guides/sync/), [Twin](/docs/guides/twin/) |
 
 ### What is a Zelta Twin?
 
-Two dataset trees that back each other up so either side can become active. It is an asynchronous cluster pattern built from ordinary backup and failover commands, not a separate product. See [Zelta Twin](/guides/twin).
+Two dataset trees that back each other up so either side can become active. It is an asynchronous cluster pattern built from ordinary backup and failover commands, not a separate product. See [Zelta Twin](/docs/guides/twin/).
 
 ### Why is my backup target read-only / unmounted?
 
@@ -73,4 +73,4 @@ Safe defaults: replicas are `readonly=on`, new filesystems get `canmount=noauto`
 - `zelta.env` — defaults for all commands (shell `KEY=value`)
 - `zelta.conf` — policy jobs for `zelta policy` (YAML-like, `import:` fragments)
 
-See [Environment & Policy Files](/conf/env).
+See [Environment & Policy Files](/docs/conf/env/).

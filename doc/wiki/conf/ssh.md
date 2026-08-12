@@ -18,7 +18,7 @@ This guide will help you set up:
 
 Before configuring SSH, ensure you have:
 
-1. ZFS delegation configured on source and target systems (see [ZFS Allow Configuration](https://zelta.space/en/conf/zfs-allow))
+1. ZFS delegation configured on source and target systems (see [ZFS Allow Configuration](https://zelta.space/docs/conf/zfs-allow/))
 2. Network connectivity between systems
 3. A dedicated user account for backups (we'll use `backupuser` throughout this guide)
 
@@ -36,7 +36,7 @@ zfs allow -u backupuser hold,send,bookmark,snapshot sink
 zfs allow -u backupuser receive:append,create,mount,readonly,clone,rename,volmode tank/Backups
 ```
 
-**Note:** Older ZFS implementations, including most Linux distributions as of 2025, do not support the `receive:append` delegation. For these systems, you may need to grant broader `receive` permissions or use root access. Consult the [ZFS Allow Configuration](https://zelta.space/en/conf/zfs-allow) documentation for platform-specific guidance.
+**Note:** Older ZFS implementations, including most Linux distributions as of 2025, do not support the `receive:append` delegation. For these systems, you may need to grant broader `receive` permissions or use root access. Consult the [ZFS Allow Configuration](https://zelta.space/docs/conf/zfs-allow/) documentation for platform-specific guidance.
 
 ## Basic SSH Key Setup
 
@@ -309,7 +309,7 @@ If you encounter issues with SSH configuration:
 
 For Zelta-specific questions, see:
 
-- [Zelta Documentation](https://zelta.space/en/home)
+- [Zelta Documentation](https://zelta.space/docs/home/)
 - [GitHub Issues](https://github.com/bell-tower/zelta/issues)
 - [Bell Tower Contact Form](https://belltower.it/contact/)
 

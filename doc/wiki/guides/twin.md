@@ -87,7 +87,7 @@ Use `receive:append` rather than plain `receive` for the routine twin user when 
 
 For encrypted datasets, prefer `send:raw` so the twin user can replicate encrypted data without permission to send decrypted streams.
 
-See [ZFS Allow Delegation](/conf/zfs-allow) for the role model and legacy platform notes.
+See [ZFS Allow Delegation](/docs/conf/zfs-allow/) for the role model and legacy platform notes.
 
 ## Normal Operation
 
@@ -164,7 +164,7 @@ Use Twin when you want a simple, inspectable, forkable standby dataset tree. Use
 
 ## See Also
 
-- [ZFS Allow Delegation](/conf/zfs-allow)
-- [Policy-Based Automatic Backups](/guides/policy)
-- [Failover Workflows](/guides/sync)
-- [Manual: zelta failover](/man/zelta-failover)
+- [ZFS Allow Delegation](/docs/conf/zfs-allow/)
+- [Policy-Based Automatic Backups](/docs/guides/policy/)
+- [Failover Workflows](/docs/guides/sync/)
+- [Manual: zelta failover](/docs/man/zelta-failover/)

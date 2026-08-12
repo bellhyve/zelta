@@ -5,34 +5,51 @@
 \f[B]zprune\f[R] \- destroy snapshot prune candidates selected by zelta
 prune
 .SH SYNOPSIS
-\f[B]zprune\f[R] [\f[I]OPTIONS\f[R]] \f[I]source\f[R] [\f[I]target\f[R]]
+\f[B]zprune\f[R] [\f[I]OPTIONS\f[R]]
+\f[B]\(enmatch\-endpoint=\f[R]_guard_ \f[I]endpoint\f[R]
+.PP
+\f[B]zprune\f[R] [\f[I]OPTIONS\f[R]] \f[B]\(enno\-prune\-guard\f[R]
+\f[I]endpoint\f[R]
 .SH DESCRIPTION
 \f[B]zprune\f[R] destroys snapshots selected by \f[B]zelta prune\f[R].
-It previews grouped \f[CR]zfs destroy\f[R] commands with \f[B]zfs
-destroy \-nvp\f[R], prints a summary of snapshot count and estimated
-reclaim, asks for confirmation, then destroys the same candidates.
+At normal verbosity it prints the grouped \f[CR]zfs destroy\f[R]
+commands, runs \f[B]zfs destroy \-nvp\f[R] to estimate reclaim, prints a
+summary, asks for confirmation, then destroys the same candidates.
+With \f[B]\-qq\f[R] (\f[CR]LOG_LEVEL\f[R] < 1), the dry\-run preview and
+summary are skipped for speed.
+.PP
+Only \f[I]endpoint\f[R] is destroyed.
+A match endpoint (\f[I]guard\f[R]) is used only for match validation and
+prune\-guard protection.
 .PP
 Candidate selection, filters, prune guards, and retention options are
 identical to \f[B]zelta prune\f[R].
 See \f[B]zelta\-prune(8)\f[R] for strategy details.
-\f[B]zprune\f[R] requires a \f[I]target\f[R] or
+\f[B]zprune\f[R] requires \f[CR]\-\-match\-endpoint\f[R] or
 \f[CR]\-\-no\-prune\-guard\f[R].
 .SH OPTIONS
 .SS zprune Options
 .TP
 \f[CR]\-\-force\f[R], \f[CR]\-f\f[R]
 Destroy candidates without asking for confirmation.
+Combined with \f[B]\-qq\f[R], runs silently aside from errors (suitable
+for cron).
 .TP
 \f[CR]\-\-quiet\f[R], \f[CR]\-q\f[R]
-Do not display the \f[CR]zfs destroy\f[R] command list.
+Decrease log level.
+\f[B]\-q\f[R] hides the destroy command list but still runs the dry\-run
+summary.
+\f[B]\-qq\f[R] (\f[CR]LOG_LEVEL\f[R] < 1) skips the dry\-run and summary
+entirely; without \f[B]\-f\f[R] the confirmation prompt is still shown.
 .TP
 \f[CR]\-\-dryrun\f[R], \f[CR]\-n\f[R]
 Preview compact destroy commands and the summary, then exit without
 prompting or destroying.
+With \f[B]\-qq\f[R], only selects candidates (via \f[B]zelta prune\f[R])
+and exits with no output\(emuseful for configuration smoke tests.
 .TP
 \f[CR]\-\-verbose\f[R], \f[CR]\-v\f[R]
-Expand snapshot ranges in the command preview.
-With \f[CR]\-\-quiet\f[R], print only the summary and exit.
+Increase log level.
 .TP
 \f[CR]\-\-help\f[R], \f[CR]\-h\f[R]
 Show command usage.
@@ -42,10 +59,11 @@ Show \f[B]zprune\f[R] version information and exit.
 .SS Candidate Selection
 All other options are forwarded to \f[B]zelta prune\f[R].
 See \f[B]zelta\-prune(8)\f[R] for complete behavior, including
-\f[CR]\-\-prune\-num\f[R], \f[CR]\-\-prune\-time\f[R],
-\f[CR]\-\-prune\-grid\f[R], \f[CR]\-\-prune\-size\f[R],
-\f[CR]\-\-prune\-guard\f[R], \f[CR]\-\-include\f[R],
-\f[CR]\-\-exclude\f[R], and \f[CR]\-\-depth\f[R].
+\f[CR]\-\-match\-endpoint\f[R], \f[CR]\-\-prune\-num\f[R],
+\f[CR]\-\-prune\-time\f[R], \f[CR]\-\-prune\-grid\f[R],
+\f[CR]\-\-prune\-size\f[R], \f[CR]\-\-prune\-guard\f[R],
+\f[CR]\-\-include\f[R], \f[CR]\-\-exclude\f[R], and
+\f[CR]\-\-depth\f[R].
 .SH SAFETY MODEL
 \f[B]zprune\f[R] applies these checks before destruction:
 .IP \(bu 2
@@ -53,12 +71,16 @@ candidates are selected by \f[B]zelta prune\f[R];
 .IP \(bu 2
 candidates are validated before preview;
 .IP \(bu 2
+at normal verbosity, grouped destroy commands are shown before the
+dry\-run estimate;
+.IP \(bu 2
 candidates are grouped per dataset and previewed with \f[B]zfs destroy
-\-nvp\f[R];
+\-nvp\f[R] (skipped when \f[CR]LOG_LEVEL\f[R] < 1);
 .IP \(bu 2
 destruction uses the same grouped candidate form as the preview;
 .IP \(bu 2
-the prompt summarizes snapshot count and estimated reclaimed space;
+the prompt summarizes snapshot count and estimated reclaimed space
+(unless \f[B]\-qq\f[R]);
 .IP \(bu 2
 \f[CR]\-\-dryrun\f[R] shows compact destroy commands and summary, then
 exits before prompting;
@@ -66,33 +88,42 @@ exits before prompting;
 the operator must answer \f[CR]y\f[R] or \f[CR]yes\f[R] unless
 \f[CR]\-\-force\f[R] is used;
 .IP \(bu 2
-\f[B]zfs destroy \-R\f[R] is never used.
+\f[B]zfs destroy \-R\f[R] is never used;
+.IP \(bu 2
+only \f[I]endpoint\f[R] is destroyed; the match endpoint is never
+destroyed.
 .PP
-If the source is remote, destruction runs on that host through
+If \f[I]endpoint\f[R] is remote, destruction runs on that host through
 \f[B]ZELTA_REMOTE_COMMAND\f[R] (default \f[B]ssh\f[R]).
 .SH EXAMPLES
 Preview default candidates and confirm before destroying:
 .IP
 .EX
-zprune tank/data backup:tank/data
+zprune \-\-match\-endpoint=backup:tank/data tank/data
 .EE
 .PP
 Destroy without the confirmation prompt:
 .IP
 .EX
-zprune \-\-force tank/data backup:tank/data
+zprune \-\-force \-\-match\-endpoint=backup:tank/data tank/data
 .EE
 .PP
 Preview destroy commands and summary without prompting:
 .IP
 .EX
-zprune \-\-dryrun tank/data backup:tank/data
+zprune \-\-dryrun \-\-match\-endpoint=backup:tank/data tank/data
 .EE
 .PP
 Print only the dry\-run summary:
 .IP
 .EX
-zprune \-qn tank/data backup:tank/data
+zprune \-qn \-\-match\-endpoint=backup:tank/data tank/data
+.EE
+.PP
+Silent forced prune (no dry\-run, no prompt\(emcron\-friendly):
+.IP
+.EX
+zprune \-qqf \-\-match\-endpoint=backup:tank/data tank/data
 .EE
 .PP
 Apply a retention strategy and destroy (same options as \f[B]zelta
@@ -100,10 +131,10 @@ prune\f[R]):
 .IP
 .EX
 zprune \-\-prune\-grid=\(aq30x1day, 52x1week, 1year\(aq \(rs
-    tank/data backup:tank/data
+    \-\-match\-endpoint=backup:tank/data tank/data
 .EE
 .PP
-Without a replica target, pass \f[CR]\-\-no\-prune\-guard\f[R]
+Without a match endpoint, pass \f[CR]\-\-no\-prune\-guard\f[R]
 explicitly:
 .IP
 .EX

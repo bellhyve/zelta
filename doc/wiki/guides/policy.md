@@ -111,4 +111,4 @@ Always test policy changes with:
 zelta policy -n
 ```
 
-For reciprocal failover policy, see [Zelta Twin](/guides/twin).
+For reciprocal failover policy, see [Zelta Twin](/docs/guides/twin/).

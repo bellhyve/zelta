@@ -92,7 +92,9 @@ present, otherwise the system manual path.
 .SH LOGGING OPTIONS
 .TP
 \f[B]LOG_FILE\f[R]
-Divert all output into the indicated file.
+Append log output to the indicated file.
+In JSON mode, write the JSON output to this file while status messages
+remain separate on stderr.
 .TP
 \f[B]LOG_LEVEL\f[R]
 Specify a log level value 0\-4: errors (0), warnings (1), notices (2,
@@ -288,6 +290,20 @@ source writes are below the threshold.
 Bare numbers are bytes; supported suffixes are \f[CR]K\f[R],
 \f[CR]M\f[R], \f[CR]G\f[R], \f[CR]T\f[R], \f[CR]P\f[R], and
 \f[CR]E\f[R].
+.TP
+\f[B]BOOKMARK_MODE\f[R]
+After a successful receive, create a ZFS bookmark on each confirmed
+source snapshot.
+\f[CR]0\f[R] (default) disables bookmarking; \f[CR]1\f[R] bookmarks the
+latest confirmed source snapshot per successfully received dataset.
+Command\-line: \f[CR]\-\-bookmark\f[R], \f[CR]\-\-no\-bookmark\f[R], or
+\f[CR]\-\-bookmark\-mode\f[R].
+.TP
+\f[B]BOOKMARK_PREFIX\f[R]
+Prefix for replication\-success bookmark names.
+Default is \f[CR]{targethost}_\f[R], producing names such as
+\f[CR]pool/ds#backuphost_snapname\f[R].
+Command\-line: \f[CR]\-\-bookmark\-prefix\f[R].
 .TP
 \f[B]SYNC_DIRECTION\f[R]
 If both endpoints are remote, use \f[CR]PULL\f[R] (the default) or

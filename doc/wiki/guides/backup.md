@@ -10,7 +10,7 @@ zelta match tank/data backup@storage.example.com:tank/Backups/data
 
 `zelta backup` creates snapshots when needed, detects the best incremental stream, and creates read-only backup datasets by default. Run the same command again later to update incrementally. If nothing changed on the source, Zelta will not create a pointless new snapshot.
 
-For flags and full option lists, see [zelta-backup(8)](/man/zelta-backup) and [zelta-options(7)](/man/zelta-options).
+For flags and full option lists, see [zelta-backup(8)](/docs/man/zelta-backup/) and [zelta-options(7)](/docs/man/zelta-options/).
 
 ## Defaults Worth Knowing
 
@@ -53,13 +53,13 @@ Global depth, include, and exclude filters work across Zelta commands. When a ZF
 zelta backup --bookmark tank/data backup:tank/Backups/data
 ```
 
-Bookmarks help incremental continuity and point-of-use telemetry. The backup user needs the ZFS `bookmark` permission; see [ZFS Allow Delegation](/conf/zfs-allow).
+Bookmarks help incremental continuity and point-of-use telemetry. The backup user needs the ZFS `bookmark` permission; see [ZFS Allow Delegation](/docs/conf/zfs-allow/).
 
 ## Intermediate Snapshots
 
 By default, intermediate snapshots between the match and the latest source snapshot are included so the target keeps a usable history. That costs transfer size and target space.
 
-If you only need the latest common chain for a fast update, filter with snapshot patterns or use intermediate-skip settings documented in [zelta-options(7)](/man/zelta-options) (`SEND_INTR` / related flags). Prefer filters when you still want named history on the target (for example only `@daily*`).
+If you only need the latest common chain for a fast update, filter with snapshot patterns or use intermediate-skip settings documented in [zelta-options(7)](/docs/man/zelta-options/) (`SEND_INTR` / related flags). Prefer filters when you still want named history on the target (for example only `@daily*`).
 
 ## Schedule Or Policy
 
@@ -69,6 +69,6 @@ For recurring backups, either schedule direct commands with cron:
 0 */6 * * * zelta backup tank/data backup@storage:tank/Backups/data
 ```
 
-or move repeated jobs into [Policy-Based Automatic Backups](/guides/policy).
+or move repeated jobs into [Policy-Based Automatic Backups](/docs/guides/policy/).
 
-For active-passive pairs, see [Zelta Twin](/guides/twin) and [Failover Workflows](/guides/sync).
+For active-passive pairs, see [Zelta Twin](/docs/guides/twin/) and [Failover Workflows](/docs/guides/sync/).

@@ -253,12 +253,12 @@ Split the role. Keep `destroy` with a retention user, and keep routine replicati
 
 ### Twin failover fails after first promotion
 
-After promotion, the former standby must send and the former active must receive. Twin users need send and receive grants on **both** twin roots, not only the original direction. See [Zelta Twin](/guides/twin).
+After promotion, the former standby must send and the former active must receive. Twin users need send and receive grants on **both** twin roots, not only the original direction. See [Zelta Twin](/docs/guides/twin/).
 
 ## See Also
 
-- [SSH Configuration](/conf/ssh)
-- [Zelta Twin](/guides/twin)
-- [Policy-Based Automatic Backups](/guides/policy)
-- [Simple Backups](/guides/backup)
-- [Rollback & Recovery](/guides/recovery)
+- [SSH Configuration](/docs/conf/ssh/)
+- [Zelta Twin](/docs/guides/twin/)
+- [Policy-Based Automatic Backups](/docs/guides/policy/)
+- [Simple Backups](/docs/guides/backup/)
+- [Rollback & Recovery](/docs/guides/recovery/)

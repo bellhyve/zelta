@@ -12,6 +12,7 @@ hide.*
 \#*#
 TAGS
 A*d
+!doc/wiki/home/about.md
 .#*
 retired/
 logs

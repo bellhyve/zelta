@@ -12,7 +12,7 @@
 
 # DESCRIPTION
 
-**zprune** destroys snapshots selected by **zelta prune**. It previews grouped `zfs destroy` commands with **zfs destroy -nvp**, prints a summary of snapshot count and estimated reclaim, asks for confirmation, then destroys the same candidates.
+**zprune** destroys snapshots selected by **zelta prune**. At normal verbosity it prints the grouped `zfs destroy` commands, runs **zfs destroy -nvp** to estimate reclaim, prints a summary, asks for confirmation, then destroys the same candidates. With **-qq** (`LOG_LEVEL` < 1), the dry-run preview and summary are skipped for speed.
 
 Only _endpoint_ is destroyed. A match endpoint (_guard_) is used only for match validation and prune-guard protection.
 
@@ -23,16 +23,16 @@ Candidate selection, filters, prune guards, and retention options are identical 
 ## zprune Options
 
 `--force`, `-f`
-: Destroy candidates without asking for confirmation.
+: Destroy candidates without asking for confirmation. Combined with **-qq**, runs silently aside from errors (suitable for cron).
 
 `--quiet`, `-q`
-: Do not display the `zfs destroy` command list.
+: Decrease log level. **-q** hides the destroy command list but still runs the dry-run summary. **-qq** (`LOG_LEVEL` < 1) skips the dry-run and summary entirely; without **-f** the confirmation prompt is still shown.
 
 `--dryrun`, `-n`
-: Preview compact destroy commands and the summary, then exit without prompting or destroying.
+: Preview compact destroy commands and the summary, then exit without prompting or destroying. With **-qq**, only selects candidates (via **zelta prune**) and exits with no output—useful for configuration smoke tests.
 
 `--verbose`, `-v`
-: Expand snapshot ranges in the command preview as a trailing `#` shell comment so each line stays copy/pasteable. With `--quiet`, print only the summary and exit.
+: Increase log level.
 
 `--help`, `-h`
 : Show command usage.
@@ -50,9 +50,10 @@ All other options are forwarded to **zelta prune**. See **zelta-prune(8)** for c
 
 - candidates are selected by **zelta prune**;
 - candidates are validated before preview;
-- candidates are grouped per dataset and previewed with **zfs destroy -nvp**;
+- at normal verbosity, grouped destroy commands are shown before the dry-run estimate;
+- candidates are grouped per dataset and previewed with **zfs destroy -nvp** (skipped when `LOG_LEVEL` < 1);
 - destruction uses the same grouped candidate form as the preview;
-- the prompt summarizes snapshot count and estimated reclaimed space;
+- the prompt summarizes snapshot count and estimated reclaimed space (unless **-qq**);
 - `--dryrun` shows compact destroy commands and summary, then exits before prompting;
 - the operator must answer `y` or `yes` unless `--force` is used;
 - **zfs destroy -R** is never used;
@@ -84,6 +85,12 @@ Print only the dry-run summary:
 
 ```sh
 zprune -qn --match-endpoint=backup:tank/data tank/data
+```
+
+Silent forced prune (no dry-run, no prompt—cron-friendly):
+
+```sh
+zprune -qqf --match-endpoint=backup:tank/data tank/data
 ```
 
 Apply a retention strategy and destroy (same options as **zelta prune**):

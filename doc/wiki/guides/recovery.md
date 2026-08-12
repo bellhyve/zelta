@@ -2,7 +2,7 @@
 
 Prefer nondestructive recovery paths first. Zelta keeps the safety boundary visible: commands that start with `zelta` do not destroy data. Snapshot destruction is a separate step with `zprune` after `zelta prune` plans it.
 
-For option details, see [zelta-clone(8)](/man/zelta-clone), [zelta-revert(8)](/man/zelta-revert), [zelta-rotate(8)](/man/zelta-rotate), and [zelta-prune(8)](/man/zelta-prune).
+For option details, see [zelta-clone(8)](/docs/man/zelta-clone/), [zelta-revert(8)](/docs/man/zelta-revert/), [zelta-rotate(8)](/docs/man/zelta-rotate/), and [zelta-prune(8)](/docs/man/zelta-prune/).
 
 ## Decision Tree
 
@@ -43,7 +43,7 @@ Use `zelta clone` when you need a writable tree from a backup or snapshot withou
 zelta clone backup:tank/Backups/data tank/recovery/data-test
 ```
 
-Clones are zero-cost references; they share existing storage until they diverge. See [zelta-clone(8)](/man/zelta-clone).
+Clones are zero-cost references; they share existing storage until they diverge. See [zelta-clone(8)](/docs/man/zelta-clone/).
 
 ## Rewind In Place: `zelta revert`
 
@@ -77,7 +77,7 @@ zelta match tank/data backup:tank/Backups/data
 zelta backup tank/data backup:tank/Backups/data
 ```
 
-If the top-level target shares no snapshot with the source (or source origin), rename the target yourself and run a full `zelta backup`. Details: [zelta-rotate(8)](/man/zelta-rotate).
+If the top-level target shares no snapshot with the source (or source origin), rename the target yourself and run a full `zelta backup`. Details: [zelta-rotate(8)](/docs/man/zelta-rotate/).
 
 ## Snapshot Retention (Separate Axis)
 
@@ -88,10 +88,10 @@ zelta prune --prune-time 30d tank/data backup:tank/Backups/data
 zprune --prune-time 30d tank/data backup:tank/Backups/data
 ```
 
-`zelta prune` previews and can pipe candidates. `zprune` is the only tool in the suite meant to destroy snapshots. For complete retention strategies, see [Retention Strategies](/guides/retention). Keep retention users and permissions separate from routine backup users; see [ZFS Allow Delegation](/conf/zfs-allow).
+`zelta prune` previews and can pipe candidates. `zprune` is the only tool in the suite meant to destroy snapshots. For complete retention strategies, see [Retention Strategies](/docs/guides/retention/). Keep retention users and permissions separate from routine backup users; see [ZFS Allow Delegation](/docs/conf/zfs-allow/).
 
 ## Related
 
-- [Failover Workflows](/guides/sync) and [Zelta Twin](/guides/twin) for promotion
-- [Simple Backups](/guides/backup) for the match → backup loop
-- Man index: [Manual Pages](/man)
+- [Failover Workflows](/docs/guides/sync/) and [Zelta Twin](/docs/guides/twin/) for promotion
+- [Simple Backups](/docs/guides/backup/) for the match → backup loop
+- Man index: [Manual Pages](/docs/man/)

@@ -50,6 +50,6 @@ If you want ZFS without managing the underlying system:
 
 ## Next Steps
 
-Once you have ZFS running, return to [First Backup](/home/start) to set up your first backup.
+Once you have ZFS running, return to [First Backup](/docs/start/) to set up your first backup.
 
 For production deployments, compliance requirements, or complex environments, [contact Bell Tower](https://belltower.it/contact/) for expert guidance.

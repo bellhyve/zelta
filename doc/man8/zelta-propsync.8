@@ -8,23 +8,12 @@ trees
 \f[B]zelta propsync\f[R] [\f[I]OPTIONS\f[R]] \f[I]source\f[R]
 \f[I]target\f[R]
 .SH DESCRIPTION
-\f[B]zelta propsync\f[R] replays local ZFS properties from one dataset
-tree to another while preserving target\-only local overrides.
-It is used by \f[B]zelta failover\f[R] so a promoted target receives the
-operational properties needed to take over service.
-.PP
-Most users should start with \f[B]zelta\-failover(8)\f[R].
-.SH EXAMPLES
-Sync local properties before unlocking a standby tree:
-.IP
-.EX
-zelta propsync primary.example.com:tank/service standby.example.com:tank/service
-.EE
-.SH EXIT STATUS
-Returns 0 on success, non\-zero on error.
+The property synchronization step is documented under
+\f[B]zelta\-failover(8)\f[R].
+It replays local ZFS properties while preserving target\-only local
+overrides before a promoted target takes over service.
 .SH SEE ALSO
-zelta(8), zelta\-failover(8), zelta\-lock(8), zelta\-unlock(8),
-zelta\-backup(8), zfs(8)
+zelta\-failover(8), zelta(8), zfs(8)
 .SH AUTHORS
 Daniel J. Bell <\f[I]bellhyve\(atzelta.space\f[R]>
 .SH WWW

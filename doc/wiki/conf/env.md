@@ -5,7 +5,7 @@ As you move from manual backups to automated fleets, you shouldn't have to keep 
 - `zelta.env` — global defaults for all Zelta commands, in Bourne shell variable format.
 - `zelta.conf` — backup job definitions for `zelta policy`, in YAML-like policy format.
 
-For the complete option reference, see [zelta-options(7)](/man/zelta-options) or run `zelta help options`.
+For the complete option reference, see [zelta-options(7)](/docs/man/zelta-options/) or run `zelta help options`.
 
 ---
 
@@ -142,10 +142,10 @@ zelta policy PROD
 
 ## Next Steps
 
-- [Configuration: zelta.env](/conf/zelta-env) - Global defaults file
-- [Configuration: zelta.conf](/conf/zelta-conf) - Policy job file
-- [Policy Guide](/guides/policy) - Build and test policy jobs
-- [SSH Configuration](/conf/ssh) - Remote backup setup
-- [ZFS Allow Delegation](/conf/zfs-allow) - Non-root permission management
+- [Configuration: zelta.env](/docs/conf/zelta-env/) - Global defaults file
+- [Configuration: zelta.conf](/docs/conf/zelta-conf/) - Policy job file
+- [Policy Guide](/docs/guides/policy/) - Build and test policy jobs
+- [SSH Configuration](/docs/conf/ssh/) - Remote backup setup
+- [ZFS Allow Delegation](/docs/conf/zfs-allow/) - Non-root permission management
 
 For complete option details, use `zelta help options` or `zelta-options(7)`.

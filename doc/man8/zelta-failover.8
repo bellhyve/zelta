@@ -23,19 +23,54 @@ When reciprocal \f[B]zelta policy\f[R] jobs maintain both directions,
 this is the Zelta Twin pattern: an asynchronous cluster pair where
 either dataset tree can become active after a guarded failover.
 .PP
-Lower\-level commands are available for scripts that need to perform the
-workflow step by step:
-.IP \(bu 2
+The individual commands are also useful outside the complete failover
+workflow.
+The complete command reference follows below.
+.SS Composable Administrative Commands
+The failover workflow is composed from several useful administrative
+commands.
+Use \f[B]zelta failover\f[R] when you want the complete guarded
+promotion, or use the individual commands when you need to inspect,
+repeat, or combine one operation with another administrative workflow.
+.SS \f[B]zelta lock\f[R]
 \f[B]zelta lock\f[R] applies ordered readonly, canmount, unmount, and
-remount operations.
-.IP \(bu 2
-\f[B]zelta backup\f[R] performs the final replication step.
-.IP \(bu 2
-\f[B]zelta propsync\f[R] replays local ZFS properties from source to
-target while preserving target\-only local overrides.
-.IP \(bu 2
-\f[B]zelta unlock\f[R] reverses the lock state for the promoted dataset
-tree.
+remount operations to a dataset tree.
+It is useful after a partial failover, before maintenance, or whenever a
+dataset tree needs to be made safely inactive.
+.PP
+\f[B]zelta lock\f[R] \f[I]endpoint\f[R]
+.TP
+\f[B]\-f\f[R], \f[B]\-\-force\f[R]
+Force unmounts during lock.
+.TP
+\f[B]\-\-no\-unmount\f[R]
+Set readonly and canmount state but leave mounted filesystems mounted.
+.IP
+.EX
+zelta lock primary.example.com:tank/service
+.EE
+.SS \f[B]zelta propsync\f[R]
+\f[B]zelta propsync\f[R] replays local ZFS properties from one dataset
+tree to another while preserving target\-only local overrides.
+It can prepare a promoted target to take over service, or make the
+properties of an unrelated dataset tree match another tree.
+.PP
+\f[B]zelta propsync\f[R] \f[I]source\f[R] \f[I]target\f[R]
+.IP
+.EX
+zelta propsync primary.example.com:tank/service standby.example.com:tank/service
+.EE
+.SS \f[B]zelta unlock\f[R]
+\f[B]zelta unlock\f[R] reverses the lock state so a promoted dataset
+tree can become active.
+It is also useful when bringing a cloned or otherwise prepared dataset
+tree online in a controlled way.
+.PP
+\f[B]zelta unlock\f[R] \f[I]endpoint\f[R]
+.IP
+.EX
+zelta unlock standby.example.com:tank/service
+.EE
 .SH OPTIONS
 .TP
 \f[I]source\f[R]
@@ -53,11 +88,29 @@ Specify once for operational detail, twice for debug output.
 .TP
 \f[B]\-q\f[R], \f[B]\-\-quiet\f[R]
 Decrease log output.
+.TP
+\f[B]\-f\f[R], \f[B]\-\-force\f[R]
+Force source unmounts during the lock phase.
+.TP
+\f[B]\-\-no\-unmount\f[R]
+Lock the source read\-only but leave mounted filesystems mounted.
+.PP
+Backup transport, send, receive, resume, bookmark, and snapshot naming
+options accepted by \f[B]zelta backup\f[R] may also be passed to
+\f[B]zelta failover\f[R].
+The failover command uses them for the final backup step; see
+\f[B]zelta\-backup(8)\f[R] for details.
 .SH EXAMPLES
 Promote a standby service tree:
 .IP
 .EX
 zelta failover primary.example.com:tank/service standby.example.com:tank/service
+.EE
+.PP
+Promote using source\-initiated remote transport:
+.IP
+.EX
+zelta failover \-\-push primary.example.com:tank/service standby.example.com:tank/service
 .EE
 .PP
 Perform the same workflow explicitly:
@@ -69,15 +122,21 @@ zelta propsync primary.example.com:tank/service standby.example.com:tank/service
 zelta unlock standby.example.com:tank/service
 .EE
 .SH EXIT STATUS
-Returns 0 on success, non\-zero on error.
+Returns 0 on success, 1 if non\-critical mount or unmount operations
+fail after the state transition continues, 2 if the final backup fails
+after source lock, and 255 if Zelta cannot safely set or clear dataset
+readonly state.
+.PP
+Unmount failures on the locked source and mount failures on the unlocked
+target are reported but do not stop failover.
+Readonly and final backup failures stop immediately.
 .SH NOTES
 Always verify state with \f[B]zelta match\f[R] before and after
 promotion.
 Do not run both sides read\-write at the same time.
 .SH SEE ALSO
 zelta(8), zelta\-backup(8), zelta\-match(8), zelta\-policy(8),
-zelta\-lock(8), zelta\-unlock(8), zelta\-propsync(8), zelta\-options(7),
-ssh(1), zfs(8)
+zelta\-options(7), ssh(1), zfs(8)
 .SH AUTHORS
 Daniel J. Bell <\f[I]bellhyve\(atzelta.space\f[R]>
 .SH WWW

@@ -139,7 +139,7 @@ You should see Zelta's command reference.
 
 ### Configure SSH Access
 
-For remote replication, set up SSH keys for passwordless authentication. See [SSH Configuration](/conf/ssh) for detailed instructions.
+For remote replication, set up SSH keys for passwordless authentication. See [SSH Configuration](/docs/conf/ssh/) for detailed instructions.
 
 **Quick setup:**
 ```sh
@@ -152,7 +152,7 @@ ssh-copy-id backupuser@remote-host
 
 ### Configure ZFS Permissions
 
-Grant non-root users the minimum permissions needed for replication. See [ZFS Allow Delegation](/conf/zfs-allow) for comprehensive examples.
+Grant non-root users the minimum permissions needed for replication. See [ZFS Allow Delegation](/docs/conf/zfs-allow/) for comprehensive examples.
 
 **Quick setup:**
 ```sh
@@ -230,7 +230,7 @@ This setup creates a Zelta Twin: an active-passive asynchronous cluster pattern 
 
 **The model:** Whichever side is read-write is live; the read-only side is standby. Failover is locking the primary, verifying the final backup, syncing local properties, and unlocking the secondary. No Ceph, no daemons, no shared storage. Zelta 1.2 provides `zelta failover` to automate that workflow.
 
-See [Zelta Twin](/guides/twin) for the full guide.
+See [Zelta Twin](/docs/guides/twin/) for the full guide.
 
 **Configuration:**
 ```sh
@@ -414,7 +414,7 @@ export ZELTA_ENV="$HOME/.config/zelta/zelta.env"
 
 ### Common Environment Variables
 
-See [Environment & Policy Files](/conf/env) for a comprehensive reference. Here are the most commonly used:
+See [Environment & Policy Files](/docs/conf/env/) for a comprehensive reference. Here are the most commonly used:
 
 - `SNAP_NAME` - Snapshot naming pattern (supports command substitution)
 - `BACKUP_ROOT` - Default target root for policy-based replication
@@ -508,9 +508,9 @@ Or as shell aliases (user-specific):
 
 Now that Zelta is installed, you're ready to start replicating:
 
-- **[First Backup](/home/start)** - Basic backup and verification examples
-- **[Environment & Policy Files](/conf/env)** - Detailed configuration reference
-- **[SSH Configuration](/conf/ssh)** - Secure remote replication setup
-- **[ZFS Allow Delegation](/conf/zfs-allow)** - Non-root permission management
+- **[First Backup](/docs/start/)** - Basic backup and verification examples
+- **[Environment & Policy Files](/docs/conf/env/)** - Detailed configuration reference
+- **[SSH Configuration](/docs/conf/ssh/)** - Secure remote replication setup
+- **[ZFS Allow Delegation](/docs/conf/zfs-allow/)** - Non-root permission management
 
 For questions or issues, see [GitHub Issues](https://github.com/bell-tower/zelta/issues) or the [Zelta Wiki](https://zelta.space).

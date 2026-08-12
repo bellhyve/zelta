@@ -1,6 +1,6 @@
 # First Backup
 
-This page is the short path from installation to a verified backup. For full setup details, see [Installation & Configuration](/home/install), [SSH Configuration](/conf/ssh), and [ZFS Allow Delegation](/conf/zfs-allow).
+This page is the short path from installation to a verified backup. For full setup details, see [Installation & Configuration](/docs/install/), [SSH Configuration](/docs/conf/ssh/), and [ZFS Allow Delegation](/docs/conf/zfs-allow/).
 
 ---
 
@@ -34,7 +34,7 @@ Zelta is available in FreeBSD ports. Ports may lag the GitHub release; use the i
 pkg install zelta
 ```
 
-For detailed installation instructions and configuration options, see [Installation & Configuration](/home/install).
+For detailed installation instructions and configuration options, see [Installation & Configuration](/docs/install/).
 
 ---
 
@@ -80,8 +80,8 @@ zfs allow -u backupuser receive:append,create,mount,readonly,clone,rename,volmod
 ```
 
 The above uses modern OpenZFS delegation features. Use plain `send` or `receive` only when your platform lacks `send:raw` or `receive:append`, or when a separate high-trust role intentionally needs broader authority. See our detailed guides:
-- [SSH Configuration](/conf/ssh)
-- [ZFS Allow Delegation](/conf/zfs-allow)
+- [SSH Configuration](/docs/conf/ssh/)
+- [ZFS Allow Delegation](/docs/conf/zfs-allow/)
 
 ---
 
@@ -164,7 +164,7 @@ zelta policy Production
 zelta policy app-server-01
 ```
 
-Schedule it with cron to keep backups current automatically. For composable policies with shared rules and multiple targets, see [Policy Guide](/guides/policy) and the [centralized policy example](https://github.com/bell-tower/zelta/tree/main/examples/policy/centralized).
+Schedule it with cron to keep backups current automatically. For composable policies with shared rules and multiple targets, see [Policy Guide](/docs/guides/policy/) and the [centralized policy example](https://github.com/bell-tower/zelta/tree/main/examples/policy/centralized).
 
 ---
 
@@ -184,13 +184,13 @@ After the first backup, expand from direct commands into policies and recovery t
 Run `zelta usage` for quick command reference, or `zelta help` for the full manual.
 
 ### Advanced Topics
-- [Installation & Configuration](/home/install): Detailed setup instructions
-- [SSH Configuration](/conf/ssh): Secure remote replication setup
-- [ZFS Allow Delegation](/conf/zfs-allow): Fine-grained permission management
-- [Policy Guide](/guides/policy): Multi-job policy configuration
-- [Backup Guide](/guides/backup): Backup and verification workflows
-- [Retention Strategies](/guides/retention): Snapshot retention and prune safety
-- [Failover Workflows](/guides/sync): Lock, final backup, property sync, and unlock
+- [Installation & Configuration](/docs/install/): Detailed setup instructions
+- [SSH Configuration](/docs/conf/ssh/): Secure remote replication setup
+- [ZFS Allow Delegation](/docs/conf/zfs-allow/): Fine-grained permission management
+- [Policy Guide](/docs/guides/policy/): Multi-job policy configuration
+- [Backup Guide](/docs/guides/backup/): Backup and verification workflows
+- [Retention Strategies](/docs/guides/retention/): Snapshot retention and prune safety
+- [Failover Workflows](/docs/guides/sync/): Lock, final backup, property sync, and unlock
 
 ### Get Help
 

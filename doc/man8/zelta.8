@@ -25,6 +25,7 @@ Examples:
 .EX
 Local:  pool/dataset\(atsnapshot
 Remote: user\(atexample.com:pool/dataset\(atsnapshot
+IPv6:   user\(at[2001:db8::1]:pool/dataset
 .EE
 .PP
 See \f[B]zfs(8)\f[R] for dataset naming conventions.
@@ -74,31 +75,31 @@ Lock an active source, perform a final backup, sync local properties,
 and unlock the promoted target.
 See \f[B]zelta\-failover(8)\f[R].
 .TP
-\f[B]zelta rebase\f[R] \f[I]origin\f[R] \f[I]target\f[R] \f[I]upstream\f[R] [\f[I]new\f[R]]
-Build a new production tree from an upgraded upstream while preserving
-incremental backup continuity.
+\f[B]zelta rebase\f[R] \f[I]upstream\f[R] \f[I]target\f[R]
+Rebase a dataset onto an upgraded upstream while preserving local files
+and incremental backup continuity.
 See \f[B]zelta\-rebase(8)\f[R].
 .TP
 \f[B]zelta lock\f[R] \f[I]endpoint\f[R]
 Apply ordered dataset\-tree readonly, canmount, unmount, and remount
 operations for promotion workflows.
-See \f[B]zelta\-lock(8)\f[R].
+See \f[B]zelta\-failover(8)\f[R].
 .TP
 \f[B]zelta unlock\f[R] \f[I]endpoint\f[R]
 Reverse \f[B]zelta lock\f[R] for a promoted or maintained dataset tree.
-See \f[B]zelta\-unlock(8)\f[R].
+See \f[B]zelta\-failover(8)\f[R].
 .TP
 \f[B]zelta propsync\f[R] \f[I]source\f[R] \f[I]target\f[R]
 Replay local ZFS properties from one dataset tree to another while
 preserving target\-only local overrides.
-See \f[B]zelta\-propsync(8)\f[R].
+See \f[B]zelta\-failover(8)\f[R].
 .SS Retention
 .TP
-\f[B]zelta prune\f[R] \f[I]source\f[R] [\f[I]target\f[R]]
+\f[B]zelta prune\f[R] \f[I]endpoint\f[R]
 Plan snapshot pruning without destroying data.
 See \f[B]zelta\-prune(8)\f[R].
 .TP
-\f[B]zprune\f[R] \f[I]source\f[R] [\f[I]target\f[R]]
+\f[B]zprune\f[R] \f[B]\(enmatch\-endpoint=\f[R]_guard_ \f[I]endpoint\f[R]
 Validate and destroy snapshots selected by \f[B]zelta prune\f[R].
 See \f[B]zprune(8)\f[R].
 .SS Automation
@@ -185,8 +186,7 @@ New documentation uses explicit \f[B]zelta backup\f[R] commands.
 .SH SEE ALSO
 zelta\-match(8), zelta\-backup(8), zelta\-policy(8), zelta\-clone(8),
 zelta\-options(7), zelta\-prune(8), zprune(8), zelta\-rebase(8),
-zelta\-failover(8), zelta\-lock(8), zelta\-unlock(8),
-zelta\-propsync(8), zelta\-revert(8), zelta\-rotate(8),
+zelta\-failover(8), zelta\-revert(8), zelta\-rotate(8),
 zelta\-snapshot(8), cron(8), ssh(1), zfs(8)
 .SH AUTHORS
 Daniel J. Bell <\f[I]bellhyve\(atzelta.space\f[R]>

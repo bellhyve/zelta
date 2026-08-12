@@ -1,3 +1,4 @@
 # Zelta Wiki Articles
 
-These articles are published on the Zelta wiki at https://zelta.space.
+Teaching and workflow articles. Published at https://zelta.space/docs/
+(via the zelta-website Zensical build). Man page sources remain in `doc/*.md`.

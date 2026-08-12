@@ -4,14 +4,17 @@
 .SH NAME
 \f[B]zelta prune\f[R] \- report snapshot prune candidates
 .SH SYNOPSIS
-\f[B]zelta prune\f[R] [\f[I]OPTIONS\f[R]] \f[I]source\f[R]
-[\f[I]target\f[R]]
+\f[B]zelta prune\f[R] [\f[I]OPTIONS\f[R]] \f[I]endpoint\f[R]
 .SH DESCRIPTION
-\f[B]zelta prune\f[R] reports snapshots on a source dataset tree that
+\f[B]zelta prune\f[R] reports snapshots on an endpoint dataset tree that
 are candidates for pruning.
 It does not destroy snapshots.
 Use \f[B]zprune(8)\f[R] with the same options after reviewing a
 strategy.
+.PP
+Only \f[I]endpoint\f[R] is evaluated for prune candidates.
+An optional match endpoint is never destroyed; it is used only for match
+validation and \f[B]\(enprune\-guard\f[R] protection.
 .PP
 A pruning strategy combines scope filters, snapshot protections, and
 retention options.
@@ -26,8 +29,9 @@ A snapshot is a prune candidate only if it remains in scope and no
 protection or retention rule keeps it.
 For example, the default strategy is:
 .IP \(bu 2
-\f[CR]\-\-prune\-guard=latest\f[R]: Use the latest common source/target
-snapshot, when one exists, as a protected boundary.
+\f[CR]\-\-prune\-guard=latest\f[R]: Use the latest common snapshot
+between \f[I]endpoint\f[R] and the match endpoint, when one exists, as a
+protected boundary.
 .IP \(bu 2
 \f[CR]\-\-prune\-num=30\f[R]: Keep the newest 30 snapshots older than
 that protected boundary.
@@ -41,16 +45,28 @@ protects more.
 The boundary and everything newer remain protected separately.
 Specifying any retention option replaces the count and time defaults.
 .SH OPTIONS
-.SS Endpoint Arguments
+.SS Endpoint
 .TP
-\f[I]source\f[R]
+\f[I]endpoint\f[R]
 Dataset tree containing snapshots to evaluate.
+\f[B]zprune\f[R] destroys candidates on this endpoint only.
+.SS Match Endpoint
 .TP
-\f[I]target\f[R]
-Optional replica used for \f[CR]\-\-prune\-guard\f[R] safety checks.
-Without a \f[I]target\f[R], \f[B]zelta prune\f[R] applies no prune
-guard.
-\f[B]zprune\f[R] requires either a \f[I]target\f[R] or
+\f[CR]\-\-match\-endpoint\f[R] \f[I]guard\f[R], \f[CR]\-\-guard\-endpoint\f[R] \f[I]guard\f[R], \f[CR]\-\-prune\-guard\-endpoint\f[R] \f[I]guard\f[R]
+Second dataset tree used only for match validation and
+\f[CR]\-\-prune\-guard\f[R] protection (and as the grid/latest boundary
+peer).
+Snapshots on \f[I]guard\f[R] are never destroyed.
+.RS
+A second positional operand is accepted as the same match endpoint
+(\f[CR]zelta prune\f[R] \f[I]endpoint\f[R] \f[I]guard\f[R]) but is not
+shown in the synopsis; prefer the flag.
+Do not combine \f[CR]\-\-match\-endpoint\f[R] with a second positional
+operand.
+.RE
+.PP
+Without a match endpoint, \f[B]zelta prune\f[R] applies no prune guard.
+\f[B]zprune\f[R] requires either \f[CR]\-\-match\-endpoint\f[R] or
 \f[CR]\-\-no\-prune\-guard\f[R].
 .SS Output Options
 General output, logging, and help options work as described in
@@ -91,34 +107,34 @@ Limit dataset\-tree recursion depth.
 A depth of \f[CR]1\f[R] includes only the specified dataset.
 .TP
 \f[CR]\-\-exclude\f[R], \f[CR]\-X\f[R] \f[I]PATTERN\f[R]
-Exclude datasets or source snapshots matching \f[I]PATTERN\f[R].
+Exclude datasets or snapshots matching \f[I]PATTERN\f[R].
 See \f[I]INCLUDE AND EXCLUDE PATTERNS\f[R] in
 \f[B]zelta\-options(7)\f[R].
 .TP
 \f[CR]\-\-include\f[R] \f[I]PATTERN\f[R]
-Include only datasets or source snapshots matching \f[I]PATTERN\f[R].
+Include only datasets or snapshots matching \f[I]PATTERN\f[R].
 See \f[I]INCLUDE AND EXCLUDE PATTERNS\f[R] in
 \f[B]zelta\-options(7)\f[R].
 .PP
 Additionally, \f[B]zelta prune\f[R] protects candidates based on their
-replication state.
+replication state when a match endpoint is supplied.
 .TP
 \f[CR]\-\-prune\-guard=latest\f[R]
-When the source and target have a common snapshot, protect the latest
-match and everything newer on the source.
-If no match exists, evaluate from the latest source snapshot.
-This is the default when a \f[I]target\f[R] is given.
+When \f[I]endpoint\f[R] and the match endpoint have a common snapshot,
+protect the latest match and everything newer on \f[I]endpoint\f[R].
+If no match exists, evaluate from the latest snapshot on
+\f[I]endpoint\f[R].
+This is the default when a match endpoint is given.
 .TP
 \f[CR]\-\-prune\-guard=unsynced\f[R]
-Require the candidate snapshot to be present on the \f[I]target\f[R].
-Snapshots not confirmed on the target are protected.
+Require the candidate snapshot to be present on the match endpoint.
+Snapshots not confirmed there are protected.
 .TP
 \f[CR]\-\-prune\-guard=none\f[R], \f[CR]\-\-no\-prune\-guard\f[R]
-Do not require a target or confirm that candidates exist on it.
-If a \f[I]target\f[R] is supplied, its latest common snapshot still
+Do not require a match endpoint or confirm that candidates exist on it.
+If a match endpoint is supplied, its latest common snapshot still
 defines the retention boundary.
-\f[B]zprune\f[R] requires this option when a \f[I]target\f[R] is
-omitted.
+\f[B]zprune\f[R] requires this option when a match endpoint is omitted.
 .SS Retention Options
 Retention options apply within the scope selected by
 \f[CR]\-\-depth\f[R], \f[CR]\-\-include\f[R], \f[CR]\-\-exclude\f[R],
@@ -140,9 +156,9 @@ A term without \f[I]COUNT\f[R] applies to all remaining history.
 Separate terms with commas or vertical bars.
 Whitespace is allowed.
 .PP
-Grid ages are measured backward from the latest common source/target
-snapshot when one exists, or from the latest source snapshot or bookmark
-otherwise.
+Grid ages are measured backward from the latest common snapshot between
+\f[I]endpoint\f[R] and the match endpoint when one exists, or from the
+latest snapshot or bookmark on \f[I]endpoint\f[R] otherwise.
 \f[B]zelta prune\f[R] protects the newest snapshot found in each
 interval.
 .TP
@@ -158,7 +174,7 @@ supported.
 Like all other options, each dataset is evaluated separately.
 On a dataset tree, every dataset is evaluated against the full
 \f[I]SIZE\f[R].
-Use \f[CR]\-\-depth=1\f[R] or another filter to target one dataset.
+Use \f[CR]\-\-depth=1\f[R] or another filter to limit one dataset.
 The estimate assumes sequential oldest\-first pruning; use the
 \f[B]zprune(8)\f[R] preview for a more accurate estimate of reclaimed
 space.
@@ -218,7 +234,7 @@ prune guards, and overlapping retention options.
 Inspect the default strategy before working with its candidate list:
 .IP
 .EX
-zelta prune \-\-visual tank/data backup:tank/data
+zelta prune \-\-visual \-\-match\-endpoint=backup:tank/data tank/data
 .EE
 .PP
 When a common snapshot exists, the default protects that latest match
@@ -230,23 +246,23 @@ more than the count window.
 .PP
 Select the oldest snapshots until their estimated reclaim reaches 150
 GiB.
-Limiting depth makes the reclaim target apply only to
-\f[CR]tank/data\f[R]:
+Limiting depth makes the reclaim apply only to \f[CR]tank/data\f[R]:
 .IP
 .EX
 zelta prune \-\-visual \-\-prune\-size=150G \-\-depth=1 tank/data
 .EE
 .PP
-Add a replica guard when old snapshots should be candidates only after
-reaching the target:
+Add a match endpoint when old snapshots should be candidates only after
+reaching the peer:
 .IP
 .EX
 zelta prune \-\-visual \-\-prune\-size=150G \-\-prune\-guard=unsynced \(rs
-    tank/data backup:tank/data
+    \-\-match\-endpoint=backup:tank/data tank/data
 .EE
 .PP
 Comparing this with the preceding size\-only view reveals old history
-that the replica guard protects because it is missing from the target.
+that the replica guard protects because it is missing from the match
+endpoint.
 .PP
 Compare count and time windows independently:
 .IP
@@ -285,7 +301,7 @@ zelta prune \-\-prune\-grid=\(aq30x1day, 52x1week, 1year\(aq tank/data
 .PP
 Preview the exact \f[B]zfs destroy\f[R] commands and confirm destructive
 pruning.
-Because this example has no replica target, \f[B]zprune\f[R] requires an
+Because this example has no match endpoint, \f[B]zprune\f[R] requires an
 explicit \f[CR]\-\-no\-prune\-guard\f[R]:
 .IP
 .EX
@@ -301,7 +317,7 @@ the preview carefully.
 .PP
 This command is driven by the same comparison engine as \f[B]zelta
 match\f[R].
-See \f[B]zelta\-match(8)\f[R] for source/target matching behavior.
+See \f[B]zelta\-match(8)\f[R] for endpoint matching behavior.
 .SH SEE ALSO
 \f[B]zelta(8)\f[R], \f[B]zprune(8)\f[R], \f[B]zelta\-options(7)\f[R],
 \f[B]zelta\-match(8)\f[R], \f[B]zelta\-backup(8)\f[R], \f[B]zfs(8)\f[R],
